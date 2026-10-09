@@ -225,10 +225,17 @@ Both suites also run in CI on every pull request and every push to `main` (`.git
 
 The site is hosted on [Firebase Hosting](https://firebase.google.com/docs/hosting). Firebase project ID: `nathanpaynedotcom`.
 
+Deploy only when the owner has approved a production deploy.
+
 ```bash
-# Full deploy: build, deploy with 1Password-backed credentials, then purge Cloudflare
-npm run deploy
+# Deploy the attested CI build of the approved commit; dry-run it first with the same --sha
+git pull --ff-only                     # refresh origin/main first; a stale checkout pins a stale SHA
+SHA="$(git rev-parse origin/main)"     # confirm it is the full SHA the owner approved
+scripts/deploy-artifact.sh --sha "$SHA" --dry-run
+scripts/deploy-artifact.sh --sha "$SHA"
 ```
+
+There is no `npm run deploy`: npm runs its configured `script-shell` before any script body, and a repository `.npmrc` can set it, so the script is run directly. See [`DEPLOYMENT.md`](DEPLOYMENT.md) § Deployment Steps.
 
 `op-firebase-deploy` creates a short-lived impersonated credential for `firebase-deployer@nathanpaynedotcom.iam.gserviceaccount.com` from a 1Password-backed GCP ADC source credential. No routine browser login is needed. See [`DEPLOYMENT.md`](DEPLOYMENT.md) for full setup, credential bootstrap, and rollback procedures.
 

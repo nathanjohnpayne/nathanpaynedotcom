@@ -1,28 +1,24 @@
 # Deployment Process
 
-All deploys use `op-firebase-deploy` for non-interactive service account impersonation. Never run `firebase deploy` directly. For a full production deploy, use the package alias so the build always runs first and Cloudflare is purged afterward.
+All deploys use `op-firebase-deploy` for non-interactive service account impersonation (the exception is the key-based path in DEPLOYMENT.md § CI/CD & Headless Deploy, which uses the deployer service account key directly, without impersonation). Never run `firebase deploy` directly. Production deploys come only from the attested CI build of a commit on `main`, via `scripts/deploy-artifact.sh`, and only after the owner asks for one. There is no npm deploy alias (`package.json` has no `deploy` or `deploy:hosting` script), because npm runs its configured `script-shell`, which a repository `.npmrc` can set, before any script body. Never run `npm run deploy`; it prints npm's "Missing script" error and runs nothing.
 
 ```bash
-npm run deploy                      # full deploy: build, op-firebase-deploy, purge Cloudflare
-npm run deploy:hosting              # hosting only: build, deploy hosting, purge Cloudflare
+git pull --ff-only                                       # refresh origin/main first; a stale checkout pins a stale SHA
+SHA="$(git rev-parse origin/main)"                       # confirm it is the full SHA the owner approved
+scripts/deploy-artifact.sh --sha "$SHA" --dry-run        # verify that artifact; deploy nothing
+scripts/deploy-artifact.sh --sha "$SHA"                  # full deploy, then purge Cloudflare
+scripts/deploy-artifact.sh --sha "$SHA" --hosting-only   # hosting only, then purge Cloudflare
 ```
 
-**Use one of those two aliases. Do not call `op-firebase-deploy` directly.** It
-deploys to Firebase but does not purge Cloudflare, so the edge keeps serving the
-old copy and production appears unchanged while the deploy reports success.
-Images sit at the edge for several hours (observed `max-age=14400` on
-`/images/**`). If you deploy by hand anyway, run `scripts/cf-cache-purge.sh`
-afterwards.
+Procedure: merge to `main`; wait for the `Build Artifact` workflow on that commit; `git pull` in the main checkout and run preflight (`eval "$(scripts/op-preflight.sh --agent <agent> --mode all)"`); dry run, then deploy, passing the same full `--sha` (the commit the owner approved) to both, because an unpinned run defaults to whatever `origin/main` is at that moment; verify the live site. Rollback: `scripts/deploy-artifact.sh --sha <earlier main sha>` within the 30-day artifact retention, or Firebase Hosting's release history for older releases.
 
-**Deploy from the main checkout, not a worktree.** Both aliases run `scripts/check-deploy-env.sh` first, which refuses the deploy when a `PUBLIC_*` client var is missing or still an unresolved `op://` reference. Only `~/GitHub/nathanpaynedotcom` has `.env.local`; it is gitignored, so no worktree has one. Without the check, a worktree deploy succeeds and publishes a site with no Logo.dev brand marks on `/resume` and no PostHog or GA4 anywhere—every `PUBLIC_*` consumer degrades gracefully by design, so the build has nothing to fail on. Break-glass override: `DEPLOY_ALLOW_MISSING_PUBLIC_ENV=1`.
+Run the script directly, never through `npm run` or as `bash scripts/deploy-artifact.sh`. It refuses to run when its copy differs from `scripts/deploy-artifact.sh` on `origin/main`, so a rollback keeps the current deployer; `--sha` selects only the artifact and the deployment configuration.
 
-**Deploy from a checkout installed off the lockfile.** Both aliases also run `scripts/check-deploy-deps.sh`, which compares every installed package against `package-lock.json` and refuses the deploy on any mismatch. The deploy builds from whatever is installed in the checkout; CI builds from `npm ci`. When those two disagree, CI is green on a SHA whose local build is broken, and the deploy ships the broken one and reports success—`astro build` exits 0 either way. The signature is CI green on the same SHA that a clean local build fails: that is dependency drift, never a broken `main`. `npm ls` will not catch it, because a drifted version usually still satisfies the range in `package.json`; the lockfile is the only artifact pinning what CI built against. Fix with `npm ci`. Break-glass override: `DEPLOY_ALLOW_DEP_DRIFT=1`.
+**Do not call `op-firebase-deploy` directly.** It deploys to Firebase but does not purge Cloudflare, so the edge keeps serving the old copy and production appears unchanged while the deploy reports success. Images sit at the edge for several hours (observed `max-age=14400` on `/images/**`). If you deploy by hand anyway, run `scripts/cf-cache-purge.sh` afterwards.
 
-**Merging a PR deploys nothing.** There is no deploy workflow in `.github/workflows/`—deploys are manual. After merging a change that should be visible on the site, run a deploy alias yourself.
+**Deploy from the main checkout, not a worktree.** Only `~/GitHub/nathanpaynedotcom` has `.env.local` (gitignored, so no worktree has one), and the CI build is guarded by `scripts/check-deploy-env.sh` against a missing `PUBLIC_*` client var (no brand logos, no PostHog or GA4). `scripts/check-deploy-deps.sh` (lockfile drift) is no longer in the deploy path because nothing is built locally.
 
-`.github/workflows/build-artifact.yml` builds and attests a credential-free `dist/` archive on every push to `main` (#1238). The aliases above still build locally; moving them to the artifact is tracked in #1240.
-
-**Deploying from the CI artifact (not yet the default).** `scripts/deploy-artifact.sh` (#1239) deploys that attested archive instead of building: it requires the SHA to be on `main`, checks `SHA256SUMS`, runs `gh attestation verify` pinned to the signer workflow, `refs/heads/main` and the commit, then runs `op-firebase-deploy` and the purge with per-tool environments built from `env -i`. Run it directly as `scripts/deploy-artifact.sh`, never through `npm run` or as `bash scripts/deploy-artifact.sh`. Use `scripts/deploy-artifact.sh --dry-run` to verify `origin/main`'s artifact without deploying, and add `--hosting-only` for parity with `deploy:hosting`. Do not use it for a production deploy until the owner approves the switch. See `DEPLOYMENT.md` § Deploying from the CI artifact.
+**Merging a PR deploys nothing.** There is no deploy workflow in `.github/workflows/`—deploys are manual. `.github/workflows/build-artifact.yml` builds and attests the credential-free `dist/` archive on every push to `main` (#1238); `scripts/deploy-artifact.sh` (#1239) verifies and deploys it, and is the only deploy path (the npm aliases were removed in #1240).
 
 **Verify against the live URL, not the deploy log.** Fetch the changed page or
 asset and confirm the new bytes are being served (`curl -s <url> | md5`). A

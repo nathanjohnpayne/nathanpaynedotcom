@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { existsSync, readFileSync, statSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 
 const rootDir = resolve(__dirname, '..');
 const packageJson = JSON.parse(readFileSync(resolve(rootDir, 'package.json'), 'utf-8'));
@@ -11,55 +22,65 @@ const agentsDeploymentDoc = readFileSync(
 );
 
 describe('deploy entrypoint contract', () => {
-  it('checks client env, builds, deploys with the PATH-provided helper, then purges Cloudflare', () => {
-    const deployScript = packageJson.scripts.deploy;
-
-    expect(deployScript).toBe(
-      'scripts/check-deploy-env.sh && scripts/check-deploy-deps.sh && npm run build && ' +
-        'op-firebase-deploy && scripts/cf-cache-purge.sh',
-    );
-    expect(deployScript).not.toMatch(/\bfirebase\s+deploy\b/);
-  });
-
-  it('gates both deploy aliases on the client env check, before the build', () => {
-    // Every PUBLIC_* var degrades gracefully when unset, so `astro build`
-    // cannot fail on a missing one — it just publishes a site with no brand
-    // logos and no analytics. The only place that can catch it is here, and it
-    // has to run before the build so the failure costs seconds, not a full
-    // Playwright OG-image pass.
-    for (const alias of ['deploy', 'deploy:hosting']) {
-      const script = packageJson.scripts[alias];
-
-      expect(script, `package.json needs a ${alias} script`).toBeDefined();
-      expect(
-        script.indexOf('scripts/check-deploy-env.sh'),
-        `${alias} must run the client env check`,
-      ).toBeGreaterThanOrEqual(0);
-      expect(
-        script.indexOf('scripts/check-deploy-env.sh'),
-        `${alias} must run the client env check before the build`,
-      ).toBeLessThan(script.indexOf('npm run build'));
+  it('has no deploy or deploy:hosting npm script at all', () => {
+    // npm runs its configured script-shell before any script body executes,
+    // and a repository or untracked .npmrc can point it at checkout code, so
+    // even an alias that only echoes would hand that code the preflight
+    // environment. The only deploy command is scripts/deploy-artifact.sh.
+    expect(packageJson.scripts).not.toHaveProperty('deploy');
+    expect(packageJson.scripts).not.toHaveProperty('deploy:hosting');
+    for (const [name, body] of Object.entries(packageJson.scripts)) {
+      for (const forbidden of ['op-firebase-deploy', 'cf-cache-purge', 'deploy-artifact.sh']) {
+        expect(body, `script ${name} must not reference ${forbidden}`).not.toContain(forbidden);
+      }
     }
   });
 
-  it('gates both deploy aliases on the dependency check, before the build', () => {
-    // `astro build` cannot fail on a stale dependency either — it builds
-    // whatever is installed and exits 0. CI never sees it, because CI runs
-    // `npm ci`. This is the only point in the chain that compares the two, and
-    // like the env check it has to run before the build so a drifted checkout
-    // costs seconds rather than a full Playwright OG-image pass.
-    for (const alias of ['deploy', 'deploy:hosting']) {
-      const script = packageJson.scripts[alias];
+  it.each(['deploy', 'deploy:hosting'])(
+    "npm run %s fails with npm's missing-script error and runs nothing",
+    (alias) => {
+      const sandbox = mkdtempSync(join(tmpdir(), 'deploy-entrypoint-'));
+      try {
+        const bin = join(sandbox, 'bin');
+        const home = join(sandbox, 'home');
+        const ran = join(sandbox, 'ran');
+        mkdirSync(bin);
+        mkdirSync(home);
+        for (const tool of ['firebase', 'op-firebase-deploy', 'op']) {
+          const path = join(bin, tool);
+          writeFileSync(path, `#!/bin/sh\ntouch "${ran}"\n`);
+          chmodSync(path, 0o755);
+        }
+        const result = spawnSync('npm', ['run', alias], {
+          cwd: rootDir,
+          encoding: 'utf-8',
+          env: {
+            PATH: `${bin}:${dirname(process.execPath)}:/usr/bin:/bin`,
+            HOME: home,
+            npm_config_userconfig: join(home, '.npmrc'),
+            npm_config_globalconfig: join(home, 'global-npmrc'),
+            npm_config_update_notifier: 'false',
+          },
+        });
 
-      expect(
-        script.indexOf('scripts/check-deploy-deps.sh'),
-        `${alias} must run the dependency drift check`,
-      ).toBeGreaterThanOrEqual(0);
-      expect(
-        script.indexOf('scripts/check-deploy-deps.sh'),
-        `${alias} must run the dependency drift check before the build`,
-      ).toBeLessThan(script.indexOf('npm run build'));
-    }
+        expect(result.status).not.toBe(0);
+        expect(`${result.stdout}${result.stderr}`).toMatch(/missing script/i);
+        expect(existsSync(ran), 'a deploy tool ran').toBe(false);
+      } finally {
+        rmSync(sandbox, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it('ships the client env check as an executable repo script', () => {
+    // build-artifact.yml runs it before building, so it stays.
+    const checkPath = resolve(rootDir, 'scripts/check-deploy-env.sh');
+
+    expect(existsSync(checkPath), 'scripts/check-deploy-env.sh is missing').toBe(true);
+    expect(
+      statSync(checkPath).mode & 0o111,
+      'scripts/check-deploy-env.sh is not executable',
+    ).toBeGreaterThan(0);
   });
 
   it('ships the dependency check as an executable repo script', () => {
@@ -72,20 +93,16 @@ describe('deploy entrypoint contract', () => {
     ).toBeGreaterThan(0);
   });
 
-  it('ships the client env check as an executable repo script', () => {
-    const checkPath = resolve(rootDir, 'scripts/check-deploy-env.sh');
+  it('ships the artifact deploy script as an executable repo script', () => {
+    const deployPath = resolve(rootDir, 'scripts/deploy-artifact.sh');
 
-    expect(existsSync(checkPath), 'scripts/check-deploy-env.sh is missing').toBe(true);
-    expect(
-      statSync(checkPath).mode & 0o111,
-      'scripts/check-deploy-env.sh is not executable',
-    ).toBeGreaterThan(0);
+    expect(existsSync(deployPath), 'scripts/deploy-artifact.sh is missing').toBe(true);
+    expect(statSync(deployPath).mode & 0o111).toBeGreaterThan(0);
   });
 
-  it('documents the worktree deploy trap wherever the deploy flow is described', () => {
-    // Knowing the check exists is not the useful part; knowing that only the
-    // main checkout has .env.local is. That is the fact that was missing when
-    // a worktree deploy stripped the tokens out of production.
+  it('documents the main-checkout rule wherever the deploy flow is described', () => {
+    // Only the main checkout has .env.local, and it is where preflight and the
+    // verified-copy check expect to run. A worktree is the wrong place to deploy.
     for (const [label, doc] of [
       ['DEPLOYMENT.md', deploymentDoc],
       ['docs/agents/deployment-process.md', agentsDeploymentDoc],
@@ -93,46 +110,36 @@ describe('deploy entrypoint contract', () => {
       expect(doc, `${label} does not mention the client env check`).toContain(
         'scripts/check-deploy-env.sh',
       );
-      expect(doc, `${label} does not mention the dependency drift check`).toContain(
-        'scripts/check-deploy-deps.sh',
-      );
       expect(
         /worktree/i.test(doc),
-        `${label} describes the deploy flow without warning that a worktree has no .env.local`,
+        `${label} describes the deploy flow without warning against a worktree`,
       ).toBe(true);
     }
   });
 
-  it('does not point at a missing repo-local script', () => {
-    const firstToken = packageJson.scripts.deploy.split(/\s+/)[0];
-
-    if (firstToken.startsWith('scripts/')) {
-      expect(
-        existsSync(resolve(rootDir, firstToken)),
-        `${firstToken} is referenced by package.json scripts.deploy but does not exist`,
-      ).toBe(true);
+  it('keeps the docs aligned with the artifact deploy', () => {
+    for (const [label, doc] of [
+      ['DEPLOYMENT.md', deploymentDoc],
+      ['docs/agents/deployment-process.md', agentsDeploymentDoc],
+    ]) {
+      // The dry run and the deploy are pinned to the same approved SHA (Codex P1, PR #1249).
+      expect(doc, label).toContain('scripts/deploy-artifact.sh --sha "$SHA" --dry-run');
+      expect(doc, label).toContain('scripts/deploy-artifact.sh --sha "$SHA" --hosting-only');
+      // ...and the SHA is read only after refreshing origin/main (Codex P1, PR #1249).
+      expect(doc, label).toMatch(
+        /git pull --ff-only[^\n]*\n\s*SHA="\$\(git rev-parse origin\/main\)"/,
+      );
+      expect(doc, label).toContain('Build Artifact');
+      expect(doc, label).toContain('--mode all');
+      expect(doc, label).toContain('--sha');
+      expect(doc, label).toMatch(/no npm deploy alias|There is no npm deploy alias/);
+      expect(doc, label).not.toMatch(/not yet the default/i);
     }
-  });
-
-  it('keeps DEPLOYMENT.md aligned with the package deploy alias', () => {
-    expect(deploymentDoc).toContain('npm run deploy');
-    expect(deploymentDoc).toContain('npm run build');
     expect(deploymentDoc).toContain('scripts/cf-cache-purge.sh');
     expect(deploymentDoc).toContain('op-firebase-deploy --only hosting');
-  });
-
-  it('offers a hosting-only alias that still purges Cloudflare', () => {
-    // The bare `op-firebase-deploy --only hosting` reaches Firebase but leaves
-    // the Cloudflare edge serving the previous build, so a deploy can look
-    // successful and change nothing users see. There has to be a short form
-    // that does the whole job, or people reach for the incomplete one.
-    const hostingScript = packageJson.scripts['deploy:hosting'];
-
-    expect(hostingScript, 'package.json needs a deploy:hosting alias').toBeDefined();
-    expect(hostingScript).toContain('npm run build');
-    expect(hostingScript).toContain('--only hosting');
-    expect(hostingScript).toMatch(/scripts\/cf-cache-purge\.sh$/);
-    expect(hostingScript).not.toMatch(/\bfirebase\s+deploy\b/);
+    expect(deploymentDoc).toContain('never through `npm run`');
+    expect(deploymentDoc).toContain('Missing script');
+    expect(deploymentDoc).toMatch(/script-shell/);
   });
 
   it('flags the bare hosting invocation as incomplete wherever it is shown', () => {
@@ -150,9 +157,8 @@ describe('deploy entrypoint contract', () => {
     }
   });
 
-  it('tells agents that merging does not deploy', () => {
-    // There is no deploy workflow; a merged PR publishes nothing until someone
-    // runs a deploy alias by hand.
+  it('tells agents that merging does not deploy and never to use the npm aliases', () => {
     expect(agentsDeploymentDoc).toMatch(/deploys? nothing|no deploy workflow|deploys are manual/i);
+    expect(agentsDeploymentDoc).toContain('Never run `npm run deploy`');
   });
 });
