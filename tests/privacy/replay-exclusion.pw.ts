@@ -13,7 +13,14 @@
  */
 import { chromium, type Page } from '@playwright/test';
 import { EXCLUDED_PATH, FIXTURE_PATH, SITE_ORIGIN } from './harness/constants';
-import { canaryHits, expectCollecting, humanActivity, replayItems } from './harness/helpers';
+import {
+  canaryHits,
+  expectCollecting,
+  humanActivity,
+  leakHits,
+  replayItems,
+  unloadAndSettle,
+} from './harness/helpers';
 import { chromiumArgs, expect, Session, test } from './harness/test';
 
 const EXCLUDED_CANARY = 'NP-CANARY-EXCLUDED-PAGE';
@@ -216,9 +223,14 @@ test.describe('replay exclusion', () => {
       });
       await page.goto(`${SITE_ORIGIN}${EXCLUDED_PATH}x/`);
       await page.waitForTimeout(1500);
-      await page.evaluate(() => {
+      // Leave a canary in the excluded document's DOM. It survives in the cache, so a recording that starts on
+      // restore (a full snapshot taken in pageshow) would carry it.
+      await page.evaluate((text) => {
+        const p = document.createElement('p');
+        p.textContent = text;
+        document.body.append(p);
         location.href = '/test-fixtures/privacy/';
-      });
+      }, EXCLUDED_CANARY);
       await page.waitForURL(`${SITE_ORIGIN}${FIXTURE_PATH}`);
       const allowedAt = Date.now();
       await humanActivity(page);
@@ -237,6 +249,9 @@ test.describe('replay exclusion', () => {
           { message: 'the allowed page in this browser is recorded (control)' },
         )
         .toBeGreaterThan(0);
+      // Everything the sink receives from here on is scanned, whatever its timestamps: items recorded
+      // synchronously in pageshow are stamped before any timer started after the restore could be.
+      const beforeRestore = egress.sink.mark();
       const pageshowsBefore = logs.filter((l) => l.startsWith('np-pageshow')).length;
       // Go back through the protocol: page.goBack() waits for a load event that a cache restore never fires.
       const cdp = await context.newCDPSession(page);
@@ -261,7 +276,6 @@ test.describe('replay exclusion', () => {
         !restored,
         'not verified: the browser did not restore the excluded page from the back/forward cache, so the pageshow(persisted) path was not exercised',
       );
-      const t0 = Date.now();
       await page.mouse.move(80, 120);
       await page.mouse.move(300, 240, { steps: 8 });
       await page.mouse.wheel(0, 200);
@@ -269,13 +283,28 @@ test.describe('replay exclusion', () => {
       await page.mouse.move(500, 360, { steps: 8 });
       await page.keyboard.press('Tab');
       await page.waitForTimeout(7000);
-      const late = egress.sink
-        .snapshotEvents()
+      await unloadAndSettle(page); // flush whatever the recorder still holds
+      const afterRestore = egress.sink.snapshotEvents(beforeRestore);
+      const text = afterRestore.map(({ req }) => req.searchable).join('\n');
+      const metaHrefs = afterRestore
         .flatMap(
-          ({ event }) => (event.properties.$snapshot_data as Array<{ timestamp?: number }>) ?? [],
+          ({ event }) =>
+            (event.properties.$snapshot_data as Array<{
+              type: number;
+              data?: { href?: string };
+            }>) ?? [],
         )
-        .filter((i) => (i.timestamp ?? 0) > t0 + GRACE_MS);
-      expect(late, 'no replay record after the restore').toEqual([]);
+        .filter((i) => i.type === 4)
+        .map((i) => i.data?.href ?? '');
+      expect(
+        metaHrefs.filter((h) => new URL(h).pathname.startsWith(EXCLUDED_PATH)),
+        'no replay metadata for the excluded URL after the restore',
+      ).toEqual([]);
+      expect(text, 'the excluded URL is not in any replay payload after the restore').not.toContain(
+        `${EXCLUDED_PATH}x/`,
+      );
+      expect(leakHits(text), 'no canary in any replay payload after the restore').toEqual([]);
+      expect(text).not.toContain(EXCLUDED_CANARY);
       // The default-deny route was live in this browser too; the only request it may have aborted is the
       // Google Fonts stylesheet every page links.
       expect(
