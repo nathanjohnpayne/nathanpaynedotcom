@@ -103,8 +103,8 @@ export async function expectNoAnalytics(s: Session, mark = 0, dwellMs = 7000): P
     'the page did not even attempt an analytics request',
   ).toEqual([]);
   expect(
-    s.sink.refusals.map((r) => r.target),
-    'nothing was refused at the proxy (nothing tried to leave)',
+    s.sink.refusals.filter((r) => r.seq > mark).map((r) => r.target),
+    'nothing was refused at the proxy since the mark (nothing tried to leave)',
   ).toEqual([]);
 }
 

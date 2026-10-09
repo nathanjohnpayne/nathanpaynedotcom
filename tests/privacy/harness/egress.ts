@@ -43,7 +43,14 @@ const SITE_ORIGINS: readonly string[] = [TEST_HOST, LOCAL_HOST_ALIAS, ASSET_HOST
 );
 const isSiteHost = (host: string): boolean =>
   host === TEST_HOST || host === LOCAL_HOST_ALIAS || host === ASSET_HOST;
-import { decodeBody, ga4Events, postHogEvents, type Ga4Event, type PostHogEvent } from './payloads';
+import {
+  bodyAsText,
+  decodeBody,
+  ga4Events,
+  postHogEvents,
+  type Ga4Event,
+  type PostHogEvent,
+} from './payloads';
 import { loadFixtureState, loadManifest, type FixtureState } from './fixtures';
 
 export type Vendor = 'posthog' | 'ga4' | 'gtm' | 'harness' | 'site';
@@ -602,16 +609,7 @@ export class Egress {
       undecoded: decoded.undecoded,
       posthog: vendor === 'posthog' && isCollection ? postHogEvents(decoded.json) : [],
       ga4:
-        vendor === 'ga4' && isCollection
-          ? ga4Events(
-              url.toString(),
-              body.length
-                ? body.subarray(0, 2).equals(Buffer.from([0x1f, 0x8b]))
-                  ? ''
-                  : body.toString('utf8')
-                : '',
-            )
-          : [],
+        vendor === 'ga4' && isCollection ? ga4Events(url.toString(), bodyAsText(body) ?? '') : [],
     });
   }
 }

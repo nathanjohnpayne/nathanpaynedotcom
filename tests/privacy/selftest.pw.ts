@@ -138,6 +138,22 @@ test.describe('the canary detector sees every encoding the SDKs use, and rejects
     expect(decodeBody(valid, 'text/plain', 'https://d.nathanpayne.com/e/').undecoded).toBe(false);
   });
 
+  test('PRIV-2 (instrument) a compressed value deep in a real-sized tree is still inflated, and a tree past the cap is flagged', () => {
+    const nest = (depth: number, leaf: unknown): unknown => {
+      let node = leaf;
+      for (let i = 0; i < depth; i += 1) node = { childNodes: [node] };
+      return node;
+    };
+    const compressed = gzipSync(JSON.stringify({ t: canary })).toString('base64');
+    // 100 DOM levels is 200 JSON levels, deeper than any real page: still decoded.
+    const deep = deepExpand(nest(100, compressed));
+    expect(deep.undecoded).toBe(false);
+    expect(JSON.stringify(deep.value)).toContain(canary);
+    // Beyond the cap the walk gives up and must say so.
+    expect(deepExpand(nest(500, compressed)).undecoded).toBe(true);
+    expect(deepExpand(nest(500, 'plain text')).undecoded).toBe(true);
+  });
+
   test('PRIV-2 (instrument) GA4 multi-event body parses into events with the shared parameters merged in', () => {
     const events = ga4Events(
       'https://www.google-analytics.com/g/collect?v=2&tid=G-X&dl=https%3A%2F%2Fa.test%2F',

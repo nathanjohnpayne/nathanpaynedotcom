@@ -56,9 +56,22 @@ function safeDecodeURIComponent(s: string): string {
   }
 }
 
+/**
+ * rrweb trees add two levels per DOM level (node, then its childNodes array), so the cap is far deeper than any
+ * real page; hitting it is reported as undecoded, never as success.
+ */
+const MAX_EXPAND_DEPTH = 400;
+
 /** Recursively expand compressed strings that posthog-js embeds inside JSON. */
 export function deepExpand(value: unknown, depth = 0): { value: unknown; undecoded: boolean } {
-  if (depth > 12) return { value, undecoded: false };
+  if (depth > MAX_EXPAND_DEPTH) {
+    // Out of depth: whatever is left may hold compressed values this walk will never inflate, so say so
+    // rather than reporting a clean decode. (Scalars that cannot hide anything stay clean.)
+    const mayHide =
+      (typeof value === 'object' && value !== null) ||
+      (typeof value === 'string' && (value.startsWith('\u001f\u008b') || /^H4sI/.test(value)));
+    return { value, undecoded: mayHide };
+  }
   let undecoded = false;
   if (typeof value === 'string') {
     if (value.startsWith('\u001f\u008b')) {
@@ -101,6 +114,12 @@ export function deepExpand(value: unknown, depth = 0): { value: unknown; undecod
     return { value: out, undecoded };
   }
   return { value, undecoded: false };
+}
+
+/** The request body as text, inflated first when it is gzip (undefined when it claims gzip and is not). */
+export function bodyAsText(body: Buffer): string | undefined {
+  if (!body.subarray(0, 2).equals(GZIP_MAGIC)) return body.toString('utf8');
+  return tryGunzip(body)?.toString('utf8');
 }
 
 export function decodeBody(

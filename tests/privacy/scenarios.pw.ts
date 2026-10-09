@@ -165,7 +165,6 @@ test.describe('withdrawal', () => {
         .toBe(true);
     }
     // The recording is demonstrably live and flowing.
-    const snapshotsBefore = s.sink.snapshotEvents().length;
     await recordChanges(s.page);
     await typeCanaries(s.page);
     await s.page.mouse.move(100, 120);
@@ -176,6 +175,7 @@ test.describe('withdrawal', () => {
       `(() => { ${QUEUE_PROBES} return { ok: window.npPrivacy.set('denied'), at: Date.now() }; })()`,
     )) as { ok: boolean; at: number };
     expect(withdrawn.ok).toBe(true);
+    const afterWithdrawal = s.sink.mark(); // refusals are judged from here, not from the start of the session
     // A request already handed to the network at the instant of withdrawal may still complete (contract, Withdrawal).
     const cutoff = withdrawn.at + 1000;
 
@@ -220,7 +220,10 @@ test.describe('withdrawal', () => {
       'the GA4 event issued at withdrawal was not sent',
     ).toEqual([]);
     // Recording stopped: not one replay request after the grace, though the page kept changing.
-    expect(s.sink.snapshotEvents().length).toBeGreaterThanOrEqual(snapshotsBefore);
+    expect(
+      s.sink.snapshotEvents().filter(({ req }) => req.at > cutoff),
+      'no replay snapshot arrived after the in-flight grace',
+    ).toEqual([]);
     expect(s.sink.collection('posthog').filter((r) => r.at > cutoff)).toEqual([]);
 
     // The transport guard must refuse only analytics hosts: ordinary same-origin traffic still works (#1243 review).
@@ -257,7 +260,10 @@ test.describe('withdrawal', () => {
         (r) => r.at > cutoff && (r.vendor === 'posthog' || r.vendor === 'ga4'),
       ),
     ).toEqual([]);
-    expect(s.sink.refusals.map((r) => r.target)).toEqual([]);
+    expect(
+      s.sink.refusals.filter((r) => r.seq > afterWithdrawal).map((r) => r.target),
+      'nothing was refused at the proxy after the withdrawal',
+    ).toEqual([]);
   });
 
   test('PRIV-5 (control) the same queued events and activity WITHOUT a withdrawal do reach the sink, so the test above can fail', async ({
@@ -324,10 +330,18 @@ test.describe('withdrawal', () => {
       .toBe('denied');
     // Activity in the second tab, past the grace period, sends nothing.
     await other.waitForTimeout(1200);
-    const cutoff = Math.max(at, Date.now()) + 0;
     await other.fill('#fixture-text', 'still typing');
     await other.mouse.move(200, 200);
     await other.waitForTimeout(6000);
+    const cutoff = at + 1000;
+    // Neither tab may have INITIATED an analytics request after the withdrawal (the context sees both tabs).
+    expect(
+      s
+        .attemptedVendorRequests()
+        .filter((r) => (r.startedAt ?? 0) > at + 250)
+        .map((r) => `${r.method} ${r.url}`),
+      'no analytics request was initiated by either tab after the withdrawal',
+    ).toEqual([]);
     expect(
       s.sink.requests.filter(
         (r) => r.at > cutoff && (r.vendor === 'posthog' || r.vendor === 'ga4'),
