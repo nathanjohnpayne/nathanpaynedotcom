@@ -332,7 +332,7 @@ describe('controls (PRIV-10, PRIV-14)', () => {
     expect(stored(w).choice).toBe('granted');
     expect(privacy.get().effective).toBe('granted');
     expect(statusOf(d)).toBe(
-      'Analytics are on. You turned them on. They start on the next page you load.',
+      'You turned analytics back on. They stay off on this page and start on the next page you load.',
     );
   });
 
@@ -343,7 +343,30 @@ describe('controls (PRIV-10, PRIV-14)', () => {
     expect(statusOf(granted.d)).toBe('Analytics are on. You turned them on.');
     // Re-enabling after a denied load is the case the note exists for.
     click(denied.w, denied.d.querySelector('[data-np-privacy-action="grant"]'));
-    expect(statusOf(denied.d)).toContain('They start on the next page you load.');
+    expect(statusOf(denied.d)).toBe(
+      'You turned analytics back on. They stay off on this page and start on the next page you load.',
+    );
+  });
+
+  it('never says analytics are on while a re-enable waits for the next load (#1252)', () => {
+    // Another tab clears the saved denial: the default applies again, but
+    // nothing restarts on this page.
+    const { w, d, privacy } = mountControls({
+      stored: JSON.stringify({ v: 1, choice: 'denied', noticeDismissed: false }),
+    });
+    otherTabWrites(w, { v: 1, choice: 'unset', noticeDismissed: false });
+    expect(privacy.get()).toMatchObject({ effective: 'granted', reason: 'default' });
+    expect(statusOf(d)).toBe(
+      'No choice is saved now, so analytics run by default. They stay off on this page and start on the next page you load.',
+    );
+    // And a local re-enable after a local opt-out.
+    const local = mountControls();
+    click(local.w, local.d.querySelector('[data-np-privacy-action="deny"]'));
+    click(local.w, local.d.querySelector('[data-np-privacy-action="grant"]'));
+    for (const text of [statusOf(d), statusOf(local.d)]) {
+      expect(text).not.toMatch(/^Analytics are on/);
+      expect(text).toContain('stay off on this page');
+    }
   });
 
   it('with GPC active, shows why analytics are off and makes re-enabling unavailable', () => {

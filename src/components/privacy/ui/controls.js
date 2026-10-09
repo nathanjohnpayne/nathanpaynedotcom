@@ -35,6 +35,14 @@
   var lastEffective = privacy.get().effective;
 
   function describe(state) {
+    if (state.effective === 'granted' && resumesNextLoad && state.persisted) {
+      // § Re-Enable 1: a grant after a denial in this page view loads nothing
+      // here, so the tools are not running now. Say what was saved and when
+      // it takes effect, not "Analytics are on" (#1252).
+      return state.reason === 'choice'
+        ? 'You turned analytics back on. They stay off on this page and start on the next page you load.'
+        : 'No choice is saved now, so analytics run by default. They stay off on this page and start on the next page you load.';
+    }
     var parts = [];
     if (state.reason === 'gpc') {
       parts.push('Analytics are off because your browser sends Global Privacy Control.');
@@ -63,7 +71,6 @@
           ? 'Your browser did not save this choice, so it applies only to this page. Analytics stopped on this page when you turned them off and do not restart here. The next page you load uses whatever setting your browser last saved.'
           : 'Your browser did not save this choice, so it applies only to this page, and analytics did not load on this page. The next page you load uses whatever setting your browser last saved.';
       }
-      parts.push('They start on the next page you load.');
     }
     if (!state.persisted) {
       // § Storage 3: the write failed; the choice is in memory for this page.
