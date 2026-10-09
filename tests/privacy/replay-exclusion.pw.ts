@@ -279,7 +279,10 @@ test.describe('replay exclusion', () => {
       // The default-deny route was live in this browser too; the only request it may have aborted is the
       // Google Fonts stylesheet every page links.
       expect(
-        session.denied.filter((d) => !d.includes('fonts.googleapis.com')),
+        // Entries are `${method} ${origin}${pathname}`; compare the parsed host exactly.
+        session.denied.filter(
+          (d) => new URL(d.slice(d.indexOf(' ') + 1)).hostname !== 'fonts.googleapis.com',
+        ),
         'nothing but the fonts stylesheet was denied',
       ).toEqual([]);
     } finally {

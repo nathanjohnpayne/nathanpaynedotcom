@@ -506,7 +506,13 @@ export class Egress {
     send: (status: number, headers: Record<string, string>, payload: Buffer | string) => void,
   ): void {
     const root = resolve(this.distDir);
-    let pathname = decodeURIComponent(url.pathname);
+    let pathname: string;
+    try {
+      pathname = decodeURIComponent(url.pathname);
+    } catch {
+      // Malformed percent-encoding: answer instead of rejecting the fire-and-forget handler.
+      return send(400, { 'content-type': 'text/plain' }, 'bad request');
+    }
     if (pathname === '/test-fixtures/privacy/fixture-download.pdf') {
       return send(200, { 'content-type': MIME['.pdf'] ?? 'application/pdf' }, TINY_PDF);
     }
