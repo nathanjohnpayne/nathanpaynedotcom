@@ -1,8 +1,8 @@
 /**
  * Launch flags for the build's Chromium.
  *
- * `--font-render-hinting=none` is the reason the résumé PDF wrapped
- * differently on the Linux CI runner and on a Mac (#1250). Headless Chromium
+ * `--font-render-hinting=none` removes most of the difference in how the
+ * résumé PDF wrapped on the Linux CI runner and on a Mac (#1250). Headless Chromium
  * on Linux applies FreeType hinting to every face, and hinting rounds each
  * glyph advance to a whole pixel, so a line's width, and where it breaks,
  * depends on the font size and the hinting mode rather than on the font's own
