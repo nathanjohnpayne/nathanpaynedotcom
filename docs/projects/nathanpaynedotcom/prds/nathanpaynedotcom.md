@@ -288,7 +288,7 @@ This section preserves the findings migrated from the retired June 2026 header-a
 - **Partly done, finding 2:** #458 raised the eyebrows that existed then to a `0.7rem` floor and contrast-safe ink, but the homepage panel `.eyebrow` utility added later in #477 sets `0.56rem` and `--ink-50`, below that floor.
 - **Partly done, finding 5:** #459 moved the project, blog, and résumé section h2s onto one token set, but the homepage panel h2 still has its own size and line height.
 - **Partly done, finding 9:** #483 and #485 added the `--sp-*` spacing scale and moved the `--su` declarations onto it, but ad hoc rem margins remain elsewhere in `global.css`.
-- **Partly done, finding 10:** #458 dropped Inter 300, but visitor fonts still load from Google Fonts.
+- **Done, finding 10:** #458 dropped Inter 300, and #1250 self-hosted the visitor-facing fonts (static woff2 under `public/fonts/site/`), so a page no longer contacts Google Fonts.
 
 The header-audit snapshot reports zero flags after #461. Its five checks (left drift, faux italic, tiny text, contrast, line collision) cover findings 1, 2, 4, and 8 only, so the verdicts above come from the merged changes, not from the snapshot.
 

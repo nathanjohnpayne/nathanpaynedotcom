@@ -519,7 +519,6 @@ describe('/privacy/ page and footer link (PRIV-11, PRIV-15)', () => {
       'Cloudflare Web Analytics',
       'Network Error Logging',
       'Firebase Hosting',
-      'Google Fonts',
       'Logo.dev',
       'Mux',
       'GitHub',

@@ -132,10 +132,26 @@ Mermaid is supported in blog posts under `src/content/blog/**/*.md` and in proje
 - If you add Firebase or third-party API keys later, keep them in ignored config files, not in source.
 
 ### Typography
-- **Headings / labels:** Cormorant Garamond (serif), weights 400–700.
-- **Body / UI:** Inter (sans-serif), weights 300–700.
-- Loaded via Google Fonts with `preconnect`.
-- Do not change typefaces or add new font loads without explicit discussion.
+- **Headings / labels:** Cormorant Garamond (serif), weights 400–700, italic 400 and 600.
+- **Body / UI:** Inter (sans-serif), weights 400–700.
+- Both are self-hosted (#1250). The `@font-face` rules are at the top of `src/styles/global.css` and point at one static woff2 per family, style and weight in `public/fonts/site/`. Nothing on a page contacts Google Fonts, and no rule uses `local()`.
+- Do not change typefaces or add new font loads without explicit discussion. A new weight or style needs a new file (regenerate with the script below) and a matching `@font-face` rule; the faces test in `tests/self-hosted-fonts.test.js` fails until both exist.
+
+**Why the fonts are bundled.** The résumé PDF and the OG cards are rendered by Chromium during `astro build`, and CI renders on Linux while a local build renders on macOS. With the fonts coming from Google Fonts, the two PDFs differed (about six lines wrapped differently, 11–14% of pixels per page differed at 150 dpi). Three causes, each with a fix:
+
+1. **Google serves a different variable-font file by user agent.** The Linux file carries a `prep` hinting program and the macOS file does not, so the typeface depended on the machine that ran the build. The fix is a committed file.
+2. **Skia names a variable font's instance from the platform's font scaler.** The same file embedded as `CormorantGaramond-Light` (Linux) and `CormorantGaramond-SemiBold` (macOS), and as Type 3 fonts either way. Static instances carry their own PostScript names and embed as real TrueType, so `pdffonts` agrees across platforms.
+3. **Google's Latin subsets leave out U+2192 (`→`) and U+2190 (`←`).** Those glyphs fell through to a system face, DejaVu Sans on Linux and SF on macOS. The bundled files carry U+2190–2193.
+
+A fourth cause is not about fonts at all. Headless Chromium on Linux hints glyph advances, which rounds each one to a whole pixel, and macOS does not. `BUILD_CHROMIUM_ARGS` in `src/lib/build-chromium.mjs` launches the build's Chromium with `--font-render-hinting=none` so both platforms lay text out from the unhinted advances in the font file. That is the largest single contributor to the line-break differences: on one `dist/` rendered on both platforms the PDF text differed on 38 lines without the flag and 8 with it, and on 4 once the bundled fonts replaced Google's. Those 4 are one paragraph line that sits within 0.2px of the margin: the same text measures 701.17px on macOS and 700.95px on Linux, and that is enough to flip the one break.
+
+**Provenance and license.** Both families are SIL Open Font License 1.1, with the license text in `public/fonts/OFL-Cormorant-Garamond.txt` and `public/fonts/OFL-Inter.txt`. The sources are the variable fonts in the `google/fonts` repository at commit `51303ca9e8ac9dcea7b12d307ba568fd0e6fcfca` (`ofl/cormorantgaramond/CormorantGaramond[wght].ttf`, `ofl/cormorantgaramond/CormorantGaramond-Italic[wght].ttf`, `ofl/inter/Inter[opsz,wght].ttf`), which is what the Google Fonts API serves: Cormorant Garamond 4.001 (upstream `CatharsisFonts/Cormorant` at `6d210fd`) and Inter 4.001. `scripts/fonts/build-site-fonts.py` pins that commit and the SHA-256 of each source, cuts a static instance per face (Inter at `opsz` 14, the default the API serves), subsets it to Google's Latin range plus the arrows, and writes woff2. Run `python3 scripts/fonts/build-site-fonts.py --fetch` after `pip install fonttools brotli`; the output is byte-for-byte reproducible. Against the files Google served, advances are identical and outlines differ by under one font unit.
+
+**What the bundle does not cover.** `✗` (U+2717), `─` (U+2500) and emoji appear in a handful of blog and project pages, and neither family has them, so they still use the system face. The résumé uses none of them; `tests/self-hosted-fonts.test.js` fails if its PDF embeds any face that is not Cormorant Garamond or Inter.
+
+**OG cards** keep their own variable woff2 files in `public/fonts/og/` (byte-identical on every platform). Their remaining CI-versus-macOS difference is rasterization: glyph shapes and layout match, and about 0.3% of pixels differ by more than a quarter of the channel range, along the glyph edges.
+
+**Mermaid diagrams** are measured in a separate Chromium that never loads the site's CSS, so `Inter, sans-serif` resolves to Helvetica on macOS and Liberation Sans on Linux. Those are metric-compatible, which is why node widths differ by at most a fraction of a pixel; the site paints the labels in Inter, which is wider (#746). Loading Inter into that page would resize every diagram, so it is a design decision rather than part of #1250.
 
 ---
 
@@ -155,7 +171,7 @@ All source lives in `src/`:
 - **Plugins:** `src/plugins/` (Remark and Rehype processors for markdown)
 - **Integrations:** `src/integrations/` (build-time OG image generation)
 
-Static assets (favicons, robots.txt, OG fonts) live in `public/` and are copied verbatim to `dist/`.
+Static assets (favicons, robots.txt, fonts) live in `public/` and are copied verbatim to `dist/`.
 
 ### CSS
 

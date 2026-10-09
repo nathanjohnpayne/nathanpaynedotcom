@@ -90,7 +90,7 @@ The default 1921 register lives in `:root`; the homepage opts into a higher-chro
 │   ├── favicon.ico                 # 16 (tile), 32, 48 favicon (copy of images/brand/np-favicon.ico)
 │   ├── site.webmanifest            # Minimal manifest; icons point at images/brand/
 │   ├── robots.txt                  # Crawl directives
-│   └── fonts/og/                   # Self-hosted fonts for OG rendering
+│   └── fonts/                      # Self-hosted fonts: og/ for OG rendering, site/ for the pages (OFL texts alongside)
 ├── dist/                           # Build output (gitignored)
 ├── tests/                          # Vitest + Playwright tests
 ├── specs/                          # Feature specifications
