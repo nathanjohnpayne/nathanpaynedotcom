@@ -14,7 +14,8 @@
  * -layout` output that differ: 38 with Google's fonts and no flag, 8 with the
  * flag, 4 with the flag and the bundled static fonts. The 4 are one paragraph
  * line that sits within 0.2px of the margin (the text measures 701.17px on
- * macOS and 700.95px on Linux), so its last word breaks differently. See
- * docs/agents/code-modification-rules.md § Typography.
+ * macOS and 700.95px on Linux), so its last word breaks differently. That is
+ * font-size rounding (Blink floors to 0.01px, Linux FreeType to 1/64px), which
+ * no flag removes. See docs/agents/code-modification-rules.md § Typography.
  */
 export const BUILD_CHROMIUM_ARGS = ['--font-render-hinting=none'];
