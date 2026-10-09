@@ -527,6 +527,22 @@ describe('deploy-artifact.sh sanitizes its own environment on entry (Codex P1, P
 });
 
 describe('deploy-artifact.sh gives children only validated tools (Codex P1, PR #1244)', () => {
+  it('never imports a checkout-root Python module (Codex P1, Phase 4b review)', () => {
+    const h = makeHarness();
+    // `python3 -c` would import this from the working directory (the checkout) before
+    // any verification, and could swap the validated firebase link.
+    writeFileSync(
+      join(h.repo, 'json.py'),
+      `import os\nopen(${JSON.stringify(join(h.log, 'checkout-json-imported'))}, 'w').close()\n` +
+        `raise SystemExit(1)\n`,
+    );
+    const result = run(h, ['--sha', h.sha, '--hosting-only']);
+    expect(result.status, result.output).toBe(0);
+    expect(existsSync(join(h.log, 'checkout-json-imported'))).toBe(false);
+    expect(logs(h, 'firebase').length).toBeGreaterThan(0);
+    expectTempRemoved(h);
+  });
+
   it('runs every child on the private bin plus system PATH, never the safe path', () => {
     const h = makeHarness();
     // A python3 first on the safe path: the verified purge script and the helper

@@ -398,8 +398,13 @@ PYTHON=/usr/bin/python3
 GIT=/usr/bin/git
 [ -x "$PYTHON" ] || die "${PYTHON} not found"
 [ -x "$GIT" ] || die "${GIT} not found"
+# Every Python program below runs as `-I -S -c`. Without -I, `python3 -c` puts
+# the working directory (the caller's checkout) first on sys.path, so a
+# checkout-root json.py would run before any verification; -S skips `site`
+# too. The programs use only the standard library (Codex P1, Phase 4b review
+# of PR #1244).
 
-realpath_of() { run_clean "$PYTHON" -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$1"; }
+realpath_of() { run_clean "$PYTHON" -I -S -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$1"; }
 
 SCRIPT_DIR="$(cd -P "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(run_clean "$GIT" -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null)" ||
@@ -533,7 +538,7 @@ fi
 
 tmp_base="${TMPDIR:-/tmp}"
 WORK="$(mktemp -d "${tmp_base%/}/deploy-artifact.XXXXXX")"
-cleanup() { rm -rf "$WORK"; }
+cleanup() { chmod -R u+w "$WORK" 2>/dev/null || true; rm -rf "$WORK"; }
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
@@ -555,6 +560,9 @@ link_tool gh "$GH"
 if [ -n "$CURL" ]; then link_tool curl "$CURL"; fi
 if [ -n "${OP_BIN:-}" ]; then link_tool op "$OP_BIN"; fi
 link_tool python3 "$PYTHON"
+# Read-only from here on, so swapping a validated link would first need code
+# running that could chmod it back.
+chmod 500 "$PRIVATE_BIN"
 CHILD_PATH="${PRIVATE_BIN}:/usr/bin:/bin"
 BASE_ENV[0]="PATH=${CHILD_PATH}"
 
@@ -606,7 +614,7 @@ gh_clean run list --repo "$REPO_SLUG" --workflow "$WORKFLOW_FILE" --branch main 
   --json databaseId,headSha,headBranch,event,status,conclusion,workflowName >"$RUNS_JSON" ||
   die "could not list ${WORKFLOW_FILE} runs"
 
-RUN_ID="$(run_clean "$PYTHON" -c "$PY_PICK_RUN" "$RUNS_JSON" "$SHA")" ||
+RUN_ID="$(run_clean "$PYTHON" -I -S -c "$PY_PICK_RUN" "$RUNS_JSON" "$SHA")" ||
   die "no successful ${WORKFLOW_FILE} run for ${SHA} (did the build fail?)"
 log "using run ${RUN_ID}"
 
@@ -653,7 +661,7 @@ log "attestation verified: ${SIGNER_WORKFLOW} on refs/heads/main at ${SHA}"
 
 SITE="${WORK}/site"
 mkdir "$SITE"
-file_count="$(run_clean "$PYTHON" -c "$PY_EXTRACT" "${DL}/${ARCHIVE}" "${SITE}/dist" "$MAX_MEMBERS" "$MAX_TOTAL_BYTES")" ||
+file_count="$(run_clean "$PYTHON" -I -S -c "$PY_EXTRACT" "${DL}/${ARCHIVE}" "${SITE}/dist" "$MAX_MEMBERS" "$MAX_TOTAL_BYTES")" ||
   die "refusing to extract ${ARCHIVE}"
 log "extracted ${file_count} files into the deploy directory"
 
@@ -661,7 +669,7 @@ git_clean cat-file blob "${SHA}:firebase.json" >"${SITE}/firebase.json" ||
   die "firebase.json is missing at ${SHA}"
 git_clean cat-file blob "${SHA}:.firebaserc" >"${SITE}/.firebaserc" ||
   die ".firebaserc is missing at ${SHA}"
-run_clean "$PYTHON" -c "$PY_CHECK_FIREBASE_CONFIG" "${SITE}/firebase.json" "${SITE}/.firebaserc" "$FIREBASE_PROJECT" ||
+run_clean "$PYTHON" -I -S -c "$PY_CHECK_FIREBASE_CONFIG" "${SITE}/firebase.json" "${SITE}/.firebaserc" "$FIREBASE_PROJECT" ||
   die "refusing the Firebase config at ${SHA}"
 
 links="$(find "$SITE" -type l | head -n 1)"
