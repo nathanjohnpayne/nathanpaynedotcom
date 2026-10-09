@@ -1,0 +1,439 @@
+/**
+ * The notice and the controls (specs/analytics-privacy.md § UI Hooks; PRIV-6,
+ * PRIV-10 UI, PRIV-14). Written from the contract's hook table only: element
+ * ids, `data-np-privacy-ui` and `data-np-privacy-action` attributes, and the
+ * `window.npPrivacy` API. Nothing here depends on copy.
+ *
+ * These tests need the #1229 UI in the build under test. When it is absent
+ * they skip with a "not verified" reason, because failing would block the
+ * unrelated PRs that merge before #1229 does. Set NP_PRIVACY_REQUIRE_UI=1 to
+ * turn that skip into a failure; #1233 (the flag flip) must run with it set.
+ */
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import type { Page } from '@playwright/test';
+import { DIST_DIR, FIXTURE_PATH } from './harness/constants';
+import { expectCollecting, expectNoAnalytics, gateReady, storageWith } from './harness/helpers';
+import { expect, test } from './harness/test';
+
+function distContains(needle: string): boolean {
+  const walk = (dir: string): boolean => {
+    for (const name of readdirSync(dir)) {
+      const full = join(dir, name);
+      const stat = statSync(full);
+      if (stat.isDirectory()) {
+        if (name === 'og' || name === 'images' || name === 'fonts') continue;
+        if (walk(full)) return true;
+      } else if (/\.(html|js|mjs)$/.test(name) && readFileSync(full, 'utf8').includes(needle))
+        return true;
+    }
+    return false;
+  };
+  return walk(DIST_DIR);
+}
+
+const noticeBuilt = distContains('np-privacy-notice');
+const controlsBuilt =
+  existsSync(join(DIST_DIR, 'privacy', 'index.html')) && distContains('np-privacy-controls');
+const requireUi = process.env.NP_PRIVACY_REQUIRE_UI === '1';
+
+function needs(built: boolean, what: string): void {
+  if (built) return;
+  const reason = `not verified: ${what} is not in this build (sub-issue #1229)`;
+  if (requireUi) throw new Error(`NP_PRIVACY_REQUIRE_UI=1 but ${reason}`);
+  test.skip(true, reason);
+}
+
+const NOTICE = '[data-np-privacy-ui="notice"]';
+const CONTROLS = '[data-np-privacy-ui="controls"]';
+const action = (name: string): string => `[data-np-privacy-action="${name}"]`;
+
+/** Tab until `selector` has focus, counting presses. Fails if it is never reached. */
+async function tabTo(page: Page, selector: string, limit = 60): Promise<number> {
+  for (let presses = 1; presses <= limit; presses += 1) {
+    await page.keyboard.press('Tab');
+    if (await page.evaluate((sel) => document.activeElement?.matches(sel) ?? false, selector))
+      return presses;
+  }
+  throw new Error(`${selector} was not reached by keyboard within ${limit} Tab presses`);
+}
+
+interface AxeViolation {
+  id: string;
+  impact: string | null;
+  targets: string[];
+}
+
+/** Run axe-core (fetched and integrity-checked by the harness) over `include`, or the whole document. */
+async function runAxe(page: Page, axePath: string, include?: string[]): Promise<AxeViolation[]> {
+  await page.addScriptTag({ path: axePath });
+  return page.evaluate(async (scope) => {
+    const axe = (
+      window as unknown as {
+        axe: {
+          run(
+            ctx: unknown,
+            opts: object,
+          ): Promise<{
+            violations: Array<{
+              id: string;
+              impact: string | null;
+              nodes: Array<{ target: unknown[] }>;
+            }>;
+          }>;
+        };
+      }
+    ).axe;
+    const context = scope ? { include: scope.map((s) => [s]) } : document;
+    const result = await axe.run(context, {
+      runOnly: {
+        type: 'tag',
+        values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'],
+      },
+    });
+    return result.violations.map((v) => ({
+      id: v.id,
+      impact: v.impact,
+      targets: v.nodes.map((n) => n.target.join(' ')),
+    }));
+  }, include);
+}
+
+test.describe('notice', () => {
+  test.beforeEach(() => needs(noticeBuilt, 'the privacy notice'));
+
+  test('PRIV-14 PRIV-6 a fresh visitor sees a labelled, non-modal notice with deny, dismiss, and a link to /privacy/', async ({
+    open,
+  }) => {
+    const s = await open();
+    await s.goto(FIXTURE_PATH);
+    await gateReady(s.page);
+    const notice = s.page.locator(NOTICE);
+    await expect(notice).toBeVisible();
+    await expect(notice).toHaveAttribute('id', 'np-privacy-notice');
+    expect(await notice.evaluate((el) => el.tagName)).toBe('ASIDE');
+    // Labelled: the landmark has an accessible name.
+    await expect(
+      s.page
+        .getByRole('complementary', { name: /.+/ })
+        .filter({ has: s.page.locator(action('deny')) }),
+    ).toHaveCount(1);
+    // Non-modal.
+    await expect(notice).not.toHaveAttribute('aria-modal', 'true');
+    expect(
+      await notice.evaluate((el) => el.closest('[role="dialog"], [role="alertdialog"], dialog')),
+    ).toBeNull();
+    // Both buttons and the link are named controls.
+    for (const name of ['deny', 'dismiss']) {
+      const button = notice.locator(action(name));
+      await expect(button).toBeVisible();
+      expect(
+        ((await button.getAttribute('aria-label')) ?? (await button.innerText())).trim().length,
+      ).toBeGreaterThan(0);
+    }
+    await expect(notice.locator('a[href="/privacy/"]')).toBeVisible();
+  });
+
+  test('PRIV-14 the notice never covers content or blocks interaction, at desktop and 320 px', async ({
+    open,
+  }) => {
+    for (const viewport of [
+      { width: 1280, height: 900 },
+      { width: 320, height: 568 },
+    ]) {
+      const s = await open({ viewport });
+      await s.goto(FIXTURE_PATH);
+      await gateReady(s.page);
+      await expect(s.page.locator(NOTICE)).toBeVisible();
+      // Content stays reachable: the heading and the page's own controls are not under the notice.
+      const covered = await s.page.evaluate((sel) => {
+        const notice = document.querySelector(sel);
+        const target = document.querySelector('#fixture-pii-button');
+        if (!notice || !target) return 'missing';
+        target.scrollIntoView({ block: 'center' });
+        const box = target.getBoundingClientRect();
+        const top = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+        return notice.contains(top) ? 'covered' : 'clear';
+      }, NOTICE);
+      expect(covered, `${viewport.width}px: the notice does not sit over page content`).toBe(
+        'clear',
+      );
+      // And the page responds while the notice is up.
+      await s.page.click('#fixture-pii-button');
+      await expect(s.page.locator(NOTICE)).toBeVisible();
+      const box = await s.page.locator(NOTICE).boundingBox();
+      expect(
+        box && box.x >= 0 && box.x + box.width <= viewport.width + 1,
+        'notice fits the viewport width',
+      ).toBe(true);
+      expect(
+        await s.page.evaluate(() => document.documentElement.scrollWidth),
+        'no horizontal scroll',
+      ).toBeLessThanOrEqual(viewport.width);
+    }
+  });
+
+  test('PRIV-14 dismissing is not a choice: the notice goes away, the choice stays unset, collection continues, and it stays gone on reload', async ({
+    open,
+  }) => {
+    const s = await open();
+    await s.goto(FIXTURE_PATH);
+    await gateReady(s.page);
+    await s.page.locator(NOTICE).locator(action('dismiss')).click();
+    await expect(s.page.locator(NOTICE)).toBeHidden();
+    expect(await s.privacy()).toMatchObject({ saved: 'unset', effective: 'granted' });
+    const mark = s.sink.mark();
+    await s.page.reload();
+    await expect(s.page.locator(NOTICE)).toBeHidden();
+    await expectCollecting(s, { ga4: false, mark });
+  });
+
+  test('PRIV-14 opting out from the notice is one action and stops collection; no choice is made by dismissing', async ({
+    open,
+  }) => {
+    const s = await open();
+    await s.goto(FIXTURE_PATH);
+    await expectCollecting(s, { ga4: false });
+    await s.page.locator(NOTICE).locator(action('deny')).click(); // one click
+    expect(await s.privacy()).toMatchObject({
+      saved: 'denied',
+      effective: 'denied',
+      reason: 'choice',
+    });
+    await expect(s.page.locator(NOTICE)).toBeHidden();
+  });
+
+  test('PRIV-6 the notice works by keyboard alone, with a visible focus indicator', async ({
+    open,
+  }) => {
+    const s = await open();
+    await s.goto(FIXTURE_PATH);
+    await gateReady(s.page);
+    await tabTo(s.page, `${NOTICE} ${action('deny')}`);
+    const indicator = await s.page.evaluate(() => {
+      const el = document.activeElement as HTMLElement;
+      const style = getComputedStyle(el);
+      return {
+        outlineStyle: style.outlineStyle,
+        outlineWidth: parseFloat(style.outlineWidth),
+        boxShadow: style.boxShadow,
+      };
+    });
+    const visible =
+      (indicator.outlineStyle !== 'none' && indicator.outlineWidth > 0) ||
+      indicator.boxShadow !== 'none';
+    expect(visible, `focus indicator on the deny button: ${JSON.stringify(indicator)}`).toBe(true);
+    await tabTo(s.page, `${NOTICE} ${action('dismiss')}`);
+    await s.page.keyboard.press('Enter');
+    await expect(s.page.locator(NOTICE)).toBeHidden();
+    expect(await s.privacy()).toMatchObject({ saved: 'unset', effective: 'granted' });
+    // Focus is not trapped: the page's own controls are still reachable afterwards.
+    await tabTo(s.page, '#fixture-text');
+  });
+
+  test('PRIV-6 deny works with Space, and the notice does not trap focus while it is open', async ({
+    open,
+  }) => {
+    const s = await open();
+    await s.goto(FIXTURE_PATH);
+    await gateReady(s.page);
+    // While the notice is open, the page's own controls are still reachable by Tab (no focus trap).
+    await tabTo(s.page, '#fixture-text', 120);
+    await tabTo(s.page, `${NOTICE} ${action('deny')}`, 200);
+    await s.page.keyboard.press('Space');
+    expect(await s.privacy()).toMatchObject({ saved: 'denied', effective: 'denied' });
+  });
+
+  test('PRIV-6 reduced motion: nothing in the notice is animating when the visitor asks for none', async ({
+    open,
+  }) => {
+    const s = await open({ reducedMotion: 'reduce' });
+    await s.goto(FIXTURE_PATH);
+    await gateReady(s.page);
+    await expect(s.page.locator(NOTICE)).toBeVisible();
+    await s.page.waitForTimeout(800);
+    const running = await s.page.evaluate((sel) => {
+      const notice = document.querySelector(sel);
+      return document
+        .getAnimations()
+        .filter((a) => {
+          const target = (a.effect as KeyframeEffect | null)?.target;
+          return (
+            a.playState === 'running' &&
+            target instanceof Element &&
+            (notice?.contains(target) ?? false)
+          );
+        })
+        .map((a) => a.constructor.name);
+    }, NOTICE);
+    expect(running).toEqual([]);
+  });
+
+  test('PRIV-6 PRIV-14 the notice is absent when a choice exists, and when GPC is active', async ({
+    open,
+  }) => {
+    const denied = await open({ storageState: storageWith('denied') });
+    await denied.goto(FIXTURE_PATH);
+    await gateReady(denied.page);
+    await expect(denied.page.locator(NOTICE)).toBeHidden();
+    const gpc = await open({ gpc: true });
+    await gpc.goto(FIXTURE_PATH);
+    await gateReady(gpc.page);
+    await expect(gpc.page.locator(NOTICE)).toBeHidden();
+  });
+
+  test('PRIV-6 axe finds no violations in the notice, at desktop and 320 px', async ({
+    open,
+    fixtureState,
+  }) => {
+    for (const viewport of [
+      { width: 1280, height: 900 },
+      { width: 320, height: 568 },
+    ]) {
+      const s = await open({ viewport });
+      await s.goto(FIXTURE_PATH);
+      await gateReady(s.page);
+      await expect(s.page.locator(NOTICE)).toBeVisible();
+      // Scoped to the notice: the fixture page around it is not part of this criterion.
+      expect(
+        await runAxe(s.page, fixtureState.axePath, [NOTICE]),
+        `axe on the notice at ${viewport.width}px`,
+      ).toEqual([]);
+    }
+  });
+});
+
+test.describe('footer link', () => {
+  test.beforeEach(() => needs(noticeBuilt, 'the footer link'));
+
+  for (const path of ['/', '/blog/', '/projects/', '/resume/', FIXTURE_PATH, '/404.html']) {
+    test(`PRIV-6 ${path} has the footer link to /privacy/, reachable by keyboard`, async ({
+      open,
+    }) => {
+      const s = await open();
+      await s.goto(path);
+      const link = s.page.locator('a[data-np-privacy-ui="footer-link"]');
+      await expect(link).toHaveCount(1);
+      await expect(link).toHaveAttribute('href', '/privacy/');
+      expect((await link.innerText()).trim().length).toBeGreaterThan(0);
+      await link.scrollIntoViewIfNeeded();
+      await tabTo(s.page, 'a[data-np-privacy-ui="footer-link"]', 200);
+    });
+  }
+});
+
+test.describe('controls on /privacy/', () => {
+  test.beforeEach(() => needs(controlsBuilt, 'the /privacy/ page and its controls'));
+
+  test('PRIV-6 PRIV-14 the controls expose a polite live status and deny and grant, each one action, and the status announces the change', async ({
+    open,
+  }) => {
+    const s = await open();
+    await s.goto('/privacy/');
+    await gateReady(s.page);
+    const controls = s.page.locator(CONTROLS);
+    await expect(controls).toHaveAttribute('id', 'np-privacy-controls');
+    const status = controls.locator('[data-np-privacy-ui="status"]');
+    await expect(status).toHaveAttribute('aria-live', 'polite');
+    const before = (await status.innerText()).trim();
+    expect(before.length, 'status states the current setting').toBeGreaterThan(0);
+    for (const name of ['deny', 'grant']) {
+      const button = controls.locator(action(name));
+      await expect(button).toBeVisible();
+      expect(
+        ((await button.getAttribute('aria-label')) ?? (await button.innerText())).trim().length,
+      ).toBeGreaterThan(0);
+    }
+    // Opting out takes one action, and the live region reports it.
+    await controls.locator(action('deny')).click();
+    expect(await s.privacy()).toMatchObject({ saved: 'denied', effective: 'denied' });
+    await expect
+      .poll(async () => (await status.innerText()).trim(), { message: 'status text changed' })
+      .not.toBe(before);
+    const denied = (await status.innerText()).trim();
+    // Re-enabling is also one action, is saved, and changes the status again.
+    await controls.locator(action('grant')).click();
+    expect(await s.privacy()).toMatchObject({ saved: 'granted' });
+    await expect
+      .poll(async () => (await status.innerText()).trim(), { message: 'status text changed again' })
+      .not.toBe(denied);
+  });
+
+  test('PRIV-10 PRIV-6 with GPC active the controls show it, grant is unavailable, and the explanation is present', async ({
+    open,
+  }) => {
+    const s = await open({ gpc: true, storageState: storageWith('granted') });
+    await s.goto('/privacy/');
+    await gateReady(s.page);
+    const controls = s.page.locator(CONTROLS);
+    await expect(controls).toHaveAttribute('data-np-privacy-gpc', /.*/);
+    const grant = controls.locator(action('grant'));
+    const unavailable = await grant.evaluate(
+      (el) => (el as HTMLButtonElement).disabled || el.getAttribute('aria-disabled') === 'true',
+    );
+    expect(unavailable, 'the grant button is disabled').toBe(true);
+    const explanation = controls.locator('[data-np-privacy-ui="gpc-explanation"]');
+    await expect(explanation).toBeVisible();
+    expect((await explanation.innerText()).trim().length).toBeGreaterThan(0);
+    expect(await s.page.evaluate(() => window.npPrivacy?.set('granted'))).toBe(false);
+    // Without GPC the attribute is absent and grant is available (control).
+    const plain = await open();
+    await plain.goto('/privacy/');
+    await gateReady(plain.page);
+    await expect(plain.page.locator(CONTROLS)).not.toHaveAttribute('data-np-privacy-gpc', /.*/);
+    await expect(plain.page.locator(CONTROLS).locator(action('grant'))).toBeEnabled();
+  });
+
+  test('PRIV-6 the controls work by keyboard alone', async ({ open }) => {
+    const s = await open();
+    await s.goto('/privacy/');
+    await gateReady(s.page);
+    await tabTo(s.page, `${CONTROLS} ${action('deny')}`, 200);
+    await s.page.keyboard.press('Enter');
+    expect(await s.privacy()).toMatchObject({ saved: 'denied', effective: 'denied' });
+    await tabTo(s.page, `${CONTROLS} ${action('grant')}`, 200);
+    await s.page.keyboard.press('Space');
+    expect(await s.privacy()).toMatchObject({ saved: 'granted' });
+  });
+
+  test('PRIV-6 /privacy/ has no horizontal scroll at 320 px and axe finds no violations in the controls, the notice, and the footer link', async ({
+    open,
+    fixtureState,
+  }) => {
+    for (const storageState of [undefined, storageWith('denied')]) {
+      const s = await open({ viewport: { width: 320, height: 568 }, storageState });
+      await s.goto('/privacy/');
+      await gateReady(s.page);
+      expect(await s.page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+        320,
+      );
+      const scope = [CONTROLS, 'a[data-np-privacy-ui="footer-link"]'];
+      if (storageState === undefined) scope.push(NOTICE);
+      expect(await runAxe(s.page, fixtureState.axePath, scope), 'axe on the privacy UI').toEqual(
+        [],
+      );
+      // The rest of the page is reported, not gated: it is site chrome rather than this criterion's subject.
+      const rest = await runAxe(s.page, fixtureState.axePath);
+      test.info().annotations.push({
+        type: 'axe-whole-page',
+        description: rest.length
+          ? rest.map((v) => `${v.id} (${v.targets.length})`).join(', ')
+          : 'clean',
+      });
+    }
+  });
+
+  test('PRIV-10 PRIV-5 using the controls to opt out stops collection on the next page', async ({
+    open,
+  }) => {
+    const first = await open();
+    await first.goto('/privacy/');
+    await gateReady(first.page);
+    await first.page.locator(CONTROLS).locator(action('deny')).click();
+    const storage = await first.context.storageState();
+    const later = await open({ storageState: storage });
+    const mark = later.sink.mark();
+    await later.goto(FIXTURE_PATH);
+    await expectNoAnalytics(later, mark, 6000);
+  });
+});
