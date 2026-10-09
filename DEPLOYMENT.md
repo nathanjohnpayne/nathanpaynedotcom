@@ -568,29 +568,32 @@ If a CI pipeline is added later, prefer Workload Identity Federation or another 
 
 ### CI/CD & Headless Deploy
 
-For headless environments (Claude Code cloud tasks, GitHub Actions, etc.) where
-1Password biometric auth is unavailable, use the project SA key directly:
+Headless environments (Claude Code cloud tasks, a future CI job) where 1Password biometric auth is unavailable deploy the same way as everywhere else: with `scripts/deploy-artifact.sh`, never by calling `op-firebase-deploy` directly. A direct helper call deploys whatever `dist/` and configuration the checkout holds, with no artifact lookup, attestation check, trusted configuration assembly or Cloudflare purge, so it is not a supported path. Only the credential source differs:
 
 ```bash
-# Pull the SA key from 1Password (one-time, requires biometric)
+# One-time, with biometric: pull the deployer SA key from 1Password.
 op document get "nathanpaynedotcom — Firebase Deployer SA Key" \
   --vault Firebase --out-file ~/firebase-keys/nathanpaynedotcom-sa-key.json
 
-# Deploy with the SA key
-GOOGLE_APPLICATION_CREDENTIALS=~/firebase-keys/nathanpaynedotcom-sa-key.json op-firebase-deploy
+# Each deploy, after the owner asks for one:
+export GOOGLE_APPLICATION_CREDENTIALS=~/firebase-keys/nathanpaynedotcom-sa-key.json
+export CF_API_TOKEN=...      # the Cloudflare purge token, from your secret store
+export GH_TOKEN=...          # read access is enough: artifact download and attestation verify
+scripts/deploy-artifact.sh --dry-run
+scripts/deploy-artifact.sh --hosting-only
 ```
 
-Because this SA key matches `firebase-deployer@nathanpaynedotcom.iam.gserviceaccount.com`,
-`op-firebase-deploy` skips impersonation and uses the key directly (faster).
+`deploy-artifact.sh` passes `GOOGLE_APPLICATION_CREDENTIALS` only to the Firebase helper and `CF_API_TOKEN` only to the purge, so neither credential reaches the other tool. Because this SA key matches `firebase-deployer@nathanpaynedotcom.iam.gserviceaccount.com`, `op-firebase-deploy` skips impersonation and uses the key directly. The environment also needs `op-firebase-deploy` in `~/.local/bin` (or on the script's fixed `PATH`), a global `firebase` CLI, `gh` with `gh attestation verify`, `/bin/bash`, `/usr/bin/git` and `/usr/bin/python3`.
 
 For Claude Code cloud scheduled tasks:
-1. Retrieve the key: `op document get "nathanpaynedotcom — Firebase Deployer SA Key" --vault Firebase`
-2. Copy the JSON contents
-3. In the task's cloud environment, add: `FIREBASE_SA_KEY=<paste JSON>`
-4. Add a setup script:
+
+1. Retrieve the key: `op document get "nathanpaynedotcom — Firebase Deployer SA Key" --vault Firebase`.
+2. In the task's cloud environment, add `FIREBASE_SA_KEY=<the JSON>` and `CF_API_TOKEN=<the purge token>`.
+3. Add a setup script that writes the key to a private file and exports it, then deploy with `scripts/deploy-artifact.sh` as above:
    ```bash
-   echo "$FIREBASE_SA_KEY" > /tmp/sa-key.json
-   export GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa-key.json
+   umask 077
+   printf '%s' "$FIREBASE_SA_KEY" > "$HOME/sa-key.json"
+   export GOOGLE_APPLICATION_CREDENTIALS="$HOME/sa-key.json"
    ```
 
 ## Secrets Management
