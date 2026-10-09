@@ -1,13 +1,14 @@
 #!/bin/bash -p
 # Deploy the attested CI build of a commit on main (#1239, part of #1104).
 #
-# #1104: the deploy aliases run `npm run build` after preflight has exported
+# #1104: the old deploy aliases ran `npm run build` after preflight had exported
 # Firebase and Cloudflare credentials and the author/reviewer PATs, so every
-# build dependency and hook inherits them. The owner's decision (2026-10-08)
+# build dependency and hook inherited them. The owner's decision (2026-10-08)
 # is to build in credential-free CI (.github/workflows/build-artifact.yml,
 # #1238) and deploy that job's verified artifact in a separate step that never
-# builds. This script is that step. It is not the default yet: the package
-# aliases still build locally until #1240 switches them.
+# builds. This script is that step, and the only deploy command: the npm
+# deploy aliases were removed (#1240) because npm runs its configured
+# script-shell, which a repository .npmrc can set, before any script body.
 #
 # Run it directly, never through `npm run`: npm puts node_modules/.bin first
 # on PATH, which is exactly the resolution this script refuses.
@@ -39,7 +40,11 @@
 #      worktree of this repository or inside a node_modules directory (the
 #      one exception is a global npm install's own package directory, for
 #      `firebase` - see trusted_tool).
-#   2. Fetches origin/main and requires the SHA to be on it.
+#   2. Fetches origin/main, requires the SHA to be on it, and requires the
+#      running script to equal scripts/deploy-artifact.sh on origin/main (not
+#      the target SHA's copy, so a rollback with --sha keeps the current
+#      deployer). --sha selects only the artifact and the deployment
+#      configuration (firebase.json, .firebaserc).
 #   3. Finds the successful build-artifact.yml run for exactly that SHA on
 #      main (event push or workflow_dispatch), and fails if the build failed.
 #   4. Downloads its artifact into a fresh temporary directory and requires
@@ -54,12 +59,13 @@
 #      postdeploy hooks or with anything other than hosting from `dist`.
 #   7. Deploys from that directory with op-firebase-deploy under `env -i`
 #      and the allowlist in FIREBASE_ENV_NAMES.
-#   8. Purges Cloudflare with the verified commit's scripts/cf-cache-purge.sh,
+#   8. Purges Cloudflare with origin/main's scripts/cf-cache-purge.sh (the
+#      trusted current version, not the target SHA's),
 #      run from memory under `env -i` with only CF_API_TOKEN and the
 #      preflight mode flags it reads.
 #
 # Nothing here runs npm, astro, prebuild or a working-tree script. The only
-# repository code that runs is the verified commit's purge script.
+# repository code that runs is origin/main's purge script.
 #
 # Environment the children receive. Every child process starts from `env -i`;
 # nothing is inherited.
@@ -601,6 +607,19 @@ git_clean merge-base --is-ancestor "$SHA" "$MAIN_SHA" ||
   die "commit ${SHA} is not on main (origin/main is ${MAIN_SHA})"
 log "commit ${SHA} is on main (origin/main ${MAIN_SHA})"
 
+# The script running now holds the deploy credentials, so it must be the
+# trusted current one: the copy on origin/main (just fetched), not the target
+# release's. Comparing against ${SHA} would refuse every rollback after the
+# deployer changes and push operators toward running an older, possibly less
+# secure deployer. --sha selects only the artifact and the deployment
+# configuration. origin/main has carried this script since #1239, so a missing
+# copy is a failure, not a pass. This runs before any credentialed child, and
+# on --dry-run.
+main_self="$(git_clean cat-file blob "${MAIN_SHA}:scripts/deploy-artifact.sh" 2>/dev/null)" ||
+  die "scripts/deploy-artifact.sh is missing at origin/main (${MAIN_SHA})"
+[ "$main_self" = "$(cat "$0")" ] ||
+  die "this script differs from scripts/deploy-artifact.sh on origin/main (${MAIN_SHA}); run the copy from origin/main (git pull)"
+
 ARTIFACT="nathanpaynedotcom-dist-${SHA}"
 ARCHIVE="${ARTIFACT}.tar"
 
@@ -678,18 +697,10 @@ links="$(find "$SITE" -type l | head -n 1)"
 PURGE_SRC=""
 if [ "$PURGE" -eq 1 ]; then
   # Held in memory, never written where the deploy child could change it.
-  PURGE_SRC="$(git_clean cat-file blob "${SHA}:scripts/cf-cache-purge.sh")" ||
-    die "scripts/cf-cache-purge.sh is missing at ${SHA}"
-fi
-
-# The script running now is the working tree's copy, and it holds the deploy
-# credentials. It must be the verified commit's copy: a modified or stale
-# checkout is refused rather than trusted. Only a commit that predates the
-# script has nothing to compare against.
-if ! committed_self="$(git_clean cat-file blob "${SHA}:scripts/deploy-artifact.sh" 2>/dev/null)"; then
-  log "WARNING: ${SHA} has no scripts/deploy-artifact.sh; this run uses the working-tree copy"
-elif [ "$committed_self" != "$(cat "$0")" ]; then
-  die "this script differs from scripts/deploy-artifact.sh at ${SHA}; check out ${SHA} or run the copy from that commit"
+  # Read from origin/main, the trusted current version, not from ${SHA}: the
+  # purge holds CF_API_TOKEN, and a rollback must not run an older purge.
+  PURGE_SRC="$(git_clean cat-file blob "${MAIN_SHA}:scripts/cf-cache-purge.sh")" ||
+    die "scripts/cf-cache-purge.sh is missing at origin/main (${MAIN_SHA})"
 fi
 
 # --- Child environments -----------------------------------------------------
