@@ -3,13 +3,13 @@ name: Build Artifact
 # Builds the deployable dist/ in a credential-free job and attests it (#1238,
 # part of #1104).
 #
-# #1104: the deploy aliases run `npm run build` after session preflight has
+# #1104: the old deploy aliases ran `npm run build` after session preflight had
 # exported Firebase and Cloudflare credentials and the author/reviewer PATs, so
-# every build dependency and hook inherits them. The owner's decision
+# every build dependency and hook inherited them. The owner's decision
 # (2026-10-08) is to build in CI, where the job can be made to hold nothing,
 # and deploy that job's verified artifact in a separate step that never builds.
-# This workflow is the build half. Deploys do not consume it yet; that is
-# #1240, and until then DEPLOYMENT.md's procedure is unchanged.
+# This workflow is the build half; scripts/deploy-artifact.sh (#1239) is the
+# deploy half and, since #1240, the only production deploy path.
 #
 # Two jobs, split by what each may hold:
 #

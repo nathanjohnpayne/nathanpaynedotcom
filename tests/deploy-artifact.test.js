@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
+  appendFileSync,
   chmodSync,
   copyFileSync,
   existsSync,
@@ -450,6 +451,97 @@ describe('deploy-artifact.sh happy path (#1239)', () => {
     expect(readFileSync(join(h.log, 'deployed-firebase.json'), 'utf-8')).toBe(committed);
     expect(existsSync(join(h.log, 'working-tree-purge-ran'))).toBe(false);
     expect(logs(h, 'curl')).toHaveLength(1);
+  });
+
+  it('refuses a working-tree script that differs from origin/main, before any credentialed child', () => {
+    const h = makeHarness();
+    // The harness executes the working-tree file, so the edit is what runs.
+    appendFileSync(join(h.repo, 'scripts/deploy-artifact.sh'), '\n# locally modified\n');
+    const result = run(h, ['--sha', h.sha]);
+    expect(result.status, result.output).not.toBe(0);
+    expect(result.output).toContain(
+      `differs from scripts/deploy-artifact.sh on origin/main (${h.sha})`,
+    );
+    expect(result.output).toContain('run the copy from origin/main (git pull)');
+    expectNothingCredentialed(h);
+    expect(existsSync(join(h.log, 'deployed-index.html'))).toBe(false);
+    expectTempRemoved(h);
+  });
+
+  it('refuses a differing working-tree script on a dry run too, before any run lookup', () => {
+    const h = makeHarness();
+    appendFileSync(join(h.repo, 'scripts/deploy-artifact.sh'), '\n# locally modified\n');
+    const result = run(h, ['--sha', h.sha, '--dry-run']);
+    expect(result.status, result.output).not.toBe(0);
+    expect(result.output).toContain('differs from scripts/deploy-artifact.sh on origin/main');
+    expect(logs(h, 'gh').some((r) => r.startsWith('ARGV run'))).toBe(false);
+    expectNothingCredentialed(h);
+  });
+
+  it('proceeds when the working-tree script matches origin/main', () => {
+    const h = makeHarness();
+    const result = run(h, ['--sha', h.sha]);
+    expect(result.status, result.output).toBe(0);
+    expect(result.output).not.toContain('differs from scripts/deploy-artifact.sh');
+  });
+
+  it('refuses when origin/main has no scripts/deploy-artifact.sh (fails closed)', () => {
+    const h = makeHarness();
+    // Untrack the script in a new main commit; the working-tree file stays.
+    git(h.repo, 'rm', '--quiet', '--cached', 'scripts/deploy-artifact.sh');
+    git(h.repo, 'commit', '--quiet', '-m', 'script removed from main');
+    git(h.repo, 'push', '--quiet', 'origin', 'main');
+    const result = run(h, ['--sha', h.sha, '--dry-run']);
+    expect(result.status, result.output).not.toBe(0);
+    expect(result.output).toContain('scripts/deploy-artifact.sh is missing at origin/main');
+    expectNothingCredentialed(h);
+  });
+
+  describe('rollback with --sha <older commit> after the deployer changed', () => {
+    // main moves on: the deployer, the purge script and firebase.json all
+    // change. The operator runs the current copy (the working tree equals
+    // origin/main) and rolls back to the older release.
+    function advanceMain(h) {
+      appendFileSync(join(h.repo, 'scripts/deploy-artifact.sh'), '\n# newer deployer\n');
+      const purge = join(h.repo, 'scripts/cf-cache-purge.sh');
+      const lines = readFileSync(purge, 'utf-8').split('\n');
+      lines.splice(1, 0, `touch "${h.log}/main-purge-ran"`);
+      writeFileSync(purge, lines.join('\n'));
+      const config = JSON.parse(readFileSync(join(h.repo, 'firebase.json'), 'utf-8'));
+      config.hosting.cleanUrls = true;
+      writeFileSync(join(h.repo, 'firebase.json'), `${JSON.stringify(config, null, 2)}\n`);
+      git(h.repo, 'add', '-A');
+      git(h.repo, 'commit', '--quiet', '-m', 'newer deployer, purge and config');
+      git(h.repo, 'push', '--quiet', 'origin', 'main');
+      return git(h.repo, 'rev-parse', 'HEAD');
+    }
+
+    it('proceeds, using the older commit firebase.json and origin/main purge script', () => {
+      const h = makeHarness();
+      const olderConfig = readFileSync(join(h.repo, 'firebase.json'), 'utf-8');
+      const newer = advanceMain(h);
+      // The stub serves the artifact built for the older SHA.
+      const result = run(h, ['--sha', h.sha]);
+
+      expect(result.status, result.output).toBe(0);
+      expect(result.output).toContain(`commit ${h.sha} is on main (origin/main ${newer})`);
+      expect(result.output).not.toContain('differs from scripts/deploy-artifact.sh');
+      expect(readFileSync(join(h.log, 'deployed-firebase.json'), 'utf-8')).toBe(olderConfig);
+      expect(existsSync(join(h.log, 'main-purge-ran'))).toBe(true);
+      expect(logs(h, 'curl')).toHaveLength(1);
+    });
+
+    it('refuses the older commit copy of the deployer: only origin/main is trusted', () => {
+      const h = makeHarness();
+      advanceMain(h);
+      // Run the older release's deployer, as a stale checkout would.
+      git(h.repo, 'checkout', '--quiet', h.sha, '--', 'scripts/deploy-artifact.sh');
+      const result = run(h, ['--sha', h.sha]);
+
+      expect(result.status, result.output).not.toBe(0);
+      expect(result.output).toContain('differs from scripts/deploy-artifact.sh on origin/main');
+      expectNothingCredentialed(h);
+    });
   });
 
   it('accepts firebase from a global npm prefix (<prefix>/bin -> <prefix>/lib/node_modules/<pkg>)', () => {
