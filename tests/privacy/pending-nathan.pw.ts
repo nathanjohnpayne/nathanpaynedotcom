@@ -14,6 +14,7 @@ import {
   clickOutbound,
   expectCollecting,
   fillContactForm,
+  noteGa4Provenance,
   humanActivity,
   replayItems,
   urlViolations,
@@ -41,6 +42,7 @@ test.describe('pending Nathan', () => {
       true,
       'Contract: gtag has no client-side hook for link_url, link_domain, file_name, form_destination, search_term, or video_url, so the runtime cannot scrub them. PRIV-2 stays NOT VERIFIED for GA4 enhanced measurement until Nathan changes the property settings (data redaction of query parameters, or which enhanced-measurement events stay on).',
     );
+    noteGa4Provenance();
     const s = await open();
     await s.goto(`${FIXTURE_PATH}?q=${CANARIES.search}&utm_source=fixture#${CANARIES.fragment}`);
     await expectCollecting(s, { ga4: true });

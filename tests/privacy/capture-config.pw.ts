@@ -19,6 +19,7 @@ import {
   expectCollecting,
   gateReady,
   humanActivity,
+  noteGa4Provenance,
   interactWithFixture,
   storageWith,
 } from './harness/helpers';
@@ -152,6 +153,7 @@ test.describe('nothing new (PRIV-16)', () => {
 
     // GA4: report any parameter the production capture did not record (informational: gtag.js moves under us).
     if (fixtureState.gtag.available) {
+      noteGa4Provenance();
       const capture = readFileSync(join(REPO_ROOT, 'docs/privacy/capture-2026-10-08.md'), 'utf8');
       const line = /Query-string parameter names: ([^\n]+)/.exec(capture)?.[1] ?? '';
       const baseline = new Set([...line.matchAll(/`([^`]+)`/g)].map((m) => m[1]!));

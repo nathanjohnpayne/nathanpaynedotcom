@@ -96,8 +96,19 @@ export const sha256Hex = (data: Buffer | string): string =>
 const integrityOf = (data: Buffer): string =>
   `sha512-${createHash('sha512').update(data).digest('base64')}`;
 
-async function download(url: string): Promise<Buffer> {
-  const res = await fetch(url, { headers: { 'user-agent': CHROME_UA } });
+/** Finite deadlines for every setup request: a stalled connection must reach the caller's fallback, not the CI step timeout. */
+const REQUIRED_DOWNLOAD_MS = 60_000;
+const OPTIONAL_DOWNLOAD_MS = 15_000;
+
+const offline = (): boolean => process.env.NP_PRIVACY_OFFLINE === '1';
+
+async function download(url: string, timeoutMs = REQUIRED_DOWNLOAD_MS): Promise<Buffer> {
+  if (offline()) throw new Error(`NP_PRIVACY_OFFLINE=1: refusing to fetch ${url}`);
+  // The signal covers connecting, the headers, and reading the body.
+  const res = await fetch(url, {
+    headers: { 'user-agent': CHROME_UA },
+    signal: AbortSignal.timeout(timeoutMs),
+  });
   if (!res.ok) throw new Error(`GET ${url} returned ${res.status}`);
   return Buffer.from(await res.arrayBuffer());
 }
@@ -126,7 +137,7 @@ async function fetchTarball(
 }
 
 async function prepareGtag(manifest: Manifest, gtagPath: string): Promise<GtagState> {
-  if (process.env.NP_PRIVACY_OFFLINE === '1') {
+  if (offline()) {
     return { available: false, matchesProduction: false, reason: 'NP_PRIVACY_OFFLINE=1' };
   }
   let id = process.env.NP_GA_MEASUREMENT_ID;
@@ -135,7 +146,10 @@ async function prepareGtag(manifest: Manifest, gtagPath: string): Promise<GtagSt
     if (!id) {
       // The production measurement ID is public (it is in every page's HTML) but
       // it is a real identifier, so it is read at run time and never committed.
-      const res = await fetch('https://nathanpayne.com/', { headers: { 'user-agent': CHROME_UA } });
+      const res = await fetch('https://nathanpayne.com/', {
+        headers: { 'user-agent': CHROME_UA },
+        signal: AbortSignal.timeout(OPTIONAL_DOWNLOAD_MS),
+      });
       const html = await res.text();
       id = /googletagmanager\.com\/gtag\/js\?id=(G-[A-Z0-9]+)/.exec(html)?.[1];
       idSource = 'production-html';
@@ -152,7 +166,10 @@ async function prepareGtag(manifest: Manifest, gtagPath: string): Promise<GtagSt
     for (let attempt = 0; attempt < manifest.gtag.fetchAttempts; attempt += 1) {
       let candidate: Buffer;
       try {
-        candidate = await download(`https://www.googletagmanager.com/gtag/js?id=${id}`);
+        candidate = await download(
+          `https://www.googletagmanager.com/gtag/js?id=${id}`,
+          OPTIONAL_DOWNLOAD_MS,
+        );
       } catch {
         continue; // a transient failure on one attempt must not discard an earlier good download
       }
@@ -265,7 +282,9 @@ export async function prepareFixtures(): Promise<FixtureState> {
   const previous = existsSync(STATE_PATH)
     ? (JSON.parse(readFileSync(STATE_PATH, 'utf8')) as FixtureState)
     : undefined;
+  // Offline mode wins over the cache: a cached gtag.js would make the GA4 tests run as if it were available.
   if (
+    !offline() &&
     existsSync(gtagPath) &&
     previous?.gtag.available &&
     process.env.NP_PRIVACY_REFRESH !== '1' &&

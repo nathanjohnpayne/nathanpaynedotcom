@@ -4,7 +4,8 @@
 import type { Page } from '@playwright/test';
 import { CONTACT, FIXTURE_PATH, SITE_ORIGIN } from './constants';
 import { findDigests, findLiterals } from './payloads';
-import { expect, type Session, type PrivacyState } from './test';
+import { loadFixtureState } from './fixtures';
+import { expect, test, type Session, type PrivacyState } from './test';
 import type { PostHogEvent } from './payloads';
 
 export type Choice = 'granted' | 'denied' | 'unset';
@@ -112,12 +113,32 @@ export async function expectNoAnalytics(s: Session, mark = 0, dwellMs = 7000): P
  * events and replay snapshots, and GA4 hits when a gtag fixture is served,
  * actually reached the sink.
  */
+/**
+ * GA4 results are only as good as the gtag.js behind them. The served file is the current one for the production
+ * ID, which matches none of the three recorded production variants, so anything a test learns about GA4
+ * transmitted payloads is indicative and the criterion is NOT VERIFIED against production bytes. Call this from any
+ * test that asserts on GA4 traffic: it leaves that fact in the test's annotations so a green result cannot be
+ * read as verification. A no-op when the fixture does match a recorded variant.
+ */
+export function noteGa4Provenance(): void {
+  const { gtag } = loadFixtureState();
+  if (gtag.matchesProduction) return;
+  const info = test.info();
+  if (info.annotations.some((a) => a.type === 'ga4-not-verified')) return;
+  info.annotations.push({
+    type: 'ga4-not-verified',
+    description:
+      'GA4 transmitted-payload results here are INDICATIVE, NOT VERIFIED: the gtag.js served matches none of the production variants in the inventory',
+  });
+}
+
 export async function expectCollecting(
   s: Session,
   options: { ga4: boolean; timeout?: number; mark?: number },
 ): Promise<void> {
   const mark = options.mark ?? 0;
   const timeout = options.timeout ?? 30_000;
+  if (options.ga4) noteGa4Provenance();
   // posthog-js holds replay snapshots while it cannot tell whether the visitor is present, so a visit
   // with no input at all sends none. A real visitor moves the pointer; so does the suite.
   await humanActivity(s.page);
@@ -357,6 +378,7 @@ export async function expectCollectionContinues(
   s: Session,
   options: { ga4: boolean },
 ): Promise<void> {
+  if (options.ga4) noteGa4Provenance();
   const mark = s.sink.mark();
   await s.page.evaluate(`(() => {
     window.posthog?.capture('np_continue_probe', { probe: 'after-action' });

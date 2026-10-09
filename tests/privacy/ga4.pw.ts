@@ -18,6 +18,7 @@ import { CANARIES, FIXTURE_PATH, SITE_ORIGIN } from './harness/constants';
 import type { Ga4Event } from './harness/payloads';
 import {
   canaryHits,
+  noteGa4Provenance,
   clickOutbound,
   contactHits,
   expectCollecting,
@@ -35,11 +36,21 @@ test.beforeEach(({ fixtureState }) => {
     !fixtureState.gtag.available,
     `not verified: no gtag.js fixture (${fixtureState.gtag.reason ?? 'unavailable'})`,
   );
-  test.info().annotations.push({
-    type: 'ga4-level',
-    description: fixtureState.gtag.matchesProduction
-      ? 'gtag.js matches a recorded production variant'
-      : 'indicative only: gtag.js is current but matches none of the three recorded production variants',
+  noteGa4Provenance();
+});
+
+test.describe('GA4 provenance', () => {
+  test('PRIV-2 GA4 transmitted-payload criteria are verified against production gtag.js bytes', ({
+    fixtureState,
+  }) => {
+    // This is the criterion-level reading of every GA4 result in the suite. The fetched gtag.js is not byte-stable
+    // and matches none of the three variants the inventory recorded, so this reports skipped (not verified) and the
+    // other GA4 tests below it are indicative. It passes only when the served bytes match a recorded variant.
+    test.skip(
+      !fixtureState.gtag.matchesProduction,
+      'not verified: the gtag.js served matches none of the production variants recorded in docs/privacy/inventory.md, so GA4 transmitted-payload results are indicative only',
+    );
+    expect(fixtureState.gtag.rawSha256).toBeDefined();
   });
 });
 
