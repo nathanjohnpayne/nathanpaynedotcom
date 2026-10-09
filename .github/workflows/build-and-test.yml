@@ -155,3 +155,29 @@ jobs:
         # checkout and `tests/responsive/global-setup.ts` passes. Keep this
         # step after it for that reason.
         run: npm run test:e2e
+
+      - name: Privacy acceptance suite (Playwright, #1230)
+        # The independent check on the #1079 privacy runtime: it builds the
+        # flag-on test site (fake tokens, includes the test fixture page), then
+        # drives it in Chromium behind a refusing local proxy and asserts what
+        # the browser did and did not send. Contract:
+        # specs/analytics-privacy.md; suite: tests/privacy/.
+        #
+        # Its own step, after the existing e2e step and with its own Playwright
+        # config (tests/privacy/playwright.config.ts), so the e2e suite's config
+        # and behavior are untouched. It does not need the e2e suite's server:
+        # the harness serves dist-privacy-test/ itself on a non-local hostname,
+        # because PostHog skips local hosts.
+        #
+        # Network: no browser in this suite can reach the internet. Every
+        # request goes through a proxy that serves only the built site and the
+        # SDK fixtures and records analytics endpoints locally. The one
+        # exception is the setup step in the Node runner, which fetches
+        # posthog-js 1.438.3 and axe-core from the npm registry (verified by
+        # integrity hash and by the production SHA-256s in the inventory) and
+        # reads the current gtag.js; if gtag.js is unobtainable the GA4 tests
+        # skip as "not verified" and everything else still runs.
+        run: |
+          npm run build:privacy-test
+          npx playwright test -c tests/privacy/playwright.config.ts
+        timeout-minutes: 20

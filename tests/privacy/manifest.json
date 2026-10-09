@@ -1,0 +1,68 @@
+{
+  "schema": 1,
+  "about": "Fixtures manifest for the #1079 privacy acceptance suite (#1230). It pins the third-party code the suite serves to the browser to the production record in docs/privacy/inventory.md (Production SDK Versions) and docs/privacy/capture-2026-10-08.md (Production SDK Hashes). Only this manifest is committed; the bundles are fetched at run time into the gitignored node_modules/.cache/np-privacy-acceptance/ and verified against it. tests/privacy/selftest.pw.ts fails the run if this file and the inventory disagree.",
+  "posthog": {
+    "package": "posthog-js",
+    "version": "1.438.3",
+    "license": "Apache-2.0 AND MIT",
+    "tarball": "https://registry.npmjs.org/posthog-js/-/posthog-js-1.438.3.tgz",
+    "integrity": "sha512-3G+Dq/9iUgLMYK6R16Czi4IK+qzWXwqapVvyj65lieRJbO67Y0FDCWnz+1j3Tu9EFJ24Nl2dV+pYVLjI4tp4ZQ==",
+    "files": {
+      "array.js": {
+        "tarballPath": "package/dist/array.js",
+        "servedAt": "/static/array.js",
+        "sha256": "fcf54cb4b984f1e81dc69c741b94009e8d3c1d9d3ad2fe57893f7c3c1369d3df"
+      },
+      "posthog-recorder.js": {
+        "tarballPath": "package/dist/posthog-recorder.js",
+        "servedAt": "/static/1.438.3/posthog-recorder.js",
+        "sha256": "7bda870178d2d711b2e2879fca552eded3d1b8cdad4ce5e760a221f2851cfb8a"
+      },
+      "surveys.js": {
+        "tarballPath": "package/dist/surveys.js",
+        "servedAt": "/static/1.438.3/surveys.js",
+        "sha256": "10d37a66349e071d0bf3a2900df6c1f90eb9c6f4d11ac851eac216b6e509176a"
+      },
+      "dead-clicks-autocapture.js": {
+        "tarballPath": "package/dist/dead-clicks-autocapture.js",
+        "servedAt": "/static/1.438.3/dead-clicks-autocapture.js",
+        "sha256": "f5115181a3ca6efbf25e12d9ef4c0af42659afd771c678628786e663d32760a0"
+      },
+      "web-vitals-with-attribution.js": {
+        "tarballPath": "package/dist/web-vitals-with-attribution.js",
+        "servedAt": "/static/1.438.3/web-vitals-with-attribution.js",
+        "sha256": "df8028288765a10318afacaff5a27f678394f74ce8354bab7ebbb318bc0463c8"
+      },
+      "exception-autocapture.js": {
+        "tarballPath": "package/dist/exception-autocapture.js",
+        "servedAt": "/static/1.438.3/exception-autocapture.js",
+        "sha256": "a322589d75892cb31f3a55faba44aaa35385cc5c47f289623f53011facf5fb6f"
+      }
+    }
+  },
+  "gtag": {
+    "about": "gtag.js is not byte-stable (the inventory saw three variants in eight production loads) and none of the three can be requested on demand. The suite fetches the current gtag.js for the production measurement ID at run time and serves it under the fake test ID. productionSha256 lists the recorded variants. If the fetched bytes match one, the run records matchesProduction true; otherwise matchesProduction is false and every GA4 transmitted-payload criterion is reported not verified (indicative only). The suite never fails on a gtag.js hash mismatch, because the mismatch is the expected state, not a defect; it fails if the inventory's recorded hashes and this list disagree.",
+    "source": "https://www.googletagmanager.com/gtag/js?id=<measurement ID>",
+    "productionSha256": [
+      "f34220e1a7dc7cfae8332511695a7b8859ef39ecf837443d059b48c893bd3ab3",
+      "1ee851e4853a414f6f17e6b1020939ca5c0d6a0d54df1d200f8cae6c23054274",
+      "45f1503d2a63c528ef137d553b1c6bf96b8bf893cd184a240f12afbaa13c5639"
+    ],
+    "fetchAttempts": 4
+  },
+  "axe": {
+    "package": "axe-core",
+    "version": "4.14.0",
+    "license": "MPL-2.0",
+    "tarball": "https://registry.npmjs.org/axe-core/-/axe-core-4.14.0.tgz",
+    "integrity": "sha512-9WTZxEjsZ7b13TH8JPmbV2z8CHbl80/2hm3XPEG4JgNdQLK81IBRXmSxHfMAOkSqQeRxT/0dwNDz2GOm3zzpcQ==",
+    "file": {
+      "tarballPath": "package/axe.min.js",
+      "sha256": "20c09fe157a8a34a30e241aaa1fcdade657734f08ab379ecfbeb7d45cc46e878"
+    }
+  },
+  "inventory": {
+    "document": "docs/privacy/inventory.md",
+    "captureDocument": "docs/privacy/capture-2026-10-08.md"
+  }
+}
