@@ -50,7 +50,7 @@ All source lives in `src/`. The build outputs to `dist/` (gitignored), which is 
 ```
 astro.config.mjs            Astro configuration
 tsconfig.json               TypeScript configuration (extends astro/tsconfigs/strict)
-package.json                Dependencies and scripts (dev, prebuild, build, preview, lint, test, test:e2e, deploy)
+package.json                Dependencies and scripts (dev, prebuild, build, preview, lint, test, test:e2e; no deploy alias, see DEPLOYMENT.md)
 .env.example                Public client env var examples for local development
 firebase.json               Firebase Hosting config
 .firebaserc                 Firebase project alias
@@ -90,7 +90,7 @@ styles/                     Repository-owned Vale rules for prose linting
                              (astro build && vitest run), npm run lint (#632, #563)
 .github/workflows/build-artifact.yml
                              Push to main: credential-free production build,
-                             attested dist/ archive; not yet used by deploys (#1238)
+                             attested dist/ archive; the only source scripts/deploy-artifact.sh deploys (#1238)
 docs/                       Extended documentation (agent processes)
 screenshots/og/             Checked-in OG card references (see below)
 .github/screenshots/        PR, issue, and generated audit screenshot evidence
