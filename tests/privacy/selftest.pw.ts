@@ -109,6 +109,28 @@ test.describe('the canary detector sees every encoding the SDKs use, and rejects
     expect(canaryHits(decoded.searchable)).toEqual([canary]);
   });
 
+  test('PRIV-2 (instrument) an invalid or truncated base64 data= body is flagged, not decoded to nothing', () => {
+    const form = 'application/x-www-form-urlencoded';
+    const url = 'https://d.nathanpayne.com/e/';
+    for (const bad of ['!!!', 'abc', 'eyJldmVudCI6ImUifQ', 'ZZZZ====', 'ey Jl']) {
+      const decoded = decodeBody(Buffer.from(`data=${encodeURIComponent(bad)}`), form, url);
+      expect(decoded.undecoded, `data=${bad} is not valid base64`).toBe(true);
+    }
+    // Controls: a well-formed body, with and without gzip, still decodes.
+    const good = Buffer.from(JSON.stringify({ event: 'e', properties: { p: canary } })).toString(
+      'base64',
+    );
+    const plain = decodeBody(Buffer.from(`data=${encodeURIComponent(good)}`), form, url);
+    expect(plain.undecoded).toBe(false);
+    expect(canaryHits(plain.searchable)).toEqual([canary]);
+    const gz = gzipSync(JSON.stringify({ event: 'e', properties: { p: canary } })).toString(
+      'base64',
+    );
+    expect(decodeBody(Buffer.from(`data=${encodeURIComponent(gz)}`), form, url).undecoded).toBe(
+      false,
+    );
+  });
+
   test('PRIV-2 (instrument) URL-encoded variants of a literal are found', () => {
     expect(canaryHits('x=np-canary-input')).toEqual([canary]);
     expect(canaryHits('email=NP-CANARY-QUERY%40example.test')).toEqual(['NP-CANARY-QUERY']);
