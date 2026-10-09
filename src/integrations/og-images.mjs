@@ -21,6 +21,7 @@
  * @see Issue #106 — Generate OG images at build time
  * @see Issue #616 — Downloadable resume PDF
  * @see Issue #683 — PDF links froze at the localhost render origin
+ * @see Issue #1250 — CI (Linux) and macOS rendered the PDF and OG cards differently
  */
 
 import { readdir, mkdir, rm, stat, writeFile } from 'node:fs/promises';
@@ -29,6 +30,7 @@ import { createServer } from 'node:http';
 import { createReadStream } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { blockAnalytics, generateResumePdf, RESUME_PDF_FILENAME } from './resume-pdf.mjs';
+import { BUILD_CHROMIUM_ARGS } from '../lib/build-chromium.mjs';
 
 /**
  * Find all index.html files under a directory using flat recursive readdir.
@@ -161,7 +163,7 @@ export default function ogImages() {
         try {
           // Launch Playwright
           const { chromium } = await import('playwright');
-          browser = await chromium.launch();
+          browser = await chromium.launch({ args: BUILD_CHROMIUM_ARGS });
 
           if (templatePaths.length > 0) {
             await renderOgImages({

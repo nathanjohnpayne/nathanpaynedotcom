@@ -30,6 +30,90 @@
    conditions, so raw px values in media queries carry a comment naming
    the token they mirror (#330/#332).
    ────────────────────────────────────────────────────────────────── */
+
+/* Self-hosted typefaces (#1250). One static woff2 per family, style and
+   weight, so a visitor's browser, the build's Chromium and the résumé PDF all
+   resolve the same bytes. Nothing here reaches a third-party host, depends on
+   `local()`, or on whichever variable-font file a CDN picked for the user
+   agent. Each file holds Google's Latin range plus the arrows U+2190–2193
+   (Google's own subsets omit → and ←). Provenance, licenses and the
+   regeneration command: docs/agents/code-modification-rules.md § Typography
+   and scripts/fonts/build-site-fonts.py. The weights and styles listed are
+   exactly the set the site requested from Google Fonts before this change
+   (#455: Cormorant's true italics cover the pull-quote and subtitle voice at
+   400 and the heading tier at 600; Inter has no 300 and no italic).
+   OgCard.astro keeps its own variable-font @font-face (OG render context). */
+@font-face {
+  font-family: 'Cormorant Garamond';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/site/cormorant-garamond-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Cormorant Garamond';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/site/cormorant-garamond-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Cormorant Garamond';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/site/cormorant-garamond-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Cormorant Garamond';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/site/cormorant-garamond-700.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Cormorant Garamond';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/site/cormorant-garamond-italic-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Cormorant Garamond';
+  font-style: italic;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/site/cormorant-garamond-italic-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/site/inter-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/site/inter-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/site/inter-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/site/inter-700.woff2') format('woff2');
+}
+
 :root {
   --ink: #11100d;
   --paper: #ffffff;

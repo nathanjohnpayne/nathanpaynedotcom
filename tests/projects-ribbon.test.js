@@ -99,10 +99,11 @@ const VIEWPORTS = [
  *
  * `document.fonts.ready` settles whether the faces loaded or failed, so a
  * runner that cannot reach fonts.gstatic.com measures the fallback stack and
- * not Inter (Codex, PR #985). Serving a local fixture would fix the determinism
- * by measuring a typography the site does not ship — Inter is Google-hosted by
- * design (docs/agents/code-modification-rules.md § Typography) — so the
- * assertion is made insensitive to the difference instead.
+ * not Inter (Codex, PR #985). The site served Inter from Google Fonts then, and
+ * has bundled it since #1250 (docs/agents/code-modification-rules.md
+ * § Typography), which removes the network dependence but not the margin's
+ * purpose: a face that fails to load still measures the fallback stack, so the
+ * assertion stays insensitive to the difference.
  *
  * Measured with fonts.gstatic.com blocked: the DOMAINS line renders 326.2px
  * against 323.7px loaded, 2.5px and 0.8%. Requiring the clearance to exceed 4px

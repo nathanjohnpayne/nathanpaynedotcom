@@ -76,6 +76,7 @@ public/
   site.webmanifest          Minimal web app manifest; its 192/512 icons point at images/brand/
   robots.txt                Crawl directives
   fonts/og/                 Self-hosted fonts for OG image rendering
+  fonts/site/               Self-hosted Cormorant Garamond and Inter (static woff2), with the OFL texts one level up
   images/brand/             NathanPayne.com logo system exports (see docs/brand-logo-usage.md)
 dist/                       Build output (gitignored)—deployed to Firebase
 tests/                      Vitest + Playwright tests for metadata, layout, interactions, routes
@@ -84,6 +85,7 @@ rules/                      Repository-level binding constraints
 plans/                      Feature rollout and migration plans
 scripts/ci/                 CI enforcement scripts
 scripts/brand/              Logo system generator (one-off authoring tool; deps installed ad hoc)
+scripts/fonts/              Regenerates public/fonts/site/ from pinned upstream fonts (run by hand; needs fonttools and brotli)
 styles/                     Repository-owned Vale rules for prose linting
 .github/workflows/build-and-test.yml
                              Runs on every PR + push to main: npm ci, npm test

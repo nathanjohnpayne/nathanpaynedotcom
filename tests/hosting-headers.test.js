@@ -159,6 +159,11 @@ describe('Hosting cache headers', () => {
     expect(headerValue('/_astro/**', 'Cache-Control')).toBe('public, max-age=31536000, immutable');
   });
 
+  it('caches the self-hosted fonts for 30 days, not as immutable (#1250)', () => {
+    // Paths are not content-hashed, so a font changed in place must still expire.
+    expect(headerValue('/fonts/**', 'Cache-Control')).toBe('public, max-age=2592000');
+  });
+
   it('keeps the one-hour policy for JS/CSS outside /_astro/', () => {
     expect(headerValue('**/*.@(js|css)', 'Cache-Control')).toBe('public, max-age=3600');
   });
