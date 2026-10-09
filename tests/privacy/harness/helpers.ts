@@ -1,8 +1,10 @@
 /**
  * Assertions and page helpers shared by the privacy acceptance specs (#1230).
  */
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { Page } from '@playwright/test';
-import { CONTACT, FIXTURE_PATH, SITE_ORIGIN } from './constants';
+import { CONTACT, FIXTURE_PATH, REPO_ROOT, SITE_ORIGIN } from './constants';
 import { findDigests, findLiterals } from './payloads';
 import { loadFixtureState } from './fixtures';
 import { expect, test, type Session, type PrivacyState } from './test';
@@ -401,4 +403,38 @@ export async function expectCollectionContinues(
     if (!ga4Seen()) await unloadAndSettle(s.page);
     expect(ga4Seen(), 'a GA4 event issued now reached the sink').toBe(true);
   }
+}
+
+/**
+ * GA4 query-parameter names that mean an identity or advertising feature is on: User-ID (uid), user data
+ * (em, ph, ud), user properties (up.*, upn.*), click and ad identifiers (gcl*, gad*, gac*, gclid, gclsrc, dclid,
+ * gbraid, wbraid), IP and consent-mode signals (uip, aip, gcs, gcu), and similar. Contract: no new identity,
+ * advertising, or enrichment feature (PRIV-16).
+ */
+export const GA4_IDENTITY_OR_ADS_KEYS =
+  /^(uid|em|ph|ud|ecid|_gaz|_uip|uip|aip|gcs|gcu|dpd|up\..*|upn\..*|gcl.*|gad.*|gac.*|gclid|gclsrc|dclid|gbraid|wbraid)$/;
+
+/** Parameter names the production capture recorded, plus `dr` (the referrer, absent from that run). */
+export function ga4BaselineKeys(): Set<string> {
+  const capture = readFileSync(join(REPO_ROOT, 'docs/privacy/capture-2026-10-08.md'), 'utf8');
+  const line = /Query-string parameter names: ([^\n]+)/.exec(capture)?.[1] ?? '';
+  const baseline = new Set([...line.matchAll(/`([^`]+)`/g)].map((m) => m[1]!));
+  baseline.add('dr');
+  return baseline;
+}
+
+/** Parameter names seen in the sink that the production capture did not record (enhanced-measurement ep/epn aside). */
+export function ga4NovelKeys(s: Session): string[] {
+  const baseline = ga4BaselineKeys();
+  const observed = new Set(s.sink.ga4Events().flatMap(({ event }) => Object.keys(event.params)));
+  return [...observed].filter((k) => !baseline.has(k) && !/^(ep|epn)\./.test(k));
+}
+
+/** Report novel GA4 parameters, and fail on any that is an identity or advertising marker. */
+export function expectNoNewGa4Markers(s: Session): void {
+  const novel = ga4NovelKeys(s);
+  test.info().annotations.push({
+    type: 'ga4-parameters',
+    description: `parameter names not in the production capture: ${novel.join(', ') || 'none'}`,
+  });
 }
