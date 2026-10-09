@@ -228,8 +228,10 @@ The site is hosted on [Firebase Hosting](https://firebase.google.com/docs/hostin
 Deploy only when the owner has approved a production deploy.
 
 ```bash
-# Deploy the attested CI build of origin/main (verify first with --dry-run)
-scripts/deploy-artifact.sh
+# Deploy the attested CI build of the approved commit; dry-run it first with the same --sha
+SHA="$(git rev-parse origin/main)"
+scripts/deploy-artifact.sh --sha "$SHA" --dry-run
+scripts/deploy-artifact.sh --sha "$SHA"
 ```
 
 There is no `npm run deploy`: npm runs its configured `script-shell` before any script body, and a repository `.npmrc` can set it, so the script is run directly. See [`DEPLOYMENT.md`](DEPLOYMENT.md) § Deployment Steps.

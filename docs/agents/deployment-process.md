@@ -3,12 +3,13 @@
 All deploys use `op-firebase-deploy` for non-interactive service account impersonation (the exception is the key-based path in DEPLOYMENT.md § CI/CD & Headless Deploy, which uses the deployer service account key directly, without impersonation). Never run `firebase deploy` directly. Production deploys come only from the attested CI build of a commit on `main`, via `scripts/deploy-artifact.sh`, and only after the owner asks for one. There is no npm deploy alias (`package.json` has no `deploy` or `deploy:hosting` script), because npm runs its configured `script-shell`, which a repository `.npmrc` can set, before any script body. Never run `npm run deploy`; it prints npm's "Missing script" error and runs nothing.
 
 ```bash
-scripts/deploy-artifact.sh --dry-run        # verify origin/main's artifact; deploy nothing
-scripts/deploy-artifact.sh                  # full deploy, then purge Cloudflare
-scripts/deploy-artifact.sh --hosting-only   # hosting only, then purge Cloudflare
+SHA="$(git rev-parse origin/main)"                       # after git pull: the commit the owner approved
+scripts/deploy-artifact.sh --sha "$SHA" --dry-run        # verify that artifact; deploy nothing
+scripts/deploy-artifact.sh --sha "$SHA"                  # full deploy, then purge Cloudflare
+scripts/deploy-artifact.sh --sha "$SHA" --hosting-only   # hosting only, then purge Cloudflare
 ```
 
-Procedure: merge to `main`; wait for the `Build Artifact` workflow on that commit; `git pull` in the main checkout and run preflight (`eval "$(scripts/op-preflight.sh --agent <agent> --mode all)"`); dry run, then deploy; verify the live site. Rollback: `scripts/deploy-artifact.sh --sha <earlier main sha>` within the 30-day artifact retention, or Firebase Hosting's release history for older releases.
+Procedure: merge to `main`; wait for the `Build Artifact` workflow on that commit; `git pull` in the main checkout and run preflight (`eval "$(scripts/op-preflight.sh --agent <agent> --mode all)"`); dry run, then deploy, passing the same full `--sha` (the commit the owner approved) to both, because an unpinned run defaults to whatever `origin/main` is at that moment; verify the live site. Rollback: `scripts/deploy-artifact.sh --sha <earlier main sha>` within the 30-day artifact retention, or Firebase Hosting's release history for older releases.
 
 Run the script directly, never through `npm run` or as `bash scripts/deploy-artifact.sh`. It refuses to run when its copy differs from `scripts/deploy-artifact.sh` on `origin/main`, so a rollback keeps the current deployer; `--sha` selects only the artifact and the deployment configuration.
 

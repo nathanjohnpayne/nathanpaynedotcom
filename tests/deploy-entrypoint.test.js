@@ -122,8 +122,9 @@ describe('deploy entrypoint contract', () => {
       ['DEPLOYMENT.md', deploymentDoc],
       ['docs/agents/deployment-process.md', agentsDeploymentDoc],
     ]) {
-      expect(doc, label).toContain('scripts/deploy-artifact.sh --dry-run');
-      expect(doc, label).toContain('scripts/deploy-artifact.sh --hosting-only');
+      // The dry run and the deploy are pinned to the same approved SHA (Codex P1, PR #1249).
+      expect(doc, label).toContain('scripts/deploy-artifact.sh --sha "$SHA" --dry-run');
+      expect(doc, label).toContain('scripts/deploy-artifact.sh --sha "$SHA" --hosting-only');
       expect(doc, label).toContain('Build Artifact');
       expect(doc, label).toContain('--mode all');
       expect(doc, label).toContain('--sha');

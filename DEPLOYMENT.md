@@ -396,9 +396,9 @@ Any `PUBLIC_*` env var read via `import.meta.env` during the build is baked into
 3. Anyone on the team runs `./scripts/bootstrap.sh --force` to refresh their `.env.local`.
 4. `npm run build` picks up the new value automatically.
 5. Add a repository Actions variable of the same name (Settings → Secrets and variables → Actions → Variables). CI has no `.env.local`; it reads these values from Actions variables.
-6. Add the name to `.github/workflows/build-artifact.yml` in two places: the build job's `env:` block and the "Require the public client values" step's list. The workflow hard-codes the three current names.
+6. Add the name to `.github/workflows/build-artifact.yml` in three places: the build job's `env:` block, the "Require the public client values" step's list, and the "Check the build output" step's list, which confirms each value reached `dist/`. The workflow hard-codes the three current names in each.
 
-`scripts/check-deploy-env.sh` derives its required key list from `.env.tpl`, so it fails the workflow on a new name until steps 5 and 6 are in place. The build fails closed until the `.env.tpl` line, the Actions variable and both workflow edits all exist.
+`scripts/check-deploy-env.sh` derives its required key list from `.env.tpl`, so it fails the workflow on a new name until steps 5 and 6 are in place. The build fails closed until the `.env.tpl` line, the Actions variable and the workflow's `env:` entry and required list exist. Missing only the output-check entry would not fail the build, so step 6 is incomplete without it.
 
 The current `PUBLIC_*` vars are `PUBLIC_LOGODEV_KEY` (Logo.dev publishable token—drives the `/resume` company logos via `CompanyLogo.astro`), `PUBLIC_POSTHOG_PROJECT_TOKEN` (PostHog public project ingest token—drives analytics via `posthog.astro`), and `PUBLIC_GA_MEASUREMENT_ID` (GA4 Measurement ID—drives GA4 via `BaseLayout.astro`). All three are public client identifiers resolved from 1Password via `op inject`, and all degrade gracefully when unset at build time (initials-only logos; PostHog and GA simply do not load).
 
@@ -420,13 +420,16 @@ The procedure:
 1. **Merge to `main`.** Merging deploys nothing.
 2. **Wait for the `Build Artifact` workflow** (`.github/workflows/build-artifact.yml`) to finish on that commit. It checks the client env vars with `scripts/check-deploy-env.sh`, builds `dist/` in a job with no secrets, and attests the archive.
 3. **Run credential preflight from the main checkout at that commit.** `git pull` first, then `eval "$(scripts/op-preflight.sh --agent <agent> --mode all)"`. Deploy from `~/GitHub/nathanpaynedotcom`, not a worktree: the script refuses to run when its copy differs from the copy on `origin/main`, and the main checkout is where the preflight and the 1Password sign-in live.
-4. **Get the owner's approval, then dry run and deploy.** Agents deploy to production only when the owner asks. Start with the dry run.
+4. **Get the owner's approval for a specific commit, then dry run and deploy that commit.** Agents deploy to production only when the owner asks. Start with the dry run.
 
    ```bash
-   scripts/deploy-artifact.sh --dry-run        # verify origin/main's artifact; deploy nothing
-   scripts/deploy-artifact.sh                  # full deploy, then purge Cloudflare
-   scripts/deploy-artifact.sh --hosting-only   # hosting only, then purge Cloudflare
+   SHA="$(git rev-parse origin/main)"              # after git pull: the commit the owner approved
+   scripts/deploy-artifact.sh --sha "$SHA" --dry-run        # verify that artifact; deploy nothing
+   scripts/deploy-artifact.sh --sha "$SHA"                  # full deploy, then purge Cloudflare
+   scripts/deploy-artifact.sh --sha "$SHA" --hosting-only   # hosting only, then purge Cloudflare
    ```
+
+   Pass the same full `--sha` to the dry run and the deploy. Without it, each invocation fetches and defaults to the current `origin/main`, so a merge landing between the two commands would deploy a commit that was never dry-run or approved.
 
 5. **Verify the live site** (§ Post-Deployment Verification). Fetch the changed page or asset and confirm the new bytes are served; a clean deploy plus a warm edge looks the same as one that reached users.
 
@@ -555,9 +558,9 @@ Deploys are manual: `scripts/deploy-artifact.sh` deploys the attested CI build o
 `scripts/deploy-artifact.sh` deploys the attested CI build of a commit on `main` instead of building locally, so no build or dependency code runs on this machine while deploy credentials exist (#1104). Run it directly as `scripts/deploy-artifact.sh`. Never run it through `npm run`, which puts `node_modules/.bin` first on `PATH`, or as `bash scripts/deploy-artifact.sh`, which lets that outer `bash` read `BASH_ENV` before the script's own `#!/bin/bash -p` and `env -i` re-exec can take effect:
 
 ```bash
-scripts/deploy-artifact.sh --dry-run                 # verify origin/main's artifact; deploy nothing
-scripts/deploy-artifact.sh --sha <full-sha> --dry-run
-scripts/deploy-artifact.sh --hosting-only            # deploy origin/main, then purge Cloudflare
+scripts/deploy-artifact.sh --sha <full-sha> --dry-run          # verify that commit's artifact; deploy nothing
+scripts/deploy-artifact.sh --sha <full-sha> --hosting-only     # deploy that commit, then purge Cloudflare
+scripts/deploy-artifact.sh --dry-run                           # unpinned: defaults to the current origin/main
 ```
 
 It defaults to `origin/main` after `git fetch origin main`, and `--sha` must be a full 40-hex SHA on `main`. It refuses to run when its own copy differs from `scripts/deploy-artifact.sh` on the freshly fetched `origin/main` (run `git pull`), also on `--dry-run`, and fails closed if `origin/main` lacks the script. The comparison is against `origin/main`, not the target SHA, so a rollback with `--sha <older>` keeps the current deployer; `--sha` selects only the artifact and the deployment configuration (`firebase.json`, `.firebaserc`). It finds the successful `build-artifact.yml` run for exactly that SHA, downloads the artifact into a fresh temporary directory, and requires exactly the archive plus a `SHA256SUMS` entry that names it and matches. It then runs `gh attestation verify` pinned to this repository, the `build-artifact.yml` signer workflow, `refs/heads/main` and the commit (`--source-digest`). Any failure stops it before a credential-holding process starts. It extracts only regular files and directories, then deploys from a directory holding only that `dist/` and the commit's own `firebase.json` and `.firebaserc`. Those two come from `git cat-file`, not the working tree, and a `firebase.json` with `predeploy` or `postdeploy` hooks is refused.
@@ -579,8 +582,9 @@ op document get "nathanpaynedotcom — Firebase Deployer SA Key" \
 export GOOGLE_APPLICATION_CREDENTIALS=~/firebase-keys/nathanpaynedotcom-sa-key.json
 export CF_API_TOKEN=...      # the Cloudflare purge token, from your secret store
 export GH_TOKEN=...          # read access is enough: artifact download and attestation verify
-scripts/deploy-artifact.sh --dry-run
-scripts/deploy-artifact.sh --hosting-only
+SHA=<the full SHA the owner approved>
+scripts/deploy-artifact.sh --sha "$SHA" --dry-run
+scripts/deploy-artifact.sh --sha "$SHA" --hosting-only
 ```
 
 `deploy-artifact.sh` passes `GOOGLE_APPLICATION_CREDENTIALS` only to the Firebase helper and `CF_API_TOKEN` only to the purge, so neither credential reaches the other tool. Because this SA key matches `firebase-deployer@nathanpaynedotcom.iam.gserviceaccount.com`, `op-firebase-deploy` skips impersonation and uses the key directly. The environment also needs `op-firebase-deploy` in `~/.local/bin` (or on the script's fixed `PATH`), a global `firebase` CLI, `gh` with `gh attestation verify`, `/bin/bash`, `/usr/bin/git` and `/usr/bin/python3`.
