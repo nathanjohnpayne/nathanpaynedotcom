@@ -58,7 +58,11 @@
     } else if (action === 'dismiss') {
       // Dismissing is not a choice (§ Runtime API): the saved choice stays unset.
       privacy.notice.dismiss();
-      announce('Notice dismissed. The privacy page has the analytics controls.');
+      announce(
+        privacy.get().persisted
+          ? 'Notice dismissed. The privacy page has the analytics controls.'
+          : 'Notice dismissed for this page. Your browser did not save that, so it may appear again on the next page. The privacy page has the analytics controls.',
+      );
     } else {
       return;
     }

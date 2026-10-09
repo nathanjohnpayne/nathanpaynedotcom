@@ -20,6 +20,13 @@
   var grantButton = root.querySelector('[data-np-privacy-action="grant"]');
   if (!status || !gpcNote || !denyButton || !grantButton) return;
 
+  // The status line and the buttons ship hidden, so a visitor without
+  // JavaScript sees only the definitive <noscript> explanation, never a
+  // loading message or buttons that cannot act.
+  status.hidden = false;
+  var actions = denyButton.parentNode;
+  if (actions && actions.hidden) actions.hidden = false;
+
   // § Re-Enable 1: a grant after a withdrawal loads nothing in this page view.
   // Set when the effective state goes denied → granted here, by this page's
   // buttons or by another tab, and never cleared: the note is true until the
@@ -31,7 +38,9 @@
     var parts = [];
     if (state.reason === 'gpc') {
       parts.push('Analytics are off because your browser sends Global Privacy Control.');
-      if (state.saved === 'denied') {
+      // Only a saved denial outlives the signal; a failed write is reported
+      // by the persisted check below instead.
+      if (state.saved === 'denied' && state.persisted) {
         parts.push(
           'You also turned them off here, so they stay off if your browser stops sending the signal.',
         );

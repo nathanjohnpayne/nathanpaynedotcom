@@ -190,6 +190,15 @@ describe('notice (PRIV-14, PRIV-6)', () => {
     expect(d.getElementById('np-privacy-notice-status').textContent).toContain('Notice dismissed');
   });
 
+  it('says a dismissal applies only to this page when it could not be saved', () => {
+    const { w, d, privacy } = mountNotice({ storage: 'write-throws' });
+    click(w, d.querySelector('[data-np-privacy-action="dismiss"]'));
+    expect(privacy.get()).toMatchObject({ saved: 'unset', persisted: false });
+    expect(d.getElementById('np-privacy-notice-status').textContent).toContain(
+      'Your browser did not save that, so it may appear again on the next page.',
+    );
+  });
+
   it('Escape dismisses without making a choice', () => {
     const { w, d } = mountNotice();
     const notice = d.getElementById('np-privacy-notice');
@@ -345,6 +354,23 @@ describe('controls (PRIV-10, PRIV-14)', () => {
       'Your browser did not save this choice, so analytics stay off: they did not load on this page, and the next page you load uses your earlier setting.',
     );
     expect(statusOf(d)).not.toContain('next page you load.');
+  });
+
+  it('ships the status and buttons hidden, for visitors without JavaScript, and reveals them', () => {
+    expect(CONTROLS_ASTRO).toMatch(/data-np-privacy-ui="status"[^>]*\bhidden\b/);
+    expect(CONTROLS_ASTRO).toMatch(/class="privacy-controls__actions"[^>]*\bhidden\b/);
+    expect(CONTROLS_ASTRO).toMatch(/\.privacy-controls \[hidden\]\s*\{\s*display: none;/);
+    const { d } = mountControls();
+    expect(d.querySelector('[data-np-privacy-ui="status"]').hidden).toBe(false);
+    expect(d.querySelector('[data-np-privacy-action="deny"]').parentNode.hidden).toBe(false);
+  });
+
+  it('does not promise a GPC-surviving opt-out when the denial could not be saved', () => {
+    const { w, d, privacy } = mountControls({ gpc: true, storage: 'write-throws' });
+    click(w, d.querySelector('[data-np-privacy-action="deny"]'));
+    expect(privacy.get()).toMatchObject({ saved: 'denied', persisted: false, reason: 'gpc' });
+    expect(statusOf(d)).not.toContain('stay off if your browser stops sending the signal');
+    expect(statusOf(d)).toContain('Your browser did not save this choice');
   });
 
   it('follows a choice made in another tab', () => {
