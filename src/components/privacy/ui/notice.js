@@ -103,10 +103,15 @@
   privacy.onChange(function () {
     if (localChange) return;
     var hadFocus = notice.contains(d.activeElement);
+    var wasHidden = notice.hidden;
     sync();
     if (hadFocus && notice.hidden) {
       announce('The privacy notice closed because your setting changed.');
       status.focus();
+    } else if (wasHidden && !notice.hidden) {
+      // The notice is back (another tab cleared the setting): an earlier
+      // announcement about closing it is no longer true, so drop it (#1258).
+      announce('');
     }
   });
 

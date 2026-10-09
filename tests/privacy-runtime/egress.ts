@@ -81,7 +81,12 @@ async function siteFile(root: string, pathname: string) {
   return { status: 404, type: TYPES['.html'], body: await readFile(join(root, '404.html')) };
 }
 
-export async function startEgressProxy(siteRoot: string): Promise<EgressProxy> {
+export async function startEgressProxy(
+  siteRoot: string,
+  // `no-store` keeps every load fresh. A test that needs a back/forward-cache
+  // restore passes `no-cache`, because Chromium never caches a no-store document.
+  { cacheControl = 'no-store' }: { cacheControl?: 'no-store' | 'no-cache' } = {},
+): Promise<EgressProxy> {
   const root = normalize(siteRoot);
   const log: ProxyRecord[] = [];
   const server: Server = createServer(async (req, res) => {
@@ -98,7 +103,7 @@ export async function startEgressProxy(siteRoot: string): Promise<EgressProxy> {
     if (url && url.hostname === SITE_HOST && (req.method === 'GET' || req.method === 'HEAD')) {
       log.push({ kind: 'served', method: req.method, target, at: Date.now(), body });
       const file = await siteFile(root, url.pathname);
-      res.writeHead(file.status, { 'content-type': file.type, 'cache-control': 'no-store' });
+      res.writeHead(file.status, { 'content-type': file.type, 'cache-control': cacheControl });
       res.end(req.method === 'HEAD' ? undefined : file.body);
       return;
     }
