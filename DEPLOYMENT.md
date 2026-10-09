@@ -540,7 +540,21 @@ A maintained runbook with an embedded live query is kept as the PostHog notebook
 
 Deploys are manual via `npm run deploy`, which builds first, calls `op-firebase-deploy`, and purges Cloudflare. CI workflows (repo linting, review policy enforcement) run on push/PR via GitHub Actions—see `.github/workflows/`.
 
-`.github/workflows/build-artifact.yml` also builds `dist/` on every push to `main` in a job with no secrets, then attests the archive (#1238). No deploy uses that artifact yet; moving the aliases to it is tracked in #1240.
+`.github/workflows/build-artifact.yml` also builds `dist/` on every push to `main` in a job with no secrets, then attests the archive (#1238). The package aliases do not use that artifact yet; `scripts/deploy-artifact.sh` (#1239) can, and switching the aliases to it is tracked in #1240.
+
+### Deploying from the CI artifact (not yet the default)
+
+`scripts/deploy-artifact.sh` deploys the attested CI build of a commit on `main` instead of building locally, so no build or dependency code runs on this machine while deploy credentials exist (#1104). Run it directly as `scripts/deploy-artifact.sh`. Never run it through `npm run`, which puts `node_modules/.bin` first on `PATH`, or as `bash scripts/deploy-artifact.sh`, which lets that outer `bash` read `BASH_ENV` before the script's own `#!/bin/bash -p` and `env -i` re-exec can take effect:
+
+```bash
+scripts/deploy-artifact.sh --dry-run                 # verify origin/main's artifact; deploy nothing
+scripts/deploy-artifact.sh --sha <full-sha> --dry-run
+scripts/deploy-artifact.sh --hosting-only            # deploy origin/main, then purge Cloudflare
+```
+
+It defaults to `origin/main` after `git fetch origin main`, and `--sha` must be a full 40-hex SHA on `main`. It finds the successful `build-artifact.yml` run for exactly that SHA, downloads the artifact into a fresh temporary directory, and requires exactly the archive plus a `SHA256SUMS` entry that names it and matches. It then runs `gh attestation verify` pinned to this repository, the `build-artifact.yml` signer workflow, `refs/heads/main` and the commit (`--source-digest`). Any failure stops it before a credential-holding process starts. It extracts only regular files and directories, then deploys from a directory holding only that `dist/` and the commit's own `firebase.json` and `.firebaserc`. Those two come from `git cat-file`, not the working tree, and a `firebase.json` with `predeploy` or `postdeploy` hooks is refused.
+
+`op-firebase-deploy`, `firebase` and every other tool resolve from a fixed `PATH` (`/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`, helper from `~/.local/bin`). A tool that resolves inside any worktree of this repository or inside a `node_modules` directory is refused; the one exception is a global npm install's own package directory. Each child starts from `env -i`. The Firebase helper gets only its source-credential pointers (`GOOGLE_APPLICATION_CREDENTIALS`, the `OP_PREFLIGHT_*_TMPFILE` paths and the project, and the optional SA and 1Password-URI overrides). The purge gets only `CF_API_TOKEN` and the preflight mode flags, and it runs the verified commit's `scripts/cf-cache-purge.sh`, not the working-tree copy. Neither receives a GitHub token, author or reviewer PAT, or 1Password session token. Run preflight first (`--mode all`), or rely on the 1Password desktop-app CLI integration for the helper's and the purge's own `op` fallbacks. `--dry-run` prints the variable names each child would receive, never their values. `--no-purge` skips the purge.
 
 If a CI pipeline is added later, prefer Workload Identity Federation or another `external_account` credential as the source credential, then let `op-firebase-deploy` impersonate the deployer service account. Do **not** store service account keys as CI secrets.
 

@@ -20,7 +20,9 @@ afterwards.
 
 **Merging a PR deploys nothing.** There is no deploy workflow in `.github/workflows/`—deploys are manual. After merging a change that should be visible on the site, run a deploy alias yourself.
 
-`.github/workflows/build-artifact.yml` builds and attests a credential-free `dist/` archive on every push to `main` (#1238). No deploy consumes it yet; the aliases above still build locally, and moving them to the artifact is tracked in #1240.
+`.github/workflows/build-artifact.yml` builds and attests a credential-free `dist/` archive on every push to `main` (#1238). The aliases above still build locally; moving them to the artifact is tracked in #1240.
+
+**Deploying from the CI artifact (not yet the default).** `scripts/deploy-artifact.sh` (#1239) deploys that attested archive instead of building: it requires the SHA to be on `main`, checks `SHA256SUMS`, runs `gh attestation verify` pinned to the signer workflow, `refs/heads/main` and the commit, then runs `op-firebase-deploy` and the purge with per-tool environments built from `env -i`. Run it directly as `scripts/deploy-artifact.sh`, never through `npm run` or as `bash scripts/deploy-artifact.sh`. Use `scripts/deploy-artifact.sh --dry-run` to verify `origin/main`'s artifact without deploying, and add `--hosting-only` for parity with `deploy:hosting`. Do not use it for a production deploy until the owner approves the switch. See `DEPLOYMENT.md` § Deploying from the CI artifact.
 
 **Verify against the live URL, not the deploy log.** Fetch the changed page or
 asset and confirm the new bytes are being served (`curl -s <url> | md5`). A
