@@ -95,7 +95,8 @@
     if (event.key === 'Escape') act('dismiss');
   });
 
-  // A choice or dismissal made in another tab arrives through the gate. If
+  // A choice or dismissal made in another tab, or picked up when a page is
+  // restored from the back/forward cache, arrives through the gate. If
   // that hides the notice while keyboard focus is inside it, hand focus to
   // the visible announcement, as a local action does, rather than leaving it
   // in a hidden subtree.
@@ -104,7 +105,7 @@
     var hadFocus = notice.contains(d.activeElement);
     sync();
     if (hadFocus && notice.hidden) {
-      announce('The privacy notice was closed from another tab.');
+      announce('The privacy notice closed because your setting changed.');
       status.focus();
     }
   });

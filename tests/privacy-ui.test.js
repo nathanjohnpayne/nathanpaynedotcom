@@ -243,7 +243,7 @@ describe('notice (PRIV-14, PRIV-6)', () => {
     deny.focus();
     click(w, deny);
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(texts.join(' | ')).not.toContain('another tab');
+    expect(texts.join(' | ')).not.toContain('closed because your setting changed');
     expect(status.textContent).toBe('Analytics are off for this site in this browser.');
     expect(d.activeElement).toBe(status);
   });
@@ -256,7 +256,9 @@ describe('notice (PRIV-14, PRIV-6)', () => {
     otherTabWrites(w, { v: 1, choice: 'denied', noticeDismissed: false });
     expect(notice.hidden).toBe(true);
     expect(d.activeElement).toBe(d.getElementById('np-privacy-notice-status'));
-    expect(d.activeElement.textContent).toBe('The privacy notice was closed from another tab.');
+    expect(d.activeElement.textContent).toBe(
+      'The privacy notice closed because your setting changed.',
+    );
   });
 
   it('says so when the choice could not be saved', () => {
