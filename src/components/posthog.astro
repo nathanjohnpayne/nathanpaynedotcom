@@ -22,9 +22,17 @@
 // report as production traffic (`resume_viewed` fires on every /resume/ load).
 // Every capture call in the site is optional-chained on `window.posthog`, so an
 // uninitialized page is a silent no-op, the same as a token-less build.
+//
+// #1079 privacy controls (specs/analytics-privacy.md) render the second script
+// below, and only when privacyControlsEnabled(). With the flag off this
+// component renders the first script exactly as before; tests/analytics-
+// privacy.test.js compares every page's output byte for byte.
+import { privacyControlsEnabled } from '../lib/privacy-flag';
+
 const token = import.meta.env.PUBLIC_POSTHOG_PROJECT_TOKEN || '';
+const privacyEnabled = privacyControlsEnabled();
 ---
-{token && (
+{token && (!privacyEnabled ? (
   <script is:inline define:vars={{ token }}>
     const posthogHost = window.location.hostname;
     const posthogIsLocal =
@@ -51,4 +59,130 @@ const token = import.meta.env.PUBLIC_POSTHOG_PROJECT_TOKEN || '';
     })
     }
   </script>
-)}
+) : (
+  <script is:inline define:vars={{ token }}>
+    // #1079 flag-on PostHog block. Contract: specs/analytics-privacy.md; what
+    // each setting does and what withdrawal cannot recall: specs/analytics.md
+    // § Privacy Runtime. Everything not listed there is unchanged from the
+    // flag-off block in this component: api_host, ui_host, defaults,
+    // person_profiles, and the local-host skip.
+    // (Names differ from the flag-off block's because astro check type-checks
+    // both inline scripts in one scope.)
+    const pageHost = window.location.hostname;
+    const pageIsLocal =
+      /^(localhost|127\.0\.0\.1|\[::1\])$/.test(pageHost) || /\.localhost$/.test(pageHost);
+    const privacy = window.npPrivacy;
+    const gate = privacy && privacy[Symbol.for('np-privacy.internal')];
+    // Fail closed: without the gate, or unless its boot decision and the
+    // current state are both granted, no script element is created, no
+    // global is defined, and nothing is sent.
+    if (!pageIsLocal && gate && gate.boot.effective === 'granted' && privacy.get().effective === 'granted') {
+      // stopSessionRecording()/startSessionRecording() are not on the snippet
+      // stub, so before array.js loads use the set_config() they wrap
+      // (posthog-core.ts, v1.438.3). Docs:
+      // https://posthog.com/docs/libraries/js/features#session-replay
+      const setReplay = (on) => {
+        const ph = window.posthog;
+        if (!ph) return;
+        const method = on ? ph.startSessionRecording : ph.stopSessionRecording;
+        if (typeof method === 'function') method.call(ph);
+        else ph.set_config({ disable_session_recording: !on });
+      };
+      // § Capture Minimization 2: replay is off on an excluded path before
+      // capture starts, and re-evaluated on every client-side navigation.
+      let replayOffForPath = gate.isReplayExcluded(window.location.pathname);
+      // § Withdrawal 1. opt_out_capturing() stops every capture() call,
+      // including the recorder's final buffer flush, which therefore drops
+      // rather than sends (https://posthog.com/docs/privacy/data-collection);
+      // stopping replay then tears the recorder down. Requests the SDK had
+      // already queued are refused by the gate's transport guard.
+      gate.registerTool('posthog', {
+        stop() {
+          const ph = window.posthog;
+          if (!ph) return;
+          ph.opt_out_capturing();
+          setReplay(false);
+        },
+      });
+      // The SDK keeps the visitor's first page URL and referrer in its own
+      // cookie and localStorage entry ($initial_person_info: hidden from event
+      // properties, but the cookie rides on every request to nathanpayne.com).
+      // posthog-js writes it inside capture(), just before before_send, and
+      // offers no option to scrub it short of turning referrer and campaign
+      // capture off, which would disable existing attribution. So it is
+      // rewritten to the scrubbed form at load and after every capture. The key
+      // is not a documented API: if a later SDK renames it, this becomes a
+      // no-op and only the cookie copy goes unscrubbed (events stay scrubbed).
+      const scrubStoredFirstUrl = (ph) => {
+        const info = ph && typeof ph.get_property === 'function' ? ph.get_property('$initial_person_info') : null;
+        if (!info || typeof info !== 'object') return;
+        const clean = (v) => (typeof v === 'string' && /^https?:/i.test(v) ? gate.scrubUrl(v) : v);
+        const u = clean(info.u);
+        const r = clean(info.r);
+        if (u !== info.u || r !== info.r) ph.register({ $initial_person_info: { ...info, u, r } });
+      };
+      const keepStoredFirstUrlScrubbed = (event) => {
+        scrubStoredFirstUrl(window.posthog);
+        return event;
+      };
+      /* eslint-disable */
+      !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys getNextSurveyStep onSessionId".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+      /* eslint-enable */
+      posthog.init(token, {
+        api_host: 'https://d.nathanpayne.com',
+        ui_host: 'https://us.posthog.com',
+        defaults: '2026-01-30',
+        // Unchanged; the flag-off block explains why it must stay 'always'.
+        person_profiles: 'always',
+        // § Capture Minimization 3–4: URL scrubbing to the one allowlist,
+        // structural element attributes only, and nothing at all once
+        // withdrawn. Returning null drops an event, and the functions run in
+        // order: https://posthog.com/docs/libraries/js/features#amending-or-sampling-events
+        before_send: [gate.scrubEvent, keepStoredFirstUrlScrubbed],
+        disable_session_recording: replayOffForPath,
+        // § Capture Minimization 1. Client masking options take precedence over
+        // the project's "Privacy and masking" settings:
+        // https://posthog.com/docs/session-replay/privacy
+        // Console-log capture, canvas capture, and network timing
+        // (enable_recording_console_log, captureCanvas, capture_performance)
+        // are deliberately NOT set here. The project's remote config turns all
+        // three on, and a client `false` would override it; the owner decision
+        // reserves that change for Nathan, so the conflict is reported, not
+        // resolved (specs/analytics.md § Privacy Runtime). Network-timing URLs
+        // are still scrubbed, by maskCapturedNetworkRequestFn below.
+        session_recording: {
+          maskAllInputs: true,
+          maskTextSelector: gate.MASK_SELECTOR,
+          blockSelector: gate.BLOCK_SELECTOR,
+          maskAttributeFn: gate.maskReplayAttribute,
+          // Also scrubs the page URL the recorder stores in replay metadata:
+          // https://posthog.com/docs/session-replay/network-recording
+          maskCapturedNetworkRequestFn: gate.maskNetworkRequest,
+          // Off explicitly; a client `false` wins over the project setting,
+          // which is off as well, so nothing is overridden.
+          recordHeaders: false,
+          recordBody: false,
+        },
+        // § Re-Enable 2: an opt-out the SDK persisted during an earlier
+        // withdrawal (opt_out_capturing() stores it under its own key) must
+        // not block a later granted load. `loaded` runs before the snippet's
+        // queued calls replay, so a withdrawal in this page still wins.
+        loaded(ph) {
+          if (!gate.withdrawn() && ph.has_opted_out_capturing()) ph.clear_opt_in_out_capturing();
+          scrubStoredFirstUrl(ph);
+        },
+      });
+      gate.onNavigate((url, phase) => {
+        if (gate.withdrawn()) return;
+        const excluded = gate.isReplayExcluded(url);
+        if (excluded && !replayOffForPath) {
+          replayOffForPath = true;
+          setReplay(false);
+        } else if (!excluded && replayOffForPath && phase === 'after') {
+          replayOffForPath = false;
+          setReplay(true);
+        }
+      });
+    }
+  </script>
+))}
