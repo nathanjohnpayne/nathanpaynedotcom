@@ -481,8 +481,7 @@ resolve_tool() {
   trusted_tool "$candidate" || die "${tool} is not a trusted executable"
 }
 
-PYTHON="$(resolve_tool python3)"
-GIT="$(resolve_tool git)"
+# PYTHON and GIT stay the system copies chosen above; see the bootstrap note.
 GH="$(resolve_tool gh)"
 if SHASUM="$(find_on_safe_path shasum)"; then
   SHASUM="$(trusted_tool "$SHASUM")" || die "shasum is not a trusted executable"
