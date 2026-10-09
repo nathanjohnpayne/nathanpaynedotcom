@@ -751,7 +751,13 @@ describe('event scrubbing: PostHog before_send (§ Capture Minimization 3–4)',
 
     it('encodes exactly as before the split/join rewrite (#1245), and inverts decode', () => {
       const { gate } = boot();
-      const previous = (value) => String(value).replace(/"/g, '\\"');
+      // The pre-#1245 encoder, restated as a character loop (a backslash before
+      // every `"`, nothing else) so the oracle shares no code with the new one.
+      const previous = (value) => {
+        let out = '';
+        for (const ch of String(value)) out += ch === '"' ? '\\"' : ch;
+        return out;
+      };
       const samples = [...awkward, '', '"', '\\', '\\"', '""', '\\\\""', 'a"b"c\\"d'];
       for (let i = 0; i < 200; i += 1) {
         samples.push(
