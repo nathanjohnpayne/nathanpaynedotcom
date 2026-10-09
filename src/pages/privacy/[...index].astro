@@ -1,0 +1,337 @@
+---
+/**
+ * /privacy/ (#1079; specs/analytics-privacy.md § UI Hooks, row "Page").
+ *
+ * The route exists only when privacyControlsEnabled(): getStaticPaths returns
+ * nothing otherwise, so a flag-off build has no /privacy/ directory and links
+ * nothing to it (PRIV-15). Static even if the site ever moves to server
+ * output, so getStaticPaths stays the only way the route can exist.
+ *
+ * Every factual sentence on this page traces to docs/privacy/inventory.md
+ * (the sections are cited beside each block), to the contract for what the
+ * controls do (§ Choice Model, § Storage, § Withdrawal, § Re-Enable), or to
+ * specs/analytics.md § Privacy Runtime for what the flag-on runtime strips
+ * before sending. Facts the inventory could not verify are not stated: no
+ * event or GA4 retention period, no demographic reporting, no Google Ads
+ * link, no Cloudflare log retention. Nothing here claims anonymity,
+ * compliance, legal sufficiency, or that data is "not sold" (PRIV-11).
+ *
+ * Styles are inline for the reason given in PrivacyNotice.astro: a hoisted
+ * <style> is bundled by import graph, and this route module is loaded (for
+ * getStaticPaths) by every build, flag on or off.
+ */
+import { getEntry } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Breadcrumbs from '../../components/Breadcrumbs.astro';
+import Footer from '../../components/Footer.astro';
+import PrivacyControls from '../../components/privacy/ui/PrivacyControls.astro';
+import { privacyControlsEnabled } from '../../lib/privacy-flag';
+import { getSiteCopy } from '../../lib/site-copy';
+
+export const prerender = true;
+
+export function getStaticPaths() {
+  return privacyControlsEnabled() ? [{ params: { index: undefined } }] : [];
+}
+
+// Description and share-card line are owned by src/content/site-copy/privacy.md
+// (#1166 convention); the deck reads the same description.
+const { description, ogDescription } = await getSiteCopy('privacy');
+
+const myself = await getEntry('myself', 'nathan-payne');
+if (!myself) {
+  throw new Error('Missing myself entry "nathan-payne" — expected at src/content/myself/nathan-payne.md');
+}
+const email = myself.data.email;
+
+const title = 'Privacy | Nathan Payne';
+const canonical = new URL('/privacy/', Astro.site).href;
+
+/** The date of the inventory this page describes (docs/privacy/inventory.md, "Inventory taken"). */
+const INVENTORY_DATE = '2026-10-08';
+
+const sections = [
+  { id: 'np-privacy-controls', label: 'Your choices' },
+  { id: 'collected', label: 'What is collected' },
+  { id: 'recipients', label: 'Who receives it' },
+  { id: 'why', label: 'Why I collect it' },
+  { id: 'retention', label: 'How long it is kept' },
+  { id: 'gpc', label: 'Global Privacy Control' },
+  { id: 'limits', label: 'What turning analytics off does not do' },
+  { id: 'contact', label: 'Contact' },
+];
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  ogDescription={ogDescription}
+  canonical={canonical}
+  bodyClass="project-page"
+  dataAccent="blue"
+>
+  <style is:inline>
+    .privacy-canvas {
+      background: var(--surface);
+      border: var(--line) solid var(--grid-border);
+      overflow-x: hidden;
+    }
+    .privacy-header {
+      position: relative;
+      padding: clamp(1.15rem, 3vw, 2.5rem);
+      border-bottom: 1px solid var(--rule);
+    }
+    .privacy-header::before {
+      content: '';
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: clamp(0.5rem, 1vw, 0.8rem);
+      background: var(--accent);
+    }
+    .privacy-header h1 {
+      padding-left: clamp(1rem, 2.2vw, 1.6rem);
+      font-family: var(--font-heading);
+      font-weight: var(--heading-weight);
+      font-size: var(--heading-page-size);
+      line-height: var(--heading-page-line-height);
+      letter-spacing: var(--heading-letter-spacing);
+      text-wrap: balance;
+    }
+    .privacy-header .deck--inset {
+      max-width: 44rem;
+    }
+    .privacy-toc {
+      margin-top: var(--sp-lg);
+      padding-left: clamp(1rem, 2.2vw, 1.6rem);
+    }
+    .privacy-toc ol {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0 0.9rem;
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    /* Block padding keeps each link a 24px target (WCAG 2.5.8) at every size. */
+    .privacy-toc a {
+      display: inline-block;
+      padding: 0.45rem 0.1rem;
+      font-size: clamp(0.72rem, 0.92vw, 0.82rem);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent-text);
+      text-decoration: none;
+    }
+    .privacy-toc a:hover,
+    .privacy-toc a:focus-visible {
+      text-decoration: underline;
+    }
+    .privacy-copy > h2 {
+      scroll-margin-top: var(--sp-lg);
+    }
+    .privacy-copy h3 {
+      margin-top: 0.4rem;
+    }
+    .privacy-copy .privacy-dated {
+      font-size: clamp(0.78rem, 0.9vw, 0.86rem);
+      color: var(--ink-62);
+    }
+    @media (max-width: 480px) {
+      /* 480px matches --bp-narrow on :root. */
+      .privacy-header h1,
+      .privacy-header .deck--inset,
+      .privacy-toc {
+        padding-left: 0.5rem;
+      }
+    }
+  </style>
+
+  <main class="page-shell">
+    <article class="privacy-canvas page-canvas">
+      <header class="privacy-header">
+        <Breadcrumbs
+          class="breadcrumbs--inset"
+          items={[{ label: 'Nathan Payne', href: '/' }, { label: 'Privacy' }]}
+        />
+        <h1>Privacy</h1>
+        <p class="deck deck--inset">{description}</p>
+        <nav class="privacy-toc" aria-label="On this page">
+          <ol>
+            {sections.map((section) => (
+              <li><a href={`#${section.id}`}>{section.label}</a></li>
+            ))}
+          </ol>
+        </nav>
+      </header>
+
+      <div class="project-copy privacy-copy">
+        <p class="privacy-dated">
+          This page describes the site as it was inventoried on {INVENTORY_DATE}. Session replay is off on this page.
+        </p>
+
+        <PrivacyControls />
+
+        {/* ── What is collected ─────────────────────────────────────────
+            Sources: inventory § Summary, § PostHog (Initialization, Events and
+            Properties, Session Replay, Project Settings Read), § Google
+            Analytics 4, § Cloudflare, § Identifiers and Storage,
+            § Demographics; specs/analytics.md § Privacy Runtime for URL
+            scrubbing, the structural-attribute allowlist, and the /privacy/
+            replay exclusion. ────────────────────────────────────────── */}
+        <h2 id="collected">What is collected</h2>
+        <p>
+          Two analytics tools run on every page unless you turn them off here: PostHog and Google Analytics 4. Cloudflare's own web analytics runs as well, and the controls above do not reach it. This section says what each one receives.
+        </p>
+
+        <h3>PostHog</h3>
+        <ul>
+          <li>
+            Page views and clicks, including the clicked element's tag, classes, link address, and visible text. Mouse movement and clicks are also recorded for heatmaps.
+          </li>
+          <li>
+            Page performance measurements and JavaScript errors the page raises.
+          </li>
+          <li>
+            Session replay: a recording of the page as you saw it, with its text and layout, your mouse movement, scrolling, and clicks. Anything you type is masked before it is recorded. Replay also records the browser console messages the page produces, the contents of any canvas element on a page, and the address and timing of each network request the page makes. Request and response bodies are not recorded.
+          </li>
+          <li>
+            A random visitor ID, device ID, and session ID. PostHog keeps them in a first-party cookie that lasts 365 days and in your browser's local storage, and it creates a profile for every visitor.
+          </li>
+          <li>
+            Your browser, operating system, device type, language, time zone, screen and window size, and the full user-agent string.
+          </li>
+          <li>
+            The page's address and the page that referred you, reduced to the site's origin and path plus campaign parameters (<code>utm_source</code>, <code>utm_medium</code>, <code>utm_campaign</code>, <code>utm_term</code>, <code>utm_content</code>, and the Google click identifiers <code>gclid</code>, <code>gbraid</code>, <code>wbraid</code>, and <code>dclid</code>). Other query parameters and fragments are removed before sending.
+          </li>
+          <li>
+            Your IP address, which PostHog stores with each event and uses to derive your country, region, city, postal code, approximate latitude and longitude, and time zone.
+          </li>
+          <li>
+            Named events for actions on this site: for example, which homepage panel you opened, which project or post you viewed, and whether you downloaded the résumé. None carries anything you typed.
+          </li>
+        </ul>
+
+        <h3>Google Analytics 4</h3>
+        <ul>
+          <li>
+            Page views, scroll depth, clicks on links that leave the site, file downloads, form interactions, and, when a page address carries a search parameter (<code>q</code>, <code>s</code>, <code>search</code>, <code>query</code>, or <code>keyword</code>), that term. For links that leave the site and for downloads, Google receives the full address of the link, including any query string.
+          </li>
+          <li>
+            The page's address and referrer, reduced the same way as for PostHog, the page title, your language, screen resolution, and User-Agent Client Hints describing your browser, operating system, and device model.
+          </li>
+          <li>
+            A client ID and session ID, kept in first-party cookies named <code>_ga</code> and <code>_ga_</code> followed by the property ID. Google documents a two-year lifetime that refreshes on each visit; Chrome caps each write at 400 days.
+          </li>
+          <li>
+            Google's tag is set to detect an email address, phone number, or street address typed into a form and send it to Google as user-provided data. This site has no forms today.
+          </li>
+          <li>
+            Google states that it derives your city, region, and country from your IP address.
+          </li>
+        </ul>
+
+        <h3>Cloudflare Web Analytics</h3>
+        <p>
+          Cloudflare inserts its Web Analytics script into every page at its edge. It is not part of this site's code, and the controls on this page do not affect it. After a page loads, the script sends Cloudflare page-load timings, a page-load ID, the page's origin and path without query string or fragment, and your browser, operating system, and device type; it sends a second request when you leave the page. Cloudflare states that it sets no cookies or local storage, does not fingerprint visitors by IP address or user agent, and discards the IP address it receives at the nearest data center.
+        </p>
+        <p>
+          Cloudflare also asks browsers that support Network Error Logging to report failed requests to it. Such a report carries the failed address without its fragment, the referring page, and connection details. The browser sends it on its own; page code cannot stop it. On pages that show an email address, Cloudflare inserts a small script that decodes the address in the browser; no data was observed leaving the page from it.
+        </p>
+
+        {/* ── Who receives it ───────────────────────────────────────────
+            Sources: inventory § Summary, § PostHog Initialization (the
+            managed proxy), § Project Settings Read (destinations),
+            § Hosting and CDN, § Other Third Parties. ──────────────────── */}
+        <h2 id="recipients">Who receives it</h2>
+        <ul>
+          <li>
+            <strong>PostHog</strong> receives everything in the PostHog list above. Its requests go through <code>d.nathanpayne.com</code>, a reverse proxy PostHog manages and routes through Cloudflare, which PostHog lists as a subprocessor.
+          </li>
+          <li>
+            <strong>Google</strong> receives everything in the Google Analytics list above, at <code>www.google-analytics.com</code>.
+          </li>
+          <li>
+            <strong>Cloudflare</strong> serves this site and receives every request for a page or file: your IP address, the address requested including any query string, your browser's user agent, and the referring page. It also receives the Web Analytics and error reports described above.
+          </li>
+          <li>
+            <strong>Firebase Hosting</strong> (Google) hosts the site behind Cloudflare and receives the same request details for the requests Cloudflare does not answer from its cache.
+          </li>
+          <li>
+            <strong>Google Fonts</strong>, on every page, serves the site's typefaces and receives your IP address, user agent, and this site's origin as the referrer.
+          </li>
+          <li>
+            <strong>Logo.dev</strong>, on the résumé page only, serves employer and school logos and receives the same, plus the name of each organization being looked up.
+          </li>
+          <li>
+            <strong>Mux</strong>, on the Swipe Watch project page only, streams that page's video. Mux Data, its playback analytics, receives viewer and playback data including the full page address, and sets a first-party <code>muxData</code> cookie that lasts 365 days.
+          </li>
+          <li>
+            <strong>GitHub</strong>: when PostHog's error tracking detects a new error on the site, an automation files an issue in this site's public GitHub repository. The issue carries the error's name and description and the random visitor ID PostHog assigned to the session that hit it.
+          </li>
+        </ul>
+
+        {/* ── Why ──────────────────────────────────────────────────────
+            Sources: specs/analytics.md § Overview, § Layout alerting,
+            § Error Tracking; inventory § Consequences of Opt-Out and GPC
+            (layout alerts, error-tracking alerts, product metrics). ───── */}
+        <h2 id="why">Why I collect it</h2>
+        <p>
+          I use these tools to see which pages and links get used, to find errors and layout bugs (both kinds of alert file issues automatically so I notice them), and to watch how pages behave for real visitors so I can fix what breaks. Session replay exists for that last purpose.
+        </p>
+
+        {/* ── Retention ─────────────────────────────────────────────────
+            Only the periods the inventory verified (§ Retention: replay
+            setting read 2026-10-08; cookie lifetimes from the capture and
+            vendor docs). PostHog event and profile retention, GA4 retention,
+            Cloudflare and Firebase log retention are account settings the
+            inventory could not read and are not stated. ────────────────── */}
+        <h2 id="retention">How long it is kept</h2>
+        <ul>
+          <li>PostHog session recordings: 30 days.</li>
+          <li>PostHog's cookie: 365 days. Google Analytics cookies: Google documents two years, refreshed on each visit, and Chrome caps each write at 400 days. The Mux Data cookie: 365 days.</li>
+          <li>Other retention periods are set in each vendor's account and are not stated here.</li>
+        </ul>
+
+        {/* ── GPC ──────────────────────────────────────────────────────
+            Sources: contract § Choice Model 2–3; inventory § Consequences
+            (Cloudflare continues for GPC visitors). ─────────────────────── */}
+        <h2 id="gpc">Global Privacy Control</h2>
+        <p>
+          Global Privacy Control is a signal a browser or extension can send to ask sites to opt you out. This site honors it: when your browser sends it, PostHog and Google Analytics are off whatever you chose here, and the "Turn on analytics" button above is unavailable. If you turn analytics off here and your browser later stops sending the signal, they stay off. The signal does not reach Cloudflare's analytics or the other services listed above.
+        </p>
+
+        {/* ── Limits ────────────────────────────────────────────────────
+            Sources: contract § Withdrawal 1–3, § Re-Enable 1, § Storage 1;
+            specs/analytics.md § Privacy Runtime (what cannot be recalled);
+            inventory § Capture Conflicts C5, § Hosting and CDN, § Other
+            Third Parties. ───────────────────────────────────────────────── */}
+        <h2 id="limits">What turning analytics off does not do</h2>
+        <ul>
+          <li>
+            It does not delete anything already sent. Events, recordings, and the profile PostHog created stay with each vendor under its own retention. A request already on its way at the moment you click may still complete.
+          </li>
+          <li>
+            It does not remove the cookies and storage entries the tools set earlier. They stay until they expire or you clear them; turning analytics off stops their use, not their existence.
+          </li>
+          <li>
+            It does not reach Cloudflare Web Analytics or Network Error Logging, the Cloudflare and Firebase servers that serve the site, Google Fonts, Logo.dev, or Mux.
+          </li>
+          <li>
+            Your choice is kept in your browser's local storage under the key <code>np-privacy</code>. No cookie is set for it, and it is not sent to a server. Turning analytics back on takes effect on the next page you load.
+          </li>
+        </ul>
+
+        <h2 id="contact">Contact</h2>
+        <p>
+          Questions about this page or about these tools: email <a href={`mailto:${email}`}>{email}</a>.
+        </p>
+      </div>
+
+      <Footer
+        attribution="Nathan Payne"
+        variant="detail"
+        links={[{ href: '/', label: '← Back to Homepage' }]}
+      />
+    </article>
+  </main>
+</BaseLayout>

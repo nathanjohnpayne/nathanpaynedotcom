@@ -68,6 +68,17 @@ export const SITE_COPY_SCHEMAS = {
     /** Meta, og and twitter description, ProfilePage JSON-LD, and the résumé share card. */
     description: copy(),
   }),
+  /**
+   * `/privacy/` (#1079, behind the privacy flag). The route exists only when
+   * `privacyControlsEnabled()`, but the entry is validated on every build so a
+   * flag flip cannot be the first time its copy is read.
+   */
+  privacy: z.strictObject({
+    /** Meta description and the page's deck. */
+    description: copy(),
+    /** og:description and twitter:description: the share-card line. */
+    ogDescription: copy(),
+  }),
 } as const;
 
 export type SiteCopyId = keyof typeof SITE_COPY_SCHEMAS;
@@ -86,4 +97,5 @@ export const siteCopySchema = z.union([
   SITE_COPY_SCHEMAS.projects,
   SITE_COPY_SCHEMAS.home,
   SITE_COPY_SCHEMAS.resume,
+  SITE_COPY_SCHEMAS.privacy,
 ]);

@@ -16,6 +16,9 @@
  * per-project accent (see `.site-footer` rules in global.css).
  */
 import { getEntry } from "astro:content";
+// #1079: the /privacy/ link on every footer, rendered by the component only
+// when the privacy flag is on (specs/analytics-privacy.md § UI Hooks).
+import PrivacyLink from "./privacy/ui/PrivacyLink.astro";
 
 interface FooterLink {
   href: string;
@@ -69,5 +72,6 @@ const classList = [
         {...(link.external ? { target: "_blank", rel: "noopener" } : {})}
       >{link.label}</a>
     ))}
+    <PrivacyLink class="nav-button" />
   </nav>
 </footer>

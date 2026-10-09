@@ -1,0 +1,26 @@
+---
+/**
+ * #1079 link to /privacy/ (specs/analytics-privacy.md § UI Hooks, row
+ * "Footer link"): the shared Footer, the homepage, and the 404 page each
+ * render one. It renders nothing unless privacyControlsEnabled(), so the
+ * pages that place it carry no flag check of their own and the flag-off
+ * build links no /privacy/ route (PRIV-15). The visual class comes from the
+ * caller, because each surface has its own link vocabulary (.nav-button in
+ * the footer and on the 404, .ribbon-exit in a homepage panel).
+ */
+import { privacyControlsEnabled } from '../../../lib/privacy-flag';
+
+interface Props {
+  /** Class(es) for the anchor, from the surface's own link vocabulary. */
+  class?: string;
+  /** Append the site's trailing arrow (the homepage ribbon convention). */
+  arrow?: boolean;
+}
+
+const { class: className, arrow = false } = Astro.props;
+const enabled = privacyControlsEnabled();
+---
+
+{enabled && (
+  <a class={className} href="/privacy/" data-np-privacy-ui="footer-link">Privacy{arrow && <span class="link-arrow" aria-hidden="true">→</span>}</a>
+)}
