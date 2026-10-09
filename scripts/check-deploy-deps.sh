@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Fail a deploy that would ship a build made against stale dependencies.
 #
-# `npm run deploy` builds from whatever is installed in this checkout. CI
+# A local `npm run build` builds from whatever is installed in this checkout. CI
 # builds from `npm ci`. When those two disagree, CI is green on a SHA whose
 # local build is broken — and the deploy publishes the broken one and reports
 # success, because `astro build` exits 0 either way.

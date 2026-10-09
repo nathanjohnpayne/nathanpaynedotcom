@@ -89,7 +89,7 @@ styles/                     Repository-owned Vale rules for prose linting
                              (astro build && vitest run), npm run lint (#632, #563)
 .github/workflows/build-artifact.yml
                              Push to main: credential-free production build,
-                             attested dist/ archive; not yet used by deploys (#1238)
+                             attested dist/ archive; the only source scripts/deploy-artifact.sh deploys (#1238)
 docs/                       Extended documentation (agent processes)
 screenshots/og/             Checked-in OG card references (see below)
 .github/screenshots/        PR, issue, and generated audit screenshot evidence
