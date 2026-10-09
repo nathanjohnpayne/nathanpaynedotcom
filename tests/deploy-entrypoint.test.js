@@ -125,6 +125,10 @@ describe('deploy entrypoint contract', () => {
       // The dry run and the deploy are pinned to the same approved SHA (Codex P1, PR #1249).
       expect(doc, label).toContain('scripts/deploy-artifact.sh --sha "$SHA" --dry-run');
       expect(doc, label).toContain('scripts/deploy-artifact.sh --sha "$SHA" --hosting-only');
+      // ...and the SHA is read only after refreshing origin/main (Codex P1, PR #1249).
+      expect(doc, label).toMatch(
+        /git pull --ff-only[^\n]*\n\s*SHA="\$\(git rev-parse origin\/main\)"/,
+      );
       expect(doc, label).toContain('Build Artifact');
       expect(doc, label).toContain('--mode all');
       expect(doc, label).toContain('--sha');

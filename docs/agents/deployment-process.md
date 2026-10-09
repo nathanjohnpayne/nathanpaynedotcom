@@ -3,7 +3,8 @@
 All deploys use `op-firebase-deploy` for non-interactive service account impersonation (the exception is the key-based path in DEPLOYMENT.md § CI/CD & Headless Deploy, which uses the deployer service account key directly, without impersonation). Never run `firebase deploy` directly. Production deploys come only from the attested CI build of a commit on `main`, via `scripts/deploy-artifact.sh`, and only after the owner asks for one. There is no npm deploy alias (`package.json` has no `deploy` or `deploy:hosting` script), because npm runs its configured `script-shell`, which a repository `.npmrc` can set, before any script body. Never run `npm run deploy`; it prints npm's "Missing script" error and runs nothing.
 
 ```bash
-SHA="$(git rev-parse origin/main)"                       # after git pull: the commit the owner approved
+git pull --ff-only                                       # refresh origin/main first; a stale checkout pins a stale SHA
+SHA="$(git rev-parse origin/main)"                       # confirm it is the full SHA the owner approved
 scripts/deploy-artifact.sh --sha "$SHA" --dry-run        # verify that artifact; deploy nothing
 scripts/deploy-artifact.sh --sha "$SHA"                  # full deploy, then purge Cloudflare
 scripts/deploy-artifact.sh --sha "$SHA" --hosting-only   # hosting only, then purge Cloudflare

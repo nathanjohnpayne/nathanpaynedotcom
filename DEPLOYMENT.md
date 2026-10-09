@@ -423,13 +423,14 @@ The procedure:
 4. **Get the owner's approval for a specific commit, then dry run and deploy that commit.** Agents deploy to production only when the owner asks. Start with the dry run.
 
    ```bash
-   SHA="$(git rev-parse origin/main)"              # after git pull: the commit the owner approved
+   git pull --ff-only                              # refresh origin/main first; a stale checkout pins a stale SHA
+   SHA="$(git rev-parse origin/main)"              # confirm it is the full SHA the owner approved
    scripts/deploy-artifact.sh --sha "$SHA" --dry-run        # verify that artifact; deploy nothing
    scripts/deploy-artifact.sh --sha "$SHA"                  # full deploy, then purge Cloudflare
    scripts/deploy-artifact.sh --sha "$SHA" --hosting-only   # hosting only, then purge Cloudflare
    ```
 
-   Pass the same full `--sha` to the dry run and the deploy. Without it, each invocation fetches and defaults to the current `origin/main`, so a merge landing between the two commands would deploy a commit that was never dry-run or approved.
+   Refresh `origin/main` before reading the SHA: the script fetches `main` itself, but an explicit `--sha` is never replaced, so a stale checkout would pin and deploy a stale commit. Confirm the SHA is the one the owner approved. Pass the same full `--sha` to the dry run and the deploy. Without it, each invocation fetches and defaults to the current `origin/main`, so a merge landing between the two commands would deploy a commit that was never dry-run or approved.
 
 5. **Verify the live site** (§ Post-Deployment Verification). Fetch the changed page or asset and confirm the new bytes are served; a clean deploy plus a warm edge looks the same as one that reached users.
 

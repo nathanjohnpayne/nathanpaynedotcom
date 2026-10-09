@@ -229,7 +229,8 @@ Deploy only when the owner has approved a production deploy.
 
 ```bash
 # Deploy the attested CI build of the approved commit; dry-run it first with the same --sha
-SHA="$(git rev-parse origin/main)"
+git pull --ff-only                     # refresh origin/main first; a stale checkout pins a stale SHA
+SHA="$(git rev-parse origin/main)"     # confirm it is the full SHA the owner approved
 scripts/deploy-artifact.sh --sha "$SHA" --dry-run
 scripts/deploy-artifact.sh --sha "$SHA"
 ```
