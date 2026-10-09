@@ -44,6 +44,12 @@
       parts.push('Analytics are on. You have not made a choice, so they run by default.');
     }
     if (state.effective === 'granted' && resumesNextLoad) {
+      if (!state.persisted) {
+        // A grant after a denial that could not be saved: nothing loads on
+        // this page (§ Re-Enable 1), and the next load reads the saved denial,
+        // so analytics stay off. Promising the next load would be false.
+        return 'Your browser did not save this choice, so analytics stay off: they did not load on this page, and the next page you load uses your earlier setting.';
+      }
       parts.push('They start on the next page you load.');
     }
     if (!state.persisted) {

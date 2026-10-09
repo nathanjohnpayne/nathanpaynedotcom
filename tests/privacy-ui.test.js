@@ -333,6 +333,20 @@ describe('controls (PRIV-10, PRIV-14)', () => {
     );
   });
 
+  it('does not promise the next load when a grant after a saved denial could not be saved (#1248)', () => {
+    const { w, d, privacy } = mountControls({
+      stored: JSON.stringify({ v: 1, choice: 'denied', noticeDismissed: false }),
+      storage: 'write-throws',
+    });
+    click(w, d.querySelector('[data-np-privacy-action="grant"]'));
+    expect(privacy.get()).toMatchObject({ effective: 'granted', persisted: false });
+    expect(stored(w).choice).toBe('denied');
+    expect(statusOf(d)).toBe(
+      'Your browser did not save this choice, so analytics stay off: they did not load on this page, and the next page you load uses your earlier setting.',
+    );
+    expect(statusOf(d)).not.toContain('next page you load.');
+  });
+
   it('follows a choice made in another tab', () => {
     const { w, d } = mountControls();
     otherTabWrites(w, { v: 1, choice: 'denied', noticeDismissed: false });
