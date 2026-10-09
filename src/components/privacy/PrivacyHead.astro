@@ -1,6 +1,12 @@
 ---
-// #1079 head gate mount point. BaseLayout renders this only when
-// privacyControlsEnabled(). #1228 implements the synchronous gate and
-// `window.npPrivacy` here (specs/analytics-privacy.md § Gate, § Runtime API);
-// until then it renders nothing.
+// #1079 head gate (specs/analytics-privacy.md § Gate, § Runtime API).
+// BaseLayout renders this only when privacyControlsEnabled(), in the head and
+// before the PostHog and GA4 blocks. It emits exactly one synchronous inline
+// script with no imports and no network access: src/lib/privacy/gate.js,
+// inlined verbatim at build time, so the code that ships is the code
+// tests/privacy-runtime.test.js executes. The analytics blocks fail closed if
+// it is missing or threw.
+import gateSource from '../../lib/privacy/gate.js?raw';
 ---
+
+<script is:inline set:html={gateSource} />
