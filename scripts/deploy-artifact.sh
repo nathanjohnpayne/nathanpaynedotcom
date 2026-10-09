@@ -108,6 +108,17 @@ FIREBASE_ENV_NAMES="GOOGLE_APPLICATION_CREDENTIALS OP_PREFLIGHT_ADC_TMPFILE OP_P
 PURGE_ENV_NAMES="CF_API_TOKEN OP_PREFLIGHT_DONE OP_PREFLIGHT_MODE OP_ACCOUNT"
 ENTRY_ENV_NAMES="HOME USER LOGNAME TMPDIR LANG LC_ALL TERM SSH_AUTH_SOCK GH_TOKEN GH_CONFIG_DIR XDG_CONFIG_HOME DEPLOY_ARTIFACT_SAFE_PATH ${FIREBASE_ENV_NAMES} ${PURGE_ENV_NAMES}"
 if [ "${DEPLOY_ARTIFACT_SANITIZED:-}" != "1" ]; then
+  # A dynamic-loader hook in the caller's environment has already run inside
+  # this bash, and inside every other process the caller started, so no script
+  # can undo it. Refuse, so the credentialed children never start under one.
+  # (On macOS, System Integrity Protection already strips DYLD_* from
+  # /bin/bash; the LD_* names matter on Linux.)
+  for name in LD_PRELOAD LD_AUDIT LD_LIBRARY_PATH DYLD_INSERT_LIBRARIES DYLD_LIBRARY_PATH DYLD_FRAMEWORK_PATH; do
+    if [ -n "${!name:-}" ]; then
+      printf '[deploy-artifact] ERROR: %s is set; refusing to deploy from a shell with a dynamic-loader hook\n' "$name" >&2
+      exit 1
+    fi
+  done
   entry_env=()
   for name in $ENTRY_ENV_NAMES; do
     if [ -n "${!name:-}" ]; then entry_env+=("${name}=${!name}"); fi
@@ -362,7 +373,10 @@ for name in USER LOGNAME TMPDIR LANG LC_ALL TERM; do
 done
 
 # Every child, including the ones that only inspect files, starts from env -i.
-run_clean() { /usr/bin/env -i "${BASE_ENV[@]}" "$@"; }
+# The system tools (git, python3, shasum) get the system PATH, not SAFE_PATH:
+# git looks up its own helpers (upload-pack, ssh) on PATH.
+SYS_ENV=("PATH=/usr/bin:/bin" "${BASE_ENV[@]:1}")
+run_clean() { /usr/bin/env -i "${SYS_ENV[@]}" "$@"; }
 
 # Search SAFE_PATH only. Prints the first executable candidate, unresolved.
 find_on_safe_path() {
@@ -376,8 +390,14 @@ find_on_safe_path() {
   return 1
 }
 
-PYTHON="$(find_on_safe_path python3)" || die "python3 not found on ${SAFE_PATH}"
-GIT="$(find_on_safe_path git)" || die "git not found on ${SAFE_PATH}"
+# git and python3 compute the trust roots below (the repository's worktrees,
+# real paths), so they cannot come from SAFE_PATH and be checked against roots
+# they computed themselves. Use the system-owned copies, present on macOS and
+# on the Linux runners (Codex P1 on PR #1244).
+PYTHON=/usr/bin/python3
+GIT=/usr/bin/git
+[ -x "$PYTHON" ] || die "${PYTHON} not found"
+[ -x "$GIT" ] || die "${GIT} not found"
 
 realpath_of() { run_clean "$PYTHON" -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$1"; }
 
@@ -388,7 +408,7 @@ REPO_ROOT="$(run_clean "$GIT" -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/
 git_clean() {
   local extra=()
   if [ -n "${SSH_AUTH_SOCK:-}" ]; then extra+=("SSH_AUTH_SOCK=${SSH_AUTH_SOCK}"); fi
-  /usr/bin/env -i "${BASE_ENV[@]}" ${extra[@]+"${extra[@]}"} GIT_TERMINAL_PROMPT=0 \
+  /usr/bin/env -i "${SYS_ENV[@]}" ${extra[@]+"${extra[@]}"} GIT_TERMINAL_PROMPT=0 \
     "$GIT" -C "$REPO_ROOT" -c core.hooksPath=/dev/null -c core.fsmonitor=false "$@"
 }
 

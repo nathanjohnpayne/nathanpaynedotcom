@@ -492,6 +492,29 @@ describe('deploy-artifact.sh sanitizes its own environment on entry (Codex P1, P
     expect(existsSync(join(h.log, 'function-ran'))).toBe(false);
   });
 
+  it('refuses to run when a dynamic-loader hook is set', () => {
+    const h = makeHarness();
+    for (const name of ['LD_PRELOAD', 'LD_AUDIT']) {
+      const result = run(h, ['--sha', h.sha, '--dry-run'], {
+        extraEnv: { [name]: join(h.root, 'hook.so') },
+      });
+      expect(result.status).toBe(1);
+      expect(result.output).toContain(`${name} is set`);
+    }
+    expect(logs(h, 'gh')).toEqual([]);
+  });
+
+  it('never runs a git or python3 found first on the safe path', () => {
+    const h = makeHarness();
+    for (const tool of ['git', 'python3']) {
+      writeExec(join(h.bin, tool), `#!/bin/bash\ntouch "${h.log}/hostile-${tool}-ran"\nexit 1\n`);
+    }
+    const result = run(h, ['--sha', h.sha, '--dry-run']);
+    expect(result.status, result.output).toBe(0);
+    expect(existsSync(join(h.log, 'hostile-git-ran'))).toBe(false);
+    expect(existsSync(join(h.log, 'hostile-python3-ran'))).toBe(false);
+  });
+
   it('refuses a forged sanitized marker that arrives with other variables', () => {
     const h = makeHarness();
     const result = run(h, ['--sha', h.sha, '--dry-run'], {
