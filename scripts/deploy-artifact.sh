@@ -444,7 +444,9 @@ done
 # candidate is <prefix>/bin/<tool>, its real path may be inside
 # <prefix>/lib/node_modules/<package>/ (no deeper node_modules).
 trusted_tool() {
-  local candidate="$1" real prefix rest
+  # $2=1 permits the global npm layout; only firebase asks for it (Codex P1,
+  # PR #1244): no other tool is expected to live in a global npm package.
+  local candidate="$1" allow_npm="${2:-0}" real prefix rest
   real="$(realpath_of "$candidate")"
   if inside_forbidden_root "$candidate" || inside_forbidden_root "$real"; then
     log "refusing ${candidate}: resolves inside this repository (${real})"
@@ -455,6 +457,10 @@ trusted_tool() {
     return 1
   fi
   if has_node_modules_component "$real"; then
+    if [ "$allow_npm" != "1" ]; then
+      log "refusing ${candidate}: resolves inside a node_modules directory (${real})"
+      return 1
+    fi
     prefix="$(dirname "$(dirname "$candidate")")"
     prefix="$(realpath_of "$prefix")"
     case "$real" in
@@ -476,9 +482,10 @@ trusted_tool() {
 }
 
 resolve_tool() {
-  local tool="$1" candidate
+  local tool="$1" candidate allow_npm=0
   candidate="$(find_on_safe_path "$tool")" || die "${tool} not found on ${SAFE_PATH}"
-  trusted_tool "$candidate" || die "${tool} is not a trusted executable"
+  [ "$tool" = firebase ] && allow_npm=1
+  trusted_tool "$candidate" "$allow_npm" || die "${tool} is not a trusted executable"
 }
 
 # PYTHON and GIT stay the system copies chosen above; see the bootstrap note.
@@ -495,12 +502,13 @@ case "$(realpath_of "$FIREBASE")" in
   *.js)
     # A node script: the interpreter `#!/usr/bin/env node` finds must be
     # trusted too, and it is found on the same PATH the child gets.
-    resolve_tool node >/dev/null
+    NODE="$(resolve_tool node)"
     ;;
 esac
 BASH_BIN="$(resolve_tool bash)"
+CURL=""
 if [ "$PURGE" -eq 1 ]; then
-  resolve_tool curl >/dev/null
+  CURL="$(resolve_tool curl)"
 fi
 # `op` is optional: preflight usually caches every credential. But the helper
 # (its ADC fallback) and the verified purge script (when CF_API_TOKEN is unset)
@@ -521,6 +529,35 @@ else
   HELPER="$(resolve_tool op-firebase-deploy)"
 fi
 
+# --- Temporary directory, removed on every exit -----------------------------
+
+tmp_base="${TMPDIR:-/tmp}"
+WORK="$(mktemp -d "${tmp_base%/}/deploy-artifact.XXXXXX")"
+cleanup() { rm -rf "$WORK"; }
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+# --- The only PATH any child gets ---------------------------------------------
+#
+# Every tool above passed trusted_tool, but a child that looks a tool up on
+# SAFE_PATH would get whatever comes first there, unchecked: the helper looks
+# up firebase, op and python3, firebase's shebang looks up node, the purge
+# looks up curl, python3 and op (Codex P1 x2, PR #1244). So no child gets
+# SAFE_PATH. They get a private directory holding only the validated tools,
+# linked by real path, followed by the system directories.
+PRIVATE_BIN="${WORK}/bin"
+mkdir "$PRIVATE_BIN"
+link_tool() { ln -s "$(realpath_of "$2")" "${PRIVATE_BIN}/$1"; }
+link_tool firebase "$FIREBASE"
+if [ -n "${NODE:-}" ]; then link_tool node "$NODE"; fi
+link_tool gh "$GH"
+if [ -n "$CURL" ]; then link_tool curl "$CURL"; fi
+if [ -n "${OP_BIN:-}" ]; then link_tool op "$OP_BIN"; fi
+link_tool python3 "$PYTHON"
+CHILD_PATH="${PRIVATE_BIN}:/usr/bin:/bin"
+BASE_ENV[0]="PATH=${CHILD_PATH}"
+
 # gh must support the attestation pins this script relies on.
 GH_ENV=()
 if [ -n "${GH_TOKEN:-}" ]; then GH_ENV+=("GH_TOKEN=${GH_TOKEN}"); fi
@@ -539,15 +576,6 @@ for flag in --signer-workflow --source-ref --source-digest --deny-self-hosted-ru
     *) die "gh attestation verify does not support ${flag} (upgrade gh)" ;;
   esac
 done
-
-# --- Temporary directory, removed on every exit -----------------------------
-
-tmp_base="${TMPDIR:-/tmp}"
-WORK="$(mktemp -d "${tmp_base%/}/deploy-artifact.XXXXXX")"
-cleanup() { rm -rf "$WORK"; }
-trap cleanup EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM
 
 # --- 2. The SHA is on main --------------------------------------------------
 
@@ -680,7 +708,7 @@ log "archive:       ${ARCHIVE} (sha256:${actual_digest}, ${file_count} files)"
 log "deploy dir:    ${SITE} (firebase.json, .firebaserc, dist/)"
 log "helper:        ${HELPER} -> $(realpath_of "$HELPER")"
 log "firebase:      ${FIREBASE} -> $(realpath_of "$FIREBASE")"
-log "child PATH:    ${SAFE_PATH}"
+log "child PATH:    ${CHILD_PATH} ($(cd "$PRIVATE_BIN" && echo *))"
 log "firebase env:  $(names_of "${FIREBASE_ENV[@]}")"
 if [ "$PURGE" -eq 1 ]; then
   log "purge env:     $(names_of "${PURGE_ENV[@]}")"

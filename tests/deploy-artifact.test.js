@@ -526,6 +526,31 @@ describe('deploy-artifact.sh sanitizes its own environment on entry (Codex P1, P
   });
 });
 
+describe('deploy-artifact.sh gives children only validated tools (Codex P1, PR #1244)', () => {
+  it('runs every child on the private bin plus system PATH, never the safe path', () => {
+    const h = makeHarness();
+    // A python3 first on the safe path: the verified purge script and the helper
+    // both look python3 up on their PATH.
+    writeExec(
+      join(h.bin, 'python3'),
+      `#!/bin/bash\ntouch "${h.log}/hostile-python3-ran"\nexit 1\n`,
+    );
+    const result = run(h, ['--sha', h.sha, '--hosting-only']);
+    expect(result.status, result.output).toBe(0);
+    expect(result.output).toContain('Cloudflare cache purged');
+    expect(existsSync(join(h.log, 'hostile-python3-ran'))).toBe(false);
+    for (const tool of ['gh', 'helper', 'firebase', 'curl']) {
+      const records = logs(h, tool);
+      expect(records.length, tool).toBeGreaterThan(0);
+      for (const record of records) {
+        const path = record.split('\n').find((line) => line.startsWith('PATH='));
+        expect(path, tool).toMatch(/^PATH=\/.+\/deploy-artifact\.[^/]+\/bin:\/usr\/bin:\/bin$/);
+        expect(path, tool).not.toContain(h.bin);
+      }
+    }
+  });
+});
+
 describe('deploy-artifact.sh --dry-run and --no-purge', () => {
   it('--dry-run verifies and assembles but never invokes firebase or the purge', () => {
     const h = makeHarness();
@@ -774,6 +799,18 @@ describe('deploy-artifact.sh resolves firebase outside the checkout and node_mod
     symlinkSync(join(h.repo, 'tools/op'), join(h.bin, 'op'));
     expectRefusedBeforeGh(h, run(h, ['--sha', h.sha]), /op is not a trusted executable/);
     expect(existsSync(join(h.log, 'hostile-op-ran'))).toBe(false);
+  });
+
+  it('refuses a non-firebase tool that resolves into a global npm package', () => {
+    const h = makeHarness();
+    // <prefix>/bin/gh -> <prefix>/lib/node_modules/<pkg>/gh: the layout allowed only for firebase.
+    const pkg = join(h.root, 'lib/node_modules/evil-gh');
+    mkdirSync(pkg, { recursive: true });
+    writeExec(join(pkg, 'gh'), `#!/bin/bash\ntouch "${h.log}/npm-gh-ran"\n`);
+    rmSync(join(h.bin, 'gh'));
+    symlinkSync(join(pkg, 'gh'), join(h.bin, 'gh'));
+    expectRefusedBeforeGh(h, run(h, ['--sha', h.sha]), /gh is not a trusted executable/);
+    expect(existsSync(join(h.log, 'npm-gh-ran'))).toBe(false);
   });
 
   it('refuses a helper that resolves inside the repository', () => {
