@@ -253,7 +253,7 @@ crqe_select_codex_review_summary() { # issue-comments-json bot-login head-sha
 # codex-review-request.sh (scan_codex_state) and codex-review-check.sh
 # (CODEX_VERDICT_JSON) use; tests/test_codex_review_ledger.sh pins all three
 # copies byte-for-byte. Selection differs by design: those two keep only
-# verdicts whose sha prefixes the current head and take the latest, while
+# verdicts whose full SHA equals the current head and take the latest, while
 # this reports every verdict and leaves selection to the caller.
 crqe_verdicts() { # issue-comments-json bot-login
   printf '%s\n' "${1:-[]}" | jq -c --arg bot "${2:-}" '
@@ -262,13 +262,50 @@ crqe_verdicts() { # issue-comments-json bot-login
       | . as $c
       | ( [ $c.body // ""
             | ascii_downcase
-            | scan("reviewed commit[^0-9a-f]{0,6}([0-9a-f]{7,40})")
-            | .[0]
-          ] ) as $shas
-      | select(($shas | length) > 0 or (($c.body // "") | test("(?im)^\\s*codex review:")))
+            | scan("reviewed commit[^0-9a-z_\\r\\n]{0,6}([^\\r\\n]*)")
+            | .[0] | sub("^[`*[:space:]]+"; "") | sub("[`*[:space:]]+$"; "")
+          ] ) as $fields
+      | (if ($fields | length) == ([$c.body // "" | ascii_downcase | scan("reviewed commit")] | length)
+               and all($fields[]; test("^[0-9a-f]{7,40}$")) then $fields else [] end) as $shas
+      | select(($fields | length) > 0 or (($c.body // "") | test("(?im)^\\s*codex review:")))
       | { comment_id: .id, created_at: .created_at, reviewed_shas: $shas,
           affirmative: ((.body // "") | test("(?im)^\\s*codex review:\\s*didn.?t find any major issues\\b")) }
     ]
     | sort_by(.created_at, .comment_id)
+  '
+}
+
+# Read-side normalization preserves raw malformed/ambiguous observations.
+crqe_resolve_verdict_anchors() { # comments-json repository bot-login
+  printf '%s\n' "$1" | python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")/../workflow" && pwd)/resolve-codex-verdict-anchors.py" --repo "$2" --bot "$3"
+}
+
+# One substantive head-review selector for requester and merge gate (#1543).
+# A body-less wrapper around a threaded reply is not a completed review run.
+crqe_select_head_review() { # reviews-json comments-json bot head
+  printf '%s\n' "$1" "$2" | jq -s --arg bot "$3" --arg sha "$4" '
+    .[0] as $reviews | .[1] as $comments
+    | [$reviews[] | select(.user.login == $bot and .commit_id == $sha)
+      | . as $r
+      | [$comments[] | select(.pull_request_review_id == $r.id)] as $inline
+      | select(any($inline[]; (.user.login == $bot) and (.in_reply_to_id == null))
+               or (($r.body // "") | test("[^[:space:]]"))
+               or ($inline | length) == 0)]
+    | max_by(.submitted_at) // null
+  '
+}
+
+# Same-agent approval substitute: returns its time or empty. Resolved P0/P1
+# findings still require a fresh affirmative verdict or independent approval.
+crqe_review_approval_time() { # selected-review-json comments-json bot head
+  printf '%s\n' "$1" "$2" | jq -s -r --arg bot "$3" --arg sha "$4" '
+    .[0] as $review | .[1] as $comments
+    | if length == 2 and $review != null and $review.state == "COMMENTED"
+        and ($sha | test("^[0-9a-f]{40}$")) and $review.commit_id == $sha
+        and (($review.body // "") | test("!\\[P[01] Badge\\]|\\*\\*P[01]") | not)
+        and ([ $comments[] | select(.user.login == $bot and .in_reply_to_id == null
+          and .pull_request_review_id == $review.id)
+          | select((.body // "") | test("!\\[P[01] Badge\\]|\\*\\*P[01]")) ] | length) == 0
+      then $review.submitted_at else "" end
   '
 }
