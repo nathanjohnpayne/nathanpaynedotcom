@@ -134,7 +134,8 @@ explicitly authorizes a break-glass override in chat.
       merge gate does NOT require an `APPROVED` review state from the
       Codex bot—the app never emits one. If the gate passes, merge as
       nathanjohnpayne with
-      `gh pr merge --squash --delete-branch`.
+      `gh pr merge --squash --delete-branch --match-head-commit <sha>`
+      (head pin required; see REVIEW_POLICY.md step 17a).
 
    **Phase 4b—External review fallback.** Applies when Phase 4a is unavailable (`codex.enabled: false`, either helper script missing, Codex App not review-ready) or timed out (4a exit code `4`). Phase 4a disagreement and runaway do NOT come here—they stop and go to the human per REVIEW_POLICY.md § Disagreements and Tiebreaking. Canonical steps: REVIEW_POLICY.md § Phase 4b.
 
