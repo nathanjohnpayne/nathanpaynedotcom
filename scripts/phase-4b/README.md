@@ -126,7 +126,7 @@ The EXIT handler first retains the original temporary-file cleanup, then records
 
 Accounting v1 loops gain optional nullable `run_id` and `started_at_epoch`. Genuine IDs match the heartbeat; the existing loop-log envelope timestamp is unchanged and is copied into the loop, so approval bodies carry adapter-start evidence. Legacy records and required fields remain valid, totals/archives retain their prior semantics, and `pid-$$` pending ownership never becomes a global history identity. A later history consumer must combine repository plus genuine ID across live logs, archives, approval `loops[]` and heartbeat lifecycle observations; approval totals are cross-checks, legacy locator rows remain visibly separate, and conflicting terminal observations require a diagnostic. Approval generation time never substitutes for loop start.
 
-`tests/test_phase_4b_automation.sh --heartbeat-only` runs bounded real-orchestrator fixtures for approval, changes requested, refusals `4/6/7/8/10`, blocked storage, killed owners and request-generation races (expected under one minute; each run capped at 30 seconds and adapter calls at three seconds). `tests/test_phase_4b_accounting.sh --identity-only` runs the subsecond producer/schema/legacy/totals/archive contract; adding `--fixtures /absolute/1589-identity-fixtures.json` exports mixed/duplicate/lifecycle/conflict/approval fixtures for #1590. The full accounting suite also runs this contract. Specification: [`specs/phase_4b_heartbeat.md`](../../specs/phase_4b_heartbeat.md).
+`tests/test_phase_4b_automation.sh --heartbeat-only` runs bounded real-orchestrator fixtures for approval, changes requested, refusals `4/6/7/8/10`, blocked storage, killed owners and request-generation races (expected to take about 80 seconds; each run capped at 30 seconds and adapter calls at three seconds). `tests/test_phase_4b_accounting.sh --identity-only` runs the subsecond producer/schema/legacy/totals/archive contract; adding `--fixtures /absolute/1589-identity-fixtures.json` exports mixed/duplicate/lifecycle/conflict/approval fixtures for #1590. The full accounting suite also runs this contract. The specification is `specs/phase_4b_heartbeat.md` in the mergepath repository, which does not propagate specs to consumers: <https://github.com/nathanjohnpayne/mergepath/blob/main/specs/phase_4b_heartbeat.md>.
 
 ## How it plugs in (no merge-gate changes)
 
@@ -316,8 +316,10 @@ printf 'verdict' > "$P4B_OFFLINE/diff.txt"
 CODEX_BIN=/path/to/fake-codex \
   MERGEPATH_REVIEW_FEEDBACK_ACCOUNTING_CMD=true \
   scripts/phase-4b-review.sh 123 --repo nathanjohnpayne/mergepath \
-    --author claude --head deadbeef --diff-file "$P4B_OFFLINE/diff.txt" --dry-run
+    --author claude --head deadbeef --diff-file "$P4B_OFFLINE/diff.txt" --dry-run --offline-diff
 ```
+
+`--offline-diff` is a preview-only path: it requires `--dry-run`, an explicit regular diff file and a display head. It freezes those bytes without a live tuple, Git fetch or transition query; its verdict has no postable input binding. The normal path still captures exact PR objects.
 
 `--dry-run` reads and validates the PR body, then performs selection + adapter
 dispatch + verdict validation, and prints the intended action without posting.
@@ -391,8 +393,8 @@ and does not refuse.
 |------|---------|
 | 0 | APPROVED — review posted (or would, under `--dry-run`) |
 | 1 | CHANGES_REQUESTED — posted; author addresses findings, then re-run |
-| 3 | usage / infrastructure error |
-| 4 | fell back to the manual handoff (adapter error, timeout, invalid verdict, head drift, or no adapter) |
+| 3 | usage/configuration error, missing jq or immutable-input integrity refusal; no manual handoff |
+| 4 | fell back to the manual handoff (unavailable reviewer CLI/schema/plan login, timeout or invalid verdict); immutable-input/head drift remains exit 3 |
 | 5 | automation disabled or `mode != local` — caller uses the manual handoff |
 | 6 | **held** (#814) — an enabled external provider has not reported on the reviewed head and no valid same-head terminal determination waives it. Nothing was posted and no handoff was rendered. An early hold records no loop; if a timeout generation changes only at the final pre-POST fence, its already-provisional loop is corrected to `not-posted` / fail-closed and any issues filed by that run are closed as superseded. Wait the `retry_after` seconds in the emitted JSON and re-run the same command, **from the same checkout**. Deliberately not `4`: every consumer of `4` reads it as a reviewer that will not answer, and `scripts/wave-audit.sh` proceeds fail-open on it. The wait is bounded by `coderabbit.max_wait_seconds` and escalates to `4` when exhausted — but elapsed time rides an advisory marker in `.mergepath/`, so an unwritable state dir or retries from different checkouts leave it at zero and the hold repeats without escalating. Not every hold clears by waiting either: `paused`, draft, and non-base-branch all read as not-yet and need the cause resolved. A **rate-limited** CodeRabbit is no longer a hold on its own account (#1178): the barrier cannot re-ask it and `--probe` cannot reach the polling retry, so the arm reports `coderabbit: "rate-limited"` and resolves against Codex — the barrier OPENS on a head-pinned Codex report (the run then proceeds to the adapter and exits on its verdict, so 0 or 1); HOLDS on this same exit 6 while Codex is `not-yet`, since that wait is on Codex and does clear by waiting (an exhausted bound then escalates naming the refusal, not the clock); and ESCALATES to exit 4 immediately when Codex is `waived` or disabled, because nothing has read the head. |
 | 7 | **feedback unaccounted** (#1000) — an inline, top-level review-body, or PR-level finding lacks disposition evidence. Before dispatch, no adapter ran; after posting, `review_posted: true` and `review_acknowledgment: "failed"` identify an approval whose acknowledgment needs repair without repeating the review. No handoff was rendered. Complete the named dispositions; do not route this status to manual fallback. |

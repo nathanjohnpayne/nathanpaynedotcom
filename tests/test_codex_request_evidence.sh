@@ -8,6 +8,7 @@ DIR=$(mktemp -d)
 trap 'rm -rf "$DIR"' EXIT
 mkdir -p "$DIR/scripts/workflow" "$DIR/bin"
 cp "$ROOT/scripts/codex-review-check.sh" "$DIR/scripts/"
+cp "$ROOT/scripts/workflow/resolve-codex-verdict-anchors.py" "$DIR/scripts/workflow/"
 ln -s "$ROOT/scripts/lib" "$DIR/scripts/lib"
 cat >"$DIR/policy.yml" <<'POLICY'
 author_identity: nathanjohnpayne
@@ -35,8 +36,8 @@ shift
 [ "${1:-}" != --paginate ] || shift
 printf '%s\n' "$1" >>"$CALLS"
 case "$1" in
-  repos/owner/repo/pulls/99) jq -cn --arg body "$PR_BODY" --arg author "$PR_AUTHOR" '{head:{sha:"abcdef0123456789"},user:{login:$author},body:$body,labels:[]}' ;;
-  repos/owner/repo/commits/*) echo '2026-09-14T00:00:00Z' ;;
+  repos/owner/repo/pulls/99) jq -cn --arg body "$PR_BODY" --arg author "$PR_AUTHOR" '{head:{sha:"abcdef0123456789000000000000000000000000"},user:{login:$author},body:$body,labels:[]}' ;;
+  repos/owner/repo/commits/*) [ "${TIMESTAMP_READS_FAIL:-0}" != 1 ] || exit 1; echo '2026-09-14T00:00:00Z' ;;
   repos/owner/repo/issues/99/comments)
     if [ -n "${COMMENTS_FAIL_FROM:-}" ] \
        && [ "$(grep -c '^repos/owner/repo/issues/99/comments$' "$CALLS")" -ge "$COMMENTS_FAIL_FROM" ]; then
@@ -47,7 +48,8 @@ case "$1" in
   repos/owner/repo/issues/comments/123/reactions) [ "$ACK_READ" != error ] || exit 1; cat "$FIXTURES/ack" ;;
   repos/owner/repo/issues/comments/124/reactions) echo '[]' ;;
   repos/owner/repo/issues/99/reactions) printf '%s\n' "$ISSUE_REACTIONS" ;;
-  repos/owner/repo/issues/99/timeline|repos/owner/repo/pulls/99/comments) echo '[]' ;;
+  repos/owner/repo/issues/99/timeline) [ "${TIMESTAMP_READS_FAIL:-0}" != 1 ] || exit 1; echo '[]' ;;
+  repos/owner/repo/pulls/99/comments) [ "${INLINE_COMMENTS_FAIL:-0}" != 1 ] || exit 1; printf '%s\n' "${INLINE_COMMENTS_JSON:-[]}" ;;
   graphql) echo '{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[],"pageInfo":{"hasNextPage":false}}}}}}' ;;
   *) echo "unexpected $*" >&2; exit 99 ;;
 esac
@@ -58,7 +60,7 @@ LATER_MENTION='{"id":124,"user":{"login":"nathanjohnpayne"},"created_at":"2026-0
 EYES='[{"user":{"login":"chatgpt-codex-connector[bot]"},"content":"eyes","created_at":"2026-09-14T00:02:00Z"}]'
 # shellcheck disable=SC2016 # Literal Markdown commit cell, not shell substitution.
 RUNNING='{"id":456,"user":{"login":"chatgpt-codex-connector[bot]"},"created_at":"2026-09-14T00:02:00Z","body":"<!-- codex-pull-request-review-summary -->\n| 📝 **Code Review** | **Running** | `abcdef0` | Manual |"}'
-REVIEW='[{"id":789,"user":{"login":"chatgpt-codex-connector[bot]"},"commit_id":"abcdef0123456789","submitted_at":"2026-09-14T00:02:00Z","state":"COMMENTED"}]'
+REVIEW='[{"id":789,"user":{"login":"chatgpt-codex-connector[bot]"},"commit_id":"abcdef0123456789000000000000000000000000","submitted_at":"2026-09-14T00:02:00Z","state":"COMMENTED"}]'
 PASS=0
 while IFS='|' read -r name comments ack reviews mode opted expected pattern reads; do
   case "$comments" in
@@ -77,7 +79,7 @@ while IFS='|' read -r name comments ack reviews mode opted expected pattern read
   case "$ack" in eyes) ack="$EYES" ;; foreign) ack="${EYES/chatgpt-codex-connector\[bot\]/someone}" ;; *) ack='[]' ;; esac
   case "$reviews" in
     review) reviews="$REVIEW" ;;
-    approved) reviews='[{"user":{"login":"nathanpayne-claude"},"state":"APPROVED","commit_id":"abcdef0123456789","submitted_at":"2026-09-14T00:02:00Z"}]' ;;
+    approved) reviews='[{"user":{"login":"nathanpayne-claude"},"state":"APPROVED","commit_id":"abcdef0123456789000000000000000000000000","submitted_at":"2026-09-14T00:02:00Z"}]' ;;
   esac
   printf '%s\n' "$comments" >"$DIR/comments"
   printf '%s\n' "$ack" >"$DIR/ack"
@@ -87,6 +89,11 @@ while IFS='|' read -r name comments ack reviews mode opted expected pattern read
   [ "$name" != unknown-budget ] || sed -i.bak 's/review_timeout_seconds:.*/review_timeout_seconds: unavailable/' "$DIR/policy.yml"
   [ "$name" != default-budgets ] || sed -i.bak '/review_timeout_seconds:/d; /ack_wait_seconds:/d' "$DIR/policy.yml"
   pr_body='Authoring-Agent: codex'; pr_author=nathanjohnpayne; issue_reactions='[]'
+  if [ "$name" = rerun ] || [ "$name" = terminal-unapproved ]; then
+    # An external contributor has no same-agent approval fallback. Preserve
+    # this diagnostic fixture's missing registered-reviewer approval.
+    pr_body=''; pr_author=contributor
+  fi
   if [ "$name" = thumbs-unapproved ]; then
     pr_body=''; pr_author=contributor; issue_reactions="${EYES/eyes/+1}"
   fi
@@ -194,7 +201,7 @@ _latest=$(crqe_latest_trigger_time '[{"id":1,"user":{"login":"nathanjohnpayne"},
 ! crqe_latest_trigger_time '[{"id":1,"user":{"login":"nathanjohnpayne"},"body":"@codex review"}]' nathanjohnpayne >/dev/null 2>&1 \
   || { echo 'FAIL: a qualifying request without created_at did not fail closed'; exit 1; }
 sed 's/allow_phase_4b_substitute: false/allow_phase_4b_substitute: true/' "$DIR/default-policy.yml" >"$DIR/substitute-policy.yml"
-SUB_APPROVAL='[{"user":{"login":"nathanpayne-codex"},"state":"APPROVED","commit_id":"abcdef0123456789","submitted_at":"2026-09-14T00:05:00Z"}]'
+SUB_APPROVAL='[{"user":{"login":"nathanpayne-codex"},"state":"APPROVED","commit_id":"abcdef0123456789000000000000000000000000","submitted_at":"2026-09-14T00:05:00Z"}]'
 while IFS='|' read -r name comments expected pattern; do
   printf '%s\n' "$comments" >"$DIR/comments"
   printf '%s\n' "$SUB_APPROVAL" >"$DIR/reviews"
@@ -224,12 +231,12 @@ CASES
 # was authorized under ([123]); #124 is outside it, so the approval must not
 # clear gate (c) although the request is OLDER than the approval.
 RACE_COMMENTS='[{"id":123,"user":{"login":"nathanjohnpayne"},"created_at":"2026-09-14T00:01:00Z","body":"@codex review"},{"id":124,"user":{"login":"nathanjohnpayne"},"created_at":"2026-09-14T00:04:00Z","body":"@codex review"}]'
-RACE_APPROVAL='[{"user":{"login":"nathanpayne-codex"},"state":"APPROVED","commit_id":"abcdef0123456789","submitted_at":"2026-09-14T00:05:00Z","body":"Automated Phase 4b review\n<!-- mergepath-p4b-request-generation: [123] -->"}]'
-COVERED_APPROVAL='[{"user":{"login":"nathanpayne-codex"},"state":"APPROVED","commit_id":"abcdef0123456789","submitted_at":"2026-09-14T00:05:00Z","body":"Automated Phase 4b review\n<!-- mergepath-p4b-request-generation: [123,124] -->"}]'
+RACE_APPROVAL='[{"user":{"login":"nathanpayne-codex"},"state":"APPROVED","commit_id":"abcdef0123456789000000000000000000000000","submitted_at":"2026-09-14T00:05:00Z","body":"Automated Phase 4b review\n<!-- mergepath-p4b-request-generation: [123] -->"}]'
+COVERED_APPROVAL='[{"user":{"login":"nathanpayne-codex"},"state":"APPROVED","commit_id":"abcdef0123456789000000000000000000000000","submitted_at":"2026-09-14T00:05:00Z","body":"Automated Phase 4b review\n<!-- mergepath-p4b-request-generation: [123,124] -->"}]'
 # Two markers (e.g. a writer record plus a copy in reviewer-controlled text)
 # are ambiguous: fail closed rather than trust either (Codex on #1599 round 4).
-DUP_RECORD_APPROVAL='[{"user":{"login":"nathanpayne-codex"},"state":"APPROVED","commit_id":"abcdef0123456789","submitted_at":"2026-09-14T00:05:00Z","body":"<!-- mergepath-p4b-request-generation: [123,124] -->\n<!-- mergepath-p4b-request-generation: [123,124] -->"}]'
-INVALID_RECORD_APPROVAL='[{"user":{"login":"nathanpayne-codex"},"state":"APPROVED","commit_id":"abcdef0123456789","submitted_at":"2026-09-14T00:05:00Z","body":"Automated Phase 4b review\n<!-- mergepath-p4b-request-generation: [123,\"x\"] -->"}]'
+DUP_RECORD_APPROVAL='[{"user":{"login":"nathanpayne-codex"},"state":"APPROVED","commit_id":"abcdef0123456789000000000000000000000000","submitted_at":"2026-09-14T00:05:00Z","body":"<!-- mergepath-p4b-request-generation: [123,124] -->\n<!-- mergepath-p4b-request-generation: [123,124] -->"}]'
+INVALID_RECORD_APPROVAL='[{"user":{"login":"nathanpayne-codex"},"state":"APPROVED","commit_id":"abcdef0123456789000000000000000000000000","submitted_at":"2026-09-14T00:05:00Z","body":"Automated Phase 4b review\n<!-- mergepath-p4b-request-generation: [123,\"x\"] -->"}]'
 while IFS='|' read -r name reviews expected pattern; do
   printf '%s\n' "$RACE_COMMENTS" >"$DIR/comments"
   printf '%s\n' "$reviews" >"$DIR/reviews"
@@ -273,18 +280,18 @@ echo "PASS: #1598 reread-fails"
 # request Codex has not answered. Otherwise the earlier clearance supplies
 # gate (c) while a stale Phase 4b approval (recorded generation [123], new
 # request #124 landing during final accounting) supplies gate (b). Each
-# clearance form is covered: a clean COMMENTED review, a thumbs-up reaction,
+# anchored clearance forms are covered; unanchored thumbs never clear,
 # an affirmative verdict comment and a carried-forward verdict. Codex
 # answering the newer request (a later review) clears again.
 SUP_REQ123='{"id":123,"user":{"login":"nathanjohnpayne"},"created_at":"2026-09-14T00:01:00Z","body":"@codex review"}'
 SUP_REQ124='{"id":124,"user":{"login":"nathanjohnpayne"},"created_at":"2026-09-14T00:04:00Z","body":"@codex review"}'
-SUP_VERDICT='{"id":130,"user":{"login":"chatgpt-codex-connector[bot]"},"created_at":"2026-09-14T00:02:00Z","body":"Codex Review: Didn'"'"'t find any major issues.\n\nReviewed commit: `abcdef0`"}'
-SUP_STALE_4B='{"user":{"login":"nathanpayne-codex"},"state":"APPROVED","commit_id":"abcdef0123456789","submitted_at":"2026-09-14T00:05:00Z","body":"<!-- mergepath-p4b-request-generation: [123] -->"}'
-SUP_CODEX_REVIEW='{"id":789,"user":{"login":"chatgpt-codex-connector[bot]"},"commit_id":"abcdef0123456789","submitted_at":"2026-09-14T00:02:00Z","state":"COMMENTED","body":""}'
-SUP_CODEX_REVIEW_LATER='{"id":790,"user":{"login":"chatgpt-codex-connector[bot]"},"commit_id":"abcdef0123456789","submitted_at":"2026-09-14T00:07:00Z","state":"COMMENTED","body":""}'
+SUP_VERDICT='{"id":130,"user":{"login":"chatgpt-codex-connector[bot]"},"created_at":"2026-09-14T00:02:00Z","body":"Codex Review: Didn'"'"'t find any major issues.\n\nReviewed commit: `abcdef0123456789000000000000000000000000`"}'
+SUP_STALE_4B='{"user":{"login":"nathanpayne-codex"},"state":"APPROVED","commit_id":"abcdef0123456789000000000000000000000000","submitted_at":"2026-09-14T00:05:00Z","body":"<!-- mergepath-p4b-request-generation: [123] -->"}'
+SUP_CODEX_REVIEW='{"id":789,"user":{"login":"chatgpt-codex-connector[bot]"},"commit_id":"abcdef0123456789000000000000000000000000","submitted_at":"2026-09-14T00:02:00Z","state":"COMMENTED","body":""}'
+SUP_CODEX_REVIEW_LATER='{"id":790,"user":{"login":"chatgpt-codex-connector[bot]"},"commit_id":"abcdef0123456789000000000000000000000000","submitted_at":"2026-09-14T00:07:00Z","state":"COMMENTED","body":""}'
 SUP_THUMBS='[{"user":{"login":"chatgpt-codex-connector[bot]"},"content":"+1","created_at":"2026-09-14T00:02:00Z"}]'
 SUP_THUMBS_LATER='[{"user":{"login":"chatgpt-codex-connector[bot]"},"content":"+1","created_at":"2026-09-14T00:02:00Z"},{"user":{"login":"chatgpt-codex-connector[bot]"},"content":"+1","created_at":"2026-09-14T00:07:00Z"}]'
-SUP_VERDICT_LATER='{"id":131,"user":{"login":"chatgpt-codex-connector[bot]"},"created_at":"2026-09-14T00:07:00Z","body":"Codex Review: Didn'"'"'t find any major issues.\n\nReviewed commit: `abcdef0`"}'
+SUP_VERDICT_LATER='{"id":131,"user":{"login":"chatgpt-codex-connector[bot]"},"created_at":"2026-09-14T00:07:00Z","body":"Codex Review: Didn'"'"'t find any major issues.\n\nReviewed commit: `abcdef0123456789000000000000000000000000`"}'
 SUP_REQ_NO_TIME='{"id":125,"user":{"login":"nathanjohnpayne"},"body":"@codex review"}'
 while IFS='|' read -r name comments reviews reactions carry expected pattern; do
   printf '%s\n' "$comments" >"$DIR/comments"
@@ -303,14 +310,14 @@ while IFS='|' read -r name comments reviews reactions carry expected pattern; do
   echo "PASS: #1598 $name"
 done <<CASES
 review-then-newer-request|[$SUP_REQ123,$SUP_REQ124]|[$SUP_CODEX_REVIEW,$SUP_STALE_4B]|[]||1|Codex clearance @ 2026-09-14T00:02:00Z is superseded
-thumbs-then-newer-request|[$SUP_REQ123,$SUP_REQ124]|[$SUP_STALE_4B]|$SUP_THUMBS||1|Codex clearance @ 2026-09-14T00:02:00Z is superseded
+thumbs-then-newer-request|[$SUP_REQ123,$SUP_REQ124]|[$SUP_STALE_4B]|$SUP_THUMBS||1|Codex has not cleared current HEAD
 verdict-then-newer-request|[$SUP_REQ123,$SUP_VERDICT,$SUP_REQ124]|[$SUP_STALE_4B]|[]||1|Codex clearance @ 2026-09-14T00:02:00Z is superseded
 carry-then-newer-request|[$SUP_REQ123,$SUP_REQ124]|[$SUP_STALE_4B]|[]|{"carried":true,"source_time":"2026-09-14T00:02:00Z","source_commit":"oldhead","fingerprint":"same"}|1|Codex clearance @ 2026-09-14T00:02:00Z is superseded
 review-older-request-still-clears|[$SUP_REQ123]|[$SUP_CODEX_REVIEW,$SUP_STALE_4B]|[]||0|latest Codex signal is COMMENTED review @ 2026-09-14T00:02:00Z
 codex-answers-newer-request|[$SUP_REQ123,$SUP_REQ124]|[$SUP_CODEX_REVIEW,$SUP_STALE_4B,$SUP_CODEX_REVIEW_LATER]|[]||0|latest Codex signal is COMMENTED review @ 2026-09-14T00:07:00Z
-thumbs-older-request-still-clears|[$SUP_REQ123]|[$SUP_STALE_4B]|$SUP_THUMBS||0|latest Codex signal is 👍 reaction @ 2026-09-14T00:02:00Z
+prior-head-thumbs-do-not-clear-backdated-push|[$SUP_REQ123,$SUP_REQ124]|[$SUP_STALE_4B]|$SUP_THUMBS||1|no eligible current-head review or verdict
 verdict-older-request-still-clears|[$SUP_REQ123,$SUP_VERDICT]|[$SUP_STALE_4B]|[]||0|AFFIRMATIVE verdict comment @ 2026-09-14T00:02:00Z
-codex-thumbs-answers-newer-request|[$SUP_REQ123,$SUP_REQ124]|[$SUP_STALE_4B]|$SUP_THUMBS_LATER||0|latest Codex signal is 👍 reaction @ 2026-09-14T00:07:00Z
+codex-thumbs-cannot-answer-newer-request|[$SUP_REQ123,$SUP_REQ124]|[$SUP_STALE_4B]|$SUP_THUMBS_LATER||1|Codex has not cleared current HEAD
 codex-verdict-answers-newer-request|[$SUP_REQ123,$SUP_VERDICT,$SUP_REQ124,$SUP_VERDICT_LATER]|[$SUP_STALE_4B]|[]||0|AFFIRMATIVE verdict comment @ 2026-09-14T00:07:00Z
 codex-clearance-request-without-timestamp|[$SUP_REQ123,$SUP_REQ_NO_TIME]|[$SUP_CODEX_REVIEW,$SUP_STALE_4B]|[]||1|Codex clearance @ 2026-09-14T00:02:00Z is superseded: Codex request evidence unreadable
 CASES
@@ -346,5 +353,171 @@ if [ "$rc" != 0 ] || ! grep -q 'cleared — Phase 4b substitute' "$DIR/out"; the
 fi
 PASS=$((PASS + 1))
 echo "PASS: #1598 codex-disabled"
+
+# #1752: negative ambiguous anchors remain ordering observations, but must
+# never tell a diagnostic caller that the current head was reviewed.
+for anchor in missing prefix malformed conflicting exact; do
+  case "$anchor" in
+    missing) field='' ;;
+    prefix) field='Reviewed commit: abcdef0' ;;
+    malformed) field='Reviewed commit: abcdef0123456789000000000000000000000000.trailing' ;;
+    conflicting) field=$'Reviewed commit: abcdef0123456789000000000000000000000000\nReviewed commit: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' ;;
+    exact) field='Reviewed commit: abcdef0123456789000000000000000000000000' ;;
+  esac
+  jq -cn --arg field "$field" '[{user:{login:"chatgpt-codex-connector[bot]"},created_at:"2026-09-14T00:02:00Z",body:("Codex Review: Found issues\n" + $field)}]' > "$DIR/comments"
+  printf '[]\n' > "$DIR/reviews"
+  : > "$DIR/calls"
+  rc=0
+  PATH="$DIR/bin:$PATH" GH_TOKEN=stub FIXTURES="$DIR" CALLS="$DIR/calls" ACK_READ=diagnostic-anchor \
+    PR_BODY='' PR_AUTHOR=nathanjohnpayne ISSUE_REACTIONS='[]' \
+    MERGEPATH_REVIEW_POLICY_PATH="$DIR/policy.yml" \
+    bash "$DIR/scripts/codex-review-check.sh" --diagnostic-signal-only 99 owner/repo > "$DIR/out" 2>&1 || rc=$?
+  if { [ "$anchor" = exact ] && [ "$rc" != 0 ]; } || { [ "$anchor" != exact ] && [ "$rc" = 0 ]; }; then
+    cat "$DIR/out"; echo "FAIL diagnostic $anchor rc=$rc"; exit 1
+  fi
+  PASS=$((PASS + 1)); echo "PASS: diagnostic anchor $anchor"
+done
+
+# Resolver infrastructure errors must never look like an account-block waiver.
+mv "$DIR/scripts/workflow/resolve-codex-verdict-anchors.py" "$DIR/resolver.saved"
+for mode in '' --diagnostic-signal-only --approval-readiness-only; do
+  rc=0
+  PATH="$DIR/bin:$PATH" GH_TOKEN=stub FIXTURES="$DIR" CALLS="$DIR/calls" ACK_READ=diagnostic-anchor \
+    PR_BODY='' PR_AUTHOR=nathanjohnpayne ISSUE_REACTIONS='[]' \
+    MERGEPATH_REVIEW_POLICY_PATH="$DIR/policy.yml" \
+    bash "$DIR/scripts/codex-review-check.sh" ${mode:+"$mode"} 99 owner/repo > "$DIR/out" 2>&1 || rc=$?
+  if [ "$rc" != 3 ]; then
+    cat "$DIR/out"; echo "FAIL resolver infrastructure $mode rc=$rc"; exit 1
+  fi
+  PASS=$((PASS + 1)); echo "PASS: resolver infrastructure ${mode:-normal}"
+done
+mv "$DIR/resolver.saved" "$DIR/scripts/workflow/resolve-codex-verdict-anchors.py"
+
+# Large provider history must travel over stdin, not the OS argument vector.
+eval "$(sed -n '/^crc_select_head_review()/,/^}/p' "$ROOT/scripts/codex-review-check.sh")"
+large_comments=$(python3 - <<'PYDATA'
+import json
+print(json.dumps([{'pull_request_review_id':789,'user':{'login':'chatgpt-codex-connector[bot]'},'body':'x'*262144}]))
+PYDATA
+)
+selected=$(crc_select_head_review "$REVIEW" 'chatgpt-codex-connector[bot]' 'abcdef0123456789000000000000000000000000' "$large_comments")
+[ "$(printf '%s\n' "$selected" | jq -r '.id')" = 789 ]
+PASS=$((PASS + 1))
+echo "PASS: large inline history does not exceed the jq argument limit"
+
+# Exercise the complete production requester scan, including its final emitter.
+# A large finding must survive both selection and JSON assembly intact.
+eval "$(sed -n '/^scan_codex_state() {/,/^}/p' "$ROOT/scripts/codex-review-request.sh")"
+python3 - "$DIR" <<'PYDATA'
+import json, pathlib, sys
+root = pathlib.Path(sys.argv[1])
+bot = {'login': 'chatgpt-codex-connector[bot]'}
+root.joinpath('scan-reviews').write_text(json.dumps([{
+    'id': 789, 'user': bot, 'commit_id': 'abcdef0123456789000000000000000000000000',
+    'submitted_at': '2026-09-14T00:02:00Z', 'state': 'COMMENTED', 'body': 'y' * 262144,
+}]))
+root.joinpath('scan-inline').write_text(json.dumps([{
+    'id': 790, 'pull_request_review_id': 789, 'user': bot,
+    'body': '**P2 ' + 'x' * 262144, 'path': 'fixture.sh', 'line': 1,
+}]))
+PYDATA
+fetch_scan_array() {
+  case "$2" in
+    reviews) cat "$DIR/scan-reviews" ;;
+    'inline comments') cat "$DIR/scan-inline" ;;
+    'issue comments') printf '[]\n' ;;
+    *) return 3 ;;
+  esac
+}
+export BOT_LOGIN='chatgpt-codex-connector[bot]'
+export HEAD_SHA='abcdef0123456789000000000000000000000000'
+export REPO=owner/repo PR_NUMBER=99 REQUIRED_TIERS_JSON='["p0","p1"]'
+export CODEX_FAILURE_MARKERS_OK=false
+scan_codex_state >"$DIR/large-scan"
+jq -e '.review.id == 789 and (.review.body | length) == 262144
+  and (.findings | length) == 1 and (.findings[0].body | length) == 262149
+  and .findings[0].blocking == false' "$DIR/large-scan" >/dev/null
+PASS=$((PASS + 1))
+echo "PASS: requester scans and emits large review and finding bodies over stdin"
+
+# Disabled Codex and approval-readiness paths do not depend on Codex inline reads.
+printf '%s\n' "$SUB_APPROVAL" >"$DIR/reviews"
+printf '[]\n' >"$DIR/comments"
+for mode in disabled readiness; do
+  policy="$DIR/substitute-disabled-policy.yml"
+  flag=''
+  if [ "$mode" = readiness ]; then policy="$DIR/substitute-policy.yml"; flag=--approval-readiness-only; fi
+  : >"$DIR/calls"
+  timestamp_reads_fail=0
+  [ "$mode" != readiness ] || timestamp_reads_fail=1
+  rc=0
+  PATH="$DIR/bin:$PATH" GH_TOKEN=stub FIXTURES="$DIR" CALLS="$DIR/calls" ACK_READ=no-inline \
+    TIMESTAMP_READS_FAIL="$timestamp_reads_fail" INLINE_COMMENTS_FAIL=1 PR_BODY='Authoring-Agent: claude' PR_AUTHOR=nathanjohnpayne ISSUE_REACTIONS='[]' \
+    MERGEPATH_REVIEW_POLICY_PATH="$policy" \
+    bash "$DIR/scripts/codex-review-check.sh" ${flag:+"$flag"} 99 owner/repo > "$DIR/out" 2>&1 || rc=$?
+  if [ "$rc" != 0 ] || grep -q '^repos/owner/repo/pulls/99/comments$' "$DIR/calls"; then
+    cat "$DIR/out"; echo "FAIL $mode depends on irrelevant inline reads rc=$rc"; exit 1
+  fi
+  if [ "$mode" = readiness ] && grep -Eq '^repos/owner/repo/(commits/|issues/99/timeline$)' "$DIR/calls"; then
+    cat "$DIR/calls"; echo 'FAIL readiness depends on timestamp-only reads'; exit 1
+  fi
+  PASS=$((PASS + 1)); echo "PASS: $mode skips irrelevant API reads"
+done
+
+# Exercise the production requester clearance decision on the same provider
+# fixtures as gate (b), rather than copying either jq predicate (#1543).
+eval "$(sed -n '/^has_cleared_signal()/,/^}/p' "$ROOT/scripts/codex-review-request.sh")"
+# A findings-bearing review is not an affirmative approval substitute,
+# even after the author replies; discretionary findings still allow it.
+printf '[]\n' >"$DIR/comments"
+for shape in badge text review-body; do
+for tier in P0 P1 P2; do
+  finding="![${tier} Badge] finding"
+  [ "$shape" = badge ] || finding="**$tier finding**"
+  printf '%s\n' "$REVIEW" >"$DIR/reviews"
+  inline=$(jq -cn --arg finding "$finding" '[{id:5001,pull_request_review_id:789,user:{login:"chatgpt-codex-connector[bot]"},body:$finding},{id:5002,pull_request_review_id:789,in_reply_to_id:5001,user:{login:"nathanpayne-codex"},body:"Rebutted and resolved."}]')
+  if [ "$shape" = review-body ]; then
+    printf '%s\n' "$REVIEW" | jq --arg finding "$finding" '.[0].body=$finding' >"$DIR/reviews"
+    inline='[]'
+  fi
+  expected=1; [ "$tier" != P2 ] || expected=0
+  : >"$DIR/calls"; rc=0
+  PATH="$DIR/bin:$PATH" GH_TOKEN=stub FIXTURES="$DIR" CALLS="$DIR/calls" ACK_READ=blocking-roots \
+    INLINE_COMMENTS_JSON="$inline" PR_BODY='Authoring-Agent: codex' PR_AUTHOR=nathanjohnpayne ISSUE_REACTIONS='[]' \
+    MERGEPATH_REVIEW_POLICY_PATH="$DIR/default-policy.yml" \
+    bash "$DIR/scripts/codex-review-check.sh" 99 owner/repo >"$DIR/out" 2>&1 || rc=$?
+  if [ "$rc" != "$expected" ]; then cat "$DIR/out"; echo "FAIL $shape $tier approval substitute rc=$rc"; exit 1; fi
+  if [ "$tier" != P2 ] && ! grep -q 'no reviewer identity' "$DIR/out"; then cat "$DIR/out"; exit 1; fi
+  cp "$DIR/reviews" "$DIR/scan-reviews"
+  printf '%s\n' "$inline" > "$DIR/scan-inline"
+  requester_cleared=false
+  if has_cleared_signal "$(scan_codex_state)"; then requester_cleared=true; fi
+  wanted_clearance=false; [ "$tier" != P2 ] || wanted_clearance=true
+  if [ "$requester_cleared" != "$wanted_clearance" ]; then
+    echo "FAIL requester/checker disagreement on $shape $tier"; exit 1
+  fi
+  PASS=$((PASS + 1)); echo "PASS: $shape $tier approval-substitute boundary"
+done
+done
+
+# A reply-only wrapper on the exact head must leave both paths un-cleared.
+printf '%s\n' "$REVIEW" > "$DIR/reviews"
+reply_only='[{"id":5003,"pull_request_review_id":789,"in_reply_to_id":5001,"user":{"login":"chatgpt-codex-connector[bot]"},"body":"Review Result: Verified commit abcdef0 resolves the reported issue."}]'
+printf '%s\n' "$reply_only" > "$DIR/scan-inline"
+cp "$DIR/reviews" "$DIR/scan-reviews"
+reply_scan=$(scan_codex_state)
+if [ "$(printf '%s' "$reply_scan" | jq -r '.review == null')" != true ] \
+   || has_cleared_signal "$reply_scan"; then
+  echo 'FAIL threaded reply alone suppressed a needed requester trigger'; exit 1
+fi
+rc=0
+PATH="$DIR/bin:$PATH" GH_TOKEN=stub FIXTURES="$DIR" CALLS="$DIR/calls" ACK_READ=blocking-roots \
+  INLINE_COMMENTS_JSON="$reply_only" PR_BODY='Authoring-Agent: codex' PR_AUTHOR=nathanjohnpayne ISSUE_REACTIONS='[]' \
+  MERGEPATH_REVIEW_POLICY_PATH="$DIR/default-policy.yml" \
+  bash "$DIR/scripts/codex-review-check.sh" 99 owner/repo >"$DIR/out" 2>&1 || rc=$?
+if [ "$rc" != 1 ] || ! grep -q 'no reviewer identity' "$DIR/out"; then
+  cat "$DIR/out"; echo "FAIL reply-only checker status rc=$rc"; exit 1
+fi
+PASS=$((PASS + 1)); echo 'PASS: requester and checker reject threaded-reply-only clearance'
 
 echo "test_codex_request_evidence: $PASS blocked/query cases and carry-forward success passed"
