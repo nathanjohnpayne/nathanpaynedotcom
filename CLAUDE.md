@@ -71,7 +71,8 @@ explicitly authorizes a break-glass override in chat.
 
 9. Check `.github/review-policy.yml` for the external review threshold.
    If the PR does NOT meet it (lines changed < `external_review_threshold`
-   AND no file matches `external_review_paths`), merge as nathanjohnpayne.
+   AND no file matches `external_review_paths`), merge as nathanjohnpayne
+   per REVIEW_POLICY.md step 9 (head-pinned, same rule as step 17a).
    Done.
 
 10. If the PR meets the threshold, it enters Phase 4 external review.
@@ -133,13 +134,13 @@ explicitly authorizes a break-glass override in chat.
       and gate (c) cleared by Codex or a Phase 4b substitute review. The
       merge gate does NOT require an `APPROVED` review state from the
       Codex bot—the app never emits one. If the gate passes, merge as
-      nathanjohnpayne with
-      `gh pr merge --squash --delete-branch`.
+      nathanjohnpayne per REVIEW_POLICY.md step 17a (head-pinned merge
+      command and the outstanding-reviewer-disagreement rule).
 
    **Phase 4b—External review fallback.** Applies when Phase 4a is unavailable (`codex.enabled: false`, either helper script missing, Codex App not review-ready) or timed out (4a exit code `4`). Phase 4a disagreement and runaway do NOT come here—they stop and go to the human per REVIEW_POLICY.md § Disagreements and Tiebreaking. Canonical steps: REVIEW_POLICY.md § Phase 4b.
 
    a. **Automated Phase 4b—do this first.** When `.github/review-policy.yml` has `phase_4b_automation.enabled: true` and `mode: local` (it does in this repo), do NOT post the manual handoff—run `scripts/phase-4b-review.sh <PR#> --repo <owner/repo>` yourself, **from a trusted `main`-ref checkout, never from the checkout of the PR under review** (mergepath#628): the PR is passed by number and its diff is reviewed as data, so a PR that edits the phase-4b scripts, the adapters, or `gh-as-reviewer.sh` cannot shape its own verdict. It selects an external reviewer whose agent differs from the authoring agent, runs that reviewer's headless CLI over the diff, and posts `APPROVED` or `CHANGES_REQUESTED` under the reviewer identity via `scripts/gh-as-reviewer.sh`, pinned to the reviewed HEAD.
-      - Exit `0`—`APPROVED` posted. Verify the merge gate, then merge as nathanjohnpayne. Run `scripts/codex-review-check.sh <PR#>` when that helper is on disk; when it is not (a missing Phase 4a helper is itself one of the conditions that routes a PR to 4b), check the same gate conditions by hand: CI green, gate (b), and gate (c) satisfied by this Phase 4b `APPROVED` pinned to the current HEAD. The gate conditions are the authority; the check script is one way to evaluate them, not a precondition for merging (REVIEW_POLICY.md § Phase 4b). If the verdict carried discretionary findings and `post_review_issues: true`, the orchestrator already filed the step 11 issues and linked them in the approval body—do not file them again.
+      - Exit `0`—`APPROVED` posted. Verify the merge gate, then merge as nathanjohnpayne per REVIEW_POLICY.md step 19b. Run `scripts/codex-review-check.sh <PR#>` when that helper is on disk; when it is not (a missing Phase 4a helper is itself one of the conditions that routes a PR to 4b), check the same gate conditions by hand: CI green, gate (b), and gate (c) satisfied by this Phase 4b `APPROVED` pinned to the current HEAD. The gate conditions are the authority; the check script is one way to evaluate them, not a precondition for merging (REVIEW_POLICY.md § Phase 4b). If the verdict carried discretionary findings and `post_review_issues: true`, the orchestrator already filed the step 11 issues and linked them in the approval body—do not file them again.
       - Exit `1`—`CHANGES_REQUESTED` posted. That is a completed review round, not a failure: address the findings as nathanjohnpayne, push fix commits, and rerun. One adapter pass per invocation, so cap the loop at `phase_4b_automation.max_review_rounds`. On exhausting the cap, stop: do not rerun, do not post the manual handoff, do not merge. Escalate to the human per REVIEW_POLICY.md § Disagreements and Tiebreaking, exactly as Phase 4a does for runaway.
       - Any OTHER non-zero exit (config or infrastructure error, fail-closed manual fallback, automation disabled) drops to the manual handoff below, as does the absence of `scripts/phase-4b-review.sh` from disk.
 
@@ -149,7 +150,7 @@ explicitly authorizes a break-glass override in chat.
       3. Address feedback via the usual nathanjohnpayne commit loop.
       4. Wait for the external reviewer identity to post an `APPROVED` review.
       5. If the external reviewer flags observations or risks, file the post-merge GitHub Issues per step 11 below.
-      6. Merge as nathanjohnpayne.
+      6. Merge as nathanjohnpayne per REVIEW_POLICY.md step 19b.
 
 10. Never use `--admin` to merge unless the human explicitly authorizes it
     in chat as a break-glass exception. The hook will block it otherwise.
