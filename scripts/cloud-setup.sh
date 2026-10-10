@@ -24,10 +24,9 @@
 # `yq` is installed the same way, from the mikefarah/yq release binary, at the
 # version the repo's CI actually runs: the GitHub runner's preinstalled yq
 # (v4.53.6 in repo-lint run 37160023472), which scripts/lib/ensure-yq.sh keeps
-# because it installs only when no mikefarah/yq is present. Its own pin
-# (v4.44.3) is older than the checks need: v4.44.3 does not expand "\t" in a
-# string concatenation, so check_sync_manifest and the
-# resolve-pr-threads/doc-ownership suites fail under it. The hashes below were
+# because it installs only when no mikefarah/yq is present. Older yq
+# releases do not expand "\t" in a string concatenation, so check_sync_manifest and the resolve-pr-threads/doc-ownership suites
+# require this minimum. The hashes below were
 # taken from the release's checksums file and the downloaded binaries; they
 # still need the same GitHub API asset-digest cross-check the gh pins had.
 #
@@ -40,15 +39,18 @@
 #                          whatever its version.
 #   MERGEPATH_GH_SHA256    the tarball's SHA-256; required when
 #                          MERGEPATH_GH_VERSION names a version not pinned here.
-#   MERGEPATH_YQ_VERSION   mikefarah/yq release to install when yq is absent
-#                          or is not mikefarah/yq v4 (default below)
+#   MERGEPATH_YQ_VERSION   mikefarah/yq release to install when yq is absent,
+#                          is not mikefarah/yq v4, or is older than
+#                          YQ_MIN_VERSION (default below)
 #   MERGEPATH_YQ_SHA256    the binary's SHA-256; required when
 #                          MERGEPATH_YQ_VERSION names a version not pinned here.
 #   MERGEPATH_TOOL_PREFIX  install prefix; the binary goes to <prefix>/bin
 #                          (default /usr/local when writable, else ~/.local)
 #
 # Exit codes:
-#   0  every required tool is present (installed now or already)
+#   0  every required tool is present (installed now or already); with
+#      --dry-run, every missing or too-old tool has a planned install, and
+#      nothing is installed or replaced
 #   1  a tool could not be installed or verified
 #
 # Bash 3.2 portable. Needs curl, tar and a SHA-256 tool (sha256sum or shasum)
@@ -219,9 +221,44 @@ is_mikefarah_yq() { # <path>
   return 1
 }
 
+# The oldest mikefarah/yq the repository checks pass under. An older v4 on
+# PATH is replaced, not kept: it breaks the checks named at the top of this script.
+YQ_MIN_VERSION="v4.53.6"
+
+# Succeeds when <have> is at least <want>; both are [v]MAJOR.MINOR.PATCH,
+# compared field by field as numbers (v4.100.0 is newer than v4.53.6). A
+# version of any other shape fails.
+version_at_least() { # <have> <want>
+  local h1 h2 h3 w1 w2 w3 v
+  for v in "${1#v}" "${2#v}"; do
+    case "$v" in
+      *[!0-9.]*|.*|*.|*..*|*.*.*.*) return 1 ;;
+      *.*.*) ;;
+      *) return 1 ;;
+    esac
+  done
+  v="${1#v}"; h1="${v%%.*}"; v="${v#*.}"; h2="${v%%.*}"; h3="${v#*.}"
+  v="${2#v}"; w1="${v%%.*}"; v="${v#*.}"; w2="${v%%.*}"; w3="${v#*.}"
+  if [ "$h1" -ne "$w1" ]; then [ "$h1" -gt "$w1" ]; return; fi
+  if [ "$h2" -ne "$w2" ]; then [ "$h2" -gt "$w2" ]; return; fi
+  [ "$h3" -ge "$w3" ]
+}
+
+# mikefarah/yq v4 at YQ_MIN_VERSION or later.
+yq_meets_minimum() { # <path>
+  local v
+  is_mikefarah_yq "$1" || return 1
+  v="$("$1" --version 2>/dev/null)" || return 1
+  v="${v##*version v}"
+  v="${v%%[[:space:]]*}"
+  # A prerelease or any other suffix (v4.53.6-rc1) is not the stable minimum.
+  case "$v" in ''|*[!0-9.]*) return 1 ;; esac
+  version_at_least "$v" "$YQ_MIN_VERSION"
+}
+
 install_yq() {
   local arch asset base tmp expected actual prefix
-  [ "$(uname -s)" = "Linux" ] || { log "yq (mikefarah/yq v4) is missing on $(uname -s); install it with the platform's package manager (brew install yq)"; return 1; }
+  [ "$(uname -s)" = "Linux" ] || { log "yq (mikefarah/yq $YQ_MIN_VERSION or later) is missing on $(uname -s); install it with the platform's package manager (brew install yq)"; return 1; }
   case "$(uname -m)" in
     x86_64|amd64) arch=amd64 ;;
     aarch64|arm64) arch=arm64 ;;
@@ -258,7 +295,7 @@ install_yq() {
   mkdir -p "$prefix/bin" || { log "could not create $prefix/bin"; return 1; }
   cp "$tmp/$asset" "$prefix/bin/yq" || { log "could not copy yq into $prefix/bin"; return 1; }
   chmod 755 "$prefix/bin/yq" || { log "could not make $prefix/bin/yq executable"; return 1; }
-  is_mikefarah_yq "$prefix/bin/yq" || { log "$prefix/bin/yq does not run as mikefarah/yq v4 (yq --version failed or named another program)"; return 1; }
+  yq_meets_minimum "$prefix/bin/yq" || { log "$prefix/bin/yq does not run as mikefarah/yq v4 at $YQ_MIN_VERSION or later (yq --version failed, named another program, or an older version)"; return 1; }
   log "installed yq $YQ_VERSION to $prefix/bin/yq (sha256 verified)"
   resolves_to_installed yq "$prefix"
 }
@@ -310,8 +347,11 @@ fi
 if command -v yq >/dev/null 2>&1; then
   if ! resolves_absolutely yq; then
     status=1
-  elif is_mikefarah_yq "$(command -v yq)"; then
+  elif yq_meets_minimum "$(command -v yq)"; then
     log "yq present: $(yq --version 2>/dev/null)"
+  elif is_mikefarah_yq "$(command -v yq)"; then
+    log "yq on PATH ($(command -v yq)) is older than mikefarah/yq $YQ_MIN_VERSION, which the repository checks need ($(yq --version 2>&1 | head -1)); installing the pinned mikefarah/yq ahead of it"
+    install_yq || status=1
   else
     log "yq on PATH ($(command -v yq)) is not mikefarah/yq v4 ($(yq --version 2>&1 | head -1)); installing the pinned mikefarah/yq ahead of it"
     install_yq || status=1
