@@ -102,9 +102,10 @@ const POSTHOG_GUARD =
 const GA4_GUARD =
   /^\s*if \(gate && gate\.boot\.effective === 'granted' && privacy\.get\(\)\.effective === 'granted'\) \{/m;
 
-// Case-insensitive, and tolerant of whitespace before the closing `>`, so an
-// uppercase or spaced script tag cannot slip past the structure check.
-const SCRIPT_RE = /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi;
+// Case-insensitive, and the end tag may carry anything up to its `>` (as
+// browsers accept `</script foo>`), so no spelling of a script tag can slip
+// past the structure check.
+const SCRIPT_RE = /<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi;
 const URL_ATTR_RE =
   /\s(?:src|href|srcset|data|action|formaction|poster|ping|content)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
 const SCRIPT_ATTR_RE = /\b(src|async|defer|type)\s*=/;
