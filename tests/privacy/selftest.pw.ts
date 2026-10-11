@@ -11,7 +11,9 @@ import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { REPO_ROOT } from './harness/constants';
 import {
+  canonicalJson,
   gtagConfigFindings,
+  gtagConfigFingerprint,
   gtagEmbeddedTags,
   gtagProvenance,
   loadManifest,
@@ -75,43 +77,127 @@ test.describe('fixtures manifest agrees with the production record', () => {
     }
   });
 
-  test('PRIV-1 the recorded gtag.js production capture equals the inventory (the tested variant is the first hash in its row)', () => {
-    const recorded = hashesIn(rowFor(section, '`gtag.js`'));
-    expect(manifest.gtag.production.sha256).toMatch(/^[0-9a-f]{64}$/);
-    expect(recorded[0], 'the tested variant').toBe(manifest.gtag.production.sha256);
+  test('PRIV-1 the recorded gtag.js configuration fingerprint equals the inventory (it is in the gtag.js row, with its capture date)', () => {
+    const row = rowFor(section, '`gtag.js`');
+    expect(manifest.gtag.production.configSha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(hashesIn(row), 'the fingerprint is the one hash the row records').toEqual([
+      manifest.gtag.production.configSha256,
+    ]);
     expect(manifest.gtag.production.capturedOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect(rowFor(section, '`gtag.js`')).toContain(manifest.gtag.production.capturedOn);
+    expect(row).toContain(manifest.gtag.production.capturedOn);
+  });
+});
+
+/** A gtag.js-shaped body around the given tags; `junk` stands in for the rotating bytes outside the configuration. */
+const gtagBody = (tagsJson: string, junk = ''): string =>
+  `${junk}var data = {\n\n"resource": {\n  "version":"2",\n  "tags":${tagsJson},\n  "rules":[[["if",0]]]\n}\n\n\n\n,"runtime":[\n[50,"__x"]]};${junk}`;
+
+test.describe('GA4 configuration fingerprint', () => {
+  type Tag = { function: string; [key: string]: unknown };
+  const clean: Tag[] = [
+    { function: '__ogt_auto_events', vtp_enableOutboundClick: true },
+    { function: '__ogt_1p_data_v2', vtp_isEnabled: false, vtp_isAutoCollectPiiEnabledFlag: true },
+    { function: '__ccd_em_page_view', vtp_historyEvents: true, vtp_nested: { b: [1, 2], a: null } },
+    { function: '__ccd_em_scroll' },
+    { function: '__ccd_auto_redact', vtp_redactEmail: true },
+  ];
+  const fingerprintOf = (js: string): string => gtagConfigFingerprint(gtagEmbeddedTags(js)!);
+
+  test('PRIV-2 (control) the fingerprint ignores key order and whitespace, and the bytes around the configuration', () => {
+    const compact = fingerprintOf(gtagBody(JSON.stringify(clean)));
+    // The same configuration, pretty-printed, with every object's keys in reverse order.
+    const reversed = (value: unknown): unknown =>
+      Array.isArray(value)
+        ? value.map(reversed)
+        : value && typeof value === 'object'
+          ? Object.fromEntries(
+              Object.entries(value)
+                .reverse()
+                .map(([k, v]) => [k, reversed(v)]),
+            )
+          : value;
+    const reordered = JSON.stringify(reversed(clean), null, 2);
+    expect(reordered).not.toBe(JSON.stringify(clean));
+    expect(fingerprintOf(gtagBody(reordered)), 'key order and whitespace').toBe(compact);
+    // Google's byte rotation: other bytes around the very same configuration.
+    expect(fingerprintOf(gtagBody(JSON.stringify(clean), '/* rotated build */ ')), 'rotation').toBe(
+      compact,
+    );
+    expect(canonicalJson({ b: 1, a: [{ d: 2, c: 3 }] })).toBe('{"a":[{"c":3,"d":2}],"b":1}');
+    expect(compact).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  test('PRIV-2 (control) a changed, added, removed, or reordered setting changes the fingerprint', () => {
+    const changed = (mutate: (tags: Tag[]) => void): string => {
+      const copy = structuredClone(clean);
+      mutate(copy);
+      return gtagConfigFingerprint(copy);
+    };
+    const seen = new Set([
+      gtagConfigFingerprint(clean),
+      changed((t) => (t[1]!.vtp_isEnabled = true)), // user-provided data on
+      changed((t) => (t[2]!.vtp_historyEvents = false)),
+      changed((t) => t.push({ function: '__ccd_em_outbound_click' })),
+      changed((t) => t.pop()),
+      changed((t) => t.reverse()),
+      changed((t) => ((t[2]!.vtp_nested as { b: number[] }).b = [2, 1])),
+    ]);
+    expect(seen.size, 'every variant has its own fingerprint').toBe(7);
+  });
+
+  test('PRIV-2 (control) re-enabled outbound clicks or user-provided data change the fingerprint and read re-record, never verified', () => {
+    const recorded = gtagConfigFingerprint(clean);
+    const verdict = (tags: Tag[]) =>
+      gtagProvenance(gtagConfigFingerprint(tags), recorded, gtagConfigFindings(tags));
+    expect(verdict(clean).status, 'the recorded configuration').toBe('verified');
+    const outbound = [...clean, { function: '__ccd_em_outbound_click' }];
+    expect(gtagConfigFingerprint(outbound)).not.toBe(recorded);
+    expect(verdict(outbound).status, 'injected __ccd_em_outbound_click').toBe('re-record');
+    const userData = clean.map((t) =>
+      t.function === '__ogt_1p_data_v2' ? { ...t, vtp_isEnabled: true } : t,
+    );
+    expect(gtagConfigFingerprint(userData)).not.toBe(recorded);
+    expect(verdict(userData).status, 'enabled __ogt_1p_data_v2').toBe('re-record');
   });
 });
 
 test.describe('GA4 provenance verdicts', () => {
-  const recorded = loadManifest().gtag.production.sha256;
+  const recorded = loadManifest().gtag.production.configSha256;
 
-  test('PRIV-2 (control) the recorded production hash is verified, and any other bytes, a tampered record, or no bytes read re-record, never verified', () => {
-    expect(gtagProvenance(recorded, recorded).status).toBe('verified');
-    // Google serves other bytes (a new tag version, or a variant that was never recorded).
-    const other = gtagProvenance('0'.repeat(64), recorded);
+  test('PRIV-2 (control) the recorded fingerprint is verified, and any other configuration, a tampered record, findings, or no configuration read re-record, never verified', () => {
+    expect(gtagProvenance(recorded, recorded, []).status).toBe('verified');
+    expect(gtagProvenance(recorded, recorded).status, 'findings default to none').toBe('verified');
+    // The property configuration changed.
+    const other = gtagProvenance('0'.repeat(64), recorded, []);
     expect(other.status).toBe('re-record');
-    expect((other as { reason: string }).reason).toContain('re-record');
-    // The record itself is altered: the very bytes that matched no longer do.
+    expect((other as { reason: string }).reason).toContain('Nathan');
+    // The record itself is altered: the very configuration that matched no longer does.
     const tampered = gtagProvenance(
       recorded,
       `${recorded.slice(0, -1)}${recorded.endsWith('0') ? '1' : '0'}`,
+      [],
     );
     expect(tampered.status).toBe('re-record');
-    // Nothing was fetched.
-    expect(gtagProvenance(undefined, recorded).status).toBe('re-record');
+    // The fingerprint matches but the configuration has findings (or its findings are unknown).
+    const withFindings = gtagProvenance(recorded, recorded, ['__ccd_em_scroll is missing']);
+    expect(withFindings.status).toBe('re-record');
+    expect((withFindings as { reason: string }).reason).toContain('__ccd_em_scroll is missing');
+    expect(gtagProvenance(recorded, recorded, undefined).status).toBe('re-record');
+    // Nothing was fetched, or the file was of another shape.
+    expect(gtagProvenance(undefined, recorded, []).status).toBe('re-record');
   });
 });
 
 test.describe('cached gtag.js reuse', () => {
-  const recorded = loadManifest().gtag.production.sha256;
+  const recorded = loadManifest().gtag.production.configSha256;
   const bytes = 'cached gtag.js stand-in';
   let dir = '';
   let file = '';
   const entry = (extra: Partial<GtagState> = {}): GtagState => ({
     available: true,
-    rawSha256: recorded,
+    rawSha256: sha256Hex('raw bytes stand-in'),
+    configSha256: recorded,
+    configFindings: [],
     servedSha256: sha256Hex(bytes),
     substitutions: 3,
     matchesProduction: false, // the stored verdict is never trusted
@@ -125,11 +211,11 @@ test.describe('cached gtag.js reuse', () => {
   });
   test.afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-  test('PRIV-2 (control) an intact entry for the recorded capture is reused, with the verdict recomputed', () => {
+  test('PRIV-2 (control) an intact entry with the recorded configuration is reused, with the verdict recomputed', () => {
     expect(reusableGtag(entry(), file, recorded)).toMatchObject({
       matchesProduction: true,
       servedSha256: sha256Hex(bytes),
-      source: 'cache', // the recorded bytes, but not seen served by production this run
+      source: 'cache', // the recorded configuration, but not seen served by production this run
     });
   });
 
@@ -142,13 +228,17 @@ test.describe('cached gtag.js reuse', () => {
     expect(reusableGtag(entry(), file, recorded)).toBeUndefined();
   });
 
-  test('PRIV-2 (control) a legacy cache entry without the served hash or the substitution count is rebuilt, not reused', () => {
+  test('PRIV-2 (control) a legacy cache entry without the fingerprint, the served hash, or the substitution count is rebuilt, not reused', () => {
+    expect(reusableGtag(entry({ configSha256: undefined }), file, recorded)).toBeUndefined();
     expect(reusableGtag(entry({ servedSha256: undefined }), file, recorded)).toBeUndefined();
     expect(reusableGtag(entry({ substitutions: undefined }), file, recorded)).toBeUndefined();
   });
 
-  test('PRIV-2 (control) an entry for other bytes than the recorded capture, or an unavailable one, is rebuilt', () => {
-    expect(reusableGtag(entry({ rawSha256: '0'.repeat(64) }), file, recorded)).toBeUndefined();
+  test('PRIV-2 (control) an entry for another configuration than the recorded one, or an unavailable one, is rebuilt; other bytes with the same configuration are reused', () => {
+    expect(reusableGtag(entry({ configSha256: '0'.repeat(64) }), file, recorded)).toBeUndefined();
+    expect(reusableGtag(entry({ rawSha256: '0'.repeat(64) }), file, recorded)).toMatchObject({
+      source: 'cache',
+    });
     expect(reusableGtag(entry({ available: false }), file, recorded)).toBeUndefined();
     expect(reusableGtag(undefined, file, recorded)).toBeUndefined();
   });
