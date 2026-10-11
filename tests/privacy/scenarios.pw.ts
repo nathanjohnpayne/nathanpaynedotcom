@@ -9,7 +9,6 @@
 import { FIXTURE_PATH } from './harness/constants';
 import {
   auditSdk,
-  clickOutbound,
   expectCollecting,
   expectCollectionContinues,
   expectNoAnalytics,
@@ -124,7 +123,8 @@ test.describe('opt-out before initialization and return visits', () => {
 
 /**
  * Everything that was being recorded or counted, repeated across several flush intervals: typing, pointer
- * movement, a click, a scroll, and (with GA4) an outbound click. The withdrawal test runs it after
+ * movement, a click, a scroll, and (with GA4) a hand-sent event, because the property no longer sends outbound-click
+ * events (enhanced measurement, 2026-10-10). The withdrawal test runs it after
  * withdrawing; its control runs it without.
  */
 async function keepActive(s: Session, ga4: boolean): Promise<void> {
@@ -133,7 +133,8 @@ async function keepActive(s: Session, ga4: boolean): Promise<void> {
     await s.page.mouse.move(120 + round * 40, 140 + round * 30);
     await s.page.click('#fixture-pii-button');
     await s.page.evaluate(() => window.scrollBy(0, 400));
-    if (ga4) await clickOutbound(s);
+    if (ga4)
+      await s.page.evaluate((r) => window.gtag?.('event', 'np_keep_active', { round: r }), round);
     await s.page.waitForTimeout(3000);
   }
 }
@@ -155,12 +156,12 @@ test.describe('withdrawal', () => {
     await s.goto(FIXTURE_PATH);
     await expectCollecting(s, { ga4 });
     if (ga4) {
-      // Positive control for the GA4 trigger used after withdrawal: an outbound click does send a GA4 hit now.
+      // Positive control for the GA4 trigger used after withdrawal: a hand-sent event does send a GA4 hit now.
       const before = s.sink.mark();
-      await clickOutbound(s);
+      await s.page.evaluate(() => window.gtag?.('event', 'np_keep_active', { round: -1 }));
       await expect
-        .poll(() => s.sink.ga4Events(before).some(({ event }) => event.name === 'click'), {
-          message: 'GA4 outbound click reached the sink before withdrawal (positive control)',
+        .poll(() => s.sink.ga4Events(before).some(({ event }) => event.name === 'np_keep_active'), {
+          message: 'a GA4 event reached the sink before withdrawal (positive control)',
         })
         .toBe(true);
     }
@@ -180,6 +181,15 @@ test.describe('withdrawal', () => {
     const cutoff = withdrawn.at + 1000;
 
     await keepActive(s, ga4);
+
+    if (ga4) {
+      // The GA4 half, by name: the event the positive control above proved reaches the sink while collecting
+      // never arrives once withdrawn, however many times the page sends it.
+      expect(
+        s.sink.ga4Events(afterWithdrawal).filter(({ event }) => event.name === 'np_keep_active'),
+        'GA4 events sent after the withdrawal reached the sink',
+      ).toEqual([]);
+    }
 
     const state = await s.privacy();
     expect(state).toMatchObject({ saved: 'denied', effective: 'denied', reason: 'choice' });
