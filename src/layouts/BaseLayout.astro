@@ -188,11 +188,13 @@ const privacyEnabled = privacyControlsEnabled();
       const privacy = window.npPrivacy;
       const gate = privacy && privacy[Symbol.for('np-privacy.internal')];
       if (gate && gate.boot.effective === 'granted' && privacy.get().effective === 'granted') {
-        // § Withdrawal 2: gtag checks this property before it sends anything.
+        // § Withdrawal 2: once this property is set, gtag.js accepts no new
+        // event. Google documents setting it before any gtag() call:
         // https://developers.google.com/tag-platform/security/guides/privacy#turn-off-google-analytics
-        // Google documents setting it before any gtag() call; mid-page it is
-        // verified by tests/privacy-runtime/ and backed by the gate's
-        // transport guard.
+        // Set mid-page, it does not stop a hit gtag.js accepted earlier and
+        // still holds (#1286), or gtag.js's tag diagnostics (#1278). The
+        // gate's transport guard refuses those, and tests/privacy-runtime/
+        // checks that it does.
         gate.registerTool('ga4', {
           stop() {
             window['ga-disable-' + gaId] = true;

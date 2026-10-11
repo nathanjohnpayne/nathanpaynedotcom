@@ -1031,6 +1031,89 @@ test("set('denied') mid-visit stops gtag.js tag diagnostics on a gtm_latency URL
   await withdrawMidVisit({ query: '?gtm_latency=1', diagnostics: true });
 });
 
+// #1286. `ga-disable-<ID>` stops gtag.js accepting new events, but not one it
+// accepted before the withdrawal: gtag.js checks ga-disable when it accepts
+// an event, not when it sends it, and holds an accepted event (5 seconds here)
+// before sending it. This pushes an event in the same task as the withdrawal,
+// so a hit is held every time rather than only when the timing happens to
+// line up, and shows that gtag.js still asks for it after ga-disable is set
+// and that the transport guard refuses it.
+test("a GA4 hit gtag.js holds at set('denied') is refused by the guard, not left to ga-disable (#1286)", async () => {
+  const { context, page, sink } = await open([LOG_SENT]);
+  await page.goto(FIXTURE);
+  expect(await waitFor(() => gaHits(sink).length > 0)).toBe(true);
+  // Every request gtag.js asks for, seen above the gate's transport guard: a
+  // wrapper installed after the guard, which gtag.js reaches because it looks
+  // `fetch` and `sendBeacon` up on each call. A request the guard refuses is
+  // still recorded here; LOG_SENT, beneath the guard, sees only what passed.
+  await page.evaluate(() => {
+    const asked: Array<{ url: string; body: string; t: number }> = [];
+    (window as unknown as { __npAsked: typeof asked }).__npAsked = asked;
+    const guardedFetch = window.fetch;
+    window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+      asked.push({
+        url: String(input instanceof Request ? input.url : input),
+        body: typeof init?.body === 'string' ? init.body : '',
+        t: performance.now(),
+      });
+      return guardedFetch.call(window, input, init);
+    };
+    const guardedBeacon = navigator.sendBeacon;
+    navigator.sendBeacon = (url: string | URL, data?: BodyInit | null) => {
+      asked.push({
+        url: String(url),
+        body: typeof data === 'string' ? data : '',
+        t: performance.now(),
+      });
+      return guardedBeacon.call(navigator, url, data);
+    };
+  });
+  const withdrawnAt = Date.now();
+  const { tBefore, doc } = await page.evaluate(() => {
+    const w = window as unknown as NpWindow;
+    // Accepted now, while analytics are on, and held in gtag.js's batch.
+    w.gtag?.('event', 'np_held_at_withdrawal');
+    const t = performance.now();
+    w.npPrivacy.set('denied');
+    return { tBefore: t, doc: performance.timeOrigin };
+  });
+  expect(
+    await page.evaluate(
+      (id) => (window as unknown as Record<string, unknown>)[`ga-disable-${id}`],
+      GA_ID,
+    ),
+  ).toBe(true);
+  // Past the 5-second hold.
+  await pause(8_000);
+  // Positive control: ga-disable did not stop the held hit. gtag.js asked
+  // for it after the withdrawal.
+  const askedAfter = await page.evaluate(
+    (t) =>
+      (
+        window as unknown as { __npAsked: Array<{ url: string; body: string; t: number }> }
+      ).__npAsked
+        .filter((r) => r.t > t)
+        .map((r) => `${r.url}\n${r.body}`),
+    tBefore,
+  );
+  expect(
+    askedAfter.filter((r) => r.includes('/g/collect') && r.includes('en=np_held_at_withdrawal'))
+      .length,
+    'gtag.js asked to send the held hit after ga-disable was set',
+  ).toBeGreaterThan(0);
+  // The guard refused it: nothing got past the guard after the withdrawal,
+  // the hit never reached the sink, and nothing went around the route.
+  const log = await sentLog(page);
+  expect(
+    log
+      .filter((r) => r.doc === doc && r.t > tBefore && toAnalytics(r))
+      .map((r) => `${r.via} ${r.url}`),
+  ).toEqual([]);
+  expect(allText(sink)).not.toContain('np_held_at_withdrawal');
+  expect(analyticsRefusals(withdrawnAt)).toEqual([]);
+  await context.close();
+});
+
 test('a withdrawal in one tab withdraws every other open tab', async () => {
   const { context, page, sink } = await open();
   const other = await context.newPage();
