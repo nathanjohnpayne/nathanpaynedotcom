@@ -112,20 +112,30 @@ const sections = [
       margin-top: var(--sp-lg);
       padding-left: clamp(1rem, 2.2vw, 1.6rem);
     }
+    /* Multi-word, all-caps topics read as one run without a mark between
+       them, so a middle dot in the accent color separates each from the
+       next. The dot leads each topic, in a 1.1rem strip, and the list is
+       pulled 1.1rem left and clipped there, so the dot of whichever topic
+       starts a line, the first or one that wrapped, falls in the clipped
+       strip. A dot therefore only ever sits between two topics on the same
+       line, never alone at a line's start or end. The clip leaves 0.3rem of
+       the strip, and room above and below, for the links' focus outlines.
+       The dot is decorative: its alternative text is empty. */
     .privacy-toc ol {
       display: flex;
       flex-wrap: wrap;
-      gap: 0 0.55rem;
+      gap: 0;
       list-style: none;
       padding: 0;
-      margin: 0;
+      margin: 0 0 0 -1.1rem;
+      clip-path: inset(-0.3rem -0.3rem -0.3rem 0.8rem);
     }
-    /* Multi-word, all-caps topics read as one run without a mark between
-       them; a middle dot in the accent color separates each from the next.
-       It is decorative, so assistive tech still reads a plain list. */
-    .privacy-toc li:not(:last-child)::after {
+    .privacy-toc li::before {
       content: '·';
-      margin-left: 0.55rem;
+      content: '·' / '';
+      display: inline-block;
+      width: 1.1rem;
+      text-align: center;
       color: var(--accent);
       font-weight: 700;
     }
@@ -173,9 +183,10 @@ const sections = [
          24px targets without a gap between them. */
       .privacy-toc ol {
         flex-direction: column;
-        gap: 0;
+        margin-left: 0;
+        clip-path: none;
       }
-      .privacy-toc li:not(:last-child)::after {
+      .privacy-toc li::before {
         content: none;
       }
     }
