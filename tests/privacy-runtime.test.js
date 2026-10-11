@@ -580,9 +580,17 @@ describe('URL scrubbing (§ Capture Minimization 3)', () => {
       'dclid',
     ]);
     expect(Object.isFrozen(at().ALLOWED_QUERY_PARAMS)).toBe(true);
-    // No second list: no parameter name outside the allowlist is ever named.
+    // No second query-parameter list: no parameter name outside the allowlist
+    // is ever named as one. DROPPED_CLICK_IDS (#1263) names properties, not
+    // query parameters, and URL scrubbing never reads it.
     expect(GATE_SRC.match(/QUERY_PARAMS\s*=/g)).toHaveLength(1);
-    expect(GATE_SRC).not.toMatch(/'(email|fbclid|msclkid|ref|token|q)'/);
+    expect(GATE_SRC).not.toMatch(/'(email|ref|token|q)'/);
+    const queryRule = GATE_SRC.slice(
+      GATE_SRC.indexOf('function keepAllowedQuery('),
+      GATE_SRC.indexOf('function isReplayExcluded('),
+    );
+    expect(queryRule).toContain('ALLOWED_QUERY_PARAMS');
+    expect(queryRule).not.toMatch(/DROPPED_CLICK_IDS|isDroppedClickIdKey|fbclid|msclkid/);
   });
 
   it.each([
@@ -1196,6 +1204,235 @@ describe('event scrubbing: PostHog before_send (§ Capture Minimization 3–4)',
   });
 });
 
+describe('click identifiers: PostHog before_send (#1263, decision 11)', () => {
+  // posthog-js 1.438.3, packages/browser-common/src/utils/event-utils.ts:
+  // PERSONAL_DATA_CAMPAIGN_PARAMS and CAMPAIGN_PARAMS, in the SDK's order.
+  // tests/privacy-runtime/runtime.pw.ts checks the same lists against the
+  // SDK bundle itself.
+  const SDK_PERSONAL_DATA = [
+    'gclid',
+    'gclsrc',
+    'dclid',
+    'gbraid',
+    'wbraid',
+    'fbclid',
+    'msclkid',
+    'twclid',
+    'li_fat_id',
+    'igshid',
+    'ttclid',
+    'rdt_cid',
+    'epik',
+    'qclid',
+    'sccid',
+    'oppref',
+    'irclid',
+    '_kx',
+  ];
+  const SDK_CAMPAIGN = [
+    'utm_source',
+    'utm_medium',
+    'utm_campaign',
+    'utm_content',
+    'utm_term',
+    'gad_source',
+    'mc_cid',
+    ...SDK_PERSONAL_DATA,
+  ];
+  const GOOGLE = ['gclid', 'gclsrc', 'dclid', 'gbraid', 'wbraid', 'gad_source'];
+  const DROPPED = SDK_PERSONAL_DATA.filter((name) => !GOOGLE.includes(name));
+  const KEPT = SDK_CAMPAIGN.filter((name) => !DROPPED.includes(name));
+  const valueOf = (name) => `NP-CLICKID-${name}`;
+  const allNamed = (prefix, value = valueOf) =>
+    Object.fromEntries(SDK_CAMPAIGN.map((name) => [`${prefix}${name}`, value(name)]));
+  const keptNamed = (prefix) =>
+    Object.fromEntries(KEPT.map((name) => [`${prefix}${name}`, valueOf(name)]));
+  const FBC = `fb.1.1760000000000.${valueOf('fbclid')}`;
+
+  /**
+   * An event shaped like posthog-js 1.438.3's first capture on a landing URL
+   * that carries every campaign parameter: the bare names and the
+   * session-entry copies in properties, $fbc in $set, and the $initial_ and
+   * bare session copies in $set_once.
+   */
+  const landingEvent = () => ({
+    event: '$pageview',
+    properties: {
+      $current_url: 'https://nathanpayne.test/?utm_source=s&gclid=g&fbclid=NP-CLICKID-fbclid',
+      ...allNamed(''),
+      ...allNamed('$session_entry_'),
+      $session_entry_url: 'https://nathanpayne.test/?utm_source=s&fbclid=NP-CLICKID-fbclid',
+      title: 'Landing',
+    },
+    $set: { $fbc: FBC },
+    $set_once: {
+      ...allNamed('$initial_'),
+      ...allNamed(''),
+      $initial_current_url: 'https://nathanpayne.test/?utm_source=s&fbclid=NP-CLICKID-fbclid',
+    },
+  });
+
+  it("is the non-Google part of posthog-js 1.438.3's personal-data campaign list, defined once", () => {
+    const { gate } = boot();
+    expect([...gate.DROPPED_CLICK_IDS]).toEqual(DROPPED);
+    expect(gate.DROPPED_CLICK_IDS).toEqual(expect.arrayContaining(['fbclid', 'msclkid']));
+    expect(Object.isFrozen(gate.DROPPED_CLICK_IDS)).toBe(true);
+    for (const name of [...GOOGLE, 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term']) {
+      expect(gate.DROPPED_CLICK_IDS).not.toContain(name);
+    }
+    expect(GATE_SRC.match(/DROPPED_CLICK_IDS\s*=/g)).toHaveLength(1);
+    expect(GATE_SRC).toContain(
+      'posthog-js%401.438.3/packages/browser-common/src/utils/event-utils.ts',
+    );
+  });
+
+  it('removes every copy the SDK makes, in properties, $set, and $set_once', () => {
+    const { gate } = boot();
+    const out = gate.scrubEvent(landingEvent());
+    expect(out.properties).toEqual({
+      $current_url: 'https://nathanpayne.test/?utm_source=s&gclid=g',
+      ...keptNamed(''),
+      ...keptNamed('$session_entry_'),
+      $session_entry_url: 'https://nathanpayne.test/?utm_source=s',
+      title: 'Landing',
+    });
+    expect(out.$set).toEqual({});
+    expect(out.$set_once).toEqual({
+      ...keptNamed('$initial_'),
+      ...keptNamed(''),
+      $initial_current_url: 'https://nathanpayne.test/?utm_source=s',
+    });
+    const sent = JSON.stringify(out);
+    for (const name of DROPPED) {
+      expect(sent, `${name}'s value`).not.toContain(valueOf(name));
+      expect(sent, `${name} under any name`).not.toMatch(
+        new RegExp(`"(\\$initial_|\\$session_entry_)?${name}"`),
+      );
+    }
+    expect(sent).not.toContain('"$fbc"');
+  });
+
+  it('keeps the UTMs, the Google identifiers, gad_source, and mc_cid exactly, under every name', () => {
+    const { gate } = boot();
+    const out = gate.scrubEvent(landingEvent());
+    for (const name of KEPT) {
+      for (const [where, key] of [
+        ['properties', name],
+        ['properties', `$session_entry_${name}`],
+        ['$set_once', `$initial_${name}`],
+        ['$set_once', name],
+      ]) {
+        expect(out[where][key], `${where}.${key}`).toBe(valueOf(name));
+      }
+    }
+  });
+
+  it('removes them whatever the value, null included, as the SDK sends absent parameters', () => {
+    const { gate } = boot();
+    const out = gate.scrubEvent({
+      event: '$pageview',
+      properties: allNamed('', () => null),
+      $set_once: { ...allNamed('$initial_', () => null), ...allNamed('', () => null) },
+    });
+    const nulls = Object.fromEntries(KEPT.map((name) => [name, null]));
+    expect(out.properties).toEqual(nulls);
+    expect(out.$set_once).toEqual({
+      ...Object.fromEntries(KEPT.map((name) => [`$initial_${name}`, null])),
+      ...nulls,
+    });
+  });
+
+  it('removes them at any depth and on every event type, $snapshot included', () => {
+    const { gate } = boot();
+    const data = [{ type: 4, data: { href: 'https://nathanpayne.test/' } }];
+    const snapshot = gate.scrubEvent({
+      event: '$snapshot',
+      properties: {
+        $snapshot_data: data,
+        fbclid: valueOf('fbclid'),
+        $set: { $fbc: FBC, $initial_msclkid: valueOf('msclkid'), utm_source: 's' },
+      },
+    });
+    expect(snapshot.properties).toEqual({ $snapshot_data: data, $set: { utm_source: 's' } });
+    const custom = gate.scrubEvent({
+      event: 'project_live_link_clicked',
+      properties: { nested: { list: [{ ttclid: valueOf('ttclid'), gclid: 'g' }] } },
+    });
+    expect(custom.properties).toEqual({ nested: { list: [{ gclid: 'g' }] } });
+  });
+
+  /** A stand-in for the SDK's flag person properties, $fbc record, and the public methods the gate calls. */
+  const fakeSdk = (stored) => {
+    const store = { ...stored };
+    const calls = [];
+    return {
+      store,
+      calls,
+      get_property: (key) => store[key],
+      resetPersonPropertiesForFlags(reload) {
+        calls.push(['reset', reload]);
+        delete store.$stored_person_properties;
+      },
+      setPersonPropertiesForFlags(props, reload) {
+        calls.push(['set', props, reload]);
+        store.$stored_person_properties = { ...store.$stored_person_properties, ...props };
+      },
+      unregister(key) {
+        calls.push(['unregister', key]);
+        delete store[key];
+      },
+    };
+  };
+
+  it('removes $fbc from the flag person properties and the SDK record, without reloading flags', () => {
+    const { gate } = boot();
+    const sdk = fakeSdk({
+      $stored_person_properties: { $fbc: FBC, plan: 'pro', $initial_msclkid: null },
+      $fbc_persistence: { value: FBC, delivered: false },
+      distinct_id: 'd',
+    });
+    gate.dropStoredClickIds(sdk);
+    expect(sdk.calls).toEqual([
+      ['reset', false],
+      ['set', { plan: 'pro' }, false],
+      ['unregister', '$fbc_persistence'],
+    ]);
+    expect(sdk.store).toEqual({ $stored_person_properties: { plan: 'pro' }, distinct_id: 'd' });
+    // Nothing left to remove: no further calls.
+    sdk.calls.length = 0;
+    gate.dropStoredClickIds(sdk);
+    expect(sdk.calls).toEqual([]);
+  });
+
+  it('only resets when nothing else was stored, and tolerates a missing or partial SDK', () => {
+    const { gate } = boot();
+    const onlyFbc = fakeSdk({ $stored_person_properties: { $fbc: FBC } });
+    gate.dropStoredClickIds(onlyFbc);
+    expect(onlyFbc.calls).toEqual([['reset', false]]);
+    const untouched = fakeSdk({ $stored_person_properties: { plan: 'pro', gclid: 'g' } });
+    gate.dropStoredClickIds(untouched);
+    expect(untouched.calls).toEqual([]);
+    for (const partial of [undefined, null, {}, { get_property: () => ({ $fbc: FBC }) }]) {
+      expect(() => gate.dropStoredClickIds(partial)).not.toThrow();
+    }
+  });
+
+  it('matches whole names only, so lookalike properties are kept', () => {
+    const { gate } = boot();
+    const lookalikes = {
+      FBCLID: 'a',
+      fbclid_note: 'b',
+      my_fbclid: 'c',
+      $initial_fbclid_count: 'd',
+      $session_entry_url: 'https://nathanpayne.test/',
+      $fbp: 'fb.1.1760000000000.123',
+      $fbc_persistence: 'e',
+    };
+    const out = gate.scrubEvent({ event: 'custom', properties: { ...lookalikes } });
+    expect(out.properties).toEqual(lookalikes);
+  });
+});
+
 describe('replay minimization (§ Capture Minimization 1–2)', () => {
   it('uses the contract selectors', () => {
     const { gate } = boot();
@@ -1574,6 +1811,30 @@ describe('flag-on PostHog block', () => {
     expect(live.registered).toEqual([
       { $initial_person_info: { r: '$direct', u: 'https://nathanpayne.test/' } },
     ]);
+  });
+
+  it('removes stored click identifiers at load and after every capture (#1263)', () => {
+    const { w, config } = runPostHog();
+    const fakeSdk = () => {
+      const store = {
+        $stored_person_properties: { $fbc: 'fb.1.1.x', plan: 'pro' },
+        $fbc_persistence: { value: 'fb.1.1.x', delivered: false },
+      };
+      const sdk = { store, has_opted_out_capturing: () => false, register: () => {} };
+      sdk.get_property = (key) => store[key];
+      sdk.resetPersonPropertiesForFlags = () => delete store.$stored_person_properties;
+      sdk.setPersonPropertiesForFlags = (props) => (store.$stored_person_properties = props);
+      sdk.unregister = (key) => delete store[key];
+      return sdk;
+    };
+    const atLoad = fakeSdk();
+    config.loaded(atLoad);
+    expect(atLoad.store).toEqual({ $stored_person_properties: { plan: 'pro' } });
+    const live = fakeSdk();
+    w.posthog = live;
+    const event = { event: '$pageview', properties: {} };
+    expect(config.before_send[1](event)).toBe(event);
+    expect(live.store).toEqual({ $stored_person_properties: { plan: 'pro' } });
   });
 });
 

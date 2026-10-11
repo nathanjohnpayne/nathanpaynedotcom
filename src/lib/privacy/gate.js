@@ -29,7 +29,8 @@
    * The only query parameters a URL keeps on its way to PostHog or GA4
    * (§ Capture Minimization 3). The five UTM parameters, plus the Google click
    * identifiers, which stay until Nathan decides (decision item 4). This is the
-   * one allowlist; there is deliberately no blocklist anywhere.
+   * one query-parameter allowlist; there is deliberately no query-parameter
+   * blocklist anywhere.
    */
   var ALLOWED_QUERY_PARAMS = Object.freeze([
     'utm_source',
@@ -42,6 +43,57 @@
     'wbraid',
     'dclid',
   ]);
+
+  /**
+   * Non-Google click identifiers, removed from every PostHog event under every
+   * name the SDK copies them to (#1079 decision 11, #1263). This is posthog-js
+   * 1.438.3's PERSONAL_DATA_CAMPAIGN_PARAMS, in the SDK's order, minus its
+   * Google entries (gclid, gclsrc, dclid, gbraid, wbraid):
+   * https://github.com/PostHog/posthog-js/blob/posthog-js%401.438.3/packages/browser-common/src/utils/event-utils.ts
+   * The SDK copies every entry of its CAMPAIGN_PARAMS (that list plus the five
+   * UTMs, gad_source, and mc_cid) out of the page URL into event and person
+   * properties as values, not URLs, so URL scrubbing never reached them. The
+   * Google identifiers, gad_source, mc_cid, and the UTMs are still sent as
+   * before; the Google ones wait for Nathan's Ads-links check.
+   *
+   * These are property names, not query parameters: URLs are reduced by
+   * ALLOWED_QUERY_PARAMS alone, which drops all of these already.
+   * tests/privacy-runtime/runtime.pw.ts reads the list out of the SDK bundle
+   * and fails if the two drift apart.
+   */
+  var DROPPED_CLICK_IDS = Object.freeze([
+    'fbclid',
+    'msclkid',
+    'twclid',
+    'li_fat_id',
+    'igshid',
+    'ttclid',
+    'rdt_cid',
+    'epik',
+    'qclid',
+    'sccid',
+    'oppref',
+    'irclid',
+    '_kx',
+  ]);
+
+  /**
+   * The names posthog-js 1.438.3 sends a campaign parameter under: the bare
+   * name (event properties, and the session-entry props it adds to $set_once),
+   * `$initial_` plus the name ($set_once, from the first URL it stores), and
+   * `$session_entry_` plus the name (event properties). Sources, at the version
+   * above: event-utils.ts (getPersonPropsFromInfo, getInitialPersonPropsFromInfo),
+   * posthog-persistence.ts (update_campaign_params), and session-props.ts.
+   */
+  var CAMPAIGN_COPY_PREFIXES = Object.freeze(['', '$initial_', '$session_entry_']);
+
+  /**
+   * `$fbc` is Meta's click ID. posthog-js builds it from fbclid as
+   * `fb.1.<ms>.<fbclid>`, or reads it from Meta's `_fbc` cookie, and sends it
+   * in $set (posthog-core.ts _updateFacebookClickId, v1.438.3). It is fbclid
+   * under another name, so it is removed with it.
+   */
+  var DERIVED_CLICK_ID_PROPERTIES = Object.freeze(['$fbc']);
 
   /** Replay never records these paths or anything under them (§ Capture Minimization 2). */
   var REPLAY_EXCLUDED_PATHS = Object.freeze(['/privacy/']);
@@ -620,6 +672,18 @@
     return out.join(';');
   }
 
+  /** True for a property that carries a dropped click identifier, under any name the SDK uses for it. */
+  function isDroppedClickIdKey(key) {
+    if (DERIVED_CLICK_ID_PROPERTIES.indexOf(key) >= 0) return true;
+    for (var i = 0; i < CAMPAIGN_COPY_PREFIXES.length; i++) {
+      var prefix = CAMPAIGN_COPY_PREFIXES[i];
+      if (key.indexOf(prefix) === 0 && DROPPED_CLICK_IDS.indexOf(key.slice(prefix.length)) >= 0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   function mergeInto(out, key, value) {
     if (!Object.prototype.hasOwnProperty.call(out, key)) {
       out[key] = value;
@@ -631,7 +695,8 @@
   /**
    * Walks properties (and $set / $set_once) scrubbing every URL-valued string,
    * every URL-shaped key ($heatmap_data is keyed by page URL), autocapture
-   * element data, and masked-region text.
+   * element data, and masked-region text, and removing every dropped click
+   * identifier property, at any depth and whatever its value (null included).
    */
   function scrubTree(node, depth, parentKey, ctx) {
     if (node === null || typeof node !== 'object') return node;
@@ -649,6 +714,7 @@
     var out = {};
     for (var key in node) {
       if (!Object.prototype.hasOwnProperty.call(node, key)) continue;
+      if (isDroppedClickIdKey(key)) continue;
       var value = node[key];
       if (key === '$elements_chain' && typeof value === 'string') {
         value = scrubChain(value, ctx);
@@ -704,6 +770,62 @@
     if (event.$set) event.$set = scrubTree(event.$set, 0, '', ctx);
     if (event.$set_once) event.$set_once = scrubTree(event.$set_once, 0, '', ctx);
     return event;
+  }
+
+  /**
+   * Removes the dropped click identifiers from the two places posthog-js keeps
+   * them outside events, both of which reach PostHog without passing through
+   * before_send (v1.438.3):
+   *
+   * - `$stored_person_properties`, the person properties the SDK evaluates
+   *   flags with, sent as `person_properties` in every /flags request
+   *   (browser-common feature-flags.ts _callFlagsEndpoint). capture() copies
+   *   the event's $set into it, `$fbc` included, before before_send runs
+   *   (posthog-core.ts capture, setPersonPropertiesForFlags).
+   * - `$fbc_persistence`, the SDK's record of $fbc and of whether PostHog has
+   *   acknowledged it. Until an event carrying $fbc in $set is acknowledged,
+   *   every capture() puts $fbc back into $set and into the flag properties
+   *   and reloads flags. With $fbc removed from every event that never
+   *   happens, so the record is removed instead, and the SDK derives $fbc
+   *   again only on a page whose URL carries fbclid.
+   *
+   * The posthog.astro block calls this with the live instance at load and
+   * after every capture: the flag request capture() schedules runs 5 ms later
+   * and reads the cleaned properties. Only the SDK's public methods are
+   * called; the two key names are not a documented API, and if a later SDK
+   * renames them this finds nothing to remove and
+   * tests/privacy-runtime/runtime.pw.ts fails.
+   */
+  function dropStoredClickIds(ph) {
+    if (!ph || typeof ph.get_property !== 'function') return;
+    var stored = ph.get_property('$stored_person_properties');
+    if (
+      isPlainObject(stored) &&
+      typeof ph.resetPersonPropertiesForFlags === 'function' &&
+      typeof ph.setPersonPropertiesForFlags === 'function'
+    ) {
+      var kept = {};
+      var keptAny = false;
+      var droppedAny = false;
+      for (var key in stored) {
+        if (!Object.prototype.hasOwnProperty.call(stored, key)) continue;
+        if (isDroppedClickIdKey(key)) {
+          droppedAny = true;
+        } else {
+          kept[key] = stored[key];
+          keptAny = true;
+        }
+      }
+      if (droppedAny) {
+        // Both are public (@public in posthog-core.ts at the version above);
+        // `false` keeps them from scheduling another flag request.
+        ph.resetPersonPropertiesForFlags(false);
+        if (keptAny) ph.setPersonPropertiesForFlags(kept, false);
+      }
+    }
+    if (ph.get_property('$fbc_persistence') !== undefined && typeof ph.unregister === 'function') {
+      ph.unregister('$fbc_persistence');
+    }
   }
 
   // ----------------------------------------------------------------- replay
@@ -973,6 +1095,7 @@
     onNavigate: onNavigate,
     scrubUrl: scrubUrl,
     scrubEvent: scrubEvent,
+    dropStoredClickIds: dropStoredClickIds,
     maskReplayAttribute: maskReplayAttribute,
     maskNetworkRequest: maskNetworkRequest,
     decodeChainValue: decodeChainValue,
@@ -980,6 +1103,7 @@
     isReplayExcluded: isReplayExcluded,
     isAnalyticsUrl: isAnalyticsUrl,
     ALLOWED_QUERY_PARAMS: ALLOWED_QUERY_PARAMS,
+    DROPPED_CLICK_IDS: DROPPED_CLICK_IDS,
     REPLAY_EXCLUDED_PATHS: REPLAY_EXCLUDED_PATHS,
     MASK_SELECTOR: MASK_SELECTOR,
     BLOCK_SELECTOR: BLOCK_SELECTOR,
