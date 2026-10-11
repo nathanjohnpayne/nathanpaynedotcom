@@ -63,6 +63,15 @@ const GPC_ON =
   "Object.defineProperty(Navigator.prototype, 'globalPrivacyControl', { get: () => true, configurable: true });";
 const DNT_ON =
   "Object.defineProperty(Navigator.prototype, 'doNotTrack', { get: () => '1', configurable: true });";
+/**
+ * Media events on the hero's video, which mux-embed's monitor listens for. The
+ * stream cannot play under the egress boundary, so these stand in for real
+ * playback; they change nothing about the element itself.
+ */
+const PLAYBACK_EVENTS = `(() => {
+  const video = document.querySelector('mux-background-video')?.shadowRoot?.querySelector('video');
+  for (const type of ['play', 'playing', 'pause']) video?.dispatchEvent(new Event(type));
+})();`;
 // As in runtime.pw.ts: logs every request that gets past the gate's transport
 // guard (installed later, so it wraps this), with the page clock.
 const LOG_SENT = `(() => {
@@ -244,6 +253,7 @@ for (const [label, scripts, reason] of [
       monitored: false,
     });
     expect(streamRequested(sink)).toBe(true);
+    await page.evaluate(PLAYBACK_EVENTS);
     await pause(PAST_FIRST_BATCH);
     expect.soft(await muxCookies(context, page)).toEqual([]);
     // Leaving the page is when mux-embed would flush.
@@ -264,6 +274,7 @@ test('Do Not Track: Mux Data monitors but sends nothing and sets no cookie', asy
     effective: 'granted',
     monitored: true,
   });
+  await page.evaluate(PLAYBACK_EVENTS);
   await pause(PAST_FIRST_BATCH);
   expect.soft(await muxCookies(context, page)).toEqual([]);
   await page.goto(`${SITE}/`);
@@ -276,17 +287,26 @@ test("set('denied') mid-visit stops Mux Data: monitor destroyed, nothing more se
   const { context, page, sink } = await open([LOG_SENT]);
   await page.goto(PAGE);
   expect(await heroSettled(page)).toMatchObject({ effective: 'granted', monitored: true });
-  // Positive control: it was sending before the withdrawal.
-  expect(await waitFor(() => muxBeacons(sink).length > 0)).toBe(true);
+  // The stream never plays here, so after its first batch Mux Data would have
+  // nothing new to send. Playback events on the video give it something: the
+  // monitor reports them, and a `play` starts a view, whose end destroying the
+  // monitor reports too.
+  await page.evaluate(PLAYBACK_EVENTS);
+  // Positive control: Mux Data sends, including those events.
+  expect(await waitFor(() => muxEvents(muxBeacons(sink)).some((e) => e.e === 'pause'))).toBe(true);
   const withdrawnAt = Date.now();
-  // The page clock is read before set('denied'): destroying the monitor
-  // flushes mux-embed's queue inside that call, and the transport guard must
-  // refuse the flush.
-  const tPage = await page.evaluate(() => {
+  // Queue fresh events, then withdraw in the same task, so mux-embed holds
+  // unsent data at the moment of withdrawal. The page clock is read before
+  // set('denied'), because destroying the monitor flushes that queue inside
+  // the call, and the transport guard must refuse the flush.
+  const tPage: number = await page.evaluate(`(() => {
+    ${PLAYBACK_EVENTS}
     const t = performance.now();
-    (window as unknown as NpWindow).npPrivacy.set('denied');
+    window.npPrivacy.set('denied');
     return t;
-  });
+  })()`);
+  // Try to produce more after it.
+  await page.evaluate(PLAYBACK_EVENTS);
   const afterWithdrawal = await page.evaluate(() => {
     const video = document
       .querySelector('mux-background-video')
