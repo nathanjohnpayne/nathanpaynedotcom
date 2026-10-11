@@ -166,7 +166,7 @@ export type GtagProvenance = { status: 'verified' } | { status: 're-record'; rea
 export function gtagProvenance(
   configSha256: string | undefined,
   recordedConfigSha256: string,
-  findings: readonly string[] | undefined = [],
+  findings: readonly string[] | undefined,
 ): GtagProvenance {
   if (configSha256 === undefined)
     return {

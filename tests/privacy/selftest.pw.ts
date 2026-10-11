@@ -166,7 +166,6 @@ test.describe('GA4 provenance verdicts', () => {
 
   test('PRIV-2 (control) the recorded fingerprint is verified, and any other configuration, a tampered record, findings, or no configuration read re-record, never verified', () => {
     expect(gtagProvenance(recorded, recorded, []).status).toBe('verified');
-    expect(gtagProvenance(recorded, recorded).status, 'findings default to none').toBe('verified');
     // The property configuration changed.
     const other = gtagProvenance('0'.repeat(64), recorded, []);
     expect(other.status).toBe('re-record');
