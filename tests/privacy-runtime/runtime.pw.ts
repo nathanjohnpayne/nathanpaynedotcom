@@ -421,7 +421,8 @@ function sdkCampaignParams(): { personal: string[]; campaign: string[] } {
   const personal = [...bundle.matchAll(/([A-Za-z_$][\w$]*)=\[("gclid"(?:,"[^"]+")*)\]/g)];
   expect(personal, 'PERSONAL_DATA_CAMPAIGN_PARAMS in array.js').toHaveLength(1);
   const [, id, personalList] = personal[0];
-  const escaped = id.replace(/\$/g, '\\$');
+  // Escape every regex metacharacter, not just `$`, so the pattern stays literal.
+  const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const campaign = [
     ...bundle.matchAll(new RegExp(`=\\[((?:"[^"]+",)+)\\.\\.\\.${escaped}\\]`, 'g')),
   ];
