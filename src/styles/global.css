@@ -2694,17 +2694,6 @@ body.blog-page {
   margin-top: 0;
 }
 
-/* A heading leads straight into its own content. `.project-copy` is a grid,
-   so margins do not collapse: the 1.2rem row gap, the heading's own bottom
-   margin, and a list's top margin used to stack, putting a heading about
-   2–2.5rem from its paragraph or list, further than the paragraphs sit from
-   each other. With no bottom margin on the heading, this pulls whatever
-   follows it up to 0.75rem, the same heading-to-text distance .blog-prose
-   gets from its collapsing margins. */
-.project-copy > :is(h2, h3) + * {
-  margin-top: -0.45rem;
-}
-
 /* One register below the italic h2, and upright rather than italic, so a
    subsection reads as subordinate to the rule-separated section above it
    instead of competing with it. No border-top for the same reason — the
@@ -2807,6 +2796,20 @@ body.blog-page {
 
 .project-copy p:has(> strong:only-child) + ul + p {
   margin-top: -0.32rem;
+}
+
+/* A heading leads straight into its own content. `.project-copy` is a grid,
+   so margins do not collapse: the 1.2rem row gap, the heading's own bottom
+   margin, and a list's top margin used to stack, putting a heading about
+   2–2.5rem from its paragraph or list, further than the paragraphs sit from
+   each other. With no bottom margin on the heading, this pulls whatever
+   follows it up to 0.75rem, the same heading-to-text distance .blog-prose
+   gets from its collapsing margins. It must stay after the `.project-copy ul,
+   .project-copy ol` margin rule: the selectors tie on specificity, so source
+   order decides, and placed before it a list kept its 0.5rem top margin.
+   The labelled-list rules above are unaffected: a heading never precedes them. */
+.project-copy > :is(h2, h3) + * {
+  margin-top: -0.45rem;
 }
 
 /* Markdown tables in project copy, with the rules .blog-prose table gives
