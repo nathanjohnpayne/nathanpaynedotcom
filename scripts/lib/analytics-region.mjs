@@ -102,7 +102,9 @@ const POSTHOG_GUARD =
 const GA4_GUARD =
   /^\s*if \(gate && gate\.boot\.effective === 'granted' && privacy\.get\(\)\.effective === 'granted'\) \{/m;
 
-const SCRIPT_RE = /<script\b([^>]*)>([\s\S]*?)<\/script>/g;
+// Case-insensitive, and tolerant of whitespace before the closing `>`, so an
+// uppercase or spaced script tag cannot slip past the structure check.
+const SCRIPT_RE = /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi;
 const URL_ATTR_RE =
   /\s(?:src|href|srcset|data|action|formaction|poster|ping|content)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
 const SCRIPT_ATTR_RE = /\b(src|async|defer|type)\s*=/;
@@ -199,7 +201,13 @@ export function analyticsGateFindings(html) {
   // Attribute values outside script bodies: a preconnect, prefetch, img, or
   // noscript pixel naming an analytics host would be a request the gate cannot
   // stop. Prose may name the hosts (the /privacy/ page discloses them).
-  const markup = html.replace(SCRIPT_RE, '<script></script>').replace(/<!--[\s\S]*?-->/g, '');
+  let markup = html.replace(SCRIPT_RE, '<script></script>');
+  // Strip comments until nothing changes: one pass can leave a `<!--` that
+  // a nested or split comment reassembles.
+  for (let prev = ''; prev !== markup; ) {
+    prev = markup;
+    markup = markup.replace(/<!--[\s\S]*?-->/g, '');
+  }
   for (const m of markup.matchAll(URL_ATTR_RE)) {
     const value = m[1] ?? m[2];
     for (const host of ANALYTICS_HOSTS) {
