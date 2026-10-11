@@ -6,7 +6,7 @@
  * production measurement ID (Node side only) and served under the fake test ID.
  * The results are VERIFIED against production when those bytes were fetched
  * from production this run and the fingerprint of their embedded configuration
- * (resource.tags, canonicalized) equals the one recorded in
+ * (the whole resource object, canonicalized) equals the one recorded in
  * tests/privacy/manifest.json and docs/privacy/inventory.md, with no
  * configuration findings (the provenance test below). The bytes themselves are
  * not pinned: Google rotates them roughly daily with the configuration

@@ -14,11 +14,13 @@ import {
   canonicalJson,
   gtagConfigFindings,
   gtagConfigFingerprint,
+  gtagEmbeddedResource,
   gtagEmbeddedTags,
   gtagProvenance,
   loadManifest,
   reusableGtag,
   sha256Hex,
+  type GtagResource,
   type GtagState,
 } from './harness/fixtures';
 import {
@@ -88,20 +90,39 @@ test.describe('fixtures manifest agrees with the production record', () => {
   });
 });
 
-/** A gtag.js-shaped body around the given tags; `junk` stands in for the rotating bytes outside the configuration. */
-const gtagBody = (tagsJson: string, junk = ''): string =>
-  `${junk}var data = {\n\n"resource": {\n  "version":"2",\n  "tags":${tagsJson},\n  "rules":[[["if",0]]]\n}\n\n\n\n,"runtime":[\n[50,"__x"]]};${junk}`;
+/** A gtag.js-shaped body around the given resource; `junk` stands in for the rotating bytes outside the configuration. */
+const gtagBody = (resourceJson: string, junk = ''): string =>
+  `${junk}var data = {\n\n"resource": ${resourceJson.slice(0, -1)}\n}\n\n\n\n,"runtime":[\n[50,"__x"]]};${junk}`;
 
 test.describe('GA4 configuration fingerprint', () => {
   type Tag = { function: string; [key: string]: unknown };
-  const clean: Tag[] = [
+  const tags: Tag[] = [
     { function: '__ogt_auto_events', vtp_enableOutboundClick: true },
     { function: '__ogt_1p_data_v2', vtp_isEnabled: false, vtp_isAutoCollectPiiEnabledFlag: true },
     { function: '__ccd_em_page_view', vtp_historyEvents: true, vtp_nested: { b: [1, 2], a: null } },
     { function: '__ccd_em_scroll' },
     { function: '__ccd_auto_redact', vtp_redactEmail: true },
   ];
-  const fingerprintOf = (js: string): string => gtagConfigFingerprint(gtagEmbeddedTags(js)!);
+  /** The shape of the served container: the five top-level fields of `resource` as of 2026-10-11. */
+  const makeResource = (): GtagResource => ({
+    version: '2',
+    macros: [{ function: '__e' }, { function: '__u', vtp_component: 'HOST' }],
+    tags: structuredClone(tags) as GtagResource['tags'],
+    predicates: [{ function: '_eq', arg0: ['macro', 0], arg1: 'page_view' }],
+    rules: [
+      [
+        ['if', 0],
+        ['add', 1, 2],
+      ],
+    ],
+  });
+  const clean = makeResource();
+  const fingerprintOf = (js: string): string => gtagConfigFingerprint(gtagEmbeddedResource(js)!);
+  const changed = (mutate: (resource: GtagResource) => void): string => {
+    const copy = makeResource();
+    mutate(copy);
+    return gtagConfigFingerprint(copy);
+  };
 
   test('PRIV-2 (control) the fingerprint ignores key order and whitespace, and the bytes around the configuration', () => {
     const compact = fingerprintOf(gtagBody(JSON.stringify(clean)));
@@ -125,35 +146,77 @@ test.describe('GA4 configuration fingerprint', () => {
     );
     expect(canonicalJson({ b: 1, a: [{ d: 2, c: 3 }] })).toBe('{"a":[{"c":3,"d":2}],"b":1}');
     expect(compact).toMatch(/^[0-9a-f]{64}$/);
+    expect(gtagEmbeddedTags(gtagBody(JSON.stringify(clean)))).toEqual(clean.tags);
   });
 
-  test('PRIV-2 (control) a changed, added, removed, or reordered setting changes the fingerprint', () => {
-    const changed = (mutate: (tags: Tag[]) => void): string => {
-      const copy = structuredClone(clean);
-      mutate(copy);
-      return gtagConfigFingerprint(copy);
-    };
+  test('PRIV-2 (control) a changed, added, removed, or reordered tag setting changes the fingerprint', () => {
     const seen = new Set([
       gtagConfigFingerprint(clean),
-      changed((t) => (t[1]!.vtp_isEnabled = true)), // user-provided data on
-      changed((t) => (t[2]!.vtp_historyEvents = false)),
-      changed((t) => t.push({ function: '__ccd_em_outbound_click' })),
-      changed((t) => t.pop()),
-      changed((t) => t.reverse()),
-      changed((t) => ((t[2]!.vtp_nested as { b: number[] }).b = [2, 1])),
+      changed((r) => (r.tags[1]!.vtp_isEnabled = true)), // user-provided data on
+      changed((r) => (r.tags[2]!.vtp_historyEvents = false)),
+      changed((r) => r.tags.push({ function: '__ccd_em_outbound_click' })),
+      changed((r) => r.tags.pop()),
+      changed((r) => r.tags.reverse()),
+      changed((r) => ((r.tags[2]!.vtp_nested as { b: number[] }).b = [2, 1])),
     ]);
     expect(seen.size, 'every variant has its own fingerprint').toBe(7);
   });
 
+  test('PRIV-2 (control) a changed rule, predicate, macro, or version changes the fingerprint and reads re-record, though the tags are untouched', () => {
+    const recorded = gtagConfigFingerprint(clean);
+    const verdict = (resource: GtagResource) =>
+      gtagProvenance(gtagConfigFingerprint(resource), recorded, gtagConfigFindings(resource.tags));
+    expect(verdict(makeResource()).status, 'the recorded configuration').toBe('verified');
+    const edits: Record<string, (r: GtagResource) => void> = {
+      'a rule (a tag now fires on another condition)': (r) =>
+        ((r.rules as unknown[][][])[0]![1] = ['add', 1]),
+      'a rule added': (r) =>
+        (r.rules as unknown[]).push([
+          ['if', 0],
+          ['add', 3],
+        ]),
+      'a predicate': (r) => ((r.predicates as Array<{ arg1: string }>)[0]!.arg1 = 'scroll'),
+      'a macro': (r) =>
+        ((r.macros as Array<{ vtp_component?: string }>)[1]!.vtp_component = 'QUERY'),
+      'the container version': (r) => (r.version = '3'),
+    };
+    for (const [what, mutate] of Object.entries(edits)) {
+      const copy = makeResource();
+      mutate(copy);
+      expect(
+        gtagConfigFindings(copy.tags),
+        `${what}: the tag findings alone cannot see it`,
+      ).toEqual([]);
+      expect(gtagConfigFingerprint(copy), `${what} changes the fingerprint`).not.toBe(recorded);
+      expect(verdict(copy).status, `${what} reads re-record`).toBe('re-record');
+    }
+  });
+
+  test('PRIV-2 (control) every top-level field of the resource is part of the fingerprint: nothing is excluded', () => {
+    const recorded = gtagConfigFingerprint(clean);
+    for (const key of Object.keys(clean)) {
+      expect(
+        changed((r) => {
+          r[key] = JSON.stringify(r[key]) === '"x"' ? 'y' : 'x';
+        }),
+        `changing ${key} changes the fingerprint`,
+      ).not.toBe(recorded);
+    }
+    // And a field Google adds later is covered too.
+    expect(changed((r) => (r.newField = 1))).not.toBe(recorded);
+  });
+
   test('PRIV-2 (control) re-enabled outbound clicks or user-provided data change the fingerprint and read re-record, never verified', () => {
     const recorded = gtagConfigFingerprint(clean);
-    const verdict = (tags: Tag[]) =>
-      gtagProvenance(gtagConfigFingerprint(tags), recorded, gtagConfigFindings(tags));
-    expect(verdict(clean).status, 'the recorded configuration').toBe('verified');
-    const outbound = [...clean, { function: '__ccd_em_outbound_click' }];
+    const verdict = (resource: GtagResource) =>
+      gtagProvenance(gtagConfigFingerprint(resource), recorded, gtagConfigFindings(resource.tags));
+    expect(verdict(makeResource()).status, 'the recorded configuration').toBe('verified');
+    const outbound = makeResource();
+    outbound.tags.push({ function: '__ccd_em_outbound_click' });
     expect(gtagConfigFingerprint(outbound)).not.toBe(recorded);
     expect(verdict(outbound).status, 'injected __ccd_em_outbound_click').toBe('re-record');
-    const userData = clean.map((t) =>
+    const userData = makeResource();
+    userData.tags = userData.tags.map((t) =>
       t.function === '__ogt_1p_data_v2' ? { ...t, vtp_isEnabled: true } : t,
     );
     expect(gtagConfigFingerprint(userData)).not.toBe(recorded);

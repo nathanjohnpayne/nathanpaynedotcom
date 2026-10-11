@@ -37,7 +37,7 @@ import { defineConfig } from '@playwright/test';
  * Coverage levels, stated plainly:
  *   PostHog: the real posthog-js 1.438.3 bundles, byte-identical to production (SHA-256 checked).
  *   GA4:     the real gtag.js. VERIFIED when the gtag.js fetched at run time has an embedded configuration
- *            (resource.tags, canonicalized) whose SHA-256 equals the production fingerprint recorded in
+ *            (the whole resource object, canonicalized) whose SHA-256 equals the production fingerprint recorded in
  *            tests/privacy/manifest.json (capturedOn there, after the 2026-10-10 property changes), with no
  *            configuration findings. The bytes rotate daily with the configuration unchanged, so they are
  *            not pinned: their SHA-256 and size are reported per run. When the fingerprint differs the

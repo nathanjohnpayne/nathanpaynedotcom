@@ -63,7 +63,7 @@ export interface GtagState {
   rawSha256?: string;
   /** Byte length of the bytes as Google served them. Reported with `rawSha256`; not compared with anything recorded. */
   rawBytes?: number;
-  /** Configuration fingerprint of the embedded `resource.tags` as Google served them; undefined if they could not be read. */
+  /** Configuration fingerprint of the embedded `resource` as Google served it; undefined if it could not be read. */
   configSha256?: string;
   /** `gtagConfigFindings` of the embedded configuration; undefined if it could not be read. */
   configFindings?: string[];
@@ -192,20 +192,32 @@ export interface GtagTag {
   [key: string]: unknown;
 }
 
+/** The container's `resource` object: `version`, `macros`, `tags`, `predicates`, and `rules` as of 2026-10-11. */
+export interface GtagResource {
+  tags: GtagTag[];
+  [key: string]: unknown;
+}
+
 /**
- * The property configuration embedded in gtag.js: the `tags` list of the container's `resource` object. Returns
- * undefined if the file does not have that shape (Google changed the format), so a caller can say so rather than
- * read "no tags" as "nothing enabled".
+ * The property configuration embedded in gtag.js: the container's `resource` object, which holds everything the
+ * container uses to decide what fires and with what parameters (tags, rules, predicates, macros). Returns undefined
+ * if the file does not have that shape (Google changed the format), so a caller can say so rather than read "no
+ * tags" as "nothing enabled".
  */
-export function gtagEmbeddedTags(js: string): GtagTag[] | undefined {
+export function gtagEmbeddedResource(js: string): GtagResource | undefined {
   const match = /"resource":\s*(\{[\s\S]*?\n\})\s*,\s*"runtime"/.exec(js);
   if (!match) return undefined;
   try {
-    const tags = (JSON.parse(match[1]!) as { tags?: unknown }).tags;
-    return Array.isArray(tags) ? (tags as GtagTag[]) : undefined;
+    const resource = JSON.parse(match[1]!) as { tags?: unknown };
+    return Array.isArray(resource.tags) ? (resource as GtagResource) : undefined;
   } catch {
     return undefined;
   }
+}
+
+/** The `tags` list of the embedded `resource`, which the configuration findings read. */
+export function gtagEmbeddedTags(js: string): GtagTag[] | undefined {
+  return gtagEmbeddedResource(js)?.tags;
 }
 
 /** Canonical JSON: object keys sorted at every depth, array order kept, no whitespace. */
@@ -223,13 +235,16 @@ export function canonicalJson(value: unknown): string {
 }
 
 /**
- * The configuration fingerprint: SHA-256 of the canonical JSON of the embedded `resource.tags` as served, before the
- * ID substitution (the tags carry the measurement ID, so the hash is of the property's own configuration; it is a
- * hash and does not reveal the ID). Key order and whitespace do not change it; a changed, added, removed, or
- * reordered setting does. It is the committed pin; the bytes around the tags rotate and are not.
+ * The configuration fingerprint: SHA-256 of the canonical JSON of the whole embedded `resource` as served, before
+ * the ID substitution. It covers the rules, predicates, and macros as well as the tags: a change to when a tag fires
+ * is a change to what the property collects. Nothing is excluded: across 180 loads and four byte variants (2026-10-11)
+ * every top-level field was identical, so no build stamp or version needs masking. The resource carries the
+ * property's own measurement ID, so the hash is of that property's configuration; it is a hash and does not reveal
+ * the ID. Key order and whitespace do not change it; a changed, added, removed, or reordered setting does. It is the
+ * committed pin; the bytes around the resource rotate and are not.
  */
-export function gtagConfigFingerprint(tags: readonly GtagTag[]): string {
-  return sha256Hex(canonicalJson(tags));
+export function gtagConfigFingerprint(resource: GtagResource): string {
+  return sha256Hex(canonicalJson(resource));
 }
 
 /** The enhanced-measurement tags that stay on after the 2026-10-10 property changes: page views and scrolls. */
@@ -324,9 +339,9 @@ async function prepareGtag(manifest: Manifest, gtagPath: string): Promise<GtagSt
     writeFileSync(gtagPath, served);
     // The configuration is read from the bytes as Google served them. An unreadable one is not "nothing enabled":
     // it leaves the fingerprint undefined, which reads as re-record.
-    const tags = gtagEmbeddedTags(text);
-    const configSha256 = tags ? gtagConfigFingerprint(tags) : undefined;
-    const configFindings = tags ? gtagConfigFindings(tags) : undefined;
+    const resource = gtagEmbeddedResource(text);
+    const configSha256 = resource ? gtagConfigFingerprint(resource) : undefined;
+    const configFindings = resource ? gtagConfigFindings(resource.tags) : undefined;
     return {
       available: true,
       rawSha256: sha256Hex(body),

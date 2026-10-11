@@ -112,7 +112,7 @@ export async function expectNoAnalytics(s: Session, mark = 0, dwellMs = 7000): P
 
 /**
  * GA4 results are only as good as the gtag.js behind them. They are verified when the served file is the production
- * configuration recorded in tests/privacy/manifest.json (the fingerprint of its embedded resource.tags matches) and this run
+ * configuration recorded in tests/privacy/manifest.json (the fingerprint of its embedded resource object matches) and this run
  * fetched it from production. The bytes themselves rotate and are not compared. When the configuration differs, the
  * results are indicative and the criterion is NOT VERIFIED against the production configuration until Nathan decides
  * what to record (docs/agents/testing-requirements.md, GA4 tag refresh). Call this from any test that asserts on GA4
