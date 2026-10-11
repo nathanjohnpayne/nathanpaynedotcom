@@ -205,7 +205,7 @@ It alerts when the value is **greater than 0**. It fires on the first desktop-si
 
 ## Privacy Runtime
 
-This section applies only when the #1079 flag is on (`privacyControlsEnabled()`, `src/lib/privacy-flag.ts`). With the flag off, nothing below exists and the site captures exactly what the sections above describe. The contract is `specs/analytics-privacy.md`; this section records what the runtime does with each vendor, verified against posthog-js 1.438.3 (the production version) and the vendor documentation cited in the code, and what it cannot recall.
+This section applies only when the #1079 flag is on (`privacyControlsEnabled()`, `src/lib/privacy-flag.ts`). With the flag off, nothing below exists and the site captures exactly what the sections above describe. The contract is `specs/analytics-privacy.md`; this section records what the runtime does with each vendor, verified against posthog-js 1.438.3 (the production version), mux-embed 5.18.1 with @mux/mux-background-video 0.2.3, and the vendor documentation cited in the code, and what it cannot recall.
 
 ### Gate
 
@@ -213,13 +213,14 @@ This section applies only when the #1079 flag is on (`privacyControlsEnabled()`,
 
 ### Withdrawal
 
-When the choice becomes `denied` in a page view (from the controls, from another tab through the `storage` event, or on a back/forward-cache restore), the gate stops both tools before it announces the change:
+When the choice becomes `denied` in a page view (from the controls, from another tab through the `storage` event, or on a back/forward-cache restore), the gate stops every tool running on the page (PostHog, GA4, and, on a page with a Mux hero, Mux Data) before it announces the change:
 
 1. **PostHog:** `opt_out_capturing()`, then `stopSessionRecording()`. The opt-out makes every later `capture()` return before it builds a payload, and the recorder's final buffer flush goes through `capture()`, so buffered replay is dropped rather than sent. `before_send` also returns null for every event from then on.
 2. **GA4:** `window['ga-disable-<ID>'] = true`, which gtag checks before it sends anything. Google documents setting it before any `gtag()` call; that it stops a page already sending was verified locally against gtag.js.
-3. **Transport guard:** posthog-js keeps a batch queue (flushed every 3 seconds by default) and a retry queue, sends both without rechecking consent, and has no public API to empty either. The gate therefore wraps `fetch`, `sendBeacon`, and `XMLHttpRequest` before either SDK loads; after a withdrawal it refuses every request to an analytics host, so queued events and replay snapshots are dropped, not flushed. Until a withdrawal it passes everything through.
+3. **Mux Data:** each active monitor is destroyed with `mux.destroyMonitor()`, and `globalThis.mux` reads as undefined from then on, so the hero never starts another. Destroying a monitor flushes mux-embed's queue; the transport guard refuses that flush.
+4. **Transport guard:** posthog-js keeps a batch queue (flushed every 3 seconds by default) and a retry queue, sends both without rechecking consent, and has no public API to empty either; mux-embed batches every 10 seconds and flushes when a monitor is destroyed or the page unloads. The gate therefore wraps `fetch`, `sendBeacon`, and `XMLHttpRequest` before any SDK loads; after a withdrawal it refuses every request to an analytics host (`litix.io`, where Mux Data sends, is one), so queued events and replay snapshots are dropped, not flushed. Until a withdrawal it passes everything through.
 
-**What cannot be recalled:** everything PostHog and GA4 received before the withdrawal stays with them under their own retention; nothing is deleted. A request already handed to the network at the instant of withdrawal may still complete. Each tool's identifiers stay in the browser's storage (PostHog's cookie and `localStorage` entry, GA4's `_ga` cookies); withdrawal stops their use, not their existence. Cloudflare Web Analytics and Network Error Logging are injected at Cloudflare's edge and are not controlled by the opt-out.
+**What cannot be recalled:** everything PostHog, GA4, and Mux Data received before the withdrawal stays with them under their own retention; nothing is deleted. A request already handed to the network at the instant of withdrawal may still complete. Each tool's identifiers stay in the browser's storage (PostHog's cookie and `localStorage` entry, GA4's `_ga` cookies); withdrawal stops their use, not their existence. Cloudflare Web Analytics and Network Error Logging are injected at Cloudflare's edge and are not controlled by the opt-out.
 
 ### Re-Enable
 
@@ -233,6 +234,16 @@ A grant after a withdrawal is saved but loads nothing in the same page view; col
 - **Attributes:** autocapture element data keeps only `id`, `class`, `href`, `name`, `type`, `role`, and `aria-label`, plus PostHog's own position and text fields; no `data-*` value or inline `style` reaches an event. The values it keeps are scrubbed too: an `href` as a URL, and every other kept value (including `$elements_chain`'s `attr_id` and the `classes` list) for a URL that is the whole value or embedded in it; values with no URL are sent byte for byte. A class that is itself a scheme-relative URL is also cut from the chain's tag-and-class prefix, whose dots cannot be told from class separators. Replay keeps `data-*` values only for the five attributes the stylesheet selects on (`data-accent`, `data-focus`, `data-fonts-pending`, `data-palette`, `data-playback-state`) and empties the rest.
 - **Masked text in events:** autocapture text drawn from a masked or blocked region is dropped from the event.
 
+### Mux Data
+
+On a page with a Mux hero (`/projects/swipe-watch/`), `src/components/ProjectMuxPlayer.astro` inlines `src/lib/privacy/mux-data.js` ahead of its bundled script (#1264). The bundled script is the same with the flag on or off: it imports `mux-embed` and assigns it to `globalThis.mux`, which `@mux/mux-background-video` reads to start monitoring and which playback does not need. The inline script turns that global into an accessor:
+
+- **Granted** (the gate exists, and its boot decision and the current state are both `granted`): the component gets a wrapper whose `monitor()` adds three documented mux-embed options. `disableCookies: true` means no `muxData` cookie and no persistent viewer or session ID in the beacons. `respectDoNotTrack: true` means mux-embed sends nothing while the browser sends Do Not Track (`navigator.doNotTrack === '1'`); DNT is a separate signal from GPC and is honored even when analytics are granted. `data.page_url` is reduced by the gate's `scrubUrl`, the same allowlist as every other URL here; without it, mux-embed sends `window.location.href` whole.
+- **Denied** (by choice or by GPC), or the gate missing: the assignment is discarded and the global reads as undefined, so no monitor starts, nothing is sent, and no cookie is set. The `mux-embed` chunk still downloads from this site, because the bundled loader is unchanged; loading it only registers a `pagehide` listener.
+- **Withdrawn mid-visit:** see [Withdrawal](#withdrawal).
+
+Video playback is the same in every case: the HLS stream from `stream.mux.com` and the poster from `image.mux.com` are playback, not Mux Data, and the opt-out does not cover them. When granted, Mux Data still sends player and playback data (for example player size and state, timings, connection type, and per-view and per-player random IDs), and each request reaches Mux with the visitor's IP address and user agent. No Mux account setting is changed.
+
 ### Not Changed, and Why
 
 - **Remote-config capture conflicts:** the project turns on replay console logs, canvas capture, and network timing. A client `false` would override the project setting, which the owner decision reserves for Nathan, so the runtime leaves all three as configured and the conflict is reported. Network-timing URLs are still scrubbed. Request and response bodies and headers are off in both client and project.
@@ -245,4 +256,4 @@ A grant after a withdrawal is saved but loads nothing in the same page view; col
 
 ### Verification
 
-`tests/privacy-runtime.test.js` runs the gate's exact source and the flag-on blocks in JSDOM. `tests/privacy-runtime/` drives the flag-on test build in Chromium with the real posthog-js 1.438.3 and gtag.js, behind a local proxy that is the browser's only network path and refuses everything but the site under test; its config file says how to run it.
+`tests/privacy-runtime.test.js` runs the gate's exact source, the Mux Data script, and the flag-on blocks in JSDOM. `tests/privacy-runtime/` drives the flag-on test build in Chromium with the real posthog-js 1.438.3 and gtag.js, and the bundled mux-embed and background-video component (`mux-data.pw.ts`), behind a local proxy that is the browser's only network path and refuses everything but the site under test; its config file says how to run it.
