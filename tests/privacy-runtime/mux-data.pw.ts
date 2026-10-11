@@ -63,6 +63,22 @@ const GPC_ON =
   "Object.defineProperty(Navigator.prototype, 'globalPrivacyControl', { get: () => true, configurable: true });";
 const DNT_ON =
   "Object.defineProperty(Navigator.prototype, 'doNotTrack', { get: () => '1', configurable: true });";
+// As in runtime.pw.ts: logs every request that gets past the gate's transport
+// guard (installed later, so it wraps this), with the page clock.
+const LOG_SENT = `(() => {
+  const log = [];
+  window.__npSent = log;
+  const nativeFetch = window.fetch;
+  window.fetch = function (input, init) {
+    log.push({ url: String(input && input.url ? input.url : input), t: performance.now() });
+    return nativeFetch.call(this, input, init);
+  };
+  const nativeBeacon = navigator.sendBeacon.bind(navigator);
+  navigator.sendBeacon = (url, data) => {
+    log.push({ url: String(url), t: performance.now() });
+    return nativeBeacon(url, data);
+  };
+})();`;
 
 let proxy: EgressProxy;
 let browser: Browser;
@@ -257,13 +273,20 @@ test('Do Not Track: Mux Data monitors but sends nothing and sets no cookie', asy
 });
 
 test("set('denied') mid-visit stops Mux Data: monitor destroyed, nothing more sent", async () => {
-  const { context, page, sink } = await open();
+  const { context, page, sink } = await open([LOG_SENT]);
   await page.goto(PAGE);
   expect(await heroSettled(page)).toMatchObject({ effective: 'granted', monitored: true });
   // Positive control: it was sending before the withdrawal.
   expect(await waitFor(() => muxBeacons(sink).length > 0)).toBe(true);
   const withdrawnAt = Date.now();
-  await page.evaluate(() => (window as unknown as NpWindow).npPrivacy.set('denied'));
+  // The page clock is read before set('denied'): destroying the monitor
+  // flushes mux-embed's queue inside that call, and the transport guard must
+  // refuse the flush.
+  const tPage = await page.evaluate(() => {
+    const t = performance.now();
+    (window as unknown as NpWindow).npPrivacy.set('denied');
+    return t;
+  });
   const afterWithdrawal = await page.evaluate(() => {
     const video = document
       .querySelector('mux-background-video')
@@ -276,12 +299,19 @@ test("set('denied') mid-visit stops Mux Data: monitor destroyed, nothing more se
   });
   expect.soft(afterWithdrawal).toEqual({ globalMux: 'undefined', monitorDeleted: true });
   await pause(PAST_FIRST_BATCH);
+  // Exact: every Mux Data request that got past the guard once the withdrawal
+  // began. The log sees Mux Data's requests (the beacon before withdrawal is in
+  // it), so an empty result is not the log missing them.
+  const sent = await page.evaluate(() => (window as unknown as NpWindow).__npSent);
+  const litixSent = sent.filter((r) => isLitix(new URL(r.url, SITE).host));
+  expect(litixSent.filter((r) => r.t < tPage).length).toBeGreaterThan(0);
+  expect(litixSent.filter((r) => r.t >= tPage).map((r) => r.url)).toEqual([]);
+  expect.soft(await muxCookies(context, page)).toEqual([]);
   await page.goto(`${SITE}/`);
   await pause(2_000);
-  // A batch already handed to the network at the instant of withdrawal may
-  // still land; nothing may start after it.
+  // At the network: a batch already handed over at the instant of withdrawal
+  // may still land; nothing may start after it, including at unload.
   expect(muxAttempts(sink, withdrawnAt + 1_000)).toEqual([]);
-  expect.soft(await muxCookies(context, page)).toEqual([]);
   await context.close();
 });
 
@@ -290,4 +320,5 @@ interface NpWindow {
     get(): { saved: string; effective: string; reason: string };
     set(choice: string): boolean;
   };
+  __npSent: Array<{ url: string; t: number }>;
 }
