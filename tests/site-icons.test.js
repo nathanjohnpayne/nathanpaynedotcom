@@ -101,6 +101,13 @@ describe('OG card mark', () => {
     );
   });
 
+  it('renders on the homepage hero card only (#1292)', () => {
+    // On the interior cards a 64px mark showed at 14–19px in thumbnails, below
+    // the 24px under which the logo system drops the monogram.
+    expect(source).toMatch(/const npMark = hero\s*\?/);
+    expect(source).toMatch(/\{npMark && <div class="og-mark"/);
+  });
+
   it('sits outside .og-content, where the fit check and the heading cannot reach it', () => {
     const content = source.indexOf('<div class="og-content">');
     const contentEnd = source.indexOf('</div>', source.indexOf('{meta &&'));
