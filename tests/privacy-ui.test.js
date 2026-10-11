@@ -525,7 +525,9 @@ describe('/privacy/ page and footer link (PRIV-11, PRIV-15)', () => {
     );
     expect(PAGE_ASTRO).toContain("getSiteCopy('privacy')");
     expect(PAGE_ASTRO).toContain('<PrivacyControls />');
-    expect(PAGE_ASTRO).toContain("import { getEntry } from 'astro:content';");
+    // The contact is the dedicated privacy address, never the personal one.
+    expect(PAGE_ASTRO).toContain("const email = 'privacy@nathanpayne.com';");
+    expect(PAGE_ASTRO).not.toContain("getEntry('myself'");
   });
 
   it('has a privacy site-copy entry that matches its own strict schema', () => {
@@ -590,6 +592,10 @@ describe('/privacy/ page and footer link (PRIV-11, PRIV-15)', () => {
     // Error issues carry no error text and never carried a visitor ID (decision 9).
     expect(PAGE_TEMPLATE).toContain(
       'It does not copy the error message, and it carries no visitor ID.',
+    );
+    // gtag.js tag diagnostics reach www.googletagmanager.com on sampled loads (#1278).
+    expect(PAGE_TEMPLATE).toContain(
+      'on a small share of page loads the tag also sends diagnostic reports there',
     );
     // Every surface that names what the setting stops names Mux Data too (decision 12).
     expect(CONTROLS_HTML).toContain('Google Analytics 4, and Mux Data');
