@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { resolve, sep } from 'node:path';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve, sep } from 'node:path';
 import { containedJoin } from '../scripts/lib/contain-path.mjs';
 import { MUX_PLAYBACK_ID_PATTERN, isMuxPlaybackId } from '../scripts/lib/mux-playback-id.mjs';
 
@@ -30,6 +31,72 @@ describe('containedJoin', () => {
 
   it('accepts .. segments that stay inside the base after normalization', () => {
     expect(containedJoin(base, '/images/../fonts/a.woff2')).toBe(`${base}${sep}fonts${sep}a.woff2`);
+  });
+});
+
+// #1081: the lexical check above can't see a symlink committed under public/.
+// These run against a real directory tree. On macOS the temp dir itself sits
+// behind a symlink (/var -> /private/var), which the first two cases cover.
+describe('containedJoin with symlinks', () => {
+  let root;
+  let base;
+  let outside;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'contain-path-'));
+    base = join(root, 'public');
+    outside = join(root, 'outside');
+    mkdirSync(join(base, 'images'), { recursive: true });
+    mkdirSync(outside);
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('accepts a path through real directories', () => {
+    expect(containedJoin(base, '/images/x.png')).toBe(join(base, 'images', 'x.png'));
+  });
+
+  it('accepts a path whose directories do not exist yet', () => {
+    expect(containedJoin(base, '/images/new/deeper/x.png')).toBe(
+      join(base, 'images', 'new', 'deeper', 'x.png'),
+    );
+  });
+
+  it('rejects a symlinked directory that points outside the base', () => {
+    symlinkSync(outside, join(base, 'escape'));
+    expect(containedJoin(base, '/escape/x.png')).toBeNull();
+    expect(containedJoin(base, '/escape/new/x.png')).toBeNull();
+  });
+
+  it('rejects a symlinked file that points outside the base', () => {
+    writeFileSync(join(outside, 'target.png'), '');
+    symlinkSync(join(outside, 'target.png'), join(base, 'images', 'x.png'));
+    expect(containedJoin(base, '/images/x.png')).toBeNull();
+  });
+
+  it('rejects a dangling symlink, since a write would create its target', () => {
+    symlinkSync(join(outside, 'not-yet.png'), join(base, 'images', 'x.png'));
+    expect(containedJoin(base, '/images/x.png')).toBeNull();
+  });
+
+  it('rejects a symlink loop instead of throwing', () => {
+    symlinkSync(join(base, 'loop-b'), join(base, 'loop-a'));
+    symlinkSync(join(base, 'loop-a'), join(base, 'loop-b'));
+    expect(containedJoin(base, '/loop-a/x.png')).toBeNull();
+  });
+
+  it('accepts a symlink that stays inside the base', () => {
+    mkdirSync(join(base, 'real'));
+    symlinkSync(join(base, 'real'), join(base, 'images', 'alias'));
+    expect(containedJoin(base, '/images/alias/x.png')).toBe(join(base, 'images', 'alias', 'x.png'));
+  });
+
+  it('accepts a base reached through a symlink', () => {
+    const linkedBase = join(root, 'linked-public');
+    symlinkSync(base, linkedBase);
+    expect(containedJoin(linkedBase, '/images/x.png')).toBe(join(linkedBase, 'images', 'x.png'));
   });
 });
 
