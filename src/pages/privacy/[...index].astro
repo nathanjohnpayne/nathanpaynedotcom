@@ -247,7 +247,7 @@ const sections = [
             Your browser, operating system, device type, language, time zone, screen and window size, and the full user-agent string.
           </li>
           <li>
-            The page's address and the page that referred you, reduced to the site's origin and path plus campaign parameters (<code>utm_source</code>, <code>utm_medium</code>, <code>utm_campaign</code>, <code>utm_term</code>, <code>utm_content</code>, and the Google click identifiers <code>gclid</code>, <code>gbraid</code>, <code>wbraid</code>, and <code>dclid</code>). Other query parameters and fragments are removed before sending.
+            The page's address and the page that referred you, reduced to the site's origin and path plus campaign parameters (<code>utm_source</code>, <code>utm_medium</code>, <code>utm_campaign</code>, <code>utm_term</code>, and <code>utm_content</code>). Other query parameters, click identifiers such as <code>gclid</code> and <code>fbclid</code> included, and fragments are removed before sending.
           </li>
           <li>
             Your country, region, city, postal code, approximate latitude and longitude, and time zone, which PostHog derives from your IP address when an event arrives. PostHog then discards the IP address instead of storing it with the event.

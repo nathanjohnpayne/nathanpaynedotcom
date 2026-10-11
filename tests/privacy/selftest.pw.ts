@@ -564,7 +564,11 @@ test.describe('the canary detector sees every encoding the SDKs use, and rejects
   });
 
   test('PRIV-2 (instrument) the URL check flags fragments and non-allowlisted parameters and passes the allowlist', () => {
-    expect(urlViolations('see https://a.test/p?utm_source=x&gclid=1&dclid=2')).toEqual([]);
+    expect(urlViolations('see https://a.test/p?utm_source=x&utm_term=y')).toEqual([]);
+    // Decision 11 took the Google click identifiers off the allowlist (#1294).
+    expect(
+      urlViolations('see https://a.test/p?utm_source=x&gclid=1&dclid=2').map((v) => v.reason),
+    ).toEqual(['query parameter gclid', 'query parameter dclid']);
     expect(urlViolations('see https://a.test/p?email=x').map((v) => v.reason)).toEqual([
       'query parameter email',
     ]);

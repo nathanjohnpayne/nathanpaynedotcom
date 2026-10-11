@@ -143,8 +143,8 @@ const privacyEnabled = privacyControlsEnabled();
         // Unchanged; the flag-off block explains why it must stay 'always'.
         person_profiles: 'always',
         // § Capture Minimization 3–4: URL scrubbing to the one allowlist,
-        // structural element attributes only, no non-Google click identifier
-        // (#1263), and nothing at all once withdrawn. Returning null drops an
+        // structural element attributes only, no click identifier (#1263,
+        // #1294), and nothing at all once withdrawn. Returning null drops an
         // event, and the functions run in
         // order: https://posthog.com/docs/libraries/js/features#amending-or-sampling-events
         before_send: [gate.scrubEvent, keepStoredStateScrubbed],
