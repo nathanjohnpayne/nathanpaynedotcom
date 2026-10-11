@@ -10,7 +10,10 @@
  * finding. When Nathan resolves an item, delete its `test.fail` line and the
  * second test becomes an ordinary gate.
  *
- * Reported as PRIV-2 / PRIV-13 "not verified, pending Nathan", not as pass.
+ * Reported as PRIV-2 "not verified, pending Nathan", not as pass.
+ *
+ * The console-records finding (PRIV-2, PRIV-13) is resolved, and its gate is
+ * the last test in this file.
  */
 import { CANARIES, FIXTURE_PATH } from './harness/constants';
 import {
@@ -37,7 +40,6 @@ const ENHANCED_PARAMS = [
 ];
 
 let ga4Measurement: { leaks: string[]; produced: string[] } | undefined;
-let consoleMeasurement: { text: string } | undefined;
 
 test.describe.serial('pending Nathan: GA4 enhanced measurement', () => {
   test('PRIV-2 (measurement) GA4 enhanced-measurement parameters are produced and decoded from the fixture', async ({
@@ -111,11 +113,13 @@ test.describe.serial('pending Nathan: GA4 enhanced measurement', () => {
   });
 });
 
-test.describe.serial('pending Nathan: console records', () => {
-  test('PRIV-2 PRIV-13 (measurement) a URL logged to the console is recorded, and the recording decodes', async ({
+// Resolved by #1261 (Nathan's decision 1 on #1079): console-log capture is off in client config, which wins over
+// the project's remote config (Capture Conflicts C1), so the expected failure became an ordinary gate. The served
+// remote config still turns console capture on, so this fails the day the client setting stops winning.
+test.describe('resolved (#1261): console records', () => {
+  test('PRIV-2 PRIV-13 a URL logged to the console never reaches the recording: no console record, while replay records the page around it', async ({
     open,
   }) => {
-    consoleMeasurement = undefined;
     const s = await open();
     await s.goto(FIXTURE_PATH);
     await expectCollecting(s, { ga4: false });
@@ -123,29 +127,32 @@ test.describe.serial('pending Nathan: console records', () => {
       (m) => console.log(m),
       `np-console-probe https://nathanpayne.test/x?email=${CANARIES.query}%40example.test#${CANARIES.fragment}`,
     );
+    // Positive control: replay is still recording after the console call, so a console record would have been
+    // sent along with this DOM change.
+    await s.page.evaluate(() => {
+      const p = document.createElement('p');
+      p.id = 'np-after-console-probe';
+      p.textContent = 'Recorded after the console probe';
+      document.body.append(p);
+    });
+    await humanActivity(s.page);
     await s.page.waitForTimeout(4000);
     await unloadAndSettle(s.page); // let the unload flush reach the sink
     expect(s.sink.undecodedCollection(), 'every replay body was decodable').toEqual([]);
-    const consoleRecords = replayItems(s).filter(
-      (i) => i.type === 6 && i.data?.plugin === 'rrweb/console@1',
-    );
-    // No console records means console capture was turned off (resolved) or the probe was not recorded.
-    test.skip(
-      consoleRecords.length === 0,
-      'not verified: the console probe was not recorded. If console capture was turned off in the project, the finding is resolved: delete the test.fail in the next test and this skip.',
-    );
-    consoleMeasurement = { text: JSON.stringify(consoleRecords) };
-  });
-
-  test('PRIV-2 PRIV-13 [PENDING NATHAN: expected to fail] URLs in console records are scrubbed like every other URL the recording holds', () => {
-    test.fail(
-      true,
-      'Contract: with console capture on in PostHog remote config (Capture Conflicts C1) the runtime leaves it alone, yet "URL scrubbing still applies to any URL those features record". Console text is not rewritten, so a URL a page logs reaches the recording unscrubbed. Nathan decides: turn console capture off in the project, or accept and disclose.',
-    );
-    test.skip(!consoleMeasurement, 'not verified: the measurement test did not complete');
+    const items = replayItems(s);
     expect(
-      canaryHits(consoleMeasurement?.text ?? ''),
-      'sensitive URL parts in console records',
+      JSON.stringify(items),
+      'replay recorded the page after the console call (positive control)',
+    ).toContain('np-after-console-probe');
+    expect(
+      items.filter((i) => i.type === 6 && i.data?.plugin === 'rrweb/console@1'),
+      'console records in the recording',
     ).toEqual([]);
+    const replayText = s.sink
+      .snapshotEvents()
+      .map(({ req }) => req.searchable)
+      .join('\n');
+    expect(replayText, 'the console probe in any replay payload').not.toContain('np-console-probe');
+    expect(canaryHits(replayText), 'sensitive URL parts in any replay payload').toEqual([]);
   });
 });
