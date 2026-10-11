@@ -621,17 +621,13 @@ describe('transport guard', () => {
 describe('URL scrubbing (§ Capture Minimization 3)', () => {
   const at = (path = '/blog/post/') => boot({ url: `https://nathanpayne.test${path}` }).gate;
 
-  it('has exactly one allowlist: the five UTMs and the four Google click identifiers', () => {
+  it('has exactly one allowlist: the five UTMs (decision 11 dropped the Google click identifiers, #1294)', () => {
     expect([...at().ALLOWED_QUERY_PARAMS]).toEqual([
       'utm_source',
       'utm_medium',
       'utm_campaign',
       'utm_term',
       'utm_content',
-      'gclid',
-      'gbraid',
-      'wbraid',
-      'dclid',
     ]);
     expect(Object.isFrozen(at().ALLOWED_QUERY_PARAMS)).toBe(true);
     // No second query-parameter list: no parameter name outside the allowlist
@@ -644,19 +640,19 @@ describe('URL scrubbing (§ Capture Minimization 3)', () => {
       GATE_SRC.indexOf('function isReplayExcluded('),
     );
     expect(queryRule).toContain('ALLOWED_QUERY_PARAMS');
-    expect(queryRule).not.toMatch(/DROPPED_CLICK_IDS|isDroppedClickIdKey|fbclid|msclkid/);
+    expect(queryRule).not.toMatch(/DROPPED_CLICK_IDS|isDroppedClickIdKey|fbclid|msclkid|gclid/);
   });
 
   it.each([
     [
       'https://nathanpayne.com/a/b/?email=x%40y.test&utm_source=news&gclid=abc&fbclid=zz#frag',
-      'https://nathanpayne.com/a/b/?utm_source=news&gclid=abc',
+      'https://nathanpayne.com/a/b/?utm_source=news',
     ],
     ['https://nathanpayne.com/?q=secret', 'https://nathanpayne.com/'],
     ['https://nathanpayne.com/#only-a-fragment', 'https://nathanpayne.com/'],
     [
       'https://nathanpayne.com/x?utm_campaign=a%20b&x=1&utm_source=s&utm_medium=&dclid',
-      'https://nathanpayne.com/x?utm_campaign=a%20b&utm_source=s&utm_medium=&dclid',
+      'https://nathanpayne.com/x?utm_campaign=a%20b&utm_source=s&utm_medium=',
     ],
     ['https://nathanpayne.com/x?UTM_SOURCE=shout', 'https://nathanpayne.com/x'],
     ['https://nathanpayne.com/x?utm%5Fsource=enc', 'https://nathanpayne.com/x?utm%5Fsource=enc'],
@@ -767,7 +763,7 @@ describe('event scrubbing: PostHog before_send (§ Capture Minimization 3–4)',
       email: 'n@nathanpayne.com',
     });
     expect(out.$set_once).toEqual({
-      $initial_current_url: 'https://nathanpayne.test/a/?gclid=g',
+      $initial_current_url: 'https://nathanpayne.test/a/',
       $initial_referrer: 'https://news.example/',
       $initial_pathname: '/a/',
       $initial_utm_source: 's',
@@ -1258,7 +1254,7 @@ describe('event scrubbing: PostHog before_send (§ Capture Minimization 3–4)',
   });
 });
 
-describe('click identifiers: PostHog before_send (#1263, decision 11)', () => {
+describe('click identifiers: PostHog before_send (#1263, #1294, decision 11)', () => {
   // posthog-js 1.438.3, packages/browser-common/src/utils/event-utils.ts:
   // PERSONAL_DATA_CAMPAIGN_PARAMS and CAMPAIGN_PARAMS, in the SDK's order.
   // tests/privacy-runtime/runtime.pw.ts checks the same lists against the
@@ -1293,8 +1289,10 @@ describe('click identifiers: PostHog before_send (#1263, decision 11)', () => {
     'mc_cid',
     ...SDK_PERSONAL_DATA,
   ];
-  const GOOGLE = ['gclid', 'gclsrc', 'dclid', 'gbraid', 'wbraid', 'gad_source'];
-  const DROPPED = SDK_PERSONAL_DATA.filter((name) => !GOOGLE.includes(name));
+  // Decision 11 drops every click identifier in the SDK's personal-data list,
+  // Google's (#1294) and the rest (#1263); gad_source and mc_cid are campaign
+  // parameters and stay with the UTMs.
+  const DROPPED = SDK_PERSONAL_DATA;
   const KEPT = SDK_CAMPAIGN.filter((name) => !DROPPED.includes(name));
   const valueOf = (name) => `NP-CLICKID-${name}`;
   const allNamed = (prefix, value = valueOf) =>
@@ -1326,12 +1324,22 @@ describe('click identifiers: PostHog before_send (#1263, decision 11)', () => {
     },
   });
 
-  it("is the non-Google part of posthog-js 1.438.3's personal-data campaign list, defined once", () => {
+  it("is posthog-js 1.438.3's whole personal-data campaign list, defined once", () => {
     const { gate } = boot();
     expect([...gate.DROPPED_CLICK_IDS]).toEqual(DROPPED);
-    expect(gate.DROPPED_CLICK_IDS).toEqual(expect.arrayContaining(['fbclid', 'msclkid']));
+    expect(gate.DROPPED_CLICK_IDS).toEqual(
+      expect.arrayContaining(['gclid', 'gclsrc', 'dclid', 'gbraid', 'wbraid', 'fbclid', 'msclkid']),
+    );
     expect(Object.isFrozen(gate.DROPPED_CLICK_IDS)).toBe(true);
-    for (const name of [...GOOGLE, 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term']) {
+    for (const name of [
+      'gad_source',
+      'mc_cid',
+      'utm_source',
+      'utm_medium',
+      'utm_campaign',
+      'utm_term',
+      'utm_content',
+    ]) {
       expect(gate.DROPPED_CLICK_IDS).not.toContain(name);
     }
     expect(GATE_SRC.match(/DROPPED_CLICK_IDS\s*=/g)).toHaveLength(1);
@@ -1344,7 +1352,7 @@ describe('click identifiers: PostHog before_send (#1263, decision 11)', () => {
     const { gate } = boot();
     const out = gate.scrubEvent(landingEvent());
     expect(out.properties).toEqual({
-      $current_url: 'https://nathanpayne.test/?utm_source=s&gclid=g',
+      $current_url: 'https://nathanpayne.test/?utm_source=s',
       ...keptNamed(''),
       ...keptNamed('$session_entry_'),
       $session_entry_url: 'https://nathanpayne.test/?utm_source=s',
@@ -1366,7 +1374,7 @@ describe('click identifiers: PostHog before_send (#1263, decision 11)', () => {
     expect(sent).not.toContain('"$fbc"');
   });
 
-  it('keeps the UTMs, the Google identifiers, gad_source, and mc_cid exactly, under every name', () => {
+  it('keeps the UTMs, gad_source, and mc_cid exactly, under every name', () => {
     const { gate } = boot();
     const out = gate.scrubEvent(landingEvent());
     for (const name of KEPT) {
@@ -1410,9 +1418,11 @@ describe('click identifiers: PostHog before_send (#1263, decision 11)', () => {
     expect(snapshot.properties).toEqual({ $snapshot_data: data, $set: { utm_source: 's' } });
     const custom = gate.scrubEvent({
       event: 'project_live_link_clicked',
-      properties: { nested: { list: [{ ttclid: valueOf('ttclid'), gclid: 'g' }] } },
+      properties: {
+        nested: { list: [{ ttclid: valueOf('ttclid'), gclid: valueOf('gclid'), utm_source: 's' }] },
+      },
     });
-    expect(custom.properties).toEqual({ nested: { list: [{ gclid: 'g' }] } });
+    expect(custom.properties).toEqual({ nested: { list: [{ utm_source: 's' }] } });
   });
 
   /** A stand-in for the SDK's flag person properties, $fbc record, and the public methods the gate calls. */
@@ -1441,7 +1451,12 @@ describe('click identifiers: PostHog before_send (#1263, decision 11)', () => {
   it('removes $fbc from the flag person properties and the SDK record, without reloading flags', () => {
     const { gate } = boot();
     const sdk = fakeSdk({
-      $stored_person_properties: { $fbc: FBC, plan: 'pro', $initial_msclkid: null },
+      $stored_person_properties: {
+        $fbc: FBC,
+        plan: 'pro',
+        $initial_msclkid: null,
+        $initial_gclid: valueOf('gclid'),
+      },
       $fbc_persistence: { value: FBC, delivered: false },
       distinct_id: 'd',
     });
@@ -1463,7 +1478,7 @@ describe('click identifiers: PostHog before_send (#1263, decision 11)', () => {
     const onlyFbc = fakeSdk({ $stored_person_properties: { $fbc: FBC } });
     gate.dropStoredClickIds(onlyFbc);
     expect(onlyFbc.calls).toEqual([['reset', false]]);
-    const untouched = fakeSdk({ $stored_person_properties: { plan: 'pro', gclid: 'g' } });
+    const untouched = fakeSdk({ $stored_person_properties: { plan: 'pro', utm_source: 's' } });
     gate.dropStoredClickIds(untouched);
     expect(untouched.calls).toEqual([]);
     for (const partial of [undefined, null, {}, { get_property: () => ({ $fbc: FBC }) }]) {

@@ -626,33 +626,25 @@ function entriesIn(value: unknown, out: Array<[string, unknown]> = []): Array<[s
   return out;
 }
 
-test('non-Google click identifiers never reach PostHog; the UTMs and Google identifiers are sent as before (#1263)', async () => {
+test('no click identifier reaches PostHog; the UTMs, gad_source, and mc_cid are sent as before (#1263, #1294)', async () => {
   test.setTimeout(150_000);
   const { personal, campaign } = sdkCampaignParams();
-  // Google's entries in the SDK's list. Their handling is unchanged until
-  // Nathan checks the Ads links; gad_source is Google's too.
-  const google = ['gclid', 'gclsrc', 'dclid', 'gbraid', 'wbraid', 'gad_source'];
-  const dropped = personal.filter((name) => !google.includes(name));
+  // Decision 11 drops every click identifier in the SDK's personal-data list,
+  // Google's (#1294) and the rest (#1263). gad_source and mc_cid are campaign
+  // parameters, not click identifiers, and are kept with the UTMs.
+  const dropped = personal;
   const kept = campaign.filter((name) => !dropped.includes(name));
-  expect(dropped).toEqual(expect.arrayContaining(['fbclid', 'msclkid']));
-  expect(kept).toEqual(expect.arrayContaining([...google, 'utm_source', 'utm_term']));
+  expect(dropped).toEqual(
+    expect.arrayContaining(['gclid', 'gclsrc', 'dclid', 'gbraid', 'wbraid', 'fbclid', 'msclkid']),
+  );
+  expect(kept).toEqual(expect.arrayContaining(['gad_source', 'mc_cid', 'utm_source', 'utm_term']));
   // Every name the SDK sends a campaign parameter under, plus $fbc, which it
   // builds from fbclid.
   const droppedKeys = new Set([
     ...dropped.flatMap((name) => [name, `$initial_${name}`, `$session_entry_${name}`]),
     '$fbc',
   ]);
-  const urlAllowlist = [
-    'utm_source',
-    'utm_medium',
-    'utm_campaign',
-    'utm_term',
-    'utm_content',
-    'gclid',
-    'gbraid',
-    'wbraid',
-    'dclid',
-  ];
+  const urlAllowlist = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'];
   // A distinct value per parameter, none a substring of another.
   const value = (name: string) => `NP-CLICKID-${name}-END`;
   const landing = new URLSearchParams(campaign.map((name) => [name, value(name)]));
@@ -662,8 +654,8 @@ test('non-Google click identifiers never reach PostHog; the UTMs and Google iden
   const { context, page, sink } = await open();
   const since = Date.now();
   await page.goto(`${FIXTURE}?${landing}`);
-  // The gate removes exactly the SDK's non-Google personal-data parameters.
-  // Soft, so a gate without the list still reaches the payload checks below.
+  // The gate removes exactly the SDK's personal-data parameters. Soft, so a
+  // gate without the list still reaches the payload checks below.
   expect
     .soft(
       await page.evaluate(() => {
@@ -675,7 +667,7 @@ test('non-Google click identifiers never reach PostHog; the UTMs and Google iden
         const list = privacy[Symbol.for('np-privacy.internal')].DROPPED_CLICK_IDS;
         return list ? [...list] : null;
       }),
-      "the gate's list is the SDK's, minus Google",
+      "the gate's list is the SDK's",
     )
     .toEqual(dropped);
   await activate(page);
@@ -766,8 +758,8 @@ test('non-Google click identifiers never reach PostHog; the UTMs and Google iden
     }
   }
 
-  // No non-Google identifier anywhere in any PostHog request, as any value
-  // under any key: events, person updates, replay, /flags, every endpoint.
+  // No click identifier anywhere in any PostHog request, as any value under
+  // any key: events, person updates, replay, /flags, every endpoint.
   const sent = posthogRecords.map((r) => r.text).join('\n');
   for (const name of dropped) {
     expect.soft(sent, `${name}'s value reached PostHog`).not.toContain(value(name));
@@ -807,8 +799,92 @@ test('non-Google click identifiers never reach PostHog; the UTMs and Google iden
     .filter((r) => !posthogRecords.includes(r))
     .map((r) => r.text)
     .join('\n');
+  // gtag.js could read them from the page's own location; it sends none.
+  expect.soft(carrying(gaText), 'click identifiers in a GA4 request').toEqual([]);
+  await context.close();
+});
+
+// #1294, decision 11. gtag.js reads the page's own location, not only the
+// scrubbed page_location the GA4 block gives it, so this checks every GA4
+// request and everything gtag.js stores, not just `dl`.
+test('no Google click identifier reaches GA4 or its cookies and storage; the UTMs still do (#1294)', async () => {
+  const google = ['gclid', 'gclsrc', 'dclid', 'gbraid', 'wbraid'];
+  // A distinct value per identifier, none a substring of another.
+  const value = (name: string) => `NP-GCLICK-${name}-END`;
+  const landing = new URLSearchParams([
+    ...google.map((name): [string, string] => [name, value(name)]),
+    ['utm_source', 'fixture'],
+  ]);
+  const { context, page, sink } = await open();
+  await page.goto(`${FIXTURE}?${landing}`);
+  await activate(page);
+  // Positive control: GA4 is sending, and the UTM survives in its page URL.
+  expect(
+    await waitFor(() => gaHasParam(sink, 'dl', `${FIXTURE}?utm_source=fixture`)),
+    'a GA4 hit with dl carrying utm_source only',
+  ).toBe(true);
+  await page.evaluate(() => (window as unknown as NpWindow).gtag?.('event', 'np_click_id_probe'));
+  const probeSent = () =>
+    gaHits(sink).some((r) => gaHitParams(r).some((hit) => hit.get('en') === 'np_click_id_probe'));
+  expect(await waitFor(probeSent, 15_000), 'a later GA4 event was sent').toBe(true);
+  const storedOn = () =>
+    page.evaluate(() => ({
+      cookie: document.cookie,
+      local: JSON.stringify({ ...window.localStorage }),
+      session: JSON.stringify({ ...window.sessionStorage }),
+    }));
+  const onLanding = await storedOn();
+  // The next page, reached by a link, so its document.referrer is the
+  // landing URL with its whole query.
+  const secondLoad = Date.now();
+  await page.locator('#fixture-privacy-link').click();
+  await page.waitForURL(`${SITE}/privacy/`);
+  expect(
+    await waitFor(() => gaHasParam(sink, 'dl', `${SITE}/privacy/`, secondLoad)),
+    'a GA4 page view on the next page',
+  ).toBe(true);
+  expect(
+    await page.evaluate(() => document.referrer),
+    'the browser kept the identifiers in the referrer',
+  ).toContain(value('gclid'));
+  expect(
+    gaHasParam(sink, 'dr', `${FIXTURE}?utm_source=fixture`, secondLoad),
+    'GA4 got the referrer reduced to the UTM',
+  ).toBe(true);
+  await pause(2_000);
+  const onNext = await storedOn();
+
+  const gaRecords = sink.records.filter((r) => {
+    const host = new URL(r.url).hostname;
+    return host !== POSTHOG_HOST && !isHostOrSubdomain(host, 'posthog.com');
+  });
+  expect(gaRecords.length).toBeGreaterThan(0);
+  const gaText = gaRecords.map((r) => `${r.text}\n${r.body}`).join('\n');
+  for (const name of google) {
+    expect.soft(gaText, `${name}'s value reached GA4`).not.toContain(value(name));
+  }
+  // No parameter named after a click identifier, in any hit of any request.
+  const names = new Set(gaRecords.flatMap((r) => gaHitParams(r).flatMap((hit) => [...hit.keys()])));
+  expect
+    .soft(
+      [...names].filter((key) =>
+        /^(ep\.|epn\.)?(gclid|gclsrc|dclid|gbraid|wbraid|_gcl.*)$/.test(key),
+      ),
+    )
+    .toEqual([]);
+  // gtag.js keeps click identifiers in `_gcl_*` cookies and a `_gcl_ls`
+  // storage entry when it uses them; it set none, and stored no value.
+  const cookies = await context.cookies();
+  expect(cookies.map((c) => c.name).filter((n) => n.startsWith('_gcl'))).toEqual([]);
+  for (const stored of [onLanding, onNext]) {
+    expect(stored.local).not.toMatch(/"_gcl/);
+    expect(stored.session).not.toMatch(/"_gcl/);
+    for (const name of google) {
+      expect.soft(stored.cookie, `${name} in a cookie`).not.toContain(value(name));
+    }
+  }
   console.log(
-    `GA4 requests carrying a non-Google identifier (GA4 is out of scope): [${carrying(gaText).join(', ')}]`,
+    `GA4 requests inspected: ${gaRecords.length}; cookies: ${cookies.map((c) => c.name).join(', ')}`,
   );
   await context.close();
 });

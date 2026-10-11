@@ -27,9 +27,10 @@
 
   /**
    * The only query parameters a URL keeps on its way to PostHog or GA4
-   * (§ Capture Minimization 3). The five UTM parameters, plus the Google click
-   * identifiers, which stay until Nathan decides (decision item 4). This is the
-   * one query-parameter allowlist; there is deliberately no query-parameter
+   * (§ Capture Minimization 3): the five UTM parameters. The Google click
+   * identifiers left the list under Nathan's decision 11 (#1079, #1294), since
+   * no Google Ads or other advertising link depends on them. This is the one
+   * query-parameter allowlist; there is deliberately no query-parameter
    * blocklist anywhere.
    */
   var ALLOWED_QUERY_PARAMS = Object.freeze([
@@ -38,23 +39,18 @@
     'utm_campaign',
     'utm_term',
     'utm_content',
-    'gclid',
-    'gbraid',
-    'wbraid',
-    'dclid',
   ]);
 
   /**
-   * Non-Google click identifiers, removed from every PostHog event under every
-   * name the SDK copies them to (#1079 decision 11, #1263). This is posthog-js
-   * 1.438.3's PERSONAL_DATA_CAMPAIGN_PARAMS, in the SDK's order, minus its
-   * Google entries (gclid, gclsrc, dclid, gbraid, wbraid):
+   * Click identifiers, removed from every PostHog event under every name the
+   * SDK copies them to (#1079 decision 11: the non-Google ones in #1263, the
+   * Google ones in #1294). This is posthog-js 1.438.3's
+   * PERSONAL_DATA_CAMPAIGN_PARAMS, whole and in the SDK's order:
    * https://github.com/PostHog/posthog-js/blob/posthog-js%401.438.3/packages/browser-common/src/utils/event-utils.ts
    * The SDK copies every entry of its CAMPAIGN_PARAMS (that list plus the five
    * UTMs, gad_source, and mc_cid) out of the page URL into event and person
-   * properties as values, not URLs, so URL scrubbing never reached them. The
-   * Google identifiers, gad_source, mc_cid, and the UTMs are still sent as
-   * before; the Google ones wait for Nathan's Ads-links check.
+   * properties as values, not URLs, so URL scrubbing never reached them.
+   * gad_source, mc_cid, and the UTMs are still sent as before.
    *
    * These are property names, not query parameters: URLs are reduced by
    * ALLOWED_QUERY_PARAMS alone, which drops all of these already.
@@ -62,6 +58,11 @@
    * and fails if the two drift apart.
    */
   var DROPPED_CLICK_IDS = Object.freeze([
+    'gclid',
+    'gclsrc',
+    'dclid',
+    'gbraid',
+    'wbraid',
     'fbclid',
     'msclkid',
     'twclid',

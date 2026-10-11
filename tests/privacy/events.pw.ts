@@ -182,18 +182,19 @@ test.describe('PostHog events', () => {
       utm_campaign: 'spring sale & more',
       utm_term: 'privacy/test=1',
       utm_content: 'caf\u00e9-link',
-      gclid: 'Cj0KCQ-gclid_123',
-      gbraid: '0AAAAA-gbraid_456',
-      wbraid: 'CjwKCA-wbraid_789',
-      dclid: 'CJz-dclid_012',
     };
     expect(Object.keys(values).sort(), 'the table covers the whole allowlist').toEqual(
       [...ALLOWED_QUERY_PARAMS].sort(),
     );
+    // The Google click identifiers are no longer allowlisted (decision 11, #1294); they must go too.
     const query = new URLSearchParams({
       email: CANARIES.query,
       token: `${CANARIES.query}-2`,
       ref: CANARIES.fragment,
+      gclid: 'Cj0KCQ-gclid_123',
+      gbraid: '0AAAAA-gbraid_456',
+      wbraid: 'CjwKCA-wbraid_789',
+      dclid: 'CJz-dclid_012',
       ...values,
     });
     await s.goto(`${FIXTURE_PATH}?${query.toString()}#${CANARIES.fragment}`);
@@ -208,6 +209,14 @@ test.describe('PostHog events', () => {
     expect(url.hash).toBe('');
     expect(url.origin + url.pathname).toBe(`${SITE_ORIGIN}${FIXTURE_PATH}`);
     expect(leakHits(s.sink.searchableText('posthog'))).toEqual([]);
+    for (const id of [
+      'Cj0KCQ-gclid_123',
+      '0AAAAA-gbraid_456',
+      'CjwKCA-wbraid_789',
+      'CJz-dclid_012',
+    ]) {
+      expect(s.sink.searchableText('posthog'), `${id} in a PostHog request`).not.toContain(id);
+    }
   });
 
   test('PRIV-2 a referrer that carries a sensitive query and fragment reaches PostHog reduced, with the allowlisted parameter kept', async ({
@@ -241,36 +250,62 @@ test.describe('PostHog events', () => {
     expect(leakHits(s.sink.searchableText('posthog'))).toEqual([]);
   });
 
-  test('PRIV-2 fbclid and msclkid reach PostHog in no property and no request, while utm_source and gclid are still copied (#1263)', async ({
+  test('PRIV-2 no click identifier, Google or not, reaches PostHog or GA4 in any property, request, or cookie, while utm_source is still copied (#1263, #1294)', async ({
     open,
   }) => {
-    // Decision 11 (#1263): PostHog copies click identifiers out of the URL into their own event and
-    // person properties (and builds $fbc from fbclid), outside URL scrubbing. The non-Google ones are
-    // removed from every payload; the UTMs and the Google identifiers are copied as before.
-    // specs/analytics.md § Privacy Runtime.
+    // Decision 11: PostHog copies click identifiers out of the URL into their own event and person properties
+    // (and builds $fbc from fbclid), outside URL scrubbing. All of them are removed from every payload: the
+    // non-Google ones since #1263, Google's since #1294. gtag.js could read them from the page's own location,
+    // so GA4 is checked too. specs/analytics.md § Privacy Runtime.
+    const ids = ['fbclid', 'msclkid', 'gclid', 'gclsrc', 'gbraid', 'wbraid', 'dclid'];
     const s = await open();
-    await s.goto(
-      `${FIXTURE_PATH}?fbclid=np-click-fbclid&msclkid=np-click-msclkid&utm_source=fixture&gclid=np-click-gclid`,
-    );
-    await expectCollecting(s, { ga4: false });
+    const query = new URLSearchParams([
+      ...ids.map((id): [string, string] => [id, `np-click-${id}`]),
+      ['utm_source', 'fixture'],
+    ]);
+    await s.goto(`${FIXTURE_PATH}?${query.toString()}`);
+    await expectCollecting(s, { ga4: true });
     const pageview = eventsNamed(s.sink.posthogEvents(), '$pageview')[0];
-    expect(pageview?.properties.$current_url).toBe(`${SCRUBBED_FIXTURE_URL}&gclid=np-click-gclid`);
-    // Positive controls: the copies the SDK makes of the kept parameters were sent.
+    expect(pageview?.properties.$current_url).toBe(SCRUBBED_FIXTURE_URL);
+    // Positive controls: the copies the SDK makes of the kept parameter were sent, and GA4 got the page URL
+    // with it.
     expect(pageview?.properties.utm_source).toBe('fixture');
-    expect(pageview?.properties.gclid).toBe('np-click-gclid');
-    expect(pageview?.properties.$session_entry_gclid).toBe('np-click-gclid');
-    const searchable = s.sink.searchableText('posthog');
-    expect(searchable, 'fbclid value in any PostHog request').not.toContain('np-click-fbclid');
-    expect(searchable, 'msclkid value in any PostHog request').not.toContain('np-click-msclkid');
-    const copies = /^(\$initial_|\$session_entry_)?(fbclid|msclkid)$|^\$fbc$/;
+    expect(pageview?.properties.$session_entry_utm_source).toBe('fixture');
+    expect(
+      s.sink.ga4Events().some(({ event }) => event.params.dl === SCRUBBED_FIXTURE_URL),
+      'a GA4 hit whose dl keeps utm_source only',
+    ).toBe(true);
+    const searchable = s.sink.searchableText('all');
+    for (const id of ids) {
+      expect(searchable, `${id} value in any analytics request`).not.toContain(`np-click-${id}`);
+    }
+    const copies = new RegExp(`^(\\$initial_|\\$session_entry_)?(${ids.join('|')})$|^\\$fbc$`);
     for (const { event } of s.sink.posthogEvents()) {
       for (const part of [event.properties, event.$set, event.$set_once]) {
         expect(
           Object.keys((part as Record<string, unknown> | undefined) ?? {}).filter((k) =>
             copies.test(k),
           ),
-          `${event.event} carries no fbclid or msclkid property`,
+          `${event.event} carries no click-identifier property`,
         ).toEqual([]);
+      }
+    }
+    for (const { event } of s.sink.ga4Events()) {
+      expect(
+        Object.keys(event.params).filter((k) =>
+          /^(ep\.|epn\.)?(gcl.*|dclid|gbraid|wbraid|fbclid|msclkid)$/.test(k),
+        ),
+        `GA4 ${event.name} carries no click-identifier parameter`,
+      ).toEqual([]);
+    }
+    const cookies = await s.page.context().cookies();
+    expect(
+      cookies.map((c) => c.name).filter((name) => name.startsWith('_gcl')),
+      'gtag.js set no click-identifier cookie',
+    ).toEqual([]);
+    for (const c of cookies) {
+      for (const id of ids) {
+        expect(decodeURIComponent(c.value), `cookie ${c.name}`).not.toContain(`np-click-${id}`);
       }
     }
   });

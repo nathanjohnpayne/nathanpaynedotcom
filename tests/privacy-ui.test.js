@@ -602,6 +602,21 @@ describe('/privacy/ page and footer link (PRIV-11, PRIV-15)', () => {
     expect(NOTICE_HTML).toContain("Mux's playback analytics");
   });
 
+  it("names exactly the gate's URL allowlist as what an address keeps (decision 11, #1294)", () => {
+    const allowlist = /var ALLOWED_QUERY_PARAMS = Object\.freeze\(\[([^\]]*)\]\)/.exec(GATE_SRC);
+    expect(allowlist, 'ALLOWED_QUERY_PARAMS in gate.js').not.toBeNull();
+    const kept = [...allowlist[1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
+    expect(kept).toEqual(['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content']);
+    const listed = /plus campaign parameters \(([^)]*)\)/.exec(PAGE_TEMPLATE);
+    expect(listed, 'the PostHog address bullet').not.toBeNull();
+    expect([...listed[1].matchAll(/<code>([^<]+)<\/code>/g)].map((m) => m[1])).toEqual(kept);
+    // The Google click identifiers are no longer kept anywhere on the page.
+    expect(PAGE_TEMPLATE).not.toMatch(/Google click identifiers/);
+    expect(PAGE_TEMPLATE).toContain(
+      'click identifiers such as <code>gclid</code> and <code>fbclid</code> included',
+    );
+  });
+
   it('covers every section the contract names', () => {
     for (const id of ['collected', 'recipients', 'why', 'retention', 'gpc', 'limits', 'contact']) {
       expect(PAGE_TEMPLATE, id).toContain(`id="${id}"`);
