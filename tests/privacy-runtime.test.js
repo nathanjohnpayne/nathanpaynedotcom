@@ -22,6 +22,8 @@ const GATE_SRC = read('src/lib/privacy/gate.js');
 const HEAD_SRC = read('src/components/privacy/PrivacyHead.astro');
 const POSTHOG_SRC = read('src/components/posthog.astro');
 const LAYOUT_SRC = read('src/layouts/BaseLayout.astro');
+const MUX_DATA_SRC = read('src/lib/privacy/mux-data.js');
+const MUX_PLAYER_SRC = read('src/components/ProjectMuxPlayer.astro');
 const INTERNAL = Symbol.for('np-privacy.internal');
 const BASE_HTML = '<!doctype html><html><head><script></script></head><body></body></html>';
 
@@ -554,6 +556,10 @@ describe('transport guard', () => {
     ['https://region1.google-analytics.com/g/collect', true],
     ['https://region1.analytics.google.com/g/collect', true],
     ['https://stats.g.doubleclick.net/g/collect', true],
+    ['https://inferred.litix.io/', true],
+    ['https://img.litix.io/a.gif', true],
+    ['https://notlitix.io/', false],
+    ['https://stream.mux.com/x.m3u8', false],
     ['https://nathanpayne.com/', false],
     ['https://notgoogle-analytics.com/', false],
     ['https://d.nathanpayne.com.example.net/', false],
@@ -1904,5 +1910,161 @@ describe('flag-on GA4 block', () => {
       '<script async is:inline src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}></script>',
     );
     expect(off).toContain('page_location: window.location.href');
+  });
+});
+
+describe('Mux Data under the gate (#1264)', () => {
+  /**
+   * A stand-in for mux-embed's default export: records monitor() calls and
+   * gives the element the `mux` handle @mux/mux-background-video calls next.
+   */
+  function fakeMuxEmbed() {
+    const calls = [];
+    const destroyed = [];
+    const mux = {
+      utils: { now: () => 0 },
+      monitor(target, options) {
+        calls.push({ target, options });
+        target.mux = {
+          setStateDataTranslator() {},
+          destroy: () => destroyed.push(target),
+        };
+      },
+      destroyMonitor(target) {
+        target.mux.destroy();
+      },
+    };
+    return { mux, calls, destroyed };
+  }
+
+  /**
+   * Boots the gate, runs the bridge exactly as ProjectMuxPlayer.astro inlines
+   * it, then replays what the component's bundled script and
+   * @mux/mux-background-video 0.2.3 do with `globalThis.mux`: the loader
+   * assigns mux-embed unless the global is already set, and the component's
+   * load() monitors only while the global is set, with `{ debug, data }`.
+   * The real bundle and SDK are exercised in tests/privacy-runtime/mux-data.pw.ts.
+   */
+  function runMuxPage(opts = {}) {
+    const env = boot({
+      url: 'https://nathanpayne.test/projects/swipe-watch/?email=NP-CANARY-QUERY&utm_source=s#NP-CANARY-FRAGMENT',
+      ...opts,
+    });
+    env.w.eval(MUX_DATA_SRC);
+    const embed = fakeMuxEmbed();
+    const loaded = !env.w.mux;
+    if (loaded) env.w.mux = embed.mux;
+    const video = env.w.document.createElement('video');
+    const componentLoad = () => {
+      const mux = env.w.mux;
+      if (mux && !video.mux) {
+        mux.monitor(video, {
+          debug: false,
+          data: { player_name: 'mux-background-video', video_stream_type: 'on-demand' },
+        });
+        video.mux.setStateDataTranslator((state) => state);
+      }
+    };
+    componentLoad();
+    return { ...env, embed, loaded, video, componentLoad };
+  }
+
+  it('is inlined verbatim, only with the flag on and a Mux hero, before the bundled script', () => {
+    expect(MUX_PLAYER_SRC).toContain("import muxDataSource from '../lib/privacy/mux-data.js?raw';");
+    expect(MUX_PLAYER_SRC).toContain(
+      'const muxDataPrivacy = Boolean(playbackId) && privacyControlsEnabled();',
+    );
+    const bridge = '{muxDataPrivacy && <script is:inline set:html={muxDataSource} />}';
+    expect(MUX_PLAYER_SRC.split(bridge)).toHaveLength(2);
+    // The bundled script follows the markup; module scripts run after parsing,
+    // so the inline bridge always runs first.
+    expect(MUX_PLAYER_SRC.indexOf(bridge)).toBeLessThan(MUX_PLAYER_SRC.indexOf('\n<script>\n'));
+    expect(MUX_PLAYER_SRC.match(/^<script>$/gm)).toHaveLength(1);
+  });
+
+  it('is a classic script with no imports, no network calls, and nothing HTML could misparse', () => {
+    expect(MUX_DATA_SRC).not.toMatch(/^\s*(import|export)\b/m);
+    expect(MUX_DATA_SRC).not.toMatch(
+      /\bfetch\(|sendBeacon\(|new XMLHttpRequest|importScripts|\bimport\(|\.src\s*=/,
+    );
+    expect(MUX_DATA_SRC).not.toMatch(/<\/?script|<!--/i);
+    // A runtime marker, so the flag-off check fails if it is ever rendered there.
+    expect(MUX_DATA_SRC).toContain('npPrivacy');
+  });
+
+  it('monitors with no cookies, Do Not Track respected, and a scrubbed page_url when granted', () => {
+    const { w, embed, video, privacy, loaded } = runMuxPage();
+    expect(loaded).toBe(true);
+    expect(embed.calls).toHaveLength(1);
+    expect(embed.calls[0].target).toBe(video);
+    expect(embed.calls[0].options).toEqual({
+      debug: false,
+      disableCookies: true,
+      respectDoNotTrack: true,
+      data: {
+        player_name: 'mux-background-video',
+        video_stream_type: 'on-demand',
+        page_url: 'https://nathanpayne.test/projects/swipe-watch/?utm_source=s',
+      },
+    });
+    expect(JSON.stringify(embed.calls[0].options)).not.toContain('NP-CANARY');
+    // The rest of mux-embed is reachable through the wrapper.
+    expect(w.mux.utils).toBe(embed.mux.utils);
+    expect(privacy.get().loadedThisPage).toBe(true);
+  });
+
+  it('overrides caller options that would turn cookies on, ignore DNT, or send the raw URL', () => {
+    const { w, embed } = runMuxPage();
+    const other = w.document.createElement('video');
+    w.mux.monitor(other, {
+      disableCookies: false,
+      respectDoNotTrack: false,
+      data: { page_url: w.location.href },
+    });
+    expect(embed.calls[1].options).toEqual({
+      disableCookies: true,
+      respectDoNotTrack: true,
+      data: { page_url: 'https://nathanpayne.test/projects/swipe-watch/?utm_source=s' },
+    });
+  });
+
+  it.each([
+    ['a saved opt-out', { stored: JSON.stringify({ v: 1, choice: 'denied' }) }],
+    ['GPC', { gpc: true }],
+    ['GPC over a saved grant', { gpc: true, stored: JSON.stringify({ v: 1, choice: 'granted' }) }],
+    ['a missing gate', { runGate: false }],
+  ])('never starts a monitor under %s', (_label, opts) => {
+    const { w, embed, video, loaded } = runMuxPage(opts);
+    // The loader still assigns mux-embed; the assignment is discarded.
+    expect(loaded).toBe(true);
+    expect(w.mux).toBeUndefined();
+    expect(embed.calls).toEqual([]);
+    expect(video.mux).toBeUndefined();
+  });
+
+  it('stops on withdrawal: monitors destroyed, the global gone, and litix.io refused', async () => {
+    const { w, embed, video, privacy, sent } = runMuxPage();
+    expect(embed.calls).toHaveLength(1);
+    await w.fetch('https://inferred.litix.io');
+    privacy.set('denied');
+    expect(embed.destroyed).toEqual([video]);
+    expect(w.mux).toBeUndefined();
+    const refused = await w.fetch('https://inferred.litix.io');
+    expect(refused.status).toBe(204);
+    expect(w.navigator.sendBeacon('https://img.litix.io/a.gif', '{}')).toBe(true);
+    expect(sent.fetch).toEqual(['https://inferred.litix.io']);
+    expect(sent.beacon).toEqual([]);
+  });
+
+  it('starts nothing when a grant arrives after a denial in the same page view', () => {
+    const { w, embed, privacy, componentLoad, video } = runMuxPage({
+      stored: JSON.stringify({ v: 1, choice: 'denied' }),
+    });
+    expect(privacy.set('granted')).toBe(true);
+    w.mux = fakeMuxEmbed().mux;
+    componentLoad();
+    expect(w.mux).toBeUndefined();
+    expect(embed.calls).toEqual([]);
+    expect(video.mux).toBeUndefined();
   });
 });

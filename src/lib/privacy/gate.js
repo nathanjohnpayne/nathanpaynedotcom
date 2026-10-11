@@ -134,7 +134,9 @@
   /**
    * Hosts the transport guard refuses once analytics are withdrawn, matched on
    * a label boundary. Mirrors ANALYTICS_HOSTS in src/integrations/resume-pdf.mjs,
-   * plus doubleclick.net, where GA4 sends Google signals hits when they are on.
+   * plus doubleclick.net, where GA4 sends Google signals hits when they are on,
+   * and litix.io, where Mux Data sends playback beacons (#1264,
+   * src/lib/privacy/mux-data.js).
    */
   var ANALYTICS_HOSTS = Object.freeze([
     'd.nathanpayne.com',
@@ -143,6 +145,7 @@
     'google-analytics.com',
     'analytics.google.com',
     'doubleclick.net',
+    'litix.io',
   ]);
 
   // Any http(s): reference, with or without `//` (`https:/p?x` and

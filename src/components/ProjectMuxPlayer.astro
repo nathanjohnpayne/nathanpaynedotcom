@@ -23,9 +23,19 @@
 // request. The animated-GIF fallback path is gated the same way (a looping
 // GIF is the same continuous motion autoplay would be); the GIF is only
 // swapped in after the user has explicitly requested playback.
+//
+// #1264 Mux Data privacy (specs/analytics.md § Privacy Runtime): with the
+// #1079 flag on, a Mux hero also gets src/lib/privacy/mux-data.js, inlined
+// verbatim ahead of the bundled script below. It holds Mux Data to the privacy
+// gate (no monitor unless granted, no cookie, Do Not Track respected, scrubbed
+// page_url) through the globalThis.mux hook that script uses, so the bundled
+// script itself is identical with the flag on or off. With the flag off this
+// component renders exactly what it did before #1264.
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { privacyControlsEnabled } from '../lib/privacy-flag';
+import muxDataSource from '../lib/privacy/mux-data.js?raw';
 
 interface Props {
   playbackId?: string;
@@ -35,6 +45,8 @@ interface Props {
 }
 
 const { playbackId, fallbackSrc, title, slug: _slug } = Astro.props;
+
+const muxDataPrivacy = Boolean(playbackId) && privacyControlsEnabled();
 
 const altText = `${title} product screenshot`;
 
@@ -140,6 +152,7 @@ if (isSvgFallback) {
     <noscript>
       <img src={fallbackSrc} alt={altText} loading="eager" />
     </noscript>
+    {muxDataPrivacy && <script is:inline set:html={muxDataSource} />}
   </>
 ) : inlineSvg ? (
   <Fragment set:html={inlineSvg} />
