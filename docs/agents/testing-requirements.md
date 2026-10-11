@@ -14,7 +14,7 @@ Vitest smoke tests cover SEO metadata, blog rendering, responsive behavior, cont
 
 Its egress boundary is the point of the suite. Chromium's only network path is a local proxy that serves the built site, the SDK fixtures, and a sink, and opens no outbound sockets. Every other hostname resolves to nothing, non-proxied WebRTC UDP is disabled, and a default-deny route and blocked service workers sit in front of the first navigation. A Playwright route alone is not enough, because requests sent while a page unloads bypass it (#1227). Only the Node-side setup in `global-setup.ts` touches the network: npm tarballs (posthog-js 1.438.3 and axe-core, checked by hash against `tests/privacy/manifest.json` and the inventory) and `gtag.js`, cached in `node_modules/.cache/np-privacy-acceptance/`. `NP_PRIVACY_OFFLINE=1` skips the `gtag.js` fetch and marks the GA4 tests not verified. `NP_PRIVACY_REQUIRE_UI=1` makes the notice and controls specs fail instead of skipping when the UI is missing; #1233 runs with it set.
 
-Expected-to-fail tests in `pending-nathan.pw.ts` record leaks that only Nathan's vendor settings can close (GA4 enhanced measurement, console-captured URLs). They are reported, not hidden; when a setting changes, flip the corresponding test.
+Expected-to-fail tests in `pending-nathan.pw.ts` record leaks that only Nathan's vendor settings can close (GA4 enhanced measurement). They are reported, not hidden; when a setting changes, flip the corresponding test. The console-captured-URL finding was closed by a client setting instead (#1261), and its test in the same file is now an ordinary gate.
 
 ## PDF test dependencies
 
