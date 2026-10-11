@@ -94,6 +94,9 @@ test.describe('GA4 provenance', () => {
     );
     expect(fixtureState.gtag.matchesProduction, 'the setup reached the same verdict').toBe(true);
     expect(fixtureState.gtag.rawSha256, 'raw bytes as Google served them').toBe(recorded);
+    expect(fixtureState.gtag.rawBytes, 'the byte count recorded with the capture').toBe(
+      loadManifest().gtag.production.bytes,
+    );
     // The copy the browser is served is the very file those bytes became, with only the ID substituted.
     expect(
       sha256Hex(readFileSync(fixtureState.gtagPath)),

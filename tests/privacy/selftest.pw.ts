@@ -187,6 +187,17 @@ test.describe('GA4 served-configuration instrument', () => {
       gtagConfigFindings([...clean, tag('__ogt_1p_data_v2', { vtp_isEnabled: false })]),
       'user-data tag duplicated',
     ).toEqual([expect.stringContaining('found 2')]);
+    // The same exact-one rule for the enhanced-measurement tags that stay on, and every page-view tag is checked.
+    expect(gtagConfigFindings([...clean, tag('__ccd_em_scroll')]), 'scroll tag duplicated').toEqual(
+      ['expected exactly one __ccd_em_scroll, found 2'],
+    );
+    expect(
+      gtagConfigFindings([...clean, tag('__ccd_em_page_view', { vtp_historyEvents: false })]),
+      'a second page-view tag without history events',
+    ).toEqual([
+      'expected exactly one __ccd_em_page_view, found 2',
+      'page views lost their history events',
+    ]);
     expect(
       gtagConfigFindings(clean.filter((t) => t.function !== '__ccd_em_scroll')),
       'scrolls turned off',

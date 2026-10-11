@@ -61,6 +61,8 @@ export interface GtagState {
   available: boolean;
   /** SHA-256 of the bytes as Google served them, before the ID substitution. */
   rawSha256?: string;
+  /** Byte length of the bytes as Google served them, compared with the manifest's recorded `bytes`. */
+  rawBytes?: number;
   /** SHA-256 of the bytes the harness serves: the raw bytes with the production ID replaced by the fake test ID. */
   servedSha256?: string;
   /** True only if the raw bytes hash to the production capture recorded in the manifest and the inventory. */
@@ -199,12 +201,16 @@ export const ENHANCED_TAGS_ON = ['__ccd_em_page_view', '__ccd_em_scroll'];
 export function gtagConfigFindings(tags: GtagTag[]): string[] {
   const findings: string[] = [];
   const enhanced = tags.map((t) => t.function).filter((f) => f.startsWith('__ccd_em_'));
-  for (const wanted of ENHANCED_TAGS_ON)
-    if (!enhanced.includes(wanted)) findings.push(`${wanted} is missing (it must stay on)`);
+  // Exactly one of each enhanced-measurement tag that stays on: a missing tag is off, and a duplicate is an unknown
+  // (possibly double-firing) configuration, never read as the expected one.
+  for (const wanted of ENHANCED_TAGS_ON) {
+    const count = enhanced.filter((f) => f === wanted).length;
+    if (count === 0) findings.push(`${wanted} is missing (it must stay on)`);
+    else if (count > 1) findings.push(`expected exactly one ${wanted}, found ${count}`);
+  }
   for (const extra of enhanced.filter((f) => !ENHANCED_TAGS_ON.includes(f)))
     findings.push(`${extra} is present (that enhanced-measurement event must be off)`);
-  const pageView = tags.find((t) => t.function === '__ccd_em_page_view');
-  if (pageView && pageView.vtp_historyEvents !== true)
+  if (tags.some((t) => t.function === '__ccd_em_page_view' && t.vtp_historyEvents !== true))
     findings.push('page views lost their history events');
   // Exactly one user-provided-data tag, explicitly disabled. A missing, renamed, or duplicated tag is a finding:
   // an unknown configuration is never read as "off".
@@ -282,6 +288,7 @@ async function prepareGtag(manifest: Manifest, gtagPath: string): Promise<GtagSt
     return {
       available: true,
       rawSha256: rawSha,
+      rawBytes: body.length,
       servedSha256: sha256Hex(served),
       matchesProduction:
         gtagProvenance(rawSha, manifest.gtag.production.sha256).status === 'verified',
