@@ -328,10 +328,9 @@ describe('production-mode build carries the privacy controls (PRIV-15 replacemen
         '<img src="https://www.google%5c2d analytics.com/g/collect">',
       ]) {
         const mutated = page.replace('</body>', `${tag}</body>`);
-        expect(
-          analyticsGateFindings(mutated).some((f) => f.includes('google-analytics.com')),
-          tag,
-        ).toBe(true);
+        expect(analyticsGateFindings(mutated), tag).toContain(
+          'markup attribute names analytics host google-analytics.com',
+        );
       }
     });
 
