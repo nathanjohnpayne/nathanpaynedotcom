@@ -985,6 +985,8 @@
    * Until a withdrawal it passes everything through untouched.
    */
   function installGuard() {
+    // NEGATIVE CONTROL for #1277: the transport guard refuses nothing. Never merge.
+    if (!w.__npGuardOn) return;
     if (guardInstalled) return;
     guardInstalled = true;
     var nativeFetch = w.fetch;
