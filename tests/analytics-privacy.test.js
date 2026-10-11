@@ -27,6 +27,7 @@ import {
 } from '../src/lib/privacy-flag.ts';
 import { execFileSync } from 'node:child_process';
 import {
+  ANALYTICS_HOSTS,
   PRIVACY_TEST_TOKENS,
   PRODUCTION_CHECK_ENV,
   RUNTIME_MARKERS,
@@ -285,6 +286,50 @@ describe('production-mode build carries the privacy controls (PRIV-15 replacemen
       );
     });
 
+    it('catches a PostHog guard that closes right after it opens', () => {
+      const mutated = page.replace(PH_GUARD_LINE, PH_GUARD_LINE + '}');
+      const findings = analyticsGateFindings(mutated);
+      expect(findings).toContain('PostHog block runs posthog.init( outside its gate guard');
+      expect(findings).toContain('PostHog block runs !function(t,e){ outside its gate guard');
+    });
+
+    it('catches a GA4 guard that closes right after it opens', () => {
+      const mutated = page.replace(GA4_GUARD_LINE, GA4_GUARD_LINE + '}');
+      const findings = analyticsGateFindings(mutated);
+      expect(findings).toContain("GA4 block runs gtag('config' outside its gate guard");
+      expect(findings).toContain('GA4 block runs loader.src =  outside its gate guard');
+    });
+
+    it('catches an analytics script src after the analytics region', () => {
+      const mutated = page.replace(
+        '<!-- Google Fonts -->',
+        '<!-- Google Fonts --><script async src="https://www.googletagmanager.com/gtag/js?id=G-X"></script>',
+      );
+      expect(analyticsGateFindings(mutated)).toContain(
+        'markup attribute names analytics host googletagmanager.com',
+      );
+    });
+
+    it('catches an analytics script src in <body>', () => {
+      const mutated = page.replace(
+        '</body>',
+        '<script src="https://d.nathanpayne.com/static/array.js"></script></body>',
+      );
+      expect(analyticsGateFindings(mutated)).toContain(
+        'markup attribute names analytics host d.nathanpayne.com',
+      );
+    });
+
+    it('catches a DoubleClick pixel in <body>', () => {
+      const mutated = page.replace(
+        '</body>',
+        '<img src="https://stats.doubleclick.net/pixel"></body>',
+      );
+      expect(analyticsGateFindings(mutated)).toContain(
+        'markup attribute names analytics host doubleclick.net',
+      );
+    });
+
     it('catches the pre-#1233 flag-off snippet', () => {
       const mutated = page.replace(
         PH_GUARD_LINE,
@@ -294,6 +339,20 @@ describe('production-mode build carries the privacy controls (PRIV-15 replacemen
         'PostHog block carries the ungated pre-#1233 snippet',
       );
     });
+  });
+});
+
+describe('the markup host list', () => {
+  it("covers every entry of the gate's own ANALYTICS_HOSTS", () => {
+    const gateSrc = readFileSync(join(ROOT, 'src/lib/privacy/gate.js'), 'utf8');
+    const literal = gateSrc.match(/var ANALYTICS_HOSTS = Object\.freeze\(\[([\s\S]*?)\]\)/);
+    expect(literal, 'ANALYTICS_HOSTS literal not found in gate.js').not.toBeNull();
+    const gateHosts = [...literal[1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
+    // Control: the extraction found the list, not an empty match.
+    expect(gateHosts.length).toBeGreaterThanOrEqual(7);
+    expect(gateHosts).toContain('doubleclick.net');
+    expect(ANALYTICS_HOSTS.filter((h) => !gateHosts.includes(h)).sort()).toEqual([]);
+    expect(gateHosts.filter((h) => !ANALYTICS_HOSTS.includes(h)).sort()).toEqual([]);
   });
 });
 

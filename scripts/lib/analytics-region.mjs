@@ -92,6 +92,10 @@ export const ANALYTICS_HOSTS = [
   'posthog.com',
   'd.nathanpayne.com',
   'litix.io',
+  // Where GA4 sends Google signals hits. tests/analytics-privacy.test.js reads
+  // ANALYTICS_HOSTS out of src/lib/privacy/gate.js and requires every entry
+  // here, so the two lists cannot drift.
+  'doubleclick.net',
 ];
 
 // The two guards the flag-on blocks open with (src/components/posthog.astro and
@@ -109,6 +113,38 @@ const SCRIPT_RE = /<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi;
 const URL_ATTR_RE =
   /\s(?:src|href|srcset|data|action|formaction|poster|ping|content)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
 const SCRIPT_ATTR_RE = /\b(src|async|defer|type)\s*=/;
+
+/**
+ * Index of the `}` that closes the `{` at `open` in inline JavaScript, or -1.
+ * Brace matching only, for the known inline blocks: it skips line and block
+ * comments and string and template literals (braces inside them do not count),
+ * and does not parse regular expression literals, so a block whose regex
+ * contains an unbalanced brace or quote yields -1, which the caller reports
+ * as a finding rather than passing.
+ */
+function matchingBrace(src, open) {
+  let depth = 0;
+  for (let i = open; i < src.length; i++) {
+    const c = src[i];
+    const n = src[i + 1];
+    if (c === '/' && n === '/') {
+      i = src.indexOf('\n', i);
+      if (i < 0) return -1;
+    } else if (c === '/' && n === '*') {
+      i = src.indexOf('*/', i + 2);
+      if (i < 0) return -1;
+      i++;
+    } else if (c === '"' || c === "'" || c === '`') {
+      for (i++; i < src.length && src[i] !== c; i++) if (src[i] === '\\') i++;
+      if (i >= src.length) return -1;
+    } else if (c === '{') {
+      depth++;
+    } else if (c === '}' && --depth === 0) {
+      return i;
+    }
+  }
+  return -1;
+}
 
 function scripts(html) {
   return [...html.matchAll(SCRIPT_RE)].map((m) => ({
@@ -169,16 +205,30 @@ export function analyticsGateFindings(html) {
   if (!posthog) findings.push('no PostHog block in the region');
   if (!ga4) findings.push('no GA4 block in the region');
 
+  // Every statement that loads a tool must sit inside the block the guard
+  // opens, not merely after the guard's text: `if (...) {}` followed by the
+  // bootstrap passes an offset comparison and gates nothing.
   const after = (name, body, guard, needles) => {
-    const g = body.search(guard);
-    if (g < 0) {
+    const match = guard.exec(body);
+    if (!match) {
       findings.push(`${name} block has no gate guard`);
       return;
     }
+    const open = match.index + match[0].length - 1;
+    const close = matchingBrace(body, open);
+    if (close < 0) {
+      findings.push(`${name} block: could not find the end of the gate guard's block`);
+      return;
+    }
     for (const needle of needles) {
-      const at = body.indexOf(needle);
-      if (at < 0) findings.push(`${name} block lacks ${needle}`);
-      else if (at < g) findings.push(`${name} block runs ${needle} before its gate guard`);
+      const first = body.indexOf(needle);
+      if (first < 0) {
+        findings.push(`${name} block lacks ${needle}`);
+        continue;
+      }
+      const last = body.lastIndexOf(needle);
+      if (first < open) findings.push(`${name} block runs ${needle} before its gate guard`);
+      else if (last > close) findings.push(`${name} block runs ${needle} outside its gate guard`);
     }
   };
   if (posthog) {
@@ -202,7 +252,10 @@ export function analyticsGateFindings(html) {
   // Attribute values outside script bodies: a preconnect, prefetch, img, or
   // noscript pixel naming an analytics host would be a request the gate cannot
   // stop. Prose may name the hosts (the /privacy/ page discloses them).
-  let markup = html.replace(SCRIPT_RE, '<script></script>');
+  // Only script bodies are dropped: the opening tag keeps its attributes, so
+  // an analytics `<script src>` anywhere in the document (after the region, in
+  // <body>) is still seen.
+  let markup = html.replace(SCRIPT_RE, '<script$1></script>');
   // Strip comments until nothing changes: one pass can leave a `<!--` that
   // a nested or split comment reassembles.
   for (let prev = ''; prev !== markup; ) {
