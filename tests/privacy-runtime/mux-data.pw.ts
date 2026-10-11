@@ -199,13 +199,15 @@ test('granted: Mux Data sends a scrubbed page_url and sets no cookie', async () 
   const pageUrls = muxEvents(records)
     .map((e) => e[PAGE_URL_KEY])
     .filter((v) => v !== undefined);
-  expect(pageUrls.length).toBeGreaterThan(0);
-  expect(new Set(pageUrls)).toEqual(new Set([SCRUBBED_PAGE]));
+  // Soft from here, so a run without one of the options reports every
+  // assertion it breaks rather than only the first.
+  expect.soft(pageUrls.length).toBeGreaterThan(0);
+  expect.soft(new Set(pageUrls)).toEqual(new Set([SCRUBBED_PAGE]));
   for (const record of records) {
-    expect(record.text).not.toContain('NP-CANARY');
-    expect(record.text).not.toContain('example.test');
+    expect.soft(record.text).not.toContain('NP-CANARY');
+    expect.soft(record.text).not.toContain('example.test');
   }
-  expect(await muxCookies(context, page)).toEqual([]);
+  expect.soft(await muxCookies(context, page)).toEqual([]);
   await context.close();
 });
 
@@ -220,14 +222,14 @@ for (const [label, scripts, reason] of [
     expect(
       await page.evaluate(() => (window as unknown as NpWindow).npPrivacy.get()),
     ).toMatchObject({ effective: 'denied', reason });
-    expect(await heroSettled(page)).toMatchObject({
+    expect.soft(await heroSettled(page)).toMatchObject({
       effective: 'denied',
       globalMux: 'undefined',
       monitored: false,
     });
     expect(streamRequested(sink)).toBe(true);
     await pause(PAST_FIRST_BATCH);
-    expect(await muxCookies(context, page)).toEqual([]);
+    expect.soft(await muxCookies(context, page)).toEqual([]);
     // Leaving the page is when mux-embed would flush.
     await page.goto(`${SITE}/`);
     await pause(2_000);
@@ -247,7 +249,7 @@ test('Do Not Track: Mux Data monitors but sends nothing and sets no cookie', asy
     monitored: true,
   });
   await pause(PAST_FIRST_BATCH);
-  expect(await muxCookies(context, page)).toEqual([]);
+  expect.soft(await muxCookies(context, page)).toEqual([]);
   await page.goto(`${SITE}/`);
   await pause(2_000);
   expect(muxAttempts(sink, since)).toEqual([]);
@@ -262,25 +264,24 @@ test("set('denied') mid-visit stops Mux Data: monitor destroyed, nothing more se
   expect(await waitFor(() => muxBeacons(sink).length > 0)).toBe(true);
   const withdrawnAt = Date.now();
   await page.evaluate(() => (window as unknown as NpWindow).npPrivacy.set('denied'));
-  expect(
-    await page.evaluate(() => {
-      const video = document
-        .querySelector('mux-background-video')
-        ?.shadowRoot?.querySelector('video') as
-        (HTMLVideoElement & { mux?: { deleted?: boolean } }) | null;
-      return {
-        globalMux: typeof (window as unknown as { mux?: unknown }).mux,
-        monitorDeleted: video?.mux?.deleted ?? null,
-      };
-    }),
-  ).toEqual({ globalMux: 'undefined', monitorDeleted: true });
+  const afterWithdrawal = await page.evaluate(() => {
+    const video = document
+      .querySelector('mux-background-video')
+      ?.shadowRoot?.querySelector('video') as
+      (HTMLVideoElement & { mux?: { deleted?: boolean } }) | null;
+    return {
+      globalMux: typeof (window as unknown as { mux?: unknown }).mux,
+      monitorDeleted: video?.mux?.deleted ?? null,
+    };
+  });
+  expect.soft(afterWithdrawal).toEqual({ globalMux: 'undefined', monitorDeleted: true });
   await pause(PAST_FIRST_BATCH);
   await page.goto(`${SITE}/`);
   await pause(2_000);
   // A batch already handed to the network at the instant of withdrawal may
   // still land; nothing may start after it.
   expect(muxAttempts(sink, withdrawnAt + 1_000)).toEqual([]);
-  expect(await muxCookies(context, page)).toEqual([]);
+  expect.soft(await muxCookies(context, page)).toEqual([]);
   await context.close();
 });
 
