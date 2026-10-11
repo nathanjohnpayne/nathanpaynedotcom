@@ -181,3 +181,29 @@ jobs:
           npm run build:privacy-test
           npx playwright test -c tests/privacy/playwright.config.ts
         timeout-minutes: 20
+
+      - name: Privacy runtime suite (Playwright, #1277)
+        # The real-browser checks of the flag-on runtime itself (#1228): the
+        # gate against the real SDKs, mid-visit withdrawal and the transport
+        # guard (#1278, #1286), the replay capture overrides (#1261), click-ID
+        # removal (#1263), and Mux Data (#1264). Suite: tests/privacy-runtime/,
+        # with its own config, run after the acceptance step because it reuses
+        # two things that step leaves behind: the flag-on build in
+        # dist-privacy-test/, and the vendor files its global setup downloaded
+        # and verified into node_modules/.cache/np-privacy-acceptance/
+        # (posthog-js 1.438.3 checked against the production hashes, and
+        # gtag.js served under the fake test ID). Nothing is fetched here.
+        #
+        # Network: the same default-deny boundary as the acceptance suite.
+        # Each spec launches Chromium behind its own local egress proxy
+        # (tests/privacy-runtime/egress.ts), which serves only the build and
+        # those two vendor files and records analytics endpoints locally.
+        #
+        # A missing vendor file is a failure, not a skip: each spec's
+        # beforeAll asserts both files exist, so this step cannot pass by
+        # running nothing.
+        env:
+          NP_POSTHOG_JS_DIST: ${{ github.workspace }}/node_modules/.cache/np-privacy-acceptance/posthog-js-1.438.3/package/dist
+          NP_GTAG_JS: ${{ github.workspace }}/node_modules/.cache/np-privacy-acceptance/gtag.js
+        run: npx playwright test -c tests/privacy-runtime/playwright.config.ts
+        timeout-minutes: 15
