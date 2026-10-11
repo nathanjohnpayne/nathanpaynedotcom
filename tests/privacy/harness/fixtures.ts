@@ -35,7 +35,11 @@ export interface Manifest {
     integrity: string;
     files: Record<string, ManifestFile>;
   };
-  gtag: { productionSha256: string[]; fetchAttempts: number; source: string };
+  gtag: {
+    production: { capturedOn: string; sha256: string; bytes: number };
+    fetchAttempts: number;
+    source: string;
+  };
   axe: {
     package: string;
     version: string;
@@ -57,7 +61,9 @@ export interface GtagState {
   available: boolean;
   /** SHA-256 of the bytes as Google served them, before the ID substitution. */
   rawSha256?: string;
-  /** True only if the raw bytes are one of the production variants the inventory recorded. */
+  /** SHA-256 of the bytes the harness serves: the raw bytes with the production ID replaced by the fake test ID. */
+  servedSha256?: string;
+  /** True only if the raw bytes hash to the production capture recorded in the manifest and the inventory. */
   matchesProduction: boolean;
   /** Where the measurement ID came from. The ID itself is never stored or printed. */
   idSource?: 'env' | 'production-html';
@@ -136,6 +142,71 @@ async function fetchTarball(
   rmSync(archivePath);
 }
 
+/** The verdict on gtag.js provenance: the tested bytes either are the recorded production capture or it must be redone. */
+export type GtagProvenance = { status: 'verified' } | { status: 're-record'; reason: string };
+
+/**
+ * Compares the SHA-256 of the gtag.js bytes the suite serves with the production capture recorded in the manifest.
+ * A mismatch is never a pass: it says to re-record (docs/agents/testing-requirements.md, GA4 tag refresh).
+ */
+export function gtagProvenance(
+  rawSha256: string | undefined,
+  recordedSha256: string,
+): GtagProvenance {
+  if (rawSha256 !== undefined && rawSha256 === recordedSha256) return { status: 'verified' };
+  return {
+    status: 're-record',
+    reason: rawSha256
+      ? `the gtag.js served (SHA-256 ${rawSha256.slice(0, 12)}...) is not the production capture recorded in tests/privacy/manifest.json (${recordedSha256.slice(0, 12)}...): re-record it by following docs/agents/testing-requirements.md, GA4 tag refresh`
+      : 'no gtag.js bytes were obtained, so none can be matched to the production capture recorded in tests/privacy/manifest.json: re-record once the fetch works',
+  };
+}
+
+export interface GtagTag {
+  function: string;
+  [key: string]: unknown;
+}
+
+/**
+ * The property configuration embedded in gtag.js: the `tags` list of the container's `resource` object. Returns
+ * undefined if the file does not have that shape (Google changed the format), so a caller can say so rather than
+ * read "no tags" as "nothing enabled".
+ */
+export function gtagEmbeddedTags(js: string): GtagTag[] | undefined {
+  const match = /"resource":\s*(\{[\s\S]*?\n\})\s*,\s*"runtime"/.exec(js);
+  if (!match) return undefined;
+  try {
+    const tags = (JSON.parse(match[1]!) as { tags?: unknown }).tags;
+    return Array.isArray(tags) ? (tags as GtagTag[]) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** The enhanced-measurement tags that stay on after the 2026-10-10 property changes: page views and scrolls. */
+export const ENHANCED_TAGS_ON = ['__ccd_em_page_view', '__ccd_em_scroll'];
+
+/**
+ * Departures of the embedded configuration from the property settings Nathan set on 2026-10-10: enhanced
+ * measurement limited to page views (with history events) and scrolls, and user-provided data off. An empty list
+ * means the served configuration reflects the changes.
+ */
+export function gtagConfigFindings(tags: GtagTag[]): string[] {
+  const findings: string[] = [];
+  const enhanced = tags.map((t) => t.function).filter((f) => f.startsWith('__ccd_em_'));
+  for (const wanted of ENHANCED_TAGS_ON)
+    if (!enhanced.includes(wanted)) findings.push(`${wanted} is missing (it must stay on)`);
+  for (const extra of enhanced.filter((f) => !ENHANCED_TAGS_ON.includes(f)))
+    findings.push(`${extra} is present (that enhanced-measurement event must be off)`);
+  const pageView = tags.find((t) => t.function === '__ccd_em_page_view');
+  if (pageView && pageView.vtp_historyEvents !== true)
+    findings.push('page views lost their history events');
+  for (const tag of tags.filter((t) => t.function === '__ogt_1p_data_v2'))
+    if (tag.vtp_isEnabled !== false)
+      findings.push('__ogt_1p_data_v2 (user-provided data) is not disabled');
+  return findings;
+}
+
 async function prepareGtag(manifest: Manifest, gtagPath: string): Promise<GtagState> {
   if (offline()) {
     return { available: false, matchesProduction: false, reason: 'NP_PRIVACY_OFFLINE=1' };
@@ -176,7 +247,8 @@ async function prepareGtag(manifest: Manifest, gtagPath: string): Promise<GtagSt
       const candidateSha = sha256Hex(candidate);
       body = candidate;
       rawSha = candidateSha;
-      if (manifest.gtag.productionSha256.includes(candidateSha)) break;
+      // Google serves a few variants of the same tag; keep asking until it serves the recorded production capture.
+      if (candidateSha === manifest.gtag.production.sha256) break;
     }
     if (!body || !rawSha)
       return {
@@ -186,11 +258,14 @@ async function prepareGtag(manifest: Manifest, gtagPath: string): Promise<GtagSt
       };
     const text = body.toString('utf8');
     const parts = text.split(id);
-    writeFileSync(gtagPath, parts.join(FAKE_GA_ID));
+    const served = parts.join(FAKE_GA_ID);
+    writeFileSync(gtagPath, served);
     return {
       available: true,
       rawSha256: rawSha,
-      matchesProduction: manifest.gtag.productionSha256.includes(rawSha),
+      servedSha256: sha256Hex(served),
+      matchesProduction:
+        gtagProvenance(rawSha, manifest.gtag.production.sha256).status === 'verified',
       idSource,
       substitutions: parts.length - 1,
     };
@@ -292,14 +367,18 @@ export async function prepareFixtures(): Promise<FixtureState> {
     ? (JSON.parse(readFileSync(STATE_PATH, 'utf8')) as FixtureState)
     : undefined;
   // Offline mode wins over the cache: a cached gtag.js would make the GA4 tests run as if it were available.
+  // Only a cached copy that IS the recorded production capture is reused. One recorded under an older manifest, or
+  // one that never matched, is fetched again, so a stale cache cannot carry a provenance verdict the current
+  // manifest would not give.
   if (
     !offline() &&
     existsSync(gtagPath) &&
     previous?.gtag.available &&
+    previous.gtag.rawSha256 === manifest.gtag.production.sha256 &&
     process.env.NP_PRIVACY_REFRESH !== '1' &&
     !process.env.CI
   ) {
-    gtag = previous.gtag;
+    gtag = { ...previous.gtag, matchesProduction: true }; // its hash equals the recorded one, by the condition above
   } else {
     gtag = await prepareGtag(manifest, gtagPath);
   }

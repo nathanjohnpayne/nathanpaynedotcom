@@ -20,8 +20,8 @@ export default async function globalSetup(): Promise<void> {
     `[privacy] posthog-js bundles verified against the production hashes; gtag.js ${
       gtag.available
         ? gtag.matchesProduction
-          ? 'served (matches a recorded production variant)'
-          : 'served, but it matches no recorded production variant: GA4 transmitted-payload results are indicative and NOT VERIFIED against production bytes'
+          ? 'served (the recorded production capture)'
+          : 'served, but it is not the production capture recorded in tests/privacy/manifest.json: re-record it (docs/agents/testing-requirements.md, GA4 tag refresh); GA4 transmitted-payload results are indicative and NOT VERIFIED against production bytes'
         : `unavailable (${gtag.reason ?? 'unknown'}); GA4 transmitted-payload criteria are not verified`
     }`,
   );

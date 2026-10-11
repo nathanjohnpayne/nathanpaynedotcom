@@ -33,9 +33,11 @@ import { defineConfig } from '@playwright/test';
  *
  * Coverage levels, stated plainly:
  *   PostHog: the real posthog-js 1.438.3 bundles, byte-identical to production (SHA-256 checked).
- *   GA4:     the real gtag.js, but INDICATIVE only. It is fetched live and matches none of the three
- *            variants the inventory recorded, so GA4 transmitted-payload criteria are reported not
- *            verified against production bytes.
+ *   GA4:     the real gtag.js. VERIFIED when the bytes fetched at run time hash to the production capture
+ *            recorded in tests/privacy/manifest.json (captured 2026-10-10, after the property changes).
+ *            When Google serves other bytes, the provenance test is skipped as "re-record", the other GA4
+ *            results are INDICATIVE only, and the capture is redone by following
+ *            docs/agents/testing-requirements.md (GA4 tag refresh).
  */
 export default defineConfig({
   testDir: '.',

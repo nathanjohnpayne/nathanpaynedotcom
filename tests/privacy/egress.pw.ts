@@ -357,9 +357,13 @@ test.describe('egress boundary', () => {
       expect(createHash('sha256').update(served).digest('hex')).not.toBe(
         fixtureState.gtag.rawSha256,
       );
+      // The browser was handed exactly the file the setup produced from the recorded bytes, ID substitution only.
+      expect(createHash('sha256').update(served).digest('hex'), 'gtag.js served bytes').toBe(
+        fixtureState.gtag.servedSha256,
+      );
       test.info().annotations.push({
         type: 'gtag',
-        description: `matches a recorded production variant: ${fixtureState.gtag.matchesProduction}; ID substitutions: ${fixtureState.gtag.substitutions}`,
+        description: `is the recorded production capture: ${fixtureState.gtag.matchesProduction}; ID substitutions: ${fixtureState.gtag.substitutions}`,
       });
     }
   });

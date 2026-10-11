@@ -11,105 +11,16 @@
  * second test becomes an ordinary gate.
  *
  * Reported as PRIV-2 / PRIV-13 "not verified, pending Nathan", not as pass.
+ *
+ * The GA4 enhanced-measurement finding that lived here closed on 2026-10-10,
+ * when Nathan turned the leaking events off in the property. Its test is now an
+ * ordinary gate in ga4.pw.ts. The console-record pair is the only open finding.
  */
 import { CANARIES, FIXTURE_PATH } from './harness/constants';
-import {
-  canaryHits,
-  clickOutbound,
-  expectCollecting,
-  fillContactForm,
-  noteGa4Provenance,
-  humanActivity,
-  replayItems,
-  unloadAndSettle,
-  urlViolations,
-} from './harness/helpers';
+import { canaryHits, expectCollecting, replayItems, unloadAndSettle } from './harness/helpers';
 import { expect, test } from './harness/test';
 
-/** The GA4 enhanced-measurement parameters the contract names (video_url: no embedded video on this site). */
-const ENHANCED_PARAMS = [
-  'ep.link_url',
-  'ep.link_domain',
-  'ep.file_name',
-  'ep.form_destination',
-  'ep.search_term',
-  'ep.video_url',
-];
-
-let ga4Measurement: { leaks: string[]; produced: string[] } | undefined;
 let consoleMeasurement: { text: string } | undefined;
-
-test.describe.serial('pending Nathan: GA4 enhanced measurement', () => {
-  test('PRIV-2 (measurement) GA4 enhanced-measurement parameters are produced and decoded from the fixture', async ({
-    open,
-    fixtureState,
-  }) => {
-    test.setTimeout(120_000);
-    test.skip(!fixtureState.gtag.available, 'not verified: no gtag.js fixture');
-    noteGa4Provenance();
-    ga4Measurement = undefined;
-    const s = await open();
-    await s.goto(`${FIXTURE_PATH}?q=${CANARIES.search}&utm_source=fixture#${CANARIES.fragment}`);
-    await expectCollecting(s, { ga4: true });
-    await humanActivity(s.page);
-    // A sensitive value that is not email-shaped: the property's email redaction does not catch it.
-    await s.page.evaluate((canary) => {
-      const link = document.createElement('a');
-      link.id = 'np-injected-outbound';
-      link.target = '_blank';
-      link.rel = 'noopener';
-      link.href = `https://outbound.example.test/landing?token=${canary}&utm_source=fixture#${canary}`;
-      link.textContent = 'Injected outbound link';
-      document.getElementById('privacy-fixture')?.append(link);
-    }, `${CANARIES.query}-TOKEN`);
-    const popup = s.context.waitForEvent('page', { timeout: 5000 }).catch(() => null);
-    await s.page.click('#np-injected-outbound');
-    await (await popup)?.close().catch(() => undefined);
-    await clickOutbound(s);
-    const download = s.page.waitForEvent('download', { timeout: 10_000 }).catch(() => null);
-    await s.page.click('#fixture-download-link');
-    await download;
-    await fillContactForm(s.page);
-    await s.page.waitForTimeout(3000);
-    await s.page.goto('about:blank'); // unload flushes the delayed enhanced-measurement hits
-    await s.page.waitForTimeout(2000);
-
-    expect(s.sink.undecodedCollection(), 'every GA4 body was decodable').toEqual([]);
-    const leaks: string[] = [];
-    const produced = new Set<string>();
-    for (const { event } of s.sink.ga4Events()) {
-      for (const key of ENHANCED_PARAMS) {
-        const value = event.params[key];
-        if (value === undefined) continue;
-        produced.add(`${event.name}.${key.slice(3)}`);
-        const hits = [...canaryHits(value), ...urlViolations(value).map((v) => v.reason)];
-        if (hits.length > 0) leaks.push(`${event.name} ${key.slice(3)} (${hits.join('; ')})`);
-      }
-    }
-    console.log(
-      `[PRIV-2 finding] GA4 enhanced-measurement parameters produced: ${[...produced].join(', ')}`,
-    );
-    console.log(`[PRIV-2 finding] GA4 enhanced-measurement leaks: ${leaks.join(' | ') || 'none'}`);
-    // Nothing produced means Nathan turned the events off (the finding is resolved) or gtag.js changed.
-    test.skip(
-      produced.size === 0,
-      'not verified: no enhanced-measurement parameters were produced. If the events were turned off, the finding is resolved: delete the test.fail in the next test and this skip.',
-    );
-    ga4Measurement = { leaks, produced: [...produced] };
-  });
-
-  test('PRIV-2 [PENDING NATHAN: expected to fail] GA4 enhanced-measurement parameters carry no sensitive query value or visitor-entered term', () => {
-    test.fail(
-      true,
-      'Contract: gtag has no client-side hook for link_url, link_domain, file_name, form_destination, search_term, or video_url, so the runtime cannot scrub them. PRIV-2 stays NOT VERIFIED for GA4 enhanced measurement until Nathan changes the property settings (data redaction of query parameters, or which enhanced-measurement events stay on).',
-    );
-    test.skip(!ga4Measurement, 'not verified: the measurement test did not complete');
-    expect(
-      ga4Measurement?.leaks,
-      'enhanced-measurement parameters carrying a sensitive value',
-    ).toEqual([]);
-  });
-});
 
 test.describe.serial('pending Nathan: console records', () => {
   test('PRIV-2 PRIV-13 (measurement) a URL logged to the console is recorded, and the recording decodes', async ({

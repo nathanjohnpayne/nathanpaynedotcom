@@ -2,25 +2,39 @@
  * GA4 transmitted payloads (specs/analytics-privacy.md § Capture Minimization
  * item 3 and § Test Fixture; PRIV-2).
  *
- * COVERAGE LEVEL. These tests run the real gtag.js code, fetched at run time
- * for the production measurement ID and served under the fake test ID. gtag.js
- * is not byte-stable, and the bytes served here match none of the three
- * production variants the inventory recorded, so every GA4 transmitted-payload
- * result is INDICATIVE, not a verification of what production sends. Each test
- * says so in its annotations, and the report calls these criteria "not verified
- * against production gtag.js". Without a gtag.js fixture they skip entirely.
+ * COVERAGE LEVEL. These tests run the real gtag.js, fetched at run time for the
+ * production measurement ID (Node side only) and served under the fake test ID.
+ * The results are VERIFIED against production when those bytes hash to the
+ * production capture recorded in tests/privacy/manifest.json and in
+ * docs/privacy/inventory.md (the provenance test below). Google changes the
+ * tag from time to time. When it serves other bytes, the provenance test is
+ * skipped with a "re-record" reason (never passes), every GA4 test carries a
+ * `ga4-not-verified` annotation, and the capture is redone by following
+ * docs/agents/testing-requirements.md (GA4 tag refresh). Without a gtag.js
+ * fixture the GA4 tests skip entirely.
  *
- * An event the fixture cannot produce makes its test skip with a "not
- * verified" reason; it never passes.
+ * Since 2026-10-10 the GA4 property has enhanced measurement limited to page
+ * views and scrolls and user-provided data off. This file holds both halves:
+ * page_view and scroll still reach the sink (positive controls), and the
+ * disabled events and their parameters never do.
  */
+import { readFileSync } from 'node:fs';
 import type { Page } from '@playwright/test';
 import { CANARIES, FIXTURE_PATH, SITE_ORIGIN } from './harness/constants';
+import {
+  gtagConfigFindings,
+  gtagEmbeddedTags,
+  gtagProvenance,
+  loadManifest,
+  sha256Hex,
+} from './harness/fixtures';
 import type { Ga4Event } from './harness/payloads';
 import {
   canaryHits,
   noteGa4Provenance,
   clickOutbound,
   contactHits,
+  disabledEnhancedMeasurement,
   expectCollecting,
   fillContactForm,
   humanActivity,
@@ -40,63 +54,51 @@ test.beforeEach(({ fixtureState }) => {
 });
 
 test.describe('GA4 provenance', () => {
-  test('PRIV-2 GA4 transmitted-payload criteria are verified against production gtag.js bytes', ({
+  test('PRIV-2 GA4 transmitted-payload criteria are verified against the recorded production gtag.js capture', ({
     fixtureState,
   }) => {
-    // This is the criterion-level reading of every GA4 result in the suite. The fetched gtag.js is not byte-stable
-    // and matches none of the three variants the inventory recorded, so this reports skipped (not verified) and the
-    // other GA4 tests below it are indicative. It passes only when the served bytes match a recorded variant.
+    // This is the criterion-level reading of every GA4 result in the suite. It passes only when the gtag.js the
+    // suite serves hashes to the production capture recorded in the manifest. Anything else reads "re-record":
+    // skipped, never passed, and the other GA4 tests below stay indicative.
+    const recorded = loadManifest().gtag.production.sha256;
+    const verdict = gtagProvenance(fixtureState.gtag.rawSha256, recorded);
     test.skip(
-      !fixtureState.gtag.matchesProduction,
-      'not verified: the gtag.js served matches none of the production variants recorded in docs/privacy/inventory.md, so GA4 transmitted-payload results are indicative only',
+      verdict.status === 're-record',
+      `re-record: ${(verdict as { reason?: string }).reason}`,
     );
-    expect(fixtureState.gtag.rawSha256).toBeDefined();
+    expect(fixtureState.gtag.matchesProduction, 'the setup reached the same verdict').toBe(true);
+    expect(fixtureState.gtag.rawSha256, 'raw bytes as Google served them').toBe(recorded);
+    // The copy the browser is served is the very file those bytes became, with only the ID substituted.
+    expect(
+      sha256Hex(readFileSync(fixtureState.gtagPath)),
+      'the served copy is the measured copy',
+    ).toBe(fixtureState.gtag.servedSha256);
+    expect(fixtureState.gtag.substitutions, 'the production ID was replaced').toBeGreaterThan(0);
+  });
+
+  test('PRIV-2 the served gtag.js configuration has enhanced measurement on page views and scrolls only, and user-provided data off', ({
+    fixtureState,
+  }) => {
+    const tags = gtagEmbeddedTags(readFileSync(fixtureState.gtagPath, 'utf8'));
+    expect(
+      tags,
+      'the property configuration could be read from gtag.js (did Google change its format?)',
+    ).toBeDefined();
+    // Positive control: the parse found the tags that are on, so an empty "extra" list is not an empty parse.
+    expect(tags!.map((t) => t.function)).toContain('__ccd_em_page_view');
+    expect(gtagConfigFindings(tags!), 'departures from the 2026-10-10 property settings').toEqual(
+      [],
+    );
   });
 });
 
-/** How to make the fixture produce each enhanced-measurement event, and how to recognize it in the sink. */
+/** How to make the fixture produce each enhanced-measurement event that is still on, and how to recognize it in the sink. */
 const EVENTS: Array<{
   name: string;
   match: (e: Ga4Event) => boolean;
   trigger: (s: Session) => Promise<void>;
-  load?: string;
 }> = [
   { name: 'page_view', match: (e) => e.name === 'page_view', trigger: async () => undefined },
-  {
-    name: 'view_search_results (site search)',
-    match: (e) => e.name === 'view_search_results',
-    trigger: async () => undefined,
-    load: `${FIXTURE_PATH}?q=${CANARIES.search}`,
-  },
-  {
-    name: 'click (outbound)',
-    match: (e) => e.name === 'click' && e.params['ep.outbound'] === 'true',
-    trigger: (s) => clickOutbound(s),
-  },
-  {
-    name: 'file_download',
-    match: (e) => e.name === 'file_download',
-    trigger: async (s) => {
-      const download = s.page.waitForEvent('download', { timeout: 10_000 }).catch(() => null);
-      await s.page.click('#fixture-download-link');
-      await download;
-    },
-  },
-  {
-    name: 'form_start',
-    match: (e) => e.name === 'form_start' && e.params['ep.form_id'] === 'fixture-contact-form',
-    trigger: async (s) => {
-      // The fixture's own onsubmit stops form_submit but not form_start.
-      await fillContactForm(s.page);
-    },
-  },
-  {
-    name: 'form_submit',
-    match: (e) => e.name === 'form_submit',
-    trigger: async (s) => {
-      await submitContactFormForReal(s.page);
-    },
-  },
   {
     name: 'scroll',
     match: (e) => e.name === 'scroll',
@@ -107,9 +109,9 @@ const EVENTS: Array<{
 ];
 
 /**
- * The fixture's forms end with `onsubmit="return false"`, which stops gtag's form_submit. Clearing that
- * handler on the page (not in the shipped fixture) lets the submission through so the event can be
- * produced; the submitted values are the fixture's own contact canaries.
+ * The fixture's forms end with `onsubmit="return false"`, which would stop a form_submit if the property sent
+ * one. Clearing that handler on the page (not in the shipped fixture) lets the submission through, so a disabled
+ * form event has every chance to appear; the submitted values are the fixture's own contact canaries.
  */
 async function submitContactFormForReal(page: Page): Promise<void> {
   await page.evaluate(() => {
@@ -118,34 +120,136 @@ async function submitContactFormForReal(page: Page): Promise<void> {
   await fillContactForm(page);
 }
 
+/** Wait for the sink to hold an event, flushing the page's unload-time hits if it does not arrive on its own. */
+async function eventually(s: Session, seen: () => boolean): Promise<boolean> {
+  // gtag batches some hits; give it time, then unload the page, which flushes what is left.
+  await expect
+    .poll(seen, { timeout: 8000 })
+    .toBe(true)
+    .catch(() => undefined);
+  if (!seen()) {
+    await s.page.goto('about:blank');
+    await s.page.waitForTimeout(1500);
+  }
+  return seen();
+}
+
 test.describe('GA4 positive controls', () => {
   for (const event of EVENTS) {
     test(`PRIV-2 positive control: GA4 ${event.name} reaches the sink from the fixture`, async ({
       open,
     }) => {
       const s = await open();
-      await s.goto(event.load ?? FIXTURE_PATH);
+      await s.goto(FIXTURE_PATH);
       await expectCollecting(s, { ga4: true });
       await humanActivity(s.page);
       await event.trigger(s);
-      const seen = (): boolean => s.sink.ga4Events().some(({ event: e }) => event.match(e));
-      // gtag batches some hits; give it time, then unload the page, which flushes what is left.
-      await expect
-        .poll(seen, { timeout: 8000 })
-        .toBe(true)
-        .catch(() => undefined);
-      if (!seen()) {
-        await s.page.goto('about:blank');
-        await s.page.waitForTimeout(1500);
-      }
-      const produced = seen();
-      test.skip(
-        !produced,
-        `not verified: the fixture did not produce GA4 ${event.name} against this gtag.js, so nothing about it can be asserted`,
+      const produced = await eventually(s, () =>
+        s.sink.ga4Events().some(({ event: e }) => event.match(e)),
       );
-      expect(produced).toBe(true);
+      // These two events are on in the property, so a missing one is a defect (or a gtag.js change), not a skip.
+      expect(produced, `GA4 ${event.name} reached the sink`).toBe(true);
     });
   }
+});
+
+test.describe('GA4 enhanced measurement', () => {
+  test('PRIV-2 the disabled enhanced-measurement events and their parameters (search_term, link_url, form_destination, video) are not sent', async ({
+    open,
+  }) => {
+    test.setTimeout(120_000);
+    const s = await open();
+    await s.goto(`${FIXTURE_PATH}?q=${CANARIES.search}&utm_source=fixture#${CANARIES.fragment}`);
+    await expectCollecting(s, { ga4: true });
+    await humanActivity(s.page);
+    // Every interaction that used to send one of them: an outbound link whose query holds a non-email-shaped
+    // sensitive value (which the property's email redaction would not catch), the fixture's own outbound link, a
+    // download, and the contact form (typed into, then submitted for real).
+    await s.page.evaluate((canary) => {
+      const link = document.createElement('a');
+      link.id = 'np-injected-outbound';
+      link.target = '_blank';
+      link.rel = 'noopener';
+      link.href = `https://outbound.example.test/landing?token=${canary}&utm_source=fixture#${canary}`;
+      link.textContent = 'Injected outbound link';
+      document.getElementById('privacy-fixture')?.append(link);
+    }, `${CANARIES.query}-TOKEN`);
+    const popup = s.context.waitForEvent('page', { timeout: 5000 }).catch(() => null);
+    await s.page.click('#np-injected-outbound');
+    await (await popup)?.close().catch(() => undefined);
+    await clickOutbound(s);
+    const download = s.page.waitForEvent('download', { timeout: 10_000 }).catch(() => null);
+    await s.page.click('#fixture-download-link');
+    await download;
+    await submitContactFormForReal(s.page);
+    await s.page.mouse.wheel(0, 2000); // the one enhanced event still on, as the positive control
+    const scrolled = await eventually(s, () =>
+      s.sink.ga4Events().some(({ event }) => event.name === 'scroll'),
+    );
+    await s.page.goto('about:blank'); // unload flushes the delayed enhanced-measurement hits
+    await s.page.waitForTimeout(2000);
+
+    expect(s.sink.undecodedCollection(), 'every GA4 body was decodable').toEqual([]);
+    const events = s.sink.ga4Events().map(({ event }) => event);
+    // Positive controls: the page was collecting, and an enhanced-measurement event that is on was produced.
+    expect(
+      events.some((e) => e.name === 'page_view'),
+      'GA4 page_view reached the sink',
+    ).toBe(true);
+    expect(scrolled, 'GA4 scroll reached the sink (enhanced measurement is live)').toBe(true);
+    expect(
+      disabledEnhancedMeasurement(events),
+      'disabled enhanced-measurement events sent',
+    ).toEqual([]);
+    // Nothing the interactions carried reached any GA4 payload, whatever event it rode on.
+    const text = s.sink.searchableText('ga4');
+    expect(canaryHits(text), 'visitor-entered or sensitive values in GA4 payloads').toEqual([]);
+  });
+
+  test('PRIV-2 (control) the check sees a disabled enhanced-measurement event when one is sent', async ({
+    open,
+  }) => {
+    const s = await open();
+    await s.goto(FIXTURE_PATH);
+    await expectCollecting(s, { ga4: true });
+    // Simulate each disabled event the way the property used to send it (a hand-sent event carries the same
+    // parameters), so the absence assertion above is shown to fail when the events come back.
+    await s.page.evaluate(() => {
+      window.gtag?.('event', 'file_download', {
+        link_url: 'https://assets.example.test/report.pdf',
+        file_name: 'report.pdf',
+      });
+      window.gtag?.('event', 'click', {
+        outbound: true,
+        link_url: 'https://outbound.example.test/landing',
+        link_domain: 'outbound.example.test',
+      });
+      window.gtag?.('event', 'view_search_results', { search_term: 'np-control-term' });
+      window.gtag?.('event', 'form_submit', {
+        form_destination: 'https://outbound.example.test/f',
+      });
+      window.gtag?.('event', 'video_start', { video_url: 'https://outbound.example.test/v.mp4' });
+    });
+    const sent = await eventually(
+      s,
+      () => s.sink.ga4Events().filter(({ event }) => event.name === 'video_start').length > 0,
+    );
+    expect(sent, 'the hand-sent events reached the sink').toBe(true);
+    const found = disabledEnhancedMeasurement(s.sink.ga4Events().map(({ event }) => event));
+    for (const expected of [
+      'event file_download',
+      'event view_search_results',
+      'event form_submit',
+      'event video_start',
+      'click parameter link_url',
+      'click parameter outbound',
+      'file_download parameter file_name',
+      'form_submit parameter form_destination',
+      'video_start parameter video_url',
+      'view_search_results parameter search_term',
+    ])
+      expect(found, `detected: ${expected}`).toContain(expected);
+  });
 });
 
 test.describe('GA4 page URLs', () => {
@@ -172,7 +276,7 @@ test.describe('GA4 page URLs', () => {
     }
     expect(s.sink.undecodedCollection()).toEqual([]);
     // dl and dr are the two parameters the contract names. Check them rather than the whole hit, because
-    // enhanced-measurement parameters in the same hit are the separate, pending finding (pending-nathan.pw.ts).
+    // the GA4 enhanced-measurement test above covers the parameters the property no longer sends.
     const standard = s.sink
       .ga4Events()
       .flatMap(({ event }) =>
@@ -185,10 +289,19 @@ test.describe('GA4 page URLs', () => {
 });
 
 test.describe('GA4 user-provided data', () => {
-  test('PRIV-2 no contact value, literal or SHA-256 hashed, appears in any GA4 payload after the contact form is used', async ({
+  test('PRIV-2 no contact value, literal or SHA-256 hashed, and no user-data parameter appears in any GA4 payload after the contact form is used', async ({
     open,
+    fixtureState,
   }) => {
     test.setTimeout(90_000);
+    // User-provided data is off in the property (2026-10-10). The served configuration says so, which is why the
+    // form events below no longer carry anything: the absence is explained, not just observed.
+    const tags = gtagEmbeddedTags(readFileSync(fixtureState.gtagPath, 'utf8'));
+    expect(
+      tags?.filter((t) => t.function === '__ogt_1p_data_v2').map((t) => t.vtp_isEnabled),
+      'user-provided data is disabled in the served configuration',
+    ).toEqual([false]);
+
     const s = await open();
     await s.goto(FIXTURE_PATH);
     await expectCollecting(s, { ga4: true });
@@ -199,21 +312,20 @@ test.describe('GA4 user-provided data', () => {
     await s.page.waitForTimeout(1500);
 
     const events = s.sink.ga4Events();
-    const formEvents = events.filter(
-      ({ event }) => event.name === 'form_start' || event.name === 'form_submit',
-    );
-    const submitted = events.some(({ event }) => event.name === 'form_submit');
     const ga4Text = s.sink.searchableText('ga4');
     expect(s.sink.undecodedCollection(), 'every GA4 body was decodable').toEqual([]);
-    // The leak assertion comes first: a leak fails the test whether or not the control below succeeded.
+    expect(
+      events.some(({ event }) => event.name === 'page_view'),
+      'GA4 was collecting while the form was used',
+    ).toBe(true);
     expect(contactHits(ga4Text), 'contact values (literal or SHA-256) in GA4 payloads').toEqual([]);
+    const userDataKeys = [
+      ...new Set(events.flatMap(({ event }) => Object.keys(event.params))),
+    ].filter((k) => /^(ep\.|epn\.)?(em|ph|ud|_ud)$/.test(k));
+    expect(userDataKeys, 'user-data parameters in GA4 payloads').toEqual([]);
     test.info().annotations.push({
       type: 'ga4-user-data',
-      description: `form events seen: ${formEvents.map(({ event }) => event.name).join(', ') || 'none'}; searched ${events.length} GA4 event(s) for literals and SHA-256 forms of email, E.164 phone, and street`,
+      description: `searched ${events.length} GA4 event(s) for literals and SHA-256 forms of email, E.164 phone, and street, and for user-data parameter names`,
     });
-    test.skip(
-      !submitted,
-      'not verified: the fixture produced no GA4 form_submit, the event on which user-provided data is collected, so this absence proves nothing about automatic detection',
-    );
   });
 });
