@@ -415,8 +415,14 @@ test('replay records no console, canvas, or network-timing data over the project
   await activate(page);
   // Positive controls: replay kept recording after the probes (the canvas
   // element itself reached the recorded DOM), and web vitals were sent.
-  expect(await waitFor(() => replayText(sink).includes('np-canvas-probe'), 20_000)).toBe(true);
-  expect(await waitFor(() => eventNames(sink).includes('$web_vitals'), 25_000)).toBe(true);
+  expect(
+    await waitFor(() => replayText(sink).includes('np-canvas-probe'), 20_000),
+    'the canvas element reached the recorded DOM',
+  ).toBe(true);
+  expect(
+    await waitFor(() => eventNames(sink).includes('$web_vitals'), 25_000),
+    'web vitals events were sent',
+  ).toBe(true);
   await pause(4_000);
 
   const items = replayItems(sink);
