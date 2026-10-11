@@ -205,7 +205,7 @@ It alerts when the value is **greater than 0**. It fires on the first desktop-si
 
 ## Privacy Runtime
 
-This section applies only when the #1079 flag is on (`privacyControlsEnabled()`, `src/lib/privacy-flag.ts`). With the flag off, nothing below exists and the site captures exactly what the sections above describe. The contract is `specs/analytics-privacy.md`; this section records what the runtime does with each vendor, verified against posthog-js 1.438.3 (the production version), mux-embed 5.18.1 with @mux/mux-background-video 0.2.3, and the vendor documentation cited in the code, and what it cannot recall.
+This section applies when the #1079 flag is on (`privacyControlsEnabled()`, `src/lib/privacy-flag.ts`), which it has been in committed code since #1233, so every production build runs it. The sections above describe the capture that the flag-off blocks, still in `posthog.astro` and `BaseLayout.astro` and unreachable while the flag is on, would produce. The contract is `specs/analytics-privacy.md`; this section records what the runtime does with each vendor, verified against posthog-js 1.438.3 (the production version), mux-embed 5.18.1 with @mux/mux-background-video 0.2.3, and the vendor documentation cited in the code, and what it cannot recall.
 
 ### Gate
 

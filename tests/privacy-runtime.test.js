@@ -128,7 +128,7 @@ describe('gate source', () => {
     expect(GATE_SRC).not.toMatch(/<\/?script|<!--/i);
   });
 
-  it('carries every runtime marker the flag-off check looks for', () => {
+  it('carries every runtime marker the production-build check looks for', () => {
     for (const marker of ['npPrivacy', 'np:privacy-change', 'data-np-privacy', 'np-privacy']) {
       expect(GATE_SRC).toContain(marker);
     }
@@ -2036,7 +2036,7 @@ describe('Mux Data under the gate (#1264)', () => {
       /\bfetch\(|sendBeacon\(|new XMLHttpRequest|importScripts|\bimport\(|\.src\s*=/,
     );
     expect(MUX_DATA_SRC).not.toMatch(/<\/?script|<!--/i);
-    // A runtime marker, so the flag-off check fails if it is ever rendered there.
+    // A runtime marker, so the production-build check expects it in the inline page only.
     expect(MUX_DATA_SRC).toContain('npPrivacy');
   });
 

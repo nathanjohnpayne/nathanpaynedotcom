@@ -14,9 +14,10 @@
  *
  * Styles and the script are inlined rather than hoisted. Astro bundles a
  * component's <style> and <script> by import graph, so a hoisted one would be
- * emitted on every page of a flag-off build too; inline, they exist only in
- * the HTML of a page that rendered this component, which is what
- * tests/analytics-privacy.test.js requires of the flag-off build (PRIV-15).
+ * emitted on every page of a build that left the flag off; inline, they exist
+ * only in the HTML of a page that rendered this component, which keeps the
+ * runtime markers to the inline gate of each page, as
+ * tests/analytics-privacy.test.js requires (PRIV-15).
  * The same is why these rules are not in src/styles/global.css.
  */
 import noticeSource from './notice.js?raw';
