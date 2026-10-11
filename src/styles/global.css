@@ -4067,43 +4067,55 @@ a.tag:hover {
    Rendered at 1200×630 viewport (2× DPR) by Playwright during
    astro:build:done. Not shown to visitors—Chromium screenshots only.
 
-   @see Issue #106
+   Every card is full bleed. Link previews crop and round the image
+   differently: X shows 2:1 (~15px off top and bottom), LinkedIn messaging
+   ~1.8:1 (~17–33px off each side), iMessage rounds corners (~30px at this
+   scale), and square fallbacks keep only the center 630px (#1095). Any
+   frame, mat or border near the edge survives on some sides and not others
+   (#1090 clipped in iMessage; #1094's mat went lopsided on LinkedIn; the
+   framed blog cards showed a lopsided mat on X, #1292). So there is no
+   stage, frame or shadow: the grid fills the image, every perimeter cell is
+   a color field that runs off the edge, none of them near white (a white
+   cell reads as a missing corner on a white page), and the only lines are
+   interior ones meeting the edge at right angles. A crop or a rounded
+   corner then only trims color. Text keeps at least 70px from the left
+   edge and 55px from the top; the build's fit check enforces both on the
+   rendered card (OG_SAFE_ZONE in src/integrations/og-images.mjs).
+
+   Square fallbacks are a known trade-off: their x 285–915 crop cuts the
+   start of every heading, at ~80px wide where no text reads anyway.
+
+   @see Issue #106, #1095, #1292
    ────────────────────────────────────────────────────────────── */
 
 .og-body {
   margin: 0;
   padding: 0;
-  background: var(--stage-bg);
+  background: var(--black);
 }
 
 .og-shell {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   width: 1200px;
   height: 630px;
-  padding: 40px;
-  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .og-card {
-  width: 100%;
-  height: 100%;
+  width: 1200px;
+  height: 630px;
   display: grid;
-  grid-template-columns: var(--line) 2.4fr var(--line) 1fr var(--line) 1.2fr var(--line) 0.5fr var(
-      --line
-    );
-  grid-template-rows: var(--line) 1fr var(--line) 5rem var(--line) 3.5rem var(--line);
+  grid-template-columns: 400px var(--line) 231px var(--line) 301px var(--line) 1fr;
+  grid-template-rows: 390px var(--line) 61px var(--line) 1fr;
   background: var(--black);
-  border: 1px solid var(--grid-border);
-  box-shadow: var(--canvas-shadow);
 }
 
+/* 950×460 at the top left. Its top and left sides are the image edge, so
+   the padding there is the safe zone, not decoration. */
 .og-content {
-  grid-column: 2 / 7;
-  grid-row: 2;
+  grid-column: 1 / 6;
+  grid-row: 1 / 4;
   background: var(--surface);
-  padding: 52px 56px;
+  padding: 56px 56px 56px 100px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -4171,56 +4183,46 @@ a.tag:hover {
 }
 
 .og-red {
-  grid-column: 8;
-  grid-row: 2;
+  grid-column: 7;
+  grid-row: 1;
   background: var(--red);
 }
-.og-yellow-a {
-  grid-column: 2;
-  grid-row: 4;
+.og-gray {
+  grid-column: 7;
+  grid-row: 3 / 6;
+  background: var(--accent-gray);
+}
+.og-yellow {
+  grid-column: 1;
+  grid-row: 5;
   background: var(--yellow);
 }
 .og-blue {
-  grid-column: 4;
-  grid-row: 4/7;
+  grid-column: 3;
+  grid-row: 5;
   background: var(--blue);
 }
 .og-black {
-  grid-column: 6;
-  grid-row: 4;
+  grid-column: 5;
+  grid-row: 5;
   background: var(--accent-black);
 }
-.og-white-a {
-  grid-column: 8;
-  grid-row: 4;
-  background: var(--accent-gray);
-}
-.og-white-b {
-  grid-column: 2;
-  grid-row: 6;
-  background: var(--accent-gray);
-}
-.og-yellow-b {
-  grid-column: 6;
-  grid-row: 6;
-  background: var(--yellow);
-}
-.og-white-c {
-  grid-column: 8;
-  grid-row: 6;
-  background: var(--paper);
-}
 
-/* The NP mark (#1110), centered over the gray cell under the red plane: a
-   fixed spot outside .og-content, so a long heading can never run into it
-   and the fit check never measures it. Its fills are palette tokens, so it
-   follows the card's register (see src/lib/og-mark.ts). */
+/* The NP mark (#1110), homepage card only (#1292). Centered in the 241×231
+   gray field: x ~1016–1144, y ~451–579, inside every wide-card crop above.
+   At 128px it is ~27–38px in a thumbnail, at the logo system's floor for
+   the monogram, and it echoes the account avatar, which is the same mark.
+   On the interior cards a 64px mark showed at 14–19px, below the 24px under
+   which docs/brand-logo-usage.md drops the monogram, and repeated the label.
+   A fixed spot outside .og-content, so the heading never runs into it and
+   the fit check never measures it. Its fills are palette tokens (see
+   src/lib/og-mark.ts). */
 .og-mark {
-  grid-column: 8;
-  grid-row: 4;
+  grid-column: 7;
+  grid-row: 3 / 6;
   place-self: center;
-  width: 64px;
-  height: 64px;
+  width: 128px;
+  height: 128px;
 }
 
 .og-mark svg {
@@ -4229,81 +4231,19 @@ a.tag:hover {
   height: 100%;
 }
 
-/* Crop-safe variant (OgCard `cropSafe`). Link previews crop and round the
-   image differently: X shows 2:1 (~15px off top and bottom), LinkedIn
-   messaging ~1.8:1 (~17–33px off each side), iMessage rounds corners (~30px
-   at this scale), and square fallbacks keep only the center 630px (#1095).
-   Any frame, mat or border near the edge survives on some sides and not
-   others (#1090 clipped in iMessage; #1094's mat went lopsided on LinkedIn).
-   So there is no stage, frame or shadow: the grid fills the image, every
-   perimeter cell is a color field that runs off the edge, and the only
-   lines are interior ones meeting the edge at right angles. A crop or a
-   rounded corner then only trims color. Text stays inside x 100–950, y
-   ~110–350, clear of every wide-card crop. Square fallbacks are a known
-   trade-off: their x 285–915 crop shows "than Payne", at ~80px where no
-   text reads anyway. The owner chose this over a centered, two-line name
-   that a square crop keeps (#1095). */
-.og-shell--crop-safe {
-  display: block;
-  padding: 0;
-  overflow: hidden;
-}
-
-.og-shell--crop-safe .og-card {
-  width: 1200px;
-  height: 630px;
-  grid-template-columns: 400px var(--line) 231px var(--line) 301px var(--line) 1fr;
-  grid-template-rows: 390px var(--line) 61px var(--line) 1fr;
-  border: 0;
-  box-shadow: none;
-}
-
-.og-shell--crop-safe .og-content {
-  grid-column: 1 / 6;
-  grid-row: 1 / 4;
+/* Homepage hero (OgCard `hero`): the name set large enough to read at
+   thumbnail size, on one line, with a one-line tagline in place of the
+   description. Text sits at x 100–950, y ~110–350. */
+.og-shell--hero .og-content {
   padding: 0 40px 0 100px;
 }
 
-.og-shell--crop-safe .og-red {
-  grid-column: 7;
-  grid-row: 1;
-}
-.og-shell--crop-safe .og-white-a {
-  grid-column: 7;
-  grid-row: 3 / 6;
-}
-.og-shell--crop-safe .og-yellow-a {
-  grid-column: 1;
-  grid-row: 5;
-}
-.og-shell--crop-safe .og-blue {
-  grid-column: 3;
-  grid-row: 5;
-}
-.og-shell--crop-safe .og-black {
-  grid-column: 5;
-  grid-row: 5;
-}
-.og-shell--crop-safe :is(.og-white-b, .og-yellow-b, .og-white-c) {
-  display: none;
-}
-
-/* Centered in the 241×231 gray field: x ~1016–1144, y ~451–579, inside every
-   wide-card crop above. A square fallback loses it with the rest of the
-   right column. */
-.og-shell--crop-safe .og-mark {
-  grid-column: 7;
-  grid-row: 3 / 6;
-  width: 128px;
-  height: 128px;
-}
-
-.og-shell--crop-safe .og-label {
+.og-shell--hero .og-label {
   font-size: 22px;
   margin-bottom: 10px;
 }
 
-.og-shell--crop-safe .og-heading {
+.og-shell--hero .og-heading {
   font-size: 144px;
   line-height: 0.95;
   margin: 0 0 22px;
@@ -4312,7 +4252,7 @@ a.tag:hover {
 
 /* One line, so it reads as a tagline rather than a paragraph shrunk to
    thumbnail size. Keep the homepage tagline short enough to fit unwrapped. */
-.og-shell--crop-safe .og-description {
+.og-shell--hero .og-description {
   font-size: 30px;
   max-width: none;
   white-space: nowrap;
