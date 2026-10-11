@@ -24,6 +24,19 @@ import controlsSource from './controls.js?raw';
     border: 1px solid var(--ink);
     background: var(--paper);
   }
+  /* The heading inherits .project-copy h2, whose top rule marks a section
+     break in the running copy; inside this bordered box that rule read as a
+     second frame under the box edge, so the edge is the only rule here. The
+     bottom margin is the heading's own: the copy grid's row gap does not
+     reach inside the box, so without it the status line sat flush under
+     the heading. 0.75rem is the heading-to-text distance the copy uses.
+     Qualified by .project-copy so it outranks the shared rule wherever
+     this style lands in the document. */
+  .project-copy .privacy-controls h2 {
+    margin: 0 0 0.75rem;
+    padding-top: 0;
+    border-top: 0;
+  }
   .privacy-controls__status {
     font-weight: 600;
   }

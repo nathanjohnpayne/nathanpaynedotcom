@@ -146,8 +146,14 @@ const sections = [
     .privacy-copy > h2 {
       scroll-margin-top: var(--sp-lg);
     }
+    /* The three vendor subsections are short reference lists, so they sit
+       closer together than a project page's 2.5rem h3 would put them. With
+       the copy grid's 1.2rem row gap this is 2rem above a subsection: a
+       break a scanning reader sees as larger than the 1.2rem between
+       paragraphs and smaller than the ruled h2 break, where the earlier
+       0.4rem left it barely wider than a paragraph break. */
     .privacy-copy h3 {
-      margin-top: 0.4rem;
+      margin-top: 0.8rem;
     }
     .privacy-copy .privacy-dated {
       font-size: clamp(0.78rem, 0.9vw, 0.86rem);
@@ -159,6 +165,18 @@ const sections = [
       .privacy-header .deck--inset,
       .privacy-toc {
         padding-left: 0.5rem;
+      }
+      /* At phone width nearly every topic wraps to its own line anyway, so
+         the run becomes a column and the dots go: a separator at the end of
+         each line, and one alone on a line after a topic that wrapped,
+         marked nothing. The block padding on each link keeps the rows
+         24px targets without a gap between them. */
+      .privacy-toc ol {
+        flex-direction: column;
+        gap: 0;
+      }
+      .privacy-toc li:not(:last-child)::after {
+        content: none;
       }
     }
   </style>
