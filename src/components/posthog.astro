@@ -140,22 +140,28 @@ const privacyEnabled = privacyControlsEnabled();
         // order: https://posthog.com/docs/libraries/js/features#amending-or-sampling-events
         before_send: [gate.scrubEvent, keepStoredFirstUrlScrubbed],
         disable_session_recording: replayOffForPath,
-        // § Capture Minimization 1. Client masking options take precedence over
-        // the project's "Privacy and masking" settings:
-        // https://posthog.com/docs/session-replay/privacy
-        // Console-log capture, canvas capture, and network timing
-        // (enable_recording_console_log, captureCanvas, capture_performance)
-        // are deliberately NOT set here. The project's remote config turns all
-        // three on, and a client `false` would override it; the owner decision
-        // reserves that change for Nathan, so the conflict is reported, not
-        // resolved (specs/analytics.md § Privacy Runtime). Network-timing URLs
-        // are still scrubbed, by maskCapturedNetworkRequestFn below.
+        // § Capture Minimization 1 (#1261, Nathan's decision 1 on #1079):
+        // replay console-log capture, canvas recording, and network timing are
+        // off here, in client config, although the project's remote config
+        // turns all three on. In posthog-js 1.438.3 an explicit client value
+        // wins over remote config for each: `enable_recording_console_log` when
+        // it is not null, `capture_performance` as a boolean or by its
+        // `network_timing` key, and `session_recording.captureCanvas.recordCanvas`
+        // when it is not null (posthog-recorder.js). `web_vitals: true` keeps
+        // $web_vitals on in the same explicit way (array.js). Ordinary replay
+        // is unchanged.
+        enable_recording_console_log: false,
+        capture_performance: { network_timing: false, web_vitals: true },
+        // Client masking options take precedence over the project's "Privacy
+        // and masking" settings: https://posthog.com/docs/session-replay/privacy
         session_recording: {
           maskAllInputs: true,
           maskTextSelector: gate.MASK_SELECTOR,
           blockSelector: gate.BLOCK_SELECTOR,
           maskAttributeFn: gate.maskReplayAttribute,
-          // Also scrubs the page URL the recorder stores in replay metadata:
+          captureCanvas: { recordCanvas: false },
+          // Scrubs the page URL the recorder stores in replay metadata, and
+          // would scrub network-timing entries if they were ever turned back on:
           // https://posthog.com/docs/session-replay/network-recording
           maskCapturedNetworkRequestFn: gate.maskNetworkRequest,
           // Off explicitly; a client `false` wins over the project setting,

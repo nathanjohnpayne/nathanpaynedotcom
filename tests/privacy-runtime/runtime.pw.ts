@@ -23,6 +23,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import {
   POSTHOG_TOKEN,
+  REMOTE_CONFIG,
   SITE_HOST,
   egressArgs,
   gaHasParam,
@@ -185,6 +186,18 @@ function replayText(sink: Sink): string {
     .filter((e) => e.event === '$snapshot')
     .map((e) => JSON.stringify(props(e).$snapshot_data ?? null))
     .join('\n');
+}
+
+/** Every rrweb item of every `$snapshot` event, decompressed. */
+function replayItems(sink: Sink): Array<{ type?: number; data?: Record<string, unknown> }> {
+  return posthogEvents(sink)
+    .filter((e) => e.event === '$snapshot')
+    .flatMap((e) => {
+      const data = props(e).$snapshot_data;
+      return Array.isArray(data)
+        ? (data as Array<{ type?: number; data?: Record<string, unknown> }>)
+        : [];
+    });
 }
 
 async function noSdk(page: Page): Promise<void> {
@@ -359,6 +372,87 @@ test('default-on loads both SDKs and sends scrubbed, masked data only', async ()
     .filter((c): c is string => typeof c === 'string' && c.length > 0);
   expect(chains.length).toBeGreaterThan(0);
   for (const chain of chains) expect(chain).not.toMatch(/attr__(data-|style|target|onsubmit)/);
+  await context.close();
+});
+
+// #1261. The remote config served here turns console logs, canvas, and
+// network timing on, as production does; the client config turns all three
+// off. Each feature gets something to record while replay runs: a console line
+// carrying a URL, a canvas drawn on for over a second, and a fetch.
+test('replay records no console, canvas, or network-timing data over the project config, and replay and web vitals still flow', async () => {
+  expect(REMOTE_CONFIG.sessionRecording).toMatchObject({
+    consoleLogRecordingEnabled: true,
+    recordCanvas: true,
+  });
+  expect(REMOTE_CONFIG.capturePerformance).toMatchObject({
+    network_timing: true,
+    web_vitals: true,
+  });
+  const { context, page, sink } = await open();
+  await page.goto(FIXTURE);
+  await activate(page);
+  expect(await waitFor(() => eventNames(sink).includes('$snapshot'), 25_000)).toBe(true);
+  await page.evaluate(async () => {
+    console.log(
+      'np-console-probe https://nathanpayne.test/x?email=NP-CANARY-QUERY#NP-CANARY-FRAGMENT',
+    );
+    const canvas = document.createElement('canvas');
+    canvas.id = 'np-canvas-probe';
+    canvas.width = 160;
+    canvas.height = 80;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('no 2d context');
+    ctx.fillStyle = '#c03';
+    ctx.fillRect(0, 0, 160, 80);
+    document.body.append(canvas);
+    for (let i = 0; i < 10; i += 1) {
+      ctx.fillStyle = `hsl(${i * 36} 80% 50%)`;
+      ctx.fillRect(i * 16, 0, 16, 80);
+      await new Promise((r) => setTimeout(r, 150));
+    }
+    await fetch('/favicon.svg?np-network-probe=1', { cache: 'no-store' });
+  });
+  await activate(page);
+  // Positive controls: replay kept recording after the probes (the canvas
+  // element itself reached the recorded DOM), and web vitals were sent.
+  expect(await waitFor(() => replayText(sink).includes('np-canvas-probe'), 20_000)).toBe(true);
+  expect(await waitFor(() => eventNames(sink).includes('$web_vitals'), 25_000)).toBe(true);
+  await pause(4_000);
+
+  const items = replayItems(sink);
+  expect(
+    items.some((i) => i.type === 2),
+    'a full DOM snapshot',
+  ).toBe(true);
+  expect(
+    items.some((i) => i.type === 3),
+    'incremental snapshots',
+  ).toBe(true);
+  const plugins = items.filter((i) => i.type === 6).map((i) => String(i.data?.plugin));
+  expect(
+    plugins.filter((p) => p === 'rrweb/console@1'),
+    'console records',
+  ).toEqual([]);
+  expect(
+    plugins.filter((p) => p === 'rrweb/network@1'),
+    'network-timing records',
+  ).toEqual([]);
+  expect(
+    items.filter((i) => i.type === 3 && i.data?.source === 9),
+    'canvas mutation records',
+  ).toEqual([]);
+  const text = replayText(sink);
+  expect(text, 'a canvas image in a recorded node').not.toContain('rr_dataURL');
+  expect(text, 'the console probe').not.toContain('np-console-probe');
+  expect(text, 'the fetched URL').not.toContain('np-network-probe');
+  // The recorder's own report of what it ran with.
+  const sessionOptions = items.find((i) => i.type === 5 && i.data?.tag === '$session_options')?.data
+    ?.payload as
+    { sessionRecordingOptions: { recordCanvas?: unknown }; activePlugins: string[] } | undefined;
+  expect(sessionOptions, 'the recorder reported its options').toBeDefined();
+  expect(Boolean(sessionOptions?.sessionRecordingOptions.recordCanvas)).toBe(false);
+  expect(sessionOptions?.activePlugins).not.toContain('rrweb/console@1');
+  expect(sessionOptions?.activePlugins).not.toContain('rrweb/network@1');
   await context.close();
 });
 
