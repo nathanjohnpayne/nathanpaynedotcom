@@ -24,7 +24,6 @@
  * <style> is bundled by import graph, and this route module is loaded (for
  * getStaticPaths) by every build, flag on or off.
  */
-import { getEntry } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Breadcrumbs from '../../components/Breadcrumbs.astro';
 import Footer from '../../components/Footer.astro';
@@ -42,11 +41,8 @@ export function getStaticPaths() {
 // (#1166 convention); the deck reads the same description.
 const { description, ogDescription } = await getSiteCopy('privacy');
 
-const myself = await getEntry('myself', 'nathan-payne');
-if (!myself) {
-  throw new Error('Missing myself entry "nathan-payne" — expected at src/content/myself/nathan-payne.md');
-}
-const email = myself.data.email;
+/** The privacy contact address, separate from the personal address on the homepage. */
+const email = 'privacy@nathanpayne.com';
 // The address is assembled client-side from base64 fragments, as on the
 // homepage (#availability-mailto in src/pages/index.astro), so the plain
 // string never appears in the static HTML. The <noscript> fallback spells it.
@@ -119,10 +115,19 @@ const sections = [
     .privacy-toc ol {
       display: flex;
       flex-wrap: wrap;
-      gap: 0 0.9rem;
+      gap: 0 0.55rem;
       list-style: none;
       padding: 0;
       margin: 0;
+    }
+    /* Multi-word, all-caps topics read as one run without a mark between
+       them; a middle dot in the accent color separates each from the next.
+       It is decorative, so assistive tech still reads a plain list. */
+    .privacy-toc li:not(:last-child)::after {
+      content: '·';
+      margin-left: 0.55rem;
+      color: var(--accent);
+      font-weight: 700;
     }
     /* Block padding keeps each link a 24px target (WCAG 2.5.8) at every size. */
     .privacy-toc a {

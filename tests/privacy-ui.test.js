@@ -525,7 +525,9 @@ describe('/privacy/ page and footer link (PRIV-11, PRIV-15)', () => {
     );
     expect(PAGE_ASTRO).toContain("getSiteCopy('privacy')");
     expect(PAGE_ASTRO).toContain('<PrivacyControls />');
-    expect(PAGE_ASTRO).toContain("import { getEntry } from 'astro:content';");
+    // The contact is the dedicated privacy address, never the personal one.
+    expect(PAGE_ASTRO).toContain("const email = 'privacy@nathanpayne.com';");
+    expect(PAGE_ASTRO).not.toContain("getEntry('myself'");
   });
 
   it('has a privacy site-copy entry that matches its own strict schema', () => {
