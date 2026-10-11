@@ -330,6 +330,38 @@ describe('production-mode build carries the privacy controls (PRIV-15 replacemen
       );
     });
 
+    it('catches an inline fetch to an analytics host in <body>', () => {
+      const mutated = page.replace(
+        '</body>',
+        "<script>fetch('https://www.google-analytics.com/g/collect')</script></body>",
+      );
+      expect(analyticsGateFindings(mutated)).toContain(
+        'inline script names analytics host google-analytics.com',
+      );
+    });
+
+    it('catches an inline sendBeacon to an analytics host after the analytics region', () => {
+      const mutated = page.replace(
+        '<!-- Google Fonts -->',
+        "<!-- Google Fonts --><script>navigator.sendBeacon('https://d.nathanpayne.com/e/')</script>",
+      );
+      expect(analyticsGateFindings(mutated)).toContain(
+        'inline script names analytics host d.nathanpayne.com',
+      );
+    });
+
+    it('exempts the Mux Data script only as its exact source', () => {
+      const swipe = files.find((f) => f.path === 'projects/swipe-watch/index.html').text;
+      expect(analyticsGateFindings(swipe)).toEqual([]);
+      const mutated = swipe.replace(
+        '</body>',
+        "<script>/* #1264: Mux Data */ fetch('https://litix.io/x')</script></body>",
+      );
+      expect(analyticsGateFindings(mutated)).toContain(
+        'inline script names analytics host litix.io',
+      );
+    });
+
     it('catches the pre-#1233 flag-off snippet', () => {
       const mutated = page.replace(
         PH_GUARD_LINE,

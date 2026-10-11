@@ -9,8 +9,10 @@
 // flag-off base commit; with the flag on it is checked structurally instead.
 
 import { spawn } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 export const REGION_START = '<!-- PostHog -->';
 export const REGION_END = '<!-- Google Fonts -->';
@@ -109,6 +111,17 @@ const GA4_GUARD =
 // Case-insensitive, and the end tag may carry anything up to its `>` (as
 // browsers accept `</script foo>`), so no spelling of a script tag can slip
 // past the structure check.
+// The one inline script outside the gate and the two region blocks that names
+// an analytics host: Mux Data's wrapper (src/lib/privacy/mux-data.js), which
+// ProjectMuxPlayer.astro inlines verbatim on a page with a Mux hero and which
+// names litix.io, where Mux sends beacons, so that the gate's transport guard
+// and its own denial path cover them. It is exempt only as that exact source
+// text, never because its body merely contains a host.
+const MUX_DATA_SOURCE = readFileSync(
+  fileURLToPath(new URL('../../src/lib/privacy/mux-data.js', import.meta.url)),
+  'utf8',
+).trim();
+
 const SCRIPT_RE = /<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi;
 const URL_ATTR_RE =
   /\s(?:src|href|srcset|data|action|formaction|poster|ping|content)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
@@ -247,6 +260,26 @@ export function analyticsGateFindings(html) {
       'appendChild(loader)',
     ]);
     if (!ga4.body.includes('gtag/js?id=')) findings.push('GA4 block does not create the loader');
+  }
+
+  // Inline script bodies outside the ones that legitimately name an analytics
+  // host: a stray fetch() or sendBeacon() to one would be a request the gate
+  // does not guard. The explicit exemptions, by identity and not by content:
+  //  - the gate script, found above as the script just before the region (its
+  //    ANALYTICS_HOSTS list drives the transport guard);
+  //  - the two region scripts, PostHog's and GA4's, whose guards are verified
+  //    above;
+  //  - Mux Data's wrapper, exactly as MUX_DATA_SOURCE (see there).
+  // JSON-LD and every other script type are scanned like any other: none of
+  // them names a host today, so they need no exemption.
+  const exempt = new Set(inRegion.map((x) => regionStart + x.index));
+  if (gate) exempt.add(gate.index);
+  for (const x of scripts(html)) {
+    if (exempt.has(x.index) || x.body.trim() === MUX_DATA_SOURCE) continue;
+    const body = x.body.toLowerCase();
+    for (const host of ANALYTICS_HOSTS) {
+      if (body.includes(host)) findings.push(`inline script names analytics host ${host}`);
+    }
   }
 
   // Attribute values outside script bodies: a preconnect, prefetch, img, or
