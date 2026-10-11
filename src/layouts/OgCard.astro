@@ -8,18 +8,20 @@
  *
  * Chromium screenshots this page during astro:build:done via Playwright.
  *
- * `cropSafe` lays the card out for link previews that crop or round the
- * image (#1095): no stage, frame or shadow, a full-bleed grid whose edge
- * cells are color fields, text inside the safe zone every platform keeps,
- * and a heading large enough to read at thumbnail size, with an optional
- * one-line tagline as the description. The homepage card opts in.
+ * Every card is full bleed (#1095, #1292): no stage, frame or shadow, a grid
+ * that fills the image with color fields at every edge, and text inside the
+ * safe zone that cropping and corner-rounding link previews keep. The rules
+ * and their reasons live with the `.og-*` styles in global.css; the build
+ * enforces the edge and safe-zone rules on each rendered card.
  *
- * Every card carries the NP mark from the logo system in a fixed grid cell
- * beside the content, so it never competes with the heading or enters the
- * fit check (#1110). It is inlined from public/images/brand/np-mark.svg so
- * Playwright needs no network, and its fills are swapped for the palette
- * tokens (`src/lib/og-mark.ts`) so it follows the card's register: 1930 on
- * the homepage card, 1921 everywhere else.
+ * `hero` is the homepage card: the name set large on one line, a one-line
+ * tagline as the description, and the NP mark from the logo system in the
+ * gray field under the red plane (#1110). Only the hero carries the mark. On
+ * the interior cards it rendered below the size at which the logo system
+ * drops the monogram and repeated the label (#1292). It is inlined from
+ * public/images/brand/np-mark.svg so Playwright needs no network, and its
+ * fills are swapped for the palette tokens (`src/lib/og-mark.ts`) so it
+ * follows the card's 1930 register.
  *
  * @see Issue #106 — Generate OG images at build time
  */
@@ -34,20 +36,22 @@ interface Props {
   description?: string;
   meta?: string;
   palette?: '1930';
-  /** Full-bleed grid with no edge structure and an oversized name, for cards apps crop. */
-  cropSafe?: boolean;
+  /** Homepage card: oversized one-line name, one-line tagline, and the NP mark. */
+  hero?: boolean;
 }
 
-const { label, heading, description, meta, palette, cropSafe } = Astro.props;
+const { label, heading, description, meta, palette, hero } = Astro.props;
 const headingClass = [
   'og-heading',
   !description ? 'og-heading--title-only' : '',
   description ? 'og-heading--with-description' : '',
   !description && heading.length > 52 ? 'og-heading--long' : '',
 ].filter(Boolean).join(' ');
-const npMark = tokenizeMarkFills(
-  fs.readFileSync(path.join(process.cwd(), 'public', 'images', 'brand', 'np-mark.svg'), 'utf-8')
-);
+const npMark = hero
+  ? tokenizeMarkFills(
+      fs.readFileSync(path.join(process.cwd(), 'public', 'images', 'brand', 'np-mark.svg'), 'utf-8')
+    )
+  : null;
 ---
 
 <!DOCTYPE html>
@@ -80,7 +84,7 @@ const npMark = tokenizeMarkFills(
   </style>
 </head>
 <body class="og-body" data-palette={palette}>
-  <div class:list={['og-shell', { 'og-shell--crop-safe': cropSafe }]}>
+  <div class:list={['og-shell', { 'og-shell--hero': hero }]}>
     <div class="og-card">
       <div class="og-content">
         <div class="og-label">{label}</div>
@@ -91,15 +95,12 @@ const npMark = tokenizeMarkFills(
 
       {/* Decorative Mondrian accent blocks */}
       <div class="og-block og-red" aria-hidden="true"></div>
-      <div class="og-block og-yellow-a" aria-hidden="true"></div>
+      <div class="og-block og-gray" aria-hidden="true"></div>
+      <div class="og-block og-yellow" aria-hidden="true"></div>
       <div class="og-block og-blue" aria-hidden="true"></div>
       <div class="og-block og-black" aria-hidden="true"></div>
-      <div class="og-block og-white-a" aria-hidden="true"></div>
-      <div class="og-block og-white-b" aria-hidden="true"></div>
-      <div class="og-block og-yellow-b" aria-hidden="true"></div>
-      <div class="og-block og-white-c" aria-hidden="true"></div>
 
-      <div class="og-mark" aria-hidden="true"><Fragment set:html={npMark} /></div>
+      {npMark && <div class="og-mark" aria-hidden="true"><Fragment set:html={npMark} /></div>}
     </div>
   </div>
 </body>

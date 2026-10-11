@@ -255,38 +255,196 @@ export function measureOgCard() {
 }
 
 // The least space a block may leave between itself and the clipping edge.
-// Half the card's 52px padding: the padding is a target, and the projects
-// index card legitimately reaches into it, but text closer than this reads as
-// crammed against the frame, and past zero it is cut off.
+// Text closer than this reads as crammed against the next cell, and past
+// zero it is cut off.
 export const OG_MIN_CLEARANCE = 24;
+
+// Where a side of `.og-content` is the image edge (top and left, on the
+// full-bleed grid), text must also clear what link previews crop and round
+// away: up to ~33px off a side on LinkedIn messaging, ~15px off the top on X,
+// ~30px corners in iMessage, and Slick Media's ~70px side and ~55px
+// top-and-bottom text inset (#1095, #1292). The right and bottom sides meet
+// interior grid lines, so OG_MIN_CLEARANCE governs there.
+export const OG_SAFE_ZONE = { top: 55, left: 70 };
 
 /**
  * Judge a `measureOgCard` result. A card fits when every block keeps
  * `OG_MIN_CLEARANCE` from all four sides of `.og-content` (the edge that
- * clips; its ink, not its box, for left and right) and the tag line stays on
- * one line. Returns problems; empty = fits.
+ * clips; its ink, not its box, for left and right), and also `safeZone`
+ * where that side is the image edge, and the tag line stays on one line.
+ * Returns problems; empty = fits.
  */
-export function ogFitProblems(measurement, minClearance = OG_MIN_CLEARANCE) {
+export function ogFitProblems(
+  measurement,
+  minClearance = OG_MIN_CLEARANCE,
+  safeZone = OG_SAFE_ZONE,
+) {
   if (!measurement) return ['no .og-content element to measure'];
   const { box, children, metaLines } = measurement;
+  const floor = (side) => Math.max(minClearance, safeZone[side] ?? 0);
   const problems = [];
+  const check = (name, side, distance) => {
+    if (distance < floor(side))
+      problems.push(
+        `.${name} is ${Math.round(distance)}px from the ${side} edge (needs ${floor(side)})`,
+      );
+  };
   for (const child of children) {
     const name = child.className.split(' ')[0] || 'element';
-    const above = child.top - box.top;
-    const below = box.bottom - child.bottom;
-    if (above < minClearance) problems.push(`.${name} is ${Math.round(above)}px from the top edge`);
-    if (below < minClearance)
-      problems.push(`.${name} is ${Math.round(below)}px from the bottom edge`);
+    check(name, 'top', child.top - box.top);
+    check(name, 'bottom', box.bottom - child.bottom);
     if (child.inkLeft !== undefined) {
-      const left = child.inkLeft - box.left;
-      const right = box.right - child.inkRight;
-      if (left < minClearance)
-        problems.push(`.${name} is ${Math.round(left)}px from the left edge`);
-      if (right < minClearance)
-        problems.push(`.${name} is ${Math.round(right)}px from the right edge`);
+      check(name, 'left', child.inkLeft - box.left);
+      check(name, 'right', box.right - child.inkRight);
     }
   }
   if (metaLines > 1) problems.push(`.og-meta wraps to ${metaLines} lines`);
+  return problems;
+}
+
+/**
+ * Edge check for an OG card (#1292). Every card is full bleed: the grid fills
+ * the image, with no stage padding, border or shadow, and the cells along
+ * each edge are color fields. A frame or mat at the edge survives a crop on
+ * some sides and not others (#1090, #1094), and a near-white edge cell reads
+ * as a missing corner on a white page. This reads the rendered card;
+ * `ogEdgeProblems` judges it. Runs inside the page, so it must stay
+ * self-contained.
+ */
+export function measureOgEdges() {
+  const shell = document.querySelector('.og-shell');
+  const card = document.querySelector('.og-card');
+  if (!shell || !card) return null;
+  const px = (value) => parseFloat(value) || 0;
+  const sides = ['Top', 'Right', 'Bottom', 'Left'];
+  const shellStyle = getComputedStyle(shell);
+  const cardStyle = getComputedStyle(card);
+  const cardBox = card.getBoundingClientRect();
+  const cells = [...card.children]
+    .filter((el) => getComputedStyle(el).display !== 'none')
+    .map((el) => {
+      const r = el.getBoundingClientRect();
+      return {
+        className: String(el.className),
+        left: r.left,
+        top: r.top,
+        right: r.right,
+        bottom: r.bottom,
+        background: getComputedStyle(el).backgroundColor,
+      };
+    });
+  return {
+    viewport: { width: window.innerWidth, height: window.innerHeight },
+    card: { left: cardBox.left, top: cardBox.top, right: cardBox.right, bottom: cardBox.bottom },
+    shellPadding: sides.map((side) => px(shellStyle[`padding${side}`])),
+    cardBorder: sides.map((side) => px(cardStyle[`border${side}Width`])),
+    cardShadow: cardStyle.boxShadow,
+    cells,
+  };
+}
+
+// The share of each image edge that color cells must cover. Interior grid
+// lines meeting the edge take the rest: three 9px lines on the bottom edge
+// are 2.25% of it. A frame track along the edge covers none of it.
+export const OG_EDGE_COVERAGE = 0.95;
+
+// An edge cell at least this light in every channel reads as white.
+const NEAR_WHITE = 248;
+
+function parseColor(value) {
+  const m = /rgba?\(([^)]+)\)/.exec(value ?? '');
+  if (!m) return null;
+  const [r, g, b, a = 1] = m[1]
+    .split(/[\s,/]+/)
+    .filter(Boolean)
+    .map(Number);
+  return { r, g, b, a };
+}
+
+/**
+ * Judge a `measureOgEdges` result. Returns problems; empty = the card runs
+ * full bleed with only color fields at its edges.
+ */
+export function ogEdgeProblems(measurement, coverage = OG_EDGE_COVERAGE) {
+  if (!measurement) return ['no .og-shell or .og-card element to measure'];
+  const { viewport, card, shellPadding, cardBorder, cardShadow, cells } = measurement;
+  const problems = [];
+  const near = (a, b) => Math.abs(a - b) < 0.5;
+  if (
+    !near(card.left, 0) ||
+    !near(card.top, 0) ||
+    !near(card.right, viewport.width) ||
+    !near(card.bottom, viewport.height)
+  ) {
+    problems.push(
+      `.og-card spans ${Math.round(card.left)},${Math.round(card.top)}–` +
+        `${Math.round(card.right)},${Math.round(card.bottom)}, not the full ` +
+        `${viewport.width}×${viewport.height} image`,
+    );
+  }
+  if (shellPadding.some((v) => v !== 0)) problems.push('.og-shell has a stage margin (padding)');
+  if (cardBorder.some((v) => v !== 0)) problems.push('.og-card has a border');
+  if (cardShadow && cardShadow !== 'none') problems.push('.og-card has a box-shadow');
+
+  const edges = [
+    {
+      side: 'top',
+      length: viewport.width,
+      on: (c) => near(c.top, 0),
+      span: (c) => [c.left, c.right],
+    },
+    {
+      side: 'bottom',
+      length: viewport.width,
+      on: (c) => near(c.bottom, viewport.height),
+      span: (c) => [c.left, c.right],
+    },
+    {
+      side: 'left',
+      length: viewport.height,
+      on: (c) => near(c.left, 0),
+      span: (c) => [c.top, c.bottom],
+    },
+    {
+      side: 'right',
+      length: viewport.height,
+      on: (c) => near(c.right, viewport.width),
+      span: (c) => [c.top, c.bottom],
+    },
+  ];
+  for (const { side, length, on, span } of edges) {
+    const touching = cells.filter(on);
+    const spans = touching
+      .map((c) => span(c).map((v) => Math.min(Math.max(v, 0), length)))
+      .sort((a, b) => a[0] - b[0]);
+    let covered = 0;
+    let reach = 0;
+    for (const [start, end] of spans) {
+      if (end > reach) {
+        covered += end - Math.max(start, reach);
+        reach = end;
+      }
+    }
+    if (covered / length < coverage) {
+      problems.push(
+        `color cells cover ${Math.round((covered / length) * 100)}% of the ${side} edge ` +
+          `(needs ${Math.round(coverage * 100)}%)`,
+      );
+    }
+    for (const cell of touching) {
+      const name =
+        cell.className
+          .split(' ')
+          .filter((c) => c !== 'og-block')
+          .pop() || 'element';
+      const color = parseColor(cell.background);
+      if (!color || color.a < 0.5) {
+        problems.push(`.${name} on the ${side} edge has no solid background`);
+      } else if (Math.min(color.r, color.g, color.b) >= NEAR_WHITE) {
+        problems.push(`.${name} on the ${side} edge is near white (${cell.background})`);
+      }
+    }
+  }
   return problems;
 }
 
@@ -343,7 +501,10 @@ async function renderOgImages({ browser, baseUrl, distDir, templatePaths, logger
       // Fit is checked against the rendered card, after fonts, so wrapping
       // is real rather than estimated (#1088). Collected, then thrown once,
       // so one build reports every card that does not fit.
-      const problems = ogFitProblems(await page.evaluate(measureOgCard));
+      const problems = [
+        ...ogFitProblems(await page.evaluate(measureOgCard)),
+        ...ogEdgeProblems(await page.evaluate(measureOgEdges)),
+      ];
       if (problems.length > 0) misfits.push(`${templatePath}: ${problems.join('; ')}`);
       // POSIX key on every platform: recursive readdir returns native
       // separators, and the test looks cards up as `projects/<slug>`.
@@ -369,13 +530,15 @@ async function renderOgImages({ browser, baseUrl, distDir, templatePaths, logger
     await writeFile(manifestPath, `${JSON.stringify(cards, null, 2)}\n`);
     if (misfits.length > 0) {
       throw new Error(
-        `OG cards that do not fit their 1200×630 frame once fonts load:\n  ${misfits.join('\n  ')}\n` +
+        `OG cards that do not fit their 1200×630 image once fonts load:\n  ${misfits.join('\n  ')}\n` +
           'A wrapped .og-meta needs fewer tags. A block crowding the left or right ' +
           'edge is a line too wide to wrap (nowrap, or one long word): shorten it. ' +
           'A block crowding the top or bottom means the content is too tall in total ' +
           '(it is centered, so the reported block may not be the long one): shorten ' +
           'the description or title. For a project card, edit its src/content/projects/ ' +
-          'file, usually a shorter `ogDescription`.',
+          'file, usually a shorter `ogDescription`. An edge problem (stage margin, ' +
+          'border, shadow, uncovered or near-white edge) is a layout change in the ' +
+          '`.og-*` styles in src/styles/global.css: every card runs full bleed (#1292).',
       );
     }
   } finally {

@@ -98,7 +98,9 @@ represents a page: `og-templates/home.astro` passes `palette="1930"` to
 `OgCard.astro`, so `home.png` matches the homepage register. Other OG cards do
 not pass a palette and stay on the 1921 `:root` default.
 
-The homepage card also passes `cropSafe`, which drops the stage, frame and shadow so the Mondrian grid fills the image edge to edge, sets the name at 144px, and replaces the three-line description with a one-line tagline. Link previews crop and round the image differently (X at 2:1, LinkedIn messaging at about 1.8:1, iMessage with about 30px corner radii at this scale), so anything that marks the edge, whether a frame (#1090) or a gray mat (#1094), survives on some sides and not others. With only color fields at the edges, a crop or rounded corner just trims color (#1095). The full description still reaches previews through `og:description`.
+Every OG card is full bleed: no stage, frame or shadow, one grid that fills the image, and only color fields at its edges. Link previews crop and round the image differently (X at 2:1, LinkedIn messaging at about 1.8:1, iMessage with about 30px corner radii at this scale), so anything that marks the edge, whether a frame (#1090) or a gray mat (#1094), survives on some sides and not others. With only color fields at the edges, a crop or rounded corner just trims color. The homepage card got this first (#1095); the blog, project, index and résumé cards followed when their framed layout showed a lopsided mat on X (#1292). No edge cell is near white, which would read as a missing corner on a white page, and text keeps at least 70px from the left edge and 55px from the top. The build checks both on every rendered card (`ogEdgeProblems` and `OG_SAFE_ZONE` in `src/integrations/og-images.mjs`).
+
+The homepage card also passes `hero`, which sets the name at 144px on one line, replaces the description with a one-line tagline, and adds the NP mark in the gray field. The full description still reaches previews through `og:description`.
 
 | Page | Accent source |
 |---|---|
