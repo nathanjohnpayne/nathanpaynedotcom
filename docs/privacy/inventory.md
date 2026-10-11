@@ -98,7 +98,12 @@ Destinations and pipelines (read-only): the default **GeoIP transformation is en
 - **Property settings read 2026-10-11** ([#1232 decision 6 read](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/1232#issuecomment-6110326941)):
   - **Retention:** event data 2 months; user data 14 months, reset on new user activity.
   - **Product links:** no Google Ads, AdMob, AdSense, Ad Manager, BigQuery, Display & Video 360, Floodlight, Google Business Profile, Merchant Center, Google Play, Search Ads 360, or Search Console link, and no Meta, Pinterest, Reddit, Snap, or TikTok link. The one link is the Firebase project that hosts the site.
-  - **Account data sharing:** "Google products & services" is off. "Modeling contributions & business insights", "Technical support", and "Recommendations for your business" are on.
+  - **Account data sharing:** "Google products & services" is off. "Modeling contributions & business insights", "Technical support", and "Recommendations for your business" are on. The account details page describes each setting:
+    - **Google products & services (off):** shares Analytics data with Google to improve Google's products and services.
+    - **Modeling contributions & business insights (on):** contributes aggregated measurement data for predictions, modeled data, and benchmarking. Google states the shared data is aggregated and de-identified before it is used.
+    - **Technical support (on):** lets Google technical support representatives access the Analytics data and account when necessary to solve technical issues.
+    - **Recommendations for your business (on):** gives Google access to account data, including usage and configuration data, to provide insights, offers, and recommendations.
+    - **Data Processing Terms:** the page says they have not been accepted for this account.
   - **Ads personalization:** allowed in every region, the default. No advertising product is linked.
   - **Signals and location:** Google signals is off. Granular location and device data collection is on.
 
