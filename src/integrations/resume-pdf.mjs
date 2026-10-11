@@ -40,15 +40,6 @@ export const RESUME_PDF_FILENAME = 'Nathan-Payne-Resume.pdf';
 export const RESUME_PDF_PATH = `/${RESUME_PDF_FILENAME}`;
 
 /**
- * Page margin, kept in sync with the `@page { margin }` value in the
- * `@media print` block of src/styles/global.css (#420 Contingency B floor).
- * Chromium's printToPDF takes its margins from these parameters rather than
- * from the CSS `@page` rule, so the value has to be restated here; the
- * constant is exported so a test can assert the two agree.
- */
-export const RESUME_PDF_MARGIN = '0.6in';
-
-/**
  * Hosts that receive analytics traffic: the first-party PostHog proxy, PostHog
  * itself, and Google Analytics / Tag Manager. Matched by hostname suffix so
  * regional collectors (`region1.google-analytics.com`) are covered too.
@@ -196,12 +187,17 @@ export async function generateResumePdf({ browser, baseUrl, siteUrl, outputPath,
       // rather than reasoned: with this flag flipped, the rendered pages
       // differ from the previous file only in the marker column.
       printBackground: true,
-      margin: {
-        top: RESUME_PDF_MARGIN,
-        right: RESUME_PDF_MARGIN,
-        bottom: RESUME_PDF_MARGIN,
-        left: RESUME_PDF_MARGIN,
-      },
+      // No `margin` here, on purpose. The page margin is the `@page { margin:
+      // 0.6in }` rule in the `@media print` block of src/styles/global.css
+      // (the #420 Safari floor), and that rule alone sets it: when the page
+      // declares one, Chromium's printToPDF does not apply the `margin`
+      // parameters. Measured in #1266 on Playwright 1.63 / Chromium 1243: a
+      // 2in right margin passed here left the text layout and every glyph
+      // coordinate unchanged, while changing the CSS to 1in repaginated the
+      // file from three pages to four. A restated value would be an inert
+      // second copy that reads as load-bearing. The `@page` value is asserted
+      // in tests/resume.test.js, against both the built stylesheet and the
+      // built PDF.
     });
     logger.info(`  ${RESUME_PDF_FILENAME}`);
   } finally {
