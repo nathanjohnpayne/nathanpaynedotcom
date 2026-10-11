@@ -38,17 +38,17 @@ Two flags in the served tag still read as on, and neither is a finding. `__ogt_a
 
 ## How the Suite Uses It
 
-- `tests/privacy/manifest.json` records the tested variant's SHA-256, its size, and the capture date: A2 since the [2026-10-11 re-record](#re-record-2026-10-11), A before it. The inventory's `gtag.js` row records the same hash first, and the suite fails if the two disagree.
-- At run time the suite fetches the current tag from Node, retries until the bytes hash to the recorded SHA-256, substitutes the fake test ID, and serves that copy. The substitution is the only edit. The browser never reaches Google.
-- The GA4 provenance test passes when the raw bytes equal the recorded hash and the run fetched them from production. Any other bytes skip it with a `re-record` reason, never a pass, and every other GA4 test then carries a `ga4-not-verified` annotation. A cached copy reused without a fetch skips it as not checked against production. The release run sets `NP_PRIVACY_REQUIRE_GA4=1`, which turns every such skip into a failure.
+- `tests/privacy/manifest.json` records the configuration fingerprint (`gtag.production.configSha256`) and its capture date, set by the [2026-10-11 fingerprint section](#configuration-fingerprint-2026-10-11-1280) below. Before #1280 it recorded one variant's byte hash (A on 2026-10-10, A2 from the 2026-10-11 re-record); that pin is gone and the byte hashes in this note are history. The inventory's `gtag.js` row records the same fingerprint, and the suite fails if the two disagree.
+- At run time the suite fetches the current tag from Node, computes the fingerprint of its embedded `resource`, substitutes the fake test ID, and serves that copy. The substitution is the only edit. The browser never reaches Google. The run's byte SHA-256 and size go to the setup log and a `ga4-gtag-bytes` annotation.
+- The GA4 provenance test passes when the run fetched the bytes from production, their configuration fingerprint equals the recorded one, and the configuration has no findings. A different fingerprint skips it with a `re-record` reason (the property configuration changed, so it goes to Nathan), never a pass, and every other GA4 test then carries a `ga4-not-verified` annotation. A cached copy reused without a fetch skips it as not checked against production. The release run sets `NP_PRIVACY_REQUIRE_GA4=1`, which turns every such skip into a failure. A byte rotation with the configuration unchanged no longer needs anything.
 - Separate tests read the embedded configuration from the served copy and fail if an enhanced-measurement event other than page views and scrolls, or user-provided data, is enabled in it.
 
-To record a new capture when Google changes the tag, follow [Testing Requirements](../agents/testing-requirements.md#ga4-tag-refresh).
+To record a new fingerprint when Nathan changes the property configuration, follow [Testing Requirements](../agents/testing-requirements.md#ga4-tag-refresh).
 
 ## Not Verified
 
 - The GA4 property was not read by this track. Nathan's settings are known from his re-verification in #1232 and from the served tag; this note does not add a second source for the property pages.
-- Variants B, C, and D were checked for identical configuration but are not tested. The suite served variant A until the 2026-10-11 re-record and serves A2 since.
+- Variants B, C, and D were checked for identical configuration. The suite no longer tests any one variant: it tests whichever variant production serves in the run, by its configuration.
 - Which variant the live site serves to a given visitor at a given time is not controllable and not recorded beyond the counts above.
 
 ## Re-Record, 2026-10-11
@@ -63,4 +63,31 @@ The day after the capture above, the suite's provenance test read `re-record`: G
 
 The embedded configuration was byte-identical across all three and equal to the 2026-10-10 configuration in the table above: page views with history events and scrolls on, the five other enhanced-measurement events absent, `__ogt_1p_data_v2` disabled. B2 differs from A2 in one flag byte, as B did from A. C2 is the other runtime build (481,564 bytes) seen on 2026-10-10 as variant C. The manifest now records A2 with capture date 2026-10-11; the 2026-10-10 hashes above are history.
 
-The served bytes changed within about a day while the property configuration did not, so expect the recorded hash to need re-recording again. Each time, confirm the configuration first (see [Testing Requirements](../agents/testing-requirements.md#ga4-tag-refresh)).
+The served bytes changed within about a day while the property configuration did not. That is why #1280 replaced the byte pin with the configuration fingerprint below.
+
+## Configuration Fingerprint, 2026-10-11 (#1280)
+
+The suite no longer pins a byte hash. Nathan approved pinning the configuration instead, because Google rotates the bytes roughly daily with the embedded configuration unchanged, and a byte pin made the release run (`NP_PRIVACY_REQUIRE_GA4=1`) fail only because Google rotated the bytes.
+
+**Fingerprint.** SHA-256 of the canonical JSON of the container's whole `resource` object as served (`version`, `macros`, `tags`, `predicates`, `rules`; a first version of this record fingerprinted `resource.tags` alone, and review pointed out that a changed rule or predicate would have passed): object keys sorted at every depth, array order kept, no whitespace. The recorded value is in `tests/privacy/manifest.json` (`gtag.production.configSha256`, captured 2026-10-11) and in the inventory's `gtag.js` row; it is not repeated here so the three cannot drift. It hashes the resource as Google served it, which includes the property's own measurement ID, so a different property would have a different fingerprint; the hash does not reveal the ID.
+
+**Measurement.** Node-side reads only, no browser, no cookies, the same ID read the suite performs. Sixty loads on 2026-10-11 in two runs of 30, all `200`, all with the same `resource.tags` fingerprint (the array-order-ignoring variant of that fingerprint was also identical, so the served array order is stable). For the whole-resource fingerprint, 180 further loads the same day (40, 40, and 100) read each of the five top-level `resource` fields separately: every field had exactly one value across all 180, which covered four byte variants (A2 in 144 loads, B2 in 19, C2 in 16, E in 1). So no field varies with the bytes, and nothing is excluded from the fingerprint. The byte variants over the first 60 loads were:
+
+| Variant | Loads | Bytes | SHA-256 of the Response Body |
+|---|---|---|---|
+| A2, the 2026-10-11 re-record | 44 | 488,213 | `c292b477d7e4e0609be9bd3d6833840f44bf2d5c426d2b508b1699beb3a48283` |
+| C2 | 12 | 481,564 | `285a7a86adf9fd797317c49a7b65ce41985e8726e105e37c6540911e590ad2cf` |
+| B2 | 3 | 488,213 | `fd30f41f4b1dbf1c8962a1db244490dbfaffb14d41f3ceed16f8cca570938f2b` |
+| E, new | 1 | 489,487 | `3fdd3fdfa6e52a16352931f588d8c8efc127c620a209ae269cb2717848551f7f` |
+
+Across 2026-10-10 and 2026-10-11 that makes eight byte variants (A through D, A2 through C2, E) and one configuration. Three unmodified runs of the suite's own setup the same day, which fetches once, each read the same fingerprint, on A2, C2, and A2 bytes, and the provenance test passed on each: the byte variant production served changed between consecutive runs and verification held.
+
+**Negative controls.** Run against the real setup with a temporary edit that was not committed, under `NP_PRIVACY_REQUIRE_GA4=1`:
+
+- An injected `__ccd_em_outbound_click` entry changed the fingerprint, the provenance test failed with the re-record reason, and the configuration test reported the extra enhanced-measurement entry.
+- `__ogt_1p_data_v2` flipped to enabled did the same.
+- A cached copy (a second local run, no `CI`, no strict mode) skipped the provenance test as not checked against production.
+- Strict mode with `NP_PRIVACY_OFFLINE=1` failed every GA4 test, including provenance.
+- A changed rule (one added), a changed predicate (`arg1` flipped), and a changed macro (a value flipped), each applied to the served text while the tags stayed untouched: the fingerprint changed, provenance failed with the re-record reason, and the tag-based configuration test still passed, so the fingerprint alone caught them. These are the cases the first version of this record, which fingerprinted `resource.tags` alone, would have missed.
+
+`selftest.pw.ts` holds the matching browserless controls: key order and whitespace do not change the fingerprint, nor do other bytes around the same configuration; a changed, added, removed, or reordered setting does; and a re-enabled outbound click or user-provided data reads `re-record`.

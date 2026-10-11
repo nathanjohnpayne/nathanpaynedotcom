@@ -68,18 +68,100 @@ const GPC_ON =
   "Object.defineProperty(Navigator.prototype, 'globalPrivacyControl', { get: () => true, configurable: true });";
 // Logs every request that gets past the gate's transport guard, with the page
 // clock, so "after the withdrawal" is exact rather than inferred from arrival.
+// It covers every way the SDKs here start a request: fetch, sendBeacon, XHR,
+// and the `src` of a script, img, or iframe element, set by property or by
+// setAttribute (#1278). It runs before the gate, so the guard wraps these
+// hooks and only what the guard lets through is logged. Each entry is also
+// kept in sessionStorage with its document's time origin, so what a page
+// starts while it unloads can be read from the next page in the tab. A
+// request started at pagehide often loses its race with the navigation and
+// never reaches the network, so the network side alone sees it only sometimes.
 const LOG_SENT = `(() => {
-  const log = [];
-  window.__npSent = log;
+  const doc = performance.timeOrigin;
+  const record = (via, url) => {
+    let href = String(url);
+    try {
+      href = new URL(href, location.href).href;
+    } catch {}
+    try {
+      const kept = JSON.parse(sessionStorage.getItem('np-sent-log') || '[]');
+      kept.push({ via, url: href, t: performance.now(), doc });
+      sessionStorage.setItem('np-sent-log', JSON.stringify(kept));
+    } catch {}
+  };
   const nativeFetch = window.fetch;
   window.fetch = function (input, init) {
-    log.push({ url: String(input && input.url ? input.url : input), t: performance.now() });
+    record('fetch', input && input.url ? input.url : input);
     return nativeFetch.call(this, input, init);
   };
   const nativeBeacon = navigator.sendBeacon.bind(navigator);
   navigator.sendBeacon = (url, data) => {
-    log.push({ url: String(url), t: performance.now() });
+    record('sendBeacon', url);
     return nativeBeacon(url, data);
+  };
+  const xhrUrls = new WeakMap();
+  const nativeOpen = XMLHttpRequest.prototype.open;
+  const nativeSend = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.open = function (method, url) {
+    xhrUrls.set(this, url);
+    return nativeOpen.apply(this, arguments);
+  };
+  XMLHttpRequest.prototype.send = function () {
+    record('xhr', xhrUrls.get(this));
+    return nativeSend.apply(this, arguments);
+  };
+  const loaders = [HTMLScriptElement, HTMLImageElement, HTMLIFrameElement];
+  for (const Loader of loaders) {
+    const src = Object.getOwnPropertyDescriptor(Loader.prototype, 'src');
+    Object.defineProperty(Loader.prototype, 'src', {
+      configurable: true,
+      enumerable: src.enumerable,
+      get: src.get,
+      set(value) {
+        record(Loader.name, value);
+        src.set.call(this, value);
+      },
+    });
+  }
+  const nativeSetAttribute = Element.prototype.setAttribute;
+  Element.prototype.setAttribute = function (name, value) {
+    const loader = loaders.find((Loader) => this instanceof Loader);
+    if (loader && String(name).toLowerCase() === 'src') record(loader.name, value);
+    return nativeSetAttribute.apply(this, arguments);
+  };
+})();`;
+
+/** One entry of LOG_SENT's log. `doc` is the time origin of the page that sent it. */
+interface SentEntry {
+  via: string;
+  url: string;
+  t: number;
+  doc: number;
+}
+
+/** LOG_SENT's log for this tab, read from whichever page the tab is on now. */
+async function sentLog(page: Page): Promise<SentEntry[]> {
+  return JSON.parse(
+    await page.evaluate(() => sessionStorage.getItem('np-sent-log') ?? '[]'),
+  ) as SentEntry[];
+}
+
+/** True for a log entry addressed to an analytics host. */
+function toAnalytics(entry: SentEntry): boolean {
+  return isAnalyticsHost(new URL(entry.url).host);
+}
+
+// gtag.js decides once per page load, from a Math.random() draw it makes while
+// its script first runs, whether to send tag diagnostics (#1278). A draw near
+// 1 turns them on, as it does on a few percent of real page loads; draws made
+// by anything other than gtag.js's first run are left alone.
+const GTAG_DIAGNOSTICS_DRAWN = `(() => {
+  const random = Math.random;
+  Math.random = function () {
+    const script = document.currentScript;
+    return script && /^https:\\/\\/www\\.googletagmanager\\.com\\/gtag\\/js\\?/.test(script.src)
+      ? 0.999999
+      : random.call(Math);
   };
 })();`;
 
@@ -828,21 +910,48 @@ test('GPC forces denied over a saved grant', async () => {
   await context.close();
 });
 
-test("set('denied') mid-visit stops every further analytics request", async () => {
-  const { context, page, sink } = await open([LOG_SENT]);
-  await page.goto(FIXTURE);
+/**
+ * § Withdrawal, end to end: withdraw mid-visit, try hard to produce more
+ * traffic, leave the page, and check that nothing was started or sent after
+ * the withdrawal. `diagnostics` marks a page load on which gtag.js sends tag
+ * diagnostics, which reach Google through elements it creates rather than
+ * through fetch, sendBeacon, or XHR, and which `ga-disable-<ID>` does not stop
+ * (#1278).
+ */
+async function withdrawMidVisit({
+  initScripts = [],
+  query = '',
+  diagnostics,
+}: {
+  initScripts?: string[];
+  query?: string;
+  diagnostics: boolean;
+}): Promise<void> {
+  const { context, page, sink } = await open([LOG_SENT, ...initScripts]);
+  await page.goto(`${FIXTURE}${query}`);
   await activate(page);
   expect(
     await waitFor(() => eventNames(sink).includes('$snapshot') && gaHits(sink).length > 0, 25_000),
   ).toBe(true);
+  const diagnosticsPing = (url: string) => url.startsWith('https://www.googletagmanager.com/td?');
+  if (diagnostics) {
+    // Positive control: gtag.js sent tag diagnostics on this page load.
+    expect(
+      await waitFor(() => sink.records.some((r) => diagnosticsPing(r.url))),
+      'gtag.js sent a tag-diagnostics ping before the withdrawal',
+    ).toBe(true);
+  }
   // Queue fresh work right before withdrawing, so the batch queue and the
   // replay buffer both hold unsent data at the moment of withdrawal.
   await page.locator('#fixture-text').fill('before withdrawal');
   await page.locator('#fixture-pii-button').click();
   const withdrawnAt = Date.now();
-  const tPage = await page.evaluate(() => {
+  // The page clock just before set(): nothing else runs on the page between
+  // this reading and the withdrawal, so a request logged later started after it.
+  const { tBefore, doc } = await page.evaluate(() => {
+    const t = performance.now();
     (window as unknown as NpWindow).npPrivacy.set('denied');
-    return performance.now();
+    return { tBefore: t, doc: performance.timeOrigin };
   });
   expect(
     await page.evaluate(
@@ -864,21 +973,37 @@ test("set('denied') mid-visit stops every further analytics request", async () =
     document.body.append(p);
   });
   await pause(7_000);
-  const sentAfter = await page.evaluate(
-    (t) => (window as unknown as NpWindow).__npSent.filter((r) => r.t > t).map((r) => r.url),
-    tPage,
-  );
-  expect(sentAfter.filter((url) => isAnalyticsHost(new URL(url, SITE).host))).toEqual([]);
   expect(
     await page.evaluate(() => (window as unknown as NpWindow).posthog?.has_opted_out_capturing()),
   ).toBe(true);
   expect(
     await page.evaluate(() => (window as unknown as NpWindow).posthog?.sessionRecordingStarted()),
   ).toBe(false);
-  // Unload: anything still queued would be beaconed now.
+  // Unload: anything still queued would be beaconed now, and gtag.js sends
+  // its last tag diagnostics at pagehide.
   await page.goto(`${SITE}/blog/`);
   await noSdk(page);
   await pause(3_000);
+  // Every analytics request the guard let through, by the page clock: on the
+  // fixture page, while it unloaded, and on the next page.
+  const log = await sentLog(page);
+  const before = log.filter((r) => r.doc === doc && r.t < tBefore && toAnalytics(r));
+  // Positive controls: the log saw this page's analytics requests through
+  // both kinds of hook, and the diagnostics ping where there was one.
+  expect(before.some((r) => r.via === 'fetch')).toBe(true);
+  expect(before.some((r) => r.via === 'HTMLScriptElement')).toBe(true);
+  if (diagnostics) {
+    expect(before.some((r) => r.via === 'HTMLImageElement' && diagnosticsPing(r.url))).toBe(true);
+  }
+  expect(
+    log
+      .filter((r) => toAnalytics(r) && (r.doc !== doc || r.t > tBefore))
+      .map((r) => `${r.via} ${r.url}`),
+    'analytics requests started after the withdrawal',
+  ).toEqual([]);
+  // The network side, which also sees any way of starting a request that the
+  // log does not hook. Arrival is timed in Node, so the margin absorbs a
+  // request the page started before the withdrawal that lands after it.
   expect(sink.records.filter((r) => r.at > withdrawnAt + 1_000).map((r) => r.url)).toEqual([]);
   const text = allText(sink);
   for (const marker of ['np_after_withdrawal', 'NP-AFTER-WITHDRAWAL', 'after withdrawal']) {
@@ -886,6 +1011,24 @@ test("set('denied') mid-visit stops every further analytics request", async () =
   }
   expect(analyticsRefusals(withdrawnAt)).toEqual([]);
   await context.close();
+}
+
+test("set('denied') mid-visit stops every further analytics request", async () => {
+  await withdrawMidVisit({ diagnostics: false });
+});
+
+// #1278. On a few percent of page loads gtag.js draws itself into tag
+// diagnostics, and at pagehide it then requests gtag/js again through a new
+// script element, with the page's host and path in the query. This draws it
+// in every time.
+test("set('denied') mid-visit stops gtag.js tag diagnostics too (#1278)", async () => {
+  await withdrawMidVisit({ initScripts: [GTAG_DIAGNOSTICS_DRAWN], diagnostics: true });
+});
+
+// #1278. gtag.js also turns tag diagnostics on for any page whose URL carries
+// `gtm_latency=`, and then sends latency pings as images too.
+test("set('denied') mid-visit stops gtag.js tag diagnostics on a gtm_latency URL (#1278)", async () => {
+  await withdrawMidVisit({ query: '?gtm_latency=1', diagnostics: true });
 });
 
 test('a withdrawal in one tab withdraws every other open tab', async () => {
@@ -1011,5 +1154,4 @@ interface NpWindow {
     sessionRecordingStarted(): boolean;
   };
   gtag?: (...args: unknown[]) => void;
-  __npSent: Array<{ url: string; t: number }>;
 }
