@@ -2809,6 +2809,55 @@ body.blog-page {
   margin-top: -0.32rem;
 }
 
+/* Markdown tables in project copy, with the rules .blog-prose table gives
+   a post's tables: browser defaults render a table borderless with bold
+   centered headers and no cell padding, so Matchline's capability table
+   read as a block of loose text, and at phone widths its two columns
+   touched. A heavy rule under the header and hairline rules between rows
+   is the chrome the page already uses; the header takes the label voice
+   of the unit exhibit, the other labelled block that sits in this column.
+   The grid gap carries the spacing below; the small top margin
+   lifts the label row off the heading or paragraph above it, which the
+   0.75rem a heading leaves otherwise crowds. `display: block` +
+   `overflow-x: auto` keeps a wide table scrolling in its own box rather
+   than widening the column. Unlike the blog rule this sets no
+   `width: max-content`: here the table is a grid item, and a max-content
+   width is the item's minimum contribution to its track, so the whole
+   column followed the table's unwrapped width off a 375px viewport. With
+   width auto the rows wrap inside the column and the inner table box still
+   shrinks to its content, so the rules end where the text does. */
+.project-copy table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 0.25rem 0 0;
+  border-collapse: collapse;
+  font-size: clamp(0.9rem, 0.87rem + 0.14vw, 0.98rem);
+  line-height: 1.5;
+}
+
+.project-copy thead th {
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-62);
+  padding: 0 1.4rem 0.5rem 0;
+  border-bottom: 2px solid var(--ink);
+}
+
+.project-copy tbody td {
+  padding: 0.55rem 1.4rem 0.55rem 0;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+
+.project-copy thead th:last-child,
+.project-copy tbody td:last-child {
+  padding-right: 0;
+}
+
 /* Use the same contrast-corrected color the in-content links use. */
 .project-copy ol li::marker {
   color: var(--project-link-color, var(--accent-text));
