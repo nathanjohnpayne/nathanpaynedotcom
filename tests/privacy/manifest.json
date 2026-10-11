@@ -41,11 +41,11 @@
     }
   },
   "gtag": {
-    "about": "gtag.js is served by Google and is not byte-stable: one capture day showed four variants in 48 loads, and they differ in a one-byte server flag or in the runtime version, never in the embedded property configuration. production records the one variant the suite tests, captured on capturedOn from the URL in source for the production measurement ID, after the 2026-10-10 GA4 property changes (docs/privacy/capture-2026-10-10-gtag.md). The suite fetches the current gtag.js for that ID at run time (Node side only), retries up to fetchAttempts times until the bytes hash to production.sha256, and serves them under the fake test ID. If they never match, the GA4 provenance test is skipped with a re-record reason and every GA4 transmitted-payload result stays indicative; it never passes on unrecorded bytes. To re-record after Google changes the tag, follow docs/agents/testing-requirements.md (GA4 tag refresh). The suite fails if this hash and the inventory's recorded hash disagree.",
+    "about": "gtag.js is served by Google and is not byte-stable: one capture day showed four variants in 48 loads, and they differ in a one-byte server flag or in the runtime version, never in the embedded property configuration. production records the one variant the suite tests, captured on capturedOn from the URL in source for the production measurement ID, after the 2026-10-10 GA4 property changes and re-recorded on 2026-10-11 when Google rotated the served bytes with the configuration unchanged (docs/privacy/capture-2026-10-10-gtag.md). The suite fetches the current gtag.js for that ID at run time (Node side only), retries up to fetchAttempts times until the bytes hash to production.sha256, and serves them under the fake test ID. If they never match, the GA4 provenance test is skipped with a re-record reason and every GA4 transmitted-payload result stays indicative; it never passes on unrecorded bytes. To re-record after Google changes the tag, follow docs/agents/testing-requirements.md (GA4 tag refresh). The suite fails if this hash and the inventory's recorded hash disagree.",
     "source": "https://www.googletagmanager.com/gtag/js?id=<measurement ID>",
     "production": {
-      "capturedOn": "2026-10-10",
-      "sha256": "4671d2908da552f77529ff573d6cfa4047a3d49250e5d7b85e226ca28318684d",
+      "capturedOn": "2026-10-11",
+      "sha256": "c292b477d7e4e0609be9bd3d6833840f44bf2d5c426d2b508b1699beb3a48283",
       "bytes": 488213
     },
     "fetchAttempts": 10

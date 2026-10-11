@@ -16,7 +16,10 @@
  * Since 2026-10-10 the GA4 property has enhanced measurement limited to page
  * views and scrolls and user-provided data off. This file holds both halves:
  * page_view and scroll still reach the sink (positive controls), and the
- * disabled events and their parameters never do.
+ * disabled events and their parameters are not sent. The second half is NOT a
+ * PRIV-2 scrubbing pass: a disabled event cannot be produced, so its positive
+ * control is impossible and PRIV-2 for those fields is reported as not
+ * applicable, disabled in configuration (verified by the configuration test).
  */
 import { readFileSync } from 'node:fs';
 import type { Page } from '@playwright/test';
@@ -154,10 +157,27 @@ test.describe('GA4 positive controls', () => {
 });
 
 test.describe('GA4 enhanced measurement', () => {
-  test('PRIV-2 the disabled enhanced-measurement events and their parameters (search_term, link_url, form_destination, video) are not sent', async ({
+  test('PRIV-2 (not sent) the events and parameters the property disabled (search_term, link_url, form_destination, video) are not sent', async ({
     open,
+    fixtureState,
   }) => {
     test.setTimeout(120_000);
+    // What this test claims, and what it does not. The property disabled these events, so the page cannot produce
+    // them and the contract's positive control ("the event reaches the sink first", specs/analytics-privacy.md §
+    // Test Fixture) is impossible by construction. This test therefore does NOT report PRIV-2 scrubbing as passed
+    // for these fields: it reports it as not applicable, because the events are disabled in the served
+    // configuration, and the configuration test is the positive evidence. What is asserted below is the narrower
+    // fact that none of them is sent.
+    const tags = gtagEmbeddedTags(readFileSync(fixtureState.gtagPath, 'utf8'));
+    expect(
+      tags && gtagConfigFindings(tags),
+      'the events are disabled in the served configuration (the positive evidence)',
+    ).toEqual([]);
+    test.info().annotations.push({
+      type: 'ga4-priv2-disabled-fields',
+      description:
+        'PRIV-2 for search_term, link_url, link_domain, file_name, form_destination, and video_url: not applicable, disabled in configuration (verified by the configuration test on the recorded production capture). Not a scrubbing pass.',
+    });
     const s = await open();
     await s.goto(`${FIXTURE_PATH}?q=${CANARIES.search}&utm_source=fixture#${CANARIES.fragment}`);
     await expectCollecting(s, { ga4: true });
@@ -201,7 +221,7 @@ test.describe('GA4 enhanced measurement', () => {
       disabledEnhancedMeasurement(events),
       'disabled enhanced-measurement events sent',
     ).toEqual([]);
-    // Nothing the interactions carried reached any GA4 payload, whatever event it rode on.
+    // Belt and braces: no value the interactions carried rode on any other event either.
     const text = s.sink.searchableText('ga4');
     expect(canaryHits(text), 'visitor-entered or sensitive values in GA4 payloads').toEqual([]);
   });
@@ -326,6 +346,11 @@ test.describe('GA4 user-provided data', () => {
     test.info().annotations.push({
       type: 'ga4-user-data',
       description: `searched ${events.length} GA4 event(s) for literals and SHA-256 forms of email, E.164 phone, and street, and for user-data parameter names`,
+    });
+    test.info().annotations.push({
+      type: 'ga4-priv2-disabled-fields',
+      description:
+        'PRIV-2 for user-provided data (automatic detection of email, phone, and address): not applicable, disabled in configuration (verified above on the recorded production capture). The absence here is not a scrubbing pass; no GA4 form_submit can be produced to exercise detection.',
     });
   });
 });

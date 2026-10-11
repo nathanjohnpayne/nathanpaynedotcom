@@ -50,3 +50,17 @@ To record a new capture when Google changes the tag, follow [Testing Requirement
 - The GA4 property was not read by this track. Nathan's settings are known from his re-verification in #1232 and from the served tag; this note does not add a second source for the property pages.
 - Variants B, C, and D were checked for identical configuration but are not tested. The suite serves variant A.
 - Which variant the live site serves to a given visitor at a given time is not controllable and not recorded beyond the counts above.
+
+## Re-Record, 2026-10-11
+
+The day after the capture above, the suite's provenance test read `re-record`: Google no longer served variant A (`4671d2908da552f77529ff573d6cfa4047a3d49250e5d7b85e226ca28318684d`) in any of the loads, which is the refresh path working as designed. Forty loads on 2026-10-11 gave three variants, all `200`.
+
+| Variant | Loads | Bytes | SHA-256 of the Response Body |
+|---|---|---|---|
+| A2, **recorded and tested** | 33 | 488,213 | `c292b477d7e4e0609be9bd3d6833840f44bf2d5c426d2b508b1699beb3a48283` |
+| B2 | 3 | 488,213 | `fd30f41f4b1dbf1c8962a1db244490dbfaffb14d41f3ceed16f8cca570938f2b` |
+| C2 | 4 | 481,564 | `285a7a86adf9fd797317c49a7b65ce41985e8726e105e37c6540911e590ad2cf` |
+
+The embedded configuration was byte-identical across all three and equal to the 2026-10-10 configuration in the table above: page views with history events and scrolls on, the five other enhanced-measurement events absent, `__ogt_1p_data_v2` disabled. B2 differs from A2 in one flag byte, as B did from A. C2 is the other runtime build (481,564 bytes) seen on 2026-10-10 as variant C. The manifest now records A2 with capture date 2026-10-11; the 2026-10-10 hashes above are history.
+
+The served bytes changed within about a day while the property configuration did not, so expect the recorded hash to need re-recording again. Each time, confirm the configuration first (see [Testing Requirements](../agents/testing-requirements.md#ga4-tag-refresh)).

@@ -5,7 +5,8 @@
  * canary in every encoding the SDKs use?"
  */
 import { createHash } from 'node:crypto';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { REPO_ROOT } from './harness/constants';
@@ -14,6 +15,9 @@ import {
   gtagEmbeddedTags,
   gtagProvenance,
   loadManifest,
+  reusableGtag,
+  sha256Hex,
+  type GtagState,
 } from './harness/fixtures';
 import {
   canaryHits,
@@ -97,6 +101,55 @@ test.describe('GA4 provenance verdicts', () => {
     expect(tampered.status).toBe('re-record');
     // Nothing was fetched.
     expect(gtagProvenance(undefined, recorded).status).toBe('re-record');
+  });
+});
+
+test.describe('cached gtag.js reuse', () => {
+  const recorded = loadManifest().gtag.production.sha256;
+  const bytes = 'cached gtag.js stand-in';
+  let dir = '';
+  let file = '';
+  const entry = (extra: Partial<GtagState> = {}): GtagState => ({
+    available: true,
+    rawSha256: recorded,
+    servedSha256: sha256Hex(bytes),
+    substitutions: 3,
+    matchesProduction: false, // the stored verdict is never trusted
+    ...extra,
+  });
+
+  test.beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'np-gtag-cache-'));
+    file = join(dir, 'gtag.js');
+    writeFileSync(file, bytes);
+  });
+  test.afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+  test('PRIV-2 (control) an intact entry for the recorded capture is reused, with the verdict recomputed', () => {
+    expect(reusableGtag(entry(), file, recorded)).toMatchObject({
+      matchesProduction: true,
+      servedSha256: sha256Hex(bytes),
+    });
+  });
+
+  test('PRIV-2 (control) a cache entry whose file bytes no longer match is rebuilt, not reused', () => {
+    writeFileSync(file, `${bytes} edited`);
+    expect(reusableGtag(entry(), file, recorded)).toBeUndefined();
+    writeFileSync(file, bytes.slice(0, 5)); // truncated
+    expect(reusableGtag(entry(), file, recorded)).toBeUndefined();
+    rmSync(file); // gone
+    expect(reusableGtag(entry(), file, recorded)).toBeUndefined();
+  });
+
+  test('PRIV-2 (control) a legacy cache entry without the served hash or the substitution count is rebuilt, not reused', () => {
+    expect(reusableGtag(entry({ servedSha256: undefined }), file, recorded)).toBeUndefined();
+    expect(reusableGtag(entry({ substitutions: undefined }), file, recorded)).toBeUndefined();
+  });
+
+  test('PRIV-2 (control) an entry for other bytes than the recorded capture, or an unavailable one, is rebuilt', () => {
+    expect(reusableGtag(entry({ rawSha256: '0'.repeat(64) }), file, recorded)).toBeUndefined();
+    expect(reusableGtag(entry({ available: false }), file, recorded)).toBeUndefined();
+    expect(reusableGtag(undefined, file, recorded)).toBeUndefined();
   });
 });
 

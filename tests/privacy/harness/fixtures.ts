@@ -303,6 +303,30 @@ function ensureTls(keyPath: string, certPath: string): void {
 }
 
 /**
+ * The cached gtag.js state to reuse on a local run, or undefined when it must be rebuilt. Reuse needs all of:
+ * the state says it is available and is the recorded production capture (raw SHA-256 equals the manifest's),
+ * it carries the metadata the provenance test compares against (`servedSha256`, `substitutions`; a cache written
+ * by an older harness lacks them), and the file on disk hashes to `servedSha256` right now. The last check is the
+ * one that matters: state.json only says what was cached, not what is in the file, so an edited, truncated, or
+ * replaced file is never taken for the verified capture. The verdict is recomputed here, never trusted from disk.
+ */
+export function reusableGtag(
+  previous: GtagState | undefined,
+  gtagPath: string,
+  recordedSha256: string,
+): GtagState | undefined {
+  if (!previous?.available) return undefined;
+  if (previous.rawSha256 !== recordedSha256) return undefined;
+  if (previous.servedSha256 === undefined || previous.substitutions === undefined) return undefined;
+  if (!existsSync(gtagPath)) return undefined;
+  if (sha256Hex(readFileSync(gtagPath)) !== previous.servedSha256) return undefined;
+  return {
+    ...previous,
+    matchesProduction: gtagProvenance(previous.rawSha256, recordedSha256).status === 'verified',
+  };
+}
+
+/**
  * Obtain and verify every fixture. Called once from global setup. Throws if a
  * PostHog bundle does not match the production hash recorded in the manifest.
  */
@@ -362,26 +386,17 @@ export async function prepareFixtures(): Promise<FixtureState> {
     .digest('base64');
 
   const gtagPath = join(CACHE_DIR, 'gtag.js');
-  let gtag: GtagState;
   const previous = existsSync(STATE_PATH)
     ? (JSON.parse(readFileSync(STATE_PATH, 'utf8')) as FixtureState)
     : undefined;
   // Offline mode wins over the cache: a cached gtag.js would make the GA4 tests run as if it were available.
-  // Only a cached copy that IS the recorded production capture is reused. One recorded under an older manifest, or
-  // one that never matched, is fetched again, so a stale cache cannot carry a provenance verdict the current
-  // manifest would not give.
-  if (
-    !offline() &&
-    existsSync(gtagPath) &&
-    previous?.gtag.available &&
-    previous.gtag.rawSha256 === manifest.gtag.production.sha256 &&
-    process.env.NP_PRIVACY_REFRESH !== '1' &&
-    !process.env.CI
-  ) {
-    gtag = { ...previous.gtag, matchesProduction: true }; // its hash equals the recorded one, by the condition above
-  } else {
-    gtag = await prepareGtag(manifest, gtagPath);
-  }
+  // Only a cached copy that IS the recorded production capture is reused, and only after its actual bytes are
+  // hashed again (see reusableGtag). Anything else is fetched again.
+  const reused =
+    !offline() && process.env.NP_PRIVACY_REFRESH !== '1' && !process.env.CI
+      ? reusableGtag(previous?.gtag, gtagPath, manifest.gtag.production.sha256)
+      : undefined;
+  const gtag: GtagState = reused ?? (await prepareGtag(manifest, gtagPath));
 
   const state: FixtureState = {
     schema: 1,
