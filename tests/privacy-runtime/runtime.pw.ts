@@ -22,6 +22,7 @@ import { createServer } from 'node:http';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import {
+  POSTHOG_HOST,
   POSTHOG_TOKEN,
   SITE_HOST,
   egressArgs,
@@ -30,6 +31,7 @@ import {
   gaHits,
   installDefaultDenyRoute,
   isAnalyticsHost,
+  isHostOrSubdomain,
   posthogEvents,
   startEgressProxy,
   type EgressProxy,
@@ -403,6 +405,276 @@ test('landing on a sensitive URL keeps it out of the first URL PostHog stores an
       persisted.$client_session_props?.props?.u ?? '',
     ).includes('NP-CANARY')}, sessionStorage ${stored.session.includes('NP-CANARY')}`,
   );
+  await context.close();
+});
+
+/**
+ * posthog-js's own campaign-parameter lists, read out of the bundle under
+ * test: PERSONAL_DATA_CAMPAIGN_PARAMS minifies to `<id>=["gclid",…]` and
+ * CAMPAIGN_PARAMS to `<id>=["utm_source",…,...<that id>]`
+ * (packages/browser-common/src/utils/event-utils.ts, v1.438.3). Each must be
+ * found exactly once, so a reshaped bundle fails here rather than passing on
+ * an empty list.
+ */
+function sdkCampaignParams(): { personal: string[]; campaign: string[] } {
+  const bundle = readFileSync(join(vendor.posthogDist, 'array.js'), 'utf8');
+  const personal = [...bundle.matchAll(/([A-Za-z_$][\w$]*)=\[("gclid"(?:,"[^"]+")*)\]/g)];
+  expect(personal, 'PERSONAL_DATA_CAMPAIGN_PARAMS in array.js').toHaveLength(1);
+  const [, id, personalList] = personal[0];
+  const escaped = id.replace(/\$/g, '\\$');
+  const campaign = [
+    ...bundle.matchAll(new RegExp(`=\\[((?:"[^"]+",)+)\\.\\.\\.${escaped}\\]`, 'g')),
+  ];
+  expect(campaign, 'CAMPAIGN_PARAMS in array.js').toHaveLength(1);
+  const names = (list: string) => JSON.parse(`[${list.replace(/,$/, '')}]`) as string[];
+  const personalNames = names(personalList);
+  return { personal: personalNames, campaign: [...names(campaign[0][1]), ...personalNames] };
+}
+
+/** Every `[key, value]` entry of every object in a decoded payload, at any depth. */
+function entriesIn(value: unknown, out: Array<[string, unknown]> = []): Array<[string, unknown]> {
+  if (Array.isArray(value)) for (const item of value) entriesIn(item, out);
+  else if (value && typeof value === 'object') {
+    for (const [key, item] of Object.entries(value)) {
+      out.push([key, item]);
+      entriesIn(item, out);
+    }
+  }
+  return out;
+}
+
+test('non-Google click identifiers never reach PostHog; the UTMs and Google identifiers are sent as before (#1263)', async () => {
+  test.setTimeout(150_000);
+  const { personal, campaign } = sdkCampaignParams();
+  // Google's entries in the SDK's list. Their handling is unchanged until
+  // Nathan checks the Ads links; gad_source is Google's too.
+  const google = ['gclid', 'gclsrc', 'dclid', 'gbraid', 'wbraid', 'gad_source'];
+  const dropped = personal.filter((name) => !google.includes(name));
+  const kept = campaign.filter((name) => !dropped.includes(name));
+  expect(dropped).toEqual(expect.arrayContaining(['fbclid', 'msclkid']));
+  expect(kept).toEqual(expect.arrayContaining([...google, 'utm_source', 'utm_term']));
+  // Every name the SDK sends a campaign parameter under, plus $fbc, which it
+  // builds from fbclid.
+  const droppedKeys = new Set([
+    ...dropped.flatMap((name) => [name, `$initial_${name}`, `$session_entry_${name}`]),
+    '$fbc',
+  ]);
+  const urlAllowlist = [
+    'utm_source',
+    'utm_medium',
+    'utm_campaign',
+    'utm_term',
+    'utm_content',
+    'gclid',
+    'gbraid',
+    'wbraid',
+    'dclid',
+  ];
+  // A distinct value per parameter, none a substring of another.
+  const value = (name: string) => `NP-CLICKID-${name}-END`;
+  const landing = new URLSearchParams(campaign.map((name) => [name, value(name)]));
+  const allowlisted = new URLSearchParams(
+    [...landing].filter(([name]) => urlAllowlist.includes(name)),
+  );
+  const { context, page, sink } = await open();
+  const since = Date.now();
+  await page.goto(`${FIXTURE}?${landing}`);
+  // The gate removes exactly the SDK's non-Google personal-data parameters.
+  // Soft, so a gate without the list still reaches the payload checks below.
+  expect
+    .soft(
+      await page.evaluate(() => {
+        const privacy = (
+          window as unknown as {
+            npPrivacy: Record<symbol, { DROPPED_CLICK_IDS?: readonly string[] }>;
+          }
+        ).npPrivacy;
+        const list = privacy[Symbol.for('np-privacy.internal')].DROPPED_CLICK_IDS;
+        return list ? [...list] : null;
+      }),
+      "the gate's list is the SDK's, minus Google",
+    )
+    .toEqual(dropped);
+  await activate(page);
+  expect(
+    await waitFor(
+      () => eventNames(sink).includes('$pageview') && eventNames(sink).includes('$snapshot'),
+      25_000,
+    ),
+  ).toBe(true);
+  // A later event on the same page: the values the SDK registered on landing
+  // ride along on it.
+  await page.locator('#fixture-pii-button').click();
+  await page.evaluate(() =>
+    (window as unknown as NpWindow).posthog?.capture('np_click_id_followup'),
+  );
+  expect(await waitFor(() => eventNames(sink).includes('np_click_id_followup'))).toBe(true);
+  await pause(4_000);
+  // Up to here nothing went around the sink, so every PostHog request this
+  // page sent is inspected below. (Leaving the page sends its last batch by
+  // beacon, which bypasses the route and is refused by the proxy unread.)
+  expect(analyticsRefusals(since)).toEqual([]);
+  const stored = await page.evaluate(() => {
+    const ph = (window as unknown as { posthog?: { get_property(k: string): unknown } }).posthog;
+    return {
+      cookie: document.cookie,
+      local: JSON.stringify({ ...window.localStorage }),
+      session: JSON.stringify({ ...window.sessionStorage }),
+      flagPersonProperties: ph?.get_property('$stored_person_properties') ?? null,
+      fbcRecord: ph?.get_property('$fbc_persistence') ?? null,
+    };
+  });
+  // A second page in the same session, with a fresh SDK instance that reads
+  // what the first one stored, then a third.
+  const secondLoad = Date.now();
+  await page.goto(`${SITE}/blog/`);
+  await activate(page);
+  expect(
+    await waitFor(() => posthogEvents(sink, secondLoad).some((e) => e.event === '$pageview')),
+  ).toBe(true);
+  await pause(4_000);
+  await page.goto(`${SITE}/`);
+  await pause(2_000);
+
+  const events = posthogEvents(sink);
+  const pageviews = events.filter((e) => e.event === '$pageview');
+  const landed = pageviews[0];
+  const setOnce = events
+    .map((e) => e.$set_once as Record<string, unknown> | undefined)
+    .find((s) => s && '$initial_current_url' in s);
+  const posthogRecords = sink.records.filter((r) => {
+    const host = new URL(r.url).hostname;
+    return host === POSTHOG_HOST || isHostOrSubdomain(host, 'posthog.com');
+  });
+  const flagRequests = posthogRecords.filter((r) => new URL(r.url).pathname.startsWith('/flags'));
+  const flagPersonProperties = flagRequests.map(
+    (r) => (r.json as { person_properties?: Record<string, unknown> })?.person_properties ?? {},
+  );
+  console.log(`/flags requests: ${flagRequests.length}`);
+
+  // Positive controls: the landing $pageview, the person's first-touch
+  // properties, the follow-up event, and a /flags request made after the
+  // first capture were all sent, and what is kept is exactly what the SDK
+  // copied. These hold with or without the change.
+  expect(props(landed).$current_url).toBe(`${FIXTURE}?${allowlisted}`);
+  expect(setOnce, 'the first-touch $set_once was sent').toBeDefined();
+  const later = events.filter((e) => e.event === 'np_click_id_followup' || e.event === '$pageview');
+  expect(later.length).toBeGreaterThanOrEqual(3);
+  for (const name of kept) {
+    for (const event of later) {
+      expect.soft(props(event)[name], `${String(event.event)} ${name}`).toBe(value(name));
+      expect
+        .soft(
+          props(event)[`$session_entry_${name}`],
+          `${String(event.event)} $session_entry_${name}`,
+        )
+        .toBe(value(name));
+    }
+    expect.soft(setOnce?.[`$initial_${name}`], `$set_once.$initial_${name}`).toBe(value(name));
+    expect.soft(setOnce?.[name], `$set_once.${name}`).toBe(value(name));
+  }
+  const flagsAfterCapture = flagPersonProperties.filter((p) => '$initial_current_url' in p);
+  expect(flagsAfterCapture.length, 'a /flags request after the first capture').toBeGreaterThan(0);
+  for (const p of flagsAfterCapture) {
+    // The first URL the SDK stores is scrubbed, so its /flags copies carry
+    // the URL-allowlisted parameters only.
+    for (const name of urlAllowlist) {
+      expect.soft(p[`$initial_${name}`], `/flags $initial_${name}`).toBe(value(name));
+    }
+  }
+
+  // No non-Google identifier anywhere in any PostHog request, as any value
+  // under any key: events, person updates, replay, /flags, every endpoint.
+  const sent = posthogRecords.map((r) => r.text).join('\n');
+  for (const name of dropped) {
+    expect.soft(sent, `${name}'s value reached PostHog`).not.toContain(value(name));
+  }
+  // No event carries a dropped name at all, null included.
+  const eventKeys = new Set(
+    events.flatMap((e) =>
+      entriesIn([props(e), e.$set ?? null, e.$set_once ?? null]).map(([key]) => key),
+    ),
+  );
+  for (const key of droppedKeys) {
+    expect.soft(eventKeys.has(key), `an event carried ${key}`).toBe(false);
+  }
+  // Outside events, a dropped name appears only where the SDK lists every
+  // campaign key from the scrubbed first URL, so its value is always null.
+  for (const record of posthogRecords) {
+    for (const [key, item] of entriesIn(record.json)) {
+      if (droppedKeys.has(key)) {
+        expect.soft(item, `${new URL(record.url).pathname} ${key}`).toBeNull();
+      }
+    }
+  }
+  // The flag person properties the SDK keeps for every later /flags request,
+  // and its $fbc record, no longer hold the identifier.
+  expect.soft(JSON.stringify(stored.flagPersonProperties ?? {})).not.toContain(value('fbclid'));
+  expect.soft(stored.fbcRecord, 'the SDK still holds a $fbc record').toBeNull();
+  // The first URL the SDK keeps in its cookie, which rides on requests to the
+  // site, was scrubbed too.
+  for (const name of dropped) expect(stored.cookie).not.toContain(value(name));
+  // Device-only copies the SDK keeps in its storage and never sends; logged
+  // for the record (specs/analytics.md § Privacy Runtime).
+  const carrying = (text: string) => dropped.filter((name) => text.includes(value(name)));
+  console.log(
+    `device-only click-identifier copies: localStorage [${carrying(stored.local).join(', ')}], sessionStorage [${carrying(stored.session).join(', ')}]`,
+  );
+  const gaText = sink.records
+    .filter((r) => !posthogRecords.includes(r))
+    .map((r) => r.text)
+    .join('\n');
+  console.log(
+    `GA4 requests carrying a non-Google identifier (GA4 is out of scope): [${carrying(gaText).join(', ')}]`,
+  );
+  await context.close();
+});
+
+test('a $fbc the SDK stored on an earlier visit is gone before the next /flags request (#1263)', async () => {
+  // A returning visitor who landed with fbclid before the change: the SDK
+  // kept $fbc in the flag person properties it sends with every /flags
+  // request, and in its own $fbc record (persistence keys, v1.438.3).
+  // The project has no flags, so in this harness nothing requests /flags on
+  // its own; the test asks for one, as a project with flags does on every load.
+  const fbc = 'fb.1.1760000000000.NP-CLICKID-stored-fbclid-END';
+  const key = `ph_${POSTHOG_TOKEN}_posthog`;
+  const seed = JSON.stringify({
+    $stored_person_properties: { $fbc: fbc },
+    $fbc_persistence: { value: fbc, delivered: true },
+  });
+  const { context, page, sink } = await open([
+    `if (!localStorage.getItem(${JSON.stringify(key)})) localStorage.setItem(${JSON.stringify(key)}, ${JSON.stringify(seed)});`,
+  ]);
+  const since = Date.now();
+  await page.goto(FIXTURE);
+  await activate(page);
+  const flagRequests = () =>
+    sink.records.filter(
+      (r) =>
+        new URL(r.url).hostname === POSTHOG_HOST && new URL(r.url).pathname.startsWith('/flags'),
+    );
+  expect(await waitFor(() => eventNames(sink).includes('$pageview'))).toBe(true);
+  await page.evaluate(() =>
+    (
+      window as unknown as { posthog?: { reloadFeatureFlags(): void } }
+    ).posthog?.reloadFeatureFlags(),
+  );
+  // Positive control: /flags was requested, with person properties. Without
+  // dropStoredClickIds (gate.js), the seeded $fbc rides in them.
+  expect(await waitFor(() => flagRequests().length > 0)).toBe(true);
+  await pause(4_000);
+  expect(analyticsRefusals(since)).toEqual([]);
+  expect(flagRequests()[0].json).toMatchObject({ person_properties: expect.any(Object) });
+  expect(allText(sink)).not.toContain('NP-CLICKID-stored-fbclid-END');
+  expect(
+    await page.evaluate(() => {
+      const ph = (window as unknown as { posthog?: { get_property(k: string): unknown } }).posthog;
+      return [
+        ph?.get_property('$stored_person_properties') ?? null,
+        ph?.get_property('$fbc_persistence') ?? null,
+      ];
+    }),
+  ).toEqual([null, null]);
   await context.close();
 });
 

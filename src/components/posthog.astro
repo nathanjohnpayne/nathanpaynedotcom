@@ -121,8 +121,16 @@ const privacyEnabled = privacyControlsEnabled();
         const r = clean(info.r);
         if (u !== info.u || r !== info.r) ph.register({ $initial_person_info: { ...info, u, r } });
       };
-      const keepStoredFirstUrlScrubbed = (event) => {
-        scrubStoredFirstUrl(window.posthog);
+      // The SDK also keeps click identifiers the gate drops from events
+      // (#1263) where they reach PostHog outside before_send: in the person
+      // properties every /flags request sends, and in its $fbc record. Removed
+      // at load and after every capture; see dropStoredClickIds in gate.js.
+      const scrubStoredState = (ph) => {
+        scrubStoredFirstUrl(ph);
+        gate.dropStoredClickIds(ph);
+      };
+      const keepStoredStateScrubbed = (event) => {
+        scrubStoredState(window.posthog);
         return event;
       };
       /* eslint-disable */
@@ -135,10 +143,11 @@ const privacyEnabled = privacyControlsEnabled();
         // Unchanged; the flag-off block explains why it must stay 'always'.
         person_profiles: 'always',
         // § Capture Minimization 3–4: URL scrubbing to the one allowlist,
-        // structural element attributes only, and nothing at all once
-        // withdrawn. Returning null drops an event, and the functions run in
+        // structural element attributes only, no non-Google click identifier
+        // (#1263), and nothing at all once withdrawn. Returning null drops an
+        // event, and the functions run in
         // order: https://posthog.com/docs/libraries/js/features#amending-or-sampling-events
-        before_send: [gate.scrubEvent, keepStoredFirstUrlScrubbed],
+        before_send: [gate.scrubEvent, keepStoredStateScrubbed],
         disable_session_recording: replayOffForPath,
         // § Capture Minimization 1. Client masking options take precedence over
         // the project's "Privacy and masking" settings:
@@ -169,7 +178,7 @@ const privacyEnabled = privacyControlsEnabled();
         // queued calls replay, so a withdrawal in this page still wins.
         loaded(ph) {
           if (!gate.withdrawn() && ph.has_opted_out_capturing()) ph.clear_opt_in_out_capturing();
-          scrubStoredFirstUrl(ph);
+          scrubStoredState(ph);
         },
       });
       gate.onNavigate((url, phase) => {
