@@ -191,7 +191,7 @@ export async function generateResumePdf({ browser, baseUrl, siteUrl, outputPath,
       // 0.6in }` rule in the `@media print` block of src/styles/global.css
       // (the #420 Safari floor), and that rule alone sets it: when the page
       // declares one, Chromium's printToPDF does not apply the `margin`
-      // parameters. Measured in #1266 on Playwright 1.63 / Chromium 1243 — a
+      // parameters. Measured in #1266 on Playwright 1.63 / Chromium 1243: a
       // 2in right margin passed here left the text layout and every glyph
       // coordinate unchanged, while changing the CSS to 1in repaginated the
       // file from three pages to four. A restated value would be an inert
