@@ -13,6 +13,7 @@ import { readFileSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { JSDOM } from 'jsdom';
 
 export const REGION_START = '<!-- PostHog -->';
 export const REGION_END = '<!-- Google Fonts -->';
@@ -108,9 +109,6 @@ const POSTHOG_GUARD =
 const GA4_GUARD =
   /^\s*if \(gate && gate\.boot\.effective === 'granted' && privacy\.get\(\)\.effective === 'granted'\) \{/m;
 
-// Case-insensitive, and the end tag may carry anything up to its `>` (as
-// browsers accept `</script foo>`), so no spelling of a script tag can slip
-// past the structure check.
 // The one inline script outside the gate and the two region blocks that names
 // an analytics host: Mux Data's wrapper (src/lib/privacy/mux-data.js), which
 // ProjectMuxPlayer.astro inlines verbatim on a page with a Mux hero and which
@@ -121,14 +119,6 @@ const MUX_DATA_SOURCE = readFileSync(
   fileURLToPath(new URL('../../src/lib/privacy/mux-data.js', import.meta.url)),
   'utf8',
 ).trim();
-
-const SCRIPT_RE = /<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi;
-// Every attribute form HTML accepts: any case, separated from the tag name or
-// the previous attribute by whitespace or `/`, and a value that is
-// double-quoted, single-quoted, or unquoted (HTML's unquoted-value rule).
-const URL_ATTR_RE =
-  /[\s/](?:src|href|srcset|data|action|formaction|poster|ping|content)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/gi;
-const SCRIPT_ATTR_RE = /\b(src|async|defer|type)\s*=/i;
 
 /**
  * Index of the `}` that closes the `{` at `open` in inline JavaScript, or -1.
@@ -162,149 +152,214 @@ function matchingBrace(src, open) {
   return -1;
 }
 
-function scripts(html) {
-  return [...html.matchAll(SCRIPT_RE)].map((m) => ({
-    attrs: m[1],
-    body: m[2],
-    index: m.index,
-  }));
+/** Every element under `root`, descending into `<template>` contents. */
+function* allElements(root) {
+  for (const el of root.querySelectorAll('*')) {
+    yield el;
+    if (el.localName === 'template' && el.content) yield* allElements(el.content);
+  }
 }
 
+/** CSS escapes (`\2d `, `\-`) decoded, so an escaped host still reads as one. */
+function cssUnescape(text) {
+  return text
+    .replace(/\\([0-9a-f]{1,6})\s?/gi, (_, hex) => {
+      const code = parseInt(hex, 16);
+      return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : '';
+    })
+    .replace(/\\(.)/gs, '$1');
+}
+
+/** A value as the hosts could be spelled in it: lowercased, percent- and CSS-decoded. */
+function spellings(value) {
+  const out = new Set([value.toLowerCase(), cssUnescape(value).toLowerCase()]);
+  try {
+    out.add(decodeURIComponent(value).toLowerCase());
+  } catch {
+    // Not valid percent-encoding: the raw spellings above are all there is.
+  }
+  return [...out];
+}
+
+function namedHosts(value) {
+  const forms = spellings(value);
+  return ANALYTICS_HOSTS.filter((host) => forms.some((form) => form.includes(host)));
+}
+
+const REGION_START_TEXT = REGION_START.slice(4, -3);
+const REGION_END_TEXT = REGION_END.slice(4, -3);
+
 /**
- * Structural findings for the analytics region of one production-mode page
- * built with both tokens set (specs/analytics-privacy.md § Gate). Returns an
- * array of strings; an empty array means the page passes.
+ * Structural findings for one production-mode page built with both tokens set
+ * (specs/analytics-privacy.md § Gate). Returns an array of strings; an empty
+ * array means the page passes. The page is parsed with jsdom (scripts are not
+ * run, which is jsdom's default), so entities, attribute quoting and case,
+ * `<noscript>`, and `<template>` are the parser's problem, not a pattern's.
  *
  *  - the gate is a synchronous inline script in <head>, before the region
  *  - the region has exactly two inline scripts (PostHog, GA4) and no static
  *    script element, so nothing loads a tool without running through a guard
  *  - in each, every statement that loads, defines, or configures the tool sits
- *    after the guard that requires the gate's boot decision and the current
- *    state to be granted
- *  - outside script bodies, nothing in the page names an analytics host
+ *    inside the block opened by the guard that requires the gate's boot
+ *    decision and the current state to be granted
+ *  - no inline script other than the exempt ones names an analytics host
+ *  - no attribute (entity-decoded, whatever its name) and no CSS names one,
+ *    except `href` on `<a>` and `<area>`
  */
 export function analyticsGateFindings(html) {
   const findings = [];
-  const region = analyticsRegion(html);
-  if (region === null) return ['no analytics region'];
-  const regionStart = html.indexOf(REGION_START);
-  const headStart = html.indexOf('<head');
-  const headEnd = html.indexOf('</head>');
-  if (!(headStart >= 0 && regionStart > headStart && regionStart < headEnd)) {
-    findings.push('analytics region is not inside <head>');
-  }
+  if (analyticsRegion(html) === null) return ['no analytics region'];
 
-  const gate = scripts(html.slice(0, regionStart)).at(-1);
-  if (!gate) {
-    findings.push('no script before the analytics region');
-  } else {
-    if (gate.index < headStart) findings.push('gate script is not in <head>');
-    if (SCRIPT_ATTR_RE.test(gate.attrs)) {
-      findings.push(`gate script is not a plain synchronous inline script: <script${gate.attrs}>`);
+  const dom = new JSDOM(html);
+  try {
+    const { document } = dom.window;
+    const { head } = document;
+    const comments = [];
+    const walker = document.createTreeWalker(document, 128 /* NodeFilter.SHOW_COMMENT */);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) comments.push(n);
+    const start = comments.find((n) => n.data === REGION_START_TEXT);
+    const end = comments.find(
+      (n) =>
+        n.data === REGION_END_TEXT &&
+        start &&
+        start.compareDocumentPosition(n) & 4 /* FOLLOWING */,
+    );
+    if (!start || !end || start.parentNode !== head || end.parentNode !== head) {
+      findings.push('analytics region is not inside <head>');
+      return findings;
     }
-    for (const needle of ['npPrivacy', 'np-privacy', 'globalPrivacyControl', 'localStorage']) {
-      if (!gate.body.includes(needle)) findings.push(`gate script lacks ${needle}`);
-    }
-  }
 
-  const inRegion = scripts(region);
-  for (const s of inRegion) {
-    if (SCRIPT_ATTR_RE.test(s.attrs)) {
-      findings.push(`region script element is not plain inline: <script${s.attrs}>`);
-    }
-  }
-  if (inRegion.length !== 2) {
-    findings.push(`region has ${inRegion.length} scripts, expected 2 (PostHog, GA4)`);
-  }
-  const posthog = inRegion.find((s) => s.body.includes('posthog.init('));
-  const ga4 = inRegion.find((s) => s.body.includes("gtag('config'"));
-  if (!posthog) findings.push('no PostHog block in the region');
-  if (!ga4) findings.push('no GA4 block in the region');
+    const docScripts = [...document.querySelectorAll('script')];
+    const precedes = (a, b) => Boolean(b.compareDocumentPosition(a) & 2 /* PRECEDING */);
+    const plain = (s) => !['src', 'async', 'defer', 'type'].some((a) => s.hasAttribute(a));
 
-  // Every statement that loads a tool must sit inside the block the guard
-  // opens, not merely after the guard's text: `if (...) {}` followed by the
-  // bootstrap passes an offset comparison and gates nothing.
-  const after = (name, body, guard, needles) => {
-    const match = guard.exec(body);
-    if (!match) {
-      findings.push(`${name} block has no gate guard`);
-      return;
-    }
-    const open = match.index + match[0].length - 1;
-    const close = matchingBrace(body, open);
-    if (close < 0) {
-      findings.push(`${name} block: could not find the end of the gate guard's block`);
-      return;
-    }
-    for (const needle of needles) {
-      const first = body.indexOf(needle);
-      if (first < 0) {
-        findings.push(`${name} block lacks ${needle}`);
-        continue;
+    const gate = docScripts.filter((s) => precedes(s, start)).at(-1);
+    if (!gate) {
+      findings.push('no script before the analytics region');
+    } else {
+      if (gate.parentNode !== head) findings.push('gate script is not in <head>');
+      if (!plain(gate)) {
+        findings.push(
+          `gate script is not a plain synchronous inline script: ${gate.outerHTML.slice(0, 80)}`,
+        );
       }
-      const last = body.lastIndexOf(needle);
-      if (first < open) findings.push(`${name} block runs ${needle} before its gate guard`);
-      else if (last > close) findings.push(`${name} block runs ${needle} outside its gate guard`);
+      for (const needle of ['npPrivacy', 'np-privacy', 'globalPrivacyControl', 'localStorage']) {
+        if (!gate.textContent.includes(needle)) findings.push(`gate script lacks ${needle}`);
+      }
     }
-  };
-  if (posthog) {
-    after('PostHog', posthog.body, POSTHOG_GUARD, ['!function(t,e){', 'posthog.init(']);
-    if (posthog.body.includes('const posthogHost')) {
-      findings.push('PostHog block carries the ungated pre-#1233 snippet');
-    }
-  }
-  if (ga4) {
-    after('GA4', ga4.body, GA4_GUARD, [
-      'window.dataLayer = ',
-      "gtag('js'",
-      "gtag('config'",
-      'document.createElement(',
-      'loader.src = ',
-      'appendChild(loader)',
-    ]);
-    if (!ga4.body.includes('gtag/js?id=')) findings.push('GA4 block does not create the loader');
-  }
 
-  // Inline script bodies outside the ones that legitimately name an analytics
-  // host: a stray fetch() or sendBeacon() to one would be a request the gate
-  // does not guard. The explicit exemptions, by identity and not by content:
-  //  - the gate script, found above as the script just before the region (its
-  //    ANALYTICS_HOSTS list drives the transport guard);
-  //  - the two region scripts, PostHog's and GA4's, whose guards are verified
-  //    above;
-  //  - Mux Data's wrapper, exactly as MUX_DATA_SOURCE (see there).
-  // JSON-LD and every other script type are scanned like any other: none of
-  // them names a host today, so they need no exemption.
-  const exempt = new Set(inRegion.map((x) => regionStart + x.index));
-  if (gate) exempt.add(gate.index);
-  for (const x of scripts(html)) {
-    if (exempt.has(x.index) || x.body.trim() === MUX_DATA_SOURCE) continue;
-    const body = x.body.toLowerCase();
-    for (const host of ANALYTICS_HOSTS) {
-      if (body.includes(host)) findings.push(`inline script names analytics host ${host}`);
+    const inRegion = docScripts.filter((s) => precedes(start, s) && precedes(s, end));
+    for (const s of inRegion) {
+      if (!plain(s)) {
+        findings.push(`region script element is not plain inline: ${s.outerHTML.slice(0, 80)}`);
+      }
     }
-  }
+    if (inRegion.length !== 2) {
+      findings.push(`region has ${inRegion.length} scripts, expected 2 (PostHog, GA4)`);
+    }
+    const posthog = inRegion.find((s) => s.textContent.includes('posthog.init('));
+    const ga4 = inRegion.find((s) => s.textContent.includes("gtag('config'"));
+    if (!posthog) findings.push('no PostHog block in the region');
+    if (!ga4) findings.push('no GA4 block in the region');
 
-  // Attribute values outside script bodies: a preconnect, prefetch, img, or
-  // noscript pixel naming an analytics host would be a request the gate cannot
-  // stop. Prose may name the hosts (the /privacy/ page discloses them).
-  // Only script bodies are dropped: the opening tag keeps its attributes, so
-  // an analytics `<script src>` anywhere in the document (after the region, in
-  // <body>) is still seen.
-  let markup = html.replace(SCRIPT_RE, '<script$1></script>');
-  // Strip comments until nothing changes: one pass can leave a `<!--` that
-  // a nested or split comment reassembles.
-  for (let prev = ''; prev !== markup; ) {
-    prev = markup;
-    markup = markup.replace(/<!--[\s\S]*?-->/g, '');
-  }
-  for (const m of markup.matchAll(URL_ATTR_RE)) {
-    const value = (m[1] ?? m[2] ?? m[3]).toLowerCase();
-    for (const host of ANALYTICS_HOSTS) {
-      if (value.includes(host)) findings.push(`markup attribute names analytics host ${host}`);
+    // Every statement that loads a tool must sit inside the block the guard
+    // opens, not merely after the guard's text: `if (...) {}` followed by the
+    // bootstrap passes an offset comparison and gates nothing.
+    const after = (name, body, guard, needles) => {
+      const match = guard.exec(body);
+      if (!match) {
+        findings.push(`${name} block has no gate guard`);
+        return;
+      }
+      const open = match.index + match[0].length - 1;
+      const close = matchingBrace(body, open);
+      if (close < 0) {
+        findings.push(`${name} block: could not find the end of the gate guard's block`);
+        return;
+      }
+      for (const needle of needles) {
+        const first = body.indexOf(needle);
+        if (first < 0) {
+          findings.push(`${name} block lacks ${needle}`);
+          continue;
+        }
+        const last = body.lastIndexOf(needle);
+        if (first < open) findings.push(`${name} block runs ${needle} before its gate guard`);
+        else if (last > close) findings.push(`${name} block runs ${needle} outside its gate guard`);
+      }
+    };
+    if (posthog) {
+      const body = posthog.textContent;
+      after('PostHog', body, POSTHOG_GUARD, ['!function(t,e){', 'posthog.init(']);
+      if (body.includes('const posthogHost')) {
+        findings.push('PostHog block carries the ungated pre-#1233 snippet');
+      }
     }
+    if (ga4) {
+      const body = ga4.textContent;
+      after('GA4', body, GA4_GUARD, [
+        'window.dataLayer = ',
+        "gtag('js'",
+        "gtag('config'",
+        'document.createElement(',
+        'loader.src = ',
+        'appendChild(loader)',
+      ]);
+      if (!body.includes('gtag/js?id=')) findings.push('GA4 block does not create the loader');
+    }
+
+    const elements = [...allElements(document)];
+
+    // Inline script bodies outside the ones that legitimately name an
+    // analytics host: a stray fetch() or sendBeacon() to one would be a request
+    // the gate does not guard. The explicit exemptions, by identity and not by
+    // content:
+    //  - the gate script, found above as the script just before the region (its
+    //    ANALYTICS_HOSTS list drives the transport guard);
+    //  - the two region scripts, PostHog's and GA4's, whose guards are verified
+    //    above;
+    //  - Mux Data's wrapper, exactly as MUX_DATA_SOURCE (see there).
+    // JSON-LD and every other script type are scanned like any other: none of
+    // them names a host today, so they need no exemption.
+    const exempt = new Set(inRegion);
+    if (gate) exempt.add(gate);
+    for (const el of elements) {
+      if (el.localName !== 'script') continue;
+      if (exempt.has(el) || el.textContent.trim() === MUX_DATA_SOURCE) continue;
+      for (const host of namedHosts(el.textContent)) {
+        findings.push(`inline script names analytics host ${host}`);
+      }
+    }
+
+    // CSS: any mention of a host in a stylesheet (`url(...)`, `@import`, or
+    // anything else) is a request the gate cannot stop. `style` attributes are
+    // covered by the attribute scan below.
+    for (const el of elements) {
+      if (el.localName !== 'style') continue;
+      for (const host of namedHosts(el.textContent)) {
+        findings.push(`stylesheet names analytics host ${host}`);
+      }
+    }
+
+    // Attributes: every attribute of every element, whatever its name (`src`,
+    // `srcset`, `data`, `poster`, `xlink:href`, `content`, `style`, `on*`
+    // handlers, `srcdoc`), decoded by the parser. The one exemption is `href`
+    // on `<a>` and `<area>`: following a link is navigation the visitor starts,
+    // not a request the page makes. A `<link href>` (preconnect, prefetch,
+    // stylesheet) is NOT exempt. Prose may name the hosts: the /privacy/ page
+    // discloses them in text.
+    for (const el of elements) {
+      for (const attr of el.attributes) {
+        if (attr.name === 'href' && (el.localName === 'a' || el.localName === 'area')) continue;
+        for (const host of namedHosts(attr.value)) {
+          findings.push(`markup attribute names analytics host ${host}`);
+        }
+      }
+    }
+    return findings;
+  } finally {
+    dom.window.close();
   }
-  return findings;
 }
 
 /** Runs `astro build` in production mode with the fixed fake tokens. */

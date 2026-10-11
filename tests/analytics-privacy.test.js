@@ -337,6 +337,82 @@ describe('production-mode build carries the privacy controls (PRIV-15 replacemen
       }
     });
 
+    describe('parsed markup (jsdom), not patterns', () => {
+      const inBody = (fragment) => page.replace('</body>', `${fragment}</body>`);
+      const hasFinding = (mutated, prefix, host) =>
+        analyticsGateFindings(mutated).includes(`${prefix} analytics host ${host}`);
+
+      it('catches an entity-encoded host in an attribute', () => {
+        const mutated = inBody('<img src="https://www.google&#45;analytics.com/g/collect">');
+        expect(hasFinding(mutated, 'markup attribute names', 'google-analytics.com')).toBe(true);
+      });
+
+      it('catches a host in a style attribute', () => {
+        const mutated = inBody(
+          '<div style="background:url(https://www.google-analytics.com/g/collect)"></div>',
+        );
+        expect(hasFinding(mutated, 'markup attribute names', 'google-analytics.com')).toBe(true);
+      });
+
+      it('catches a CSS-escaped host in a style attribute', () => {
+        const mutated = inBody(
+          '<div style="background:url(https://www.google\\2d analytics.com/g/collect)"></div>',
+        );
+        expect(hasFinding(mutated, 'markup attribute names', 'google-analytics.com')).toBe(true);
+      });
+
+      it('catches an @import in a style element', () => {
+        const mutated = inBody(
+          '<style>@import url("https://www.googletagmanager.com/x.css");</style>',
+        );
+        expect(hasFinding(mutated, 'stylesheet names', 'googletagmanager.com')).toBe(true);
+      });
+
+      it('catches a namespaced xlink:href in SVG', () => {
+        const mutated = inBody(
+          '<svg xmlns:xlink="http://www.w3.org/1999/xlink"><image xlink:href="https://stats.doubleclick.net/p"/></svg>',
+        );
+        expect(hasFinding(mutated, 'markup attribute names', 'doubleclick.net')).toBe(true);
+      });
+
+      it('catches a host in an event-handler attribute', () => {
+        const mutated = inBody(
+          `<img src="x" onerror="fetch('https://www.google-analytics.com/g/collect')">`,
+        );
+        expect(hasFinding(mutated, 'markup attribute names', 'google-analytics.com')).toBe(true);
+      });
+
+      it('catches a host inside <noscript> and <template>', () => {
+        for (const fragment of [
+          '<noscript><img src="https://stats.doubleclick.net/p"></noscript>',
+          '<template><img src="https://stats.doubleclick.net/p"></template>',
+        ]) {
+          expect(hasFinding(inBody(fragment), 'markup attribute names', 'doubleclick.net')).toBe(
+            true,
+          );
+        }
+      });
+
+      it('exempts only href on <a> and <area>', () => {
+        for (const fragment of [
+          '<a href="https://posthog.com/privacy">x</a>',
+          '<map name="m"><area href="https://posthog.com/privacy"></map>',
+        ]) {
+          expect(analyticsGateFindings(inBody(fragment))).toEqual([]);
+        }
+        for (const fragment of [
+          '<a ping="https://posthog.com/p" href="/">x</a>',
+          '<link rel="stylesheet" href="https://posthog.com/x.css">',
+          '<a href="/" style="background:url(https://posthog.com/x)">x</a>',
+        ]) {
+          expect(
+            hasFinding(inBody(fragment), 'markup attribute names', 'posthog.com'),
+            fragment,
+          ).toBe(true);
+        }
+      });
+    });
+
     it('catches a DoubleClick pixel in <body>', () => {
       const mutated = page.replace(
         '</body>',
