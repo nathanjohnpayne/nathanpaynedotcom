@@ -129,6 +129,7 @@ test.describe('cached gtag.js reuse', () => {
     expect(reusableGtag(entry(), file, recorded)).toMatchObject({
       matchesProduction: true,
       servedSha256: sha256Hex(bytes),
+      source: 'cache', // the recorded bytes, but not seen served by production this run
     });
   });
 

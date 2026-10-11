@@ -240,7 +240,7 @@ Status of the criteria this inventory can speak to:
 - **PRIV-8:** replay retention verified at 30 days; notice wording pending (#1229).
 - **PRIV-13:** remote-config conflicts reported (C1–C3); needs Nathan.
 - **PRIV-15:** this change is documentation only; the flag-off check is part of `npm test`.
-- **PRIV-16:** nothing enabled or disabled; the existing demographic, identity, and advertising features are listed above.
+- **PRIV-16:** nothing new enabled. Two features were disabled, both the contract's named exceptions: GA4 user-provided data collection, which Nathan turned off under decision 3 on 2026-10-10 ([#1232 record](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/1232#issuecomment-6105586339)), and the non-Google click identifiers, dropped under decision 11 (#1263). The GA4 enhanced-measurement events turned off under decision 2 are measurement events, not demographic, identity, or advertising features. The remaining demographic, identity, and advertising features are listed above.
 - **PRIV-17:** Cloudflare Web Analytics inventoried; the opt-out does not control it (C5); disclosure is #1229's.
 - **PRIV-18:** no raw capture, HAR, identifier, or token is committed; tokens appear only as placeholders.
 

@@ -10,8 +10,11 @@
  * tag from time to time. When it serves other bytes, the provenance test is
  * skipped with a "re-record" reason (never passes), every GA4 test carries a
  * `ga4-not-verified` annotation, and the capture is redone by following
- * docs/agents/testing-requirements.md (GA4 tag refresh). Without a gtag.js
- * fixture the GA4 tests skip entirely.
+ * docs/agents/testing-requirements.md (GA4 tag refresh). A cached copy reused
+ * without a fetch is the recorded capture but does not show production still
+ * serves it, so the provenance test skips on it too. Without a gtag.js fixture
+ * the GA4 tests skip entirely. With NP_PRIVACY_REQUIRE_GA4=1 (the #1233
+ * release run) every one of those skips is a failure instead.
  *
  * Since 2026-10-10 the GA4 property has enhanced measurement limited to page
  * views and scrolls and user-provided data off. This file holds both halves:
@@ -29,7 +32,9 @@ import {
   gtagEmbeddedTags,
   gtagProvenance,
   loadManifest,
+  requireGa4,
   sha256Hex,
+  type GtagState,
 } from './harness/fixtures';
 import type { Ga4Event } from './harness/payloads';
 import {
@@ -48,8 +53,21 @@ import { expect, test, type Session } from './harness/test';
 
 const SCRUBBED = `${SITE_ORIGIN}${FIXTURE_PATH}?utm_source=fixture`;
 
+/** Skip with the reason, or fail with it under NP_PRIVACY_REQUIRE_GA4=1 (the release run accepts no GA4 skip). */
+function skipOrRequire(condition: boolean, reason: string): void {
+  if (condition && requireGa4()) throw new Error(`NP_PRIVACY_REQUIRE_GA4=1 but ${reason}`);
+  test.skip(condition, reason);
+}
+
+/** Where the configuration evidence came from, for annotations: verified only on the recorded capture. */
+function configEvidence(gtag: GtagState): string {
+  return gtag.matchesProduction
+    ? 'verified by the configuration test on the recorded production capture'
+    : 'indicative only: the configuration test read a gtag.js that is not the recorded production capture';
+}
+
 test.beforeEach(({ fixtureState }) => {
-  test.skip(
+  skipOrRequire(
     !fixtureState.gtag.available,
     `not verified: no gtag.js fixture (${fixtureState.gtag.reason ?? 'unavailable'})`,
   );
@@ -61,13 +79,18 @@ test.describe('GA4 provenance', () => {
     fixtureState,
   }) => {
     // This is the criterion-level reading of every GA4 result in the suite. It passes only when the gtag.js the
-    // suite serves hashes to the production capture recorded in the manifest. Anything else reads "re-record":
-    // skipped, never passed, and the other GA4 tests below stay indicative.
+    // suite serves hashes to the production capture recorded in the manifest, and this run fetched those bytes from
+    // production. Anything else reads "re-record" (or "not checked" for a cached copy): skipped, never passed, and
+    // the other GA4 tests below stay indicative. Under NP_PRIVACY_REQUIRE_GA4=1 either skip is a failure.
     const recorded = loadManifest().gtag.production.sha256;
     const verdict = gtagProvenance(fixtureState.gtag.rawSha256, recorded);
-    test.skip(
+    skipOrRequire(
       verdict.status === 're-record',
       `re-record: ${(verdict as { reason?: string }).reason}`,
+    );
+    skipOrRequire(
+      fixtureState.gtag.source !== 'fetched',
+      'not checked against production: the cached gtag.js is the recorded capture, but this run did not fetch it, so it does not show production still serves those bytes (run with CI=1, NP_PRIVACY_REFRESH=1, or NP_PRIVACY_REQUIRE_GA4=1)',
     );
     expect(fixtureState.gtag.matchesProduction, 'the setup reached the same verdict').toBe(true);
     expect(fixtureState.gtag.rawSha256, 'raw bytes as Google served them').toBe(recorded);
@@ -175,8 +198,7 @@ test.describe('GA4 enhanced measurement', () => {
     ).toEqual([]);
     test.info().annotations.push({
       type: 'ga4-priv2-disabled-fields',
-      description:
-        'PRIV-2 for search_term, link_url, link_domain, file_name, form_destination, and video_url: not applicable, disabled in configuration (verified by the configuration test on the recorded production capture). Not a scrubbing pass.',
+      description: `PRIV-2 for search_term, link_url, link_domain, file_name, form_destination, and video_url: not applicable, disabled in configuration (${configEvidence(fixtureState.gtag)}). Not a scrubbing pass.`,
     });
     const s = await open();
     await s.goto(`${FIXTURE_PATH}?q=${CANARIES.search}&utm_source=fixture#${CANARIES.fragment}`);
@@ -349,8 +371,7 @@ test.describe('GA4 user-provided data', () => {
     });
     test.info().annotations.push({
       type: 'ga4-priv2-disabled-fields',
-      description:
-        'PRIV-2 for user-provided data (automatic detection of email, phone, and address): not applicable, disabled in configuration (verified above on the recorded production capture). The absence here is not a scrubbing pass; no GA4 form_submit can be produced to exercise detection.',
+      description: `PRIV-2 for user-provided data (automatic detection of email, phone, and address): not applicable, disabled in configuration (${configEvidence(fixtureState.gtag)}). The absence here is not a scrubbing pass; no GA4 form_submit can be produced to exercise detection.`,
     });
   });
 });

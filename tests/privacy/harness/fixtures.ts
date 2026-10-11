@@ -65,6 +65,11 @@ export interface GtagState {
   servedSha256?: string;
   /** True only if the raw bytes hash to the production capture recorded in the manifest and the inventory. */
   matchesProduction: boolean;
+  /**
+   * 'fetched' when this run read the bytes from Google; 'cache' when a cached copy was reused without a fetch. Only a
+   * fetch shows that production still serves the recorded capture, so only 'fetched' can pass the provenance test.
+   */
+  source?: 'fetched' | 'cache';
   /** Where the measurement ID came from. The ID itself is never stored or printed. */
   idSource?: 'env' | 'production-html';
   /** Occurrences of the production ID replaced by the fake test ID. */
@@ -213,6 +218,14 @@ export function gtagConfigFindings(tags: GtagTag[]): string[] {
   return findings;
 }
 
+/**
+ * NP_PRIVACY_REQUIRE_GA4=1: GA4 provenance must pass. A missing gtag.js, unrecorded bytes, or a cached copy then fail
+ * instead of skipping, and the cache is never reused. The release run (#1233) sets it.
+ */
+export function requireGa4(): boolean {
+  return process.env.NP_PRIVACY_REQUIRE_GA4 === '1';
+}
+
 async function prepareGtag(manifest: Manifest, gtagPath: string): Promise<GtagState> {
   if (offline()) {
     return { available: false, matchesProduction: false, reason: 'NP_PRIVACY_OFFLINE=1' };
@@ -272,6 +285,7 @@ async function prepareGtag(manifest: Manifest, gtagPath: string): Promise<GtagSt
       servedSha256: sha256Hex(served),
       matchesProduction:
         gtagProvenance(rawSha, manifest.gtag.production.sha256).status === 'verified',
+      source: 'fetched',
       idSource,
       substitutions: parts.length - 1,
     };
@@ -315,6 +329,7 @@ function ensureTls(keyPath: string, certPath: string): void {
  * by an older harness lacks them), and the file on disk hashes to `servedSha256` right now. The last check is the
  * one that matters: state.json only says what was cached, not what is in the file, so an edited, truncated, or
  * replaced file is never taken for the verified capture. The verdict is recomputed here, never trusted from disk.
+ * A reused copy is marked `source: 'cache'`: it is the recorded capture, but this run did not see production serve it.
  */
 export function reusableGtag(
   previous: GtagState | undefined,
@@ -328,6 +343,7 @@ export function reusableGtag(
   if (sha256Hex(readFileSync(gtagPath)) !== previous.servedSha256) return undefined;
   return {
     ...previous,
+    source: 'cache',
     matchesProduction: gtagProvenance(previous.rawSha256, recordedSha256).status === 'verified',
   };
 }
@@ -397,9 +413,9 @@ export async function prepareFixtures(): Promise<FixtureState> {
     : undefined;
   // Offline mode wins over the cache: a cached gtag.js would make the GA4 tests run as if it were available.
   // Only a cached copy that IS the recorded production capture is reused, and only after its actual bytes are
-  // hashed again (see reusableGtag). Anything else is fetched again.
+  // hashed again (see reusableGtag). Anything else is fetched again. CI and NP_PRIVACY_REQUIRE_GA4=1 always fetch.
   const reused =
-    !offline() && process.env.NP_PRIVACY_REFRESH !== '1' && !process.env.CI
+    !offline() && process.env.NP_PRIVACY_REFRESH !== '1' && !process.env.CI && !requireGa4()
       ? reusableGtag(previous?.gtag, gtagPath, manifest.gtag.production.sha256)
       : undefined;
   const gtag: GtagState = reused ?? (await prepareGtag(manifest, gtagPath));
