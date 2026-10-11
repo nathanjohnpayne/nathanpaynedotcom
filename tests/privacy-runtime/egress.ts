@@ -224,6 +224,11 @@ export function isHostOrSubdomain(host: string, domain: string): boolean {
   return h === d || h.endsWith(`.${d}`);
 }
 
+/**
+ * Collection hosts: requests to them are recorded in the sink and answered
+ * locally. litix.io is where Mux Data (mux-embed) sends playback beacons
+ * (#1264); recording them lets mux-data.pw.ts read the payloads.
+ */
 const ANALYTICS = [
   POSTHOG_HOST,
   'posthog.com',
@@ -231,6 +236,7 @@ const ANALYTICS = [
   'google-analytics.com',
   'analytics.google.com',
   'doubleclick.net',
+  'litix.io',
 ];
 
 /** `host` may carry a port (a CONNECT target or URL.host); it is ignored. */

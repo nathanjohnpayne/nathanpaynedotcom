@@ -22,6 +22,8 @@ const GATE_SRC = read('src/lib/privacy/gate.js');
 const HEAD_SRC = read('src/components/privacy/PrivacyHead.astro');
 const POSTHOG_SRC = read('src/components/posthog.astro');
 const LAYOUT_SRC = read('src/layouts/BaseLayout.astro');
+const MUX_DATA_SRC = read('src/lib/privacy/mux-data.js');
+const MUX_PLAYER_SRC = read('src/components/ProjectMuxPlayer.astro');
 const INTERNAL = Symbol.for('np-privacy.internal');
 const BASE_HTML = '<!doctype html><html><head><script></script></head><body></body></html>';
 
@@ -554,6 +556,10 @@ describe('transport guard', () => {
     ['https://region1.google-analytics.com/g/collect', true],
     ['https://region1.analytics.google.com/g/collect', true],
     ['https://stats.g.doubleclick.net/g/collect', true],
+    ['https://inferred.litix.io/', true],
+    ['https://img.litix.io/a.gif', true],
+    ['https://notlitix.io/', false],
+    ['https://stream.mux.com/x.m3u8', false],
     ['https://nathanpayne.com/', false],
     ['https://notgoogle-analytics.com/', false],
     ['https://d.nathanpayne.com.example.net/', false],
@@ -580,9 +586,17 @@ describe('URL scrubbing (§ Capture Minimization 3)', () => {
       'dclid',
     ]);
     expect(Object.isFrozen(at().ALLOWED_QUERY_PARAMS)).toBe(true);
-    // No second list: no parameter name outside the allowlist is ever named.
+    // No second query-parameter list: no parameter name outside the allowlist
+    // is ever named as one. DROPPED_CLICK_IDS (#1263) names properties, not
+    // query parameters, and URL scrubbing never reads it.
     expect(GATE_SRC.match(/QUERY_PARAMS\s*=/g)).toHaveLength(1);
-    expect(GATE_SRC).not.toMatch(/'(email|fbclid|msclkid|ref|token|q)'/);
+    expect(GATE_SRC).not.toMatch(/'(email|ref|token|q)'/);
+    const queryRule = GATE_SRC.slice(
+      GATE_SRC.indexOf('function keepAllowedQuery('),
+      GATE_SRC.indexOf('function isReplayExcluded('),
+    );
+    expect(queryRule).toContain('ALLOWED_QUERY_PARAMS');
+    expect(queryRule).not.toMatch(/DROPPED_CLICK_IDS|isDroppedClickIdKey|fbclid|msclkid/);
   });
 
   it.each([
@@ -1196,6 +1210,235 @@ describe('event scrubbing: PostHog before_send (§ Capture Minimization 3–4)',
   });
 });
 
+describe('click identifiers: PostHog before_send (#1263, decision 11)', () => {
+  // posthog-js 1.438.3, packages/browser-common/src/utils/event-utils.ts:
+  // PERSONAL_DATA_CAMPAIGN_PARAMS and CAMPAIGN_PARAMS, in the SDK's order.
+  // tests/privacy-runtime/runtime.pw.ts checks the same lists against the
+  // SDK bundle itself.
+  const SDK_PERSONAL_DATA = [
+    'gclid',
+    'gclsrc',
+    'dclid',
+    'gbraid',
+    'wbraid',
+    'fbclid',
+    'msclkid',
+    'twclid',
+    'li_fat_id',
+    'igshid',
+    'ttclid',
+    'rdt_cid',
+    'epik',
+    'qclid',
+    'sccid',
+    'oppref',
+    'irclid',
+    '_kx',
+  ];
+  const SDK_CAMPAIGN = [
+    'utm_source',
+    'utm_medium',
+    'utm_campaign',
+    'utm_content',
+    'utm_term',
+    'gad_source',
+    'mc_cid',
+    ...SDK_PERSONAL_DATA,
+  ];
+  const GOOGLE = ['gclid', 'gclsrc', 'dclid', 'gbraid', 'wbraid', 'gad_source'];
+  const DROPPED = SDK_PERSONAL_DATA.filter((name) => !GOOGLE.includes(name));
+  const KEPT = SDK_CAMPAIGN.filter((name) => !DROPPED.includes(name));
+  const valueOf = (name) => `NP-CLICKID-${name}`;
+  const allNamed = (prefix, value = valueOf) =>
+    Object.fromEntries(SDK_CAMPAIGN.map((name) => [`${prefix}${name}`, value(name)]));
+  const keptNamed = (prefix) =>
+    Object.fromEntries(KEPT.map((name) => [`${prefix}${name}`, valueOf(name)]));
+  const FBC = `fb.1.1760000000000.${valueOf('fbclid')}`;
+
+  /**
+   * An event shaped like posthog-js 1.438.3's first capture on a landing URL
+   * that carries every campaign parameter: the bare names and the
+   * session-entry copies in properties, $fbc in $set, and the $initial_ and
+   * bare session copies in $set_once.
+   */
+  const landingEvent = () => ({
+    event: '$pageview',
+    properties: {
+      $current_url: 'https://nathanpayne.test/?utm_source=s&gclid=g&fbclid=NP-CLICKID-fbclid',
+      ...allNamed(''),
+      ...allNamed('$session_entry_'),
+      $session_entry_url: 'https://nathanpayne.test/?utm_source=s&fbclid=NP-CLICKID-fbclid',
+      title: 'Landing',
+    },
+    $set: { $fbc: FBC },
+    $set_once: {
+      ...allNamed('$initial_'),
+      ...allNamed(''),
+      $initial_current_url: 'https://nathanpayne.test/?utm_source=s&fbclid=NP-CLICKID-fbclid',
+    },
+  });
+
+  it("is the non-Google part of posthog-js 1.438.3's personal-data campaign list, defined once", () => {
+    const { gate } = boot();
+    expect([...gate.DROPPED_CLICK_IDS]).toEqual(DROPPED);
+    expect(gate.DROPPED_CLICK_IDS).toEqual(expect.arrayContaining(['fbclid', 'msclkid']));
+    expect(Object.isFrozen(gate.DROPPED_CLICK_IDS)).toBe(true);
+    for (const name of [...GOOGLE, 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term']) {
+      expect(gate.DROPPED_CLICK_IDS).not.toContain(name);
+    }
+    expect(GATE_SRC.match(/DROPPED_CLICK_IDS\s*=/g)).toHaveLength(1);
+    expect(GATE_SRC).toContain(
+      'posthog-js%401.438.3/packages/browser-common/src/utils/event-utils.ts',
+    );
+  });
+
+  it('removes every copy the SDK makes, in properties, $set, and $set_once', () => {
+    const { gate } = boot();
+    const out = gate.scrubEvent(landingEvent());
+    expect(out.properties).toEqual({
+      $current_url: 'https://nathanpayne.test/?utm_source=s&gclid=g',
+      ...keptNamed(''),
+      ...keptNamed('$session_entry_'),
+      $session_entry_url: 'https://nathanpayne.test/?utm_source=s',
+      title: 'Landing',
+    });
+    expect(out.$set).toEqual({});
+    expect(out.$set_once).toEqual({
+      ...keptNamed('$initial_'),
+      ...keptNamed(''),
+      $initial_current_url: 'https://nathanpayne.test/?utm_source=s',
+    });
+    const sent = JSON.stringify(out);
+    for (const name of DROPPED) {
+      expect(sent, `${name}'s value`).not.toContain(valueOf(name));
+      expect(sent, `${name} under any name`).not.toMatch(
+        new RegExp(`"(\\$initial_|\\$session_entry_)?${name}"`),
+      );
+    }
+    expect(sent).not.toContain('"$fbc"');
+  });
+
+  it('keeps the UTMs, the Google identifiers, gad_source, and mc_cid exactly, under every name', () => {
+    const { gate } = boot();
+    const out = gate.scrubEvent(landingEvent());
+    for (const name of KEPT) {
+      for (const [where, key] of [
+        ['properties', name],
+        ['properties', `$session_entry_${name}`],
+        ['$set_once', `$initial_${name}`],
+        ['$set_once', name],
+      ]) {
+        expect(out[where][key], `${where}.${key}`).toBe(valueOf(name));
+      }
+    }
+  });
+
+  it('removes them whatever the value, null included, as the SDK sends absent parameters', () => {
+    const { gate } = boot();
+    const out = gate.scrubEvent({
+      event: '$pageview',
+      properties: allNamed('', () => null),
+      $set_once: { ...allNamed('$initial_', () => null), ...allNamed('', () => null) },
+    });
+    const nulls = Object.fromEntries(KEPT.map((name) => [name, null]));
+    expect(out.properties).toEqual(nulls);
+    expect(out.$set_once).toEqual({
+      ...Object.fromEntries(KEPT.map((name) => [`$initial_${name}`, null])),
+      ...nulls,
+    });
+  });
+
+  it('removes them at any depth and on every event type, $snapshot included', () => {
+    const { gate } = boot();
+    const data = [{ type: 4, data: { href: 'https://nathanpayne.test/' } }];
+    const snapshot = gate.scrubEvent({
+      event: '$snapshot',
+      properties: {
+        $snapshot_data: data,
+        fbclid: valueOf('fbclid'),
+        $set: { $fbc: FBC, $initial_msclkid: valueOf('msclkid'), utm_source: 's' },
+      },
+    });
+    expect(snapshot.properties).toEqual({ $snapshot_data: data, $set: { utm_source: 's' } });
+    const custom = gate.scrubEvent({
+      event: 'project_live_link_clicked',
+      properties: { nested: { list: [{ ttclid: valueOf('ttclid'), gclid: 'g' }] } },
+    });
+    expect(custom.properties).toEqual({ nested: { list: [{ gclid: 'g' }] } });
+  });
+
+  /** A stand-in for the SDK's flag person properties, $fbc record, and the public methods the gate calls. */
+  const fakeSdk = (stored) => {
+    const store = { ...stored };
+    const calls = [];
+    return {
+      store,
+      calls,
+      get_property: (key) => store[key],
+      resetPersonPropertiesForFlags(reload) {
+        calls.push(['reset', reload]);
+        delete store.$stored_person_properties;
+      },
+      setPersonPropertiesForFlags(props, reload) {
+        calls.push(['set', props, reload]);
+        store.$stored_person_properties = { ...store.$stored_person_properties, ...props };
+      },
+      unregister(key) {
+        calls.push(['unregister', key]);
+        delete store[key];
+      },
+    };
+  };
+
+  it('removes $fbc from the flag person properties and the SDK record, without reloading flags', () => {
+    const { gate } = boot();
+    const sdk = fakeSdk({
+      $stored_person_properties: { $fbc: FBC, plan: 'pro', $initial_msclkid: null },
+      $fbc_persistence: { value: FBC, delivered: false },
+      distinct_id: 'd',
+    });
+    gate.dropStoredClickIds(sdk);
+    expect(sdk.calls).toEqual([
+      ['reset', false],
+      ['set', { plan: 'pro' }, false],
+      ['unregister', '$fbc_persistence'],
+    ]);
+    expect(sdk.store).toEqual({ $stored_person_properties: { plan: 'pro' }, distinct_id: 'd' });
+    // Nothing left to remove: no further calls.
+    sdk.calls.length = 0;
+    gate.dropStoredClickIds(sdk);
+    expect(sdk.calls).toEqual([]);
+  });
+
+  it('only resets when nothing else was stored, and tolerates a missing or partial SDK', () => {
+    const { gate } = boot();
+    const onlyFbc = fakeSdk({ $stored_person_properties: { $fbc: FBC } });
+    gate.dropStoredClickIds(onlyFbc);
+    expect(onlyFbc.calls).toEqual([['reset', false]]);
+    const untouched = fakeSdk({ $stored_person_properties: { plan: 'pro', gclid: 'g' } });
+    gate.dropStoredClickIds(untouched);
+    expect(untouched.calls).toEqual([]);
+    for (const partial of [undefined, null, {}, { get_property: () => ({ $fbc: FBC }) }]) {
+      expect(() => gate.dropStoredClickIds(partial)).not.toThrow();
+    }
+  });
+
+  it('matches whole names only, so lookalike properties are kept', () => {
+    const { gate } = boot();
+    const lookalikes = {
+      FBCLID: 'a',
+      fbclid_note: 'b',
+      my_fbclid: 'c',
+      $initial_fbclid_count: 'd',
+      $session_entry_url: 'https://nathanpayne.test/',
+      $fbp: 'fb.1.1760000000000.123',
+      $fbc_persistence: 'e',
+    };
+    const out = gate.scrubEvent({ event: 'custom', properties: { ...lookalikes } });
+    expect(out.properties).toEqual(lookalikes);
+  });
+});
+
 describe('replay minimization (§ Capture Minimization 1–2)', () => {
   it('uses the contract selectors', () => {
     const { gate } = boot();
@@ -1457,6 +1700,17 @@ describe('flag-on PostHog block', () => {
     expect(privacy.get().loadedThisPage).toBe(true);
   });
 
+  // #1261: the shapes posthog-js 1.438.3 lets win over remote config, which
+  // turns all three on. The browser check (tests/privacy-runtime/) shows the
+  // real SDK honoring them.
+  it('turns replay console, canvas, and network-timing capture off explicitly, and keeps web vitals on', () => {
+    const { config } = runPostHog();
+    expect(config.enable_recording_console_log).toBe(false);
+    expect(config.capture_performance).toEqual({ network_timing: false, web_vitals: true });
+    expect(config.session_recording.captureCanvas).toEqual({ recordCanvas: false });
+    expect(config.disable_session_recording).toBe(false);
+  });
+
   it('keeps the same unchanged settings as the flag-off block', () => {
     for (const setting of [
       "api_host: 'https://d.nathanpayne.com'",
@@ -1564,6 +1818,30 @@ describe('flag-on PostHog block', () => {
       { $initial_person_info: { r: '$direct', u: 'https://nathanpayne.test/' } },
     ]);
   });
+
+  it('removes stored click identifiers at load and after every capture (#1263)', () => {
+    const { w, config } = runPostHog();
+    const fakeSdk = () => {
+      const store = {
+        $stored_person_properties: { $fbc: 'fb.1.1.x', plan: 'pro' },
+        $fbc_persistence: { value: 'fb.1.1.x', delivered: false },
+      };
+      const sdk = { store, has_opted_out_capturing: () => false, register: () => {} };
+      sdk.get_property = (key) => store[key];
+      sdk.resetPersonPropertiesForFlags = () => delete store.$stored_person_properties;
+      sdk.setPersonPropertiesForFlags = (props) => (store.$stored_person_properties = props);
+      sdk.unregister = (key) => delete store[key];
+      return sdk;
+    };
+    const atLoad = fakeSdk();
+    config.loaded(atLoad);
+    expect(atLoad.store).toEqual({ $stored_person_properties: { plan: 'pro' } });
+    const live = fakeSdk();
+    w.posthog = live;
+    const event = { event: '$pageview', properties: {} };
+    expect(config.before_send[1](event)).toBe(event);
+    expect(live.store).toEqual({ $stored_person_properties: { plan: 'pro' } });
+  });
 });
 
 describe('flag-on GA4 block', () => {
@@ -1632,5 +1910,161 @@ describe('flag-on GA4 block', () => {
       '<script async is:inline src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}></script>',
     );
     expect(off).toContain('page_location: window.location.href');
+  });
+});
+
+describe('Mux Data under the gate (#1264)', () => {
+  /**
+   * A stand-in for mux-embed's default export: records monitor() calls and
+   * gives the element the `mux` handle @mux/mux-background-video calls next.
+   */
+  function fakeMuxEmbed() {
+    const calls = [];
+    const destroyed = [];
+    const mux = {
+      utils: { now: () => 0 },
+      monitor(target, options) {
+        calls.push({ target, options });
+        target.mux = {
+          setStateDataTranslator() {},
+          destroy: () => destroyed.push(target),
+        };
+      },
+      destroyMonitor(target) {
+        target.mux.destroy();
+      },
+    };
+    return { mux, calls, destroyed };
+  }
+
+  /**
+   * Boots the gate, runs the bridge exactly as ProjectMuxPlayer.astro inlines
+   * it, then replays what the component's bundled script and
+   * @mux/mux-background-video 0.2.3 do with `globalThis.mux`: the loader
+   * assigns mux-embed unless the global is already set, and the component's
+   * load() monitors only while the global is set, with `{ debug, data }`.
+   * The real bundle and SDK are exercised in tests/privacy-runtime/mux-data.pw.ts.
+   */
+  function runMuxPage(opts = {}) {
+    const env = boot({
+      url: 'https://nathanpayne.test/projects/swipe-watch/?email=NP-CANARY-QUERY&utm_source=s#NP-CANARY-FRAGMENT',
+      ...opts,
+    });
+    env.w.eval(MUX_DATA_SRC);
+    const embed = fakeMuxEmbed();
+    const loaded = !env.w.mux;
+    if (loaded) env.w.mux = embed.mux;
+    const video = env.w.document.createElement('video');
+    const componentLoad = () => {
+      const mux = env.w.mux;
+      if (mux && !video.mux) {
+        mux.monitor(video, {
+          debug: false,
+          data: { player_name: 'mux-background-video', video_stream_type: 'on-demand' },
+        });
+        video.mux.setStateDataTranslator((state) => state);
+      }
+    };
+    componentLoad();
+    return { ...env, embed, loaded, video, componentLoad };
+  }
+
+  it('is inlined verbatim, only with the flag on and a Mux hero, before the bundled script', () => {
+    expect(MUX_PLAYER_SRC).toContain("import muxDataSource from '../lib/privacy/mux-data.js?raw';");
+    expect(MUX_PLAYER_SRC).toContain(
+      'const muxDataPrivacy = Boolean(playbackId) && privacyControlsEnabled();',
+    );
+    const bridge = '{muxDataPrivacy && <script is:inline set:html={muxDataSource} />}';
+    expect(MUX_PLAYER_SRC.split(bridge)).toHaveLength(2);
+    // The bundled script follows the markup; module scripts run after parsing,
+    // so the inline bridge always runs first.
+    expect(MUX_PLAYER_SRC.indexOf(bridge)).toBeLessThan(MUX_PLAYER_SRC.indexOf('\n<script>\n'));
+    expect(MUX_PLAYER_SRC.match(/^<script>$/gm)).toHaveLength(1);
+  });
+
+  it('is a classic script with no imports, no network calls, and nothing HTML could misparse', () => {
+    expect(MUX_DATA_SRC).not.toMatch(/^\s*(import|export)\b/m);
+    expect(MUX_DATA_SRC).not.toMatch(
+      /\bfetch\(|sendBeacon\(|new XMLHttpRequest|importScripts|\bimport\(|\.src\s*=/,
+    );
+    expect(MUX_DATA_SRC).not.toMatch(/<\/?script|<!--/i);
+    // A runtime marker, so the flag-off check fails if it is ever rendered there.
+    expect(MUX_DATA_SRC).toContain('npPrivacy');
+  });
+
+  it('monitors with no cookies, Do Not Track respected, and a scrubbed page_url when granted', () => {
+    const { w, embed, video, privacy, loaded } = runMuxPage();
+    expect(loaded).toBe(true);
+    expect(embed.calls).toHaveLength(1);
+    expect(embed.calls[0].target).toBe(video);
+    expect(embed.calls[0].options).toEqual({
+      debug: false,
+      disableCookies: true,
+      respectDoNotTrack: true,
+      data: {
+        player_name: 'mux-background-video',
+        video_stream_type: 'on-demand',
+        page_url: 'https://nathanpayne.test/projects/swipe-watch/?utm_source=s',
+      },
+    });
+    expect(JSON.stringify(embed.calls[0].options)).not.toContain('NP-CANARY');
+    // The rest of mux-embed is reachable through the wrapper.
+    expect(w.mux.utils).toBe(embed.mux.utils);
+    expect(privacy.get().loadedThisPage).toBe(true);
+  });
+
+  it('overrides caller options that would turn cookies on, ignore DNT, or send the raw URL', () => {
+    const { w, embed } = runMuxPage();
+    const other = w.document.createElement('video');
+    w.mux.monitor(other, {
+      disableCookies: false,
+      respectDoNotTrack: false,
+      data: { page_url: w.location.href },
+    });
+    expect(embed.calls[1].options).toEqual({
+      disableCookies: true,
+      respectDoNotTrack: true,
+      data: { page_url: 'https://nathanpayne.test/projects/swipe-watch/?utm_source=s' },
+    });
+  });
+
+  it.each([
+    ['a saved opt-out', { stored: JSON.stringify({ v: 1, choice: 'denied' }) }],
+    ['GPC', { gpc: true }],
+    ['GPC over a saved grant', { gpc: true, stored: JSON.stringify({ v: 1, choice: 'granted' }) }],
+    ['a missing gate', { runGate: false }],
+  ])('never starts a monitor under %s', (_label, opts) => {
+    const { w, embed, video, loaded } = runMuxPage(opts);
+    // The loader still assigns mux-embed; the assignment is discarded.
+    expect(loaded).toBe(true);
+    expect(w.mux).toBeUndefined();
+    expect(embed.calls).toEqual([]);
+    expect(video.mux).toBeUndefined();
+  });
+
+  it('stops on withdrawal: monitors destroyed, the global gone, and litix.io refused', async () => {
+    const { w, embed, video, privacy, sent } = runMuxPage();
+    expect(embed.calls).toHaveLength(1);
+    await w.fetch('https://inferred.litix.io');
+    privacy.set('denied');
+    expect(embed.destroyed).toEqual([video]);
+    expect(w.mux).toBeUndefined();
+    const refused = await w.fetch('https://inferred.litix.io');
+    expect(refused.status).toBe(204);
+    expect(w.navigator.sendBeacon('https://img.litix.io/a.gif', '{}')).toBe(true);
+    expect(sent.fetch).toEqual(['https://inferred.litix.io']);
+    expect(sent.beacon).toEqual([]);
+  });
+
+  it('starts nothing when a grant arrives after a denial in the same page view', () => {
+    const { w, embed, privacy, componentLoad, video } = runMuxPage({
+      stored: JSON.stringify({ v: 1, choice: 'denied' }),
+    });
+    expect(privacy.set('granted')).toBe(true);
+    w.mux = fakeMuxEmbed().mux;
+    componentLoad();
+    expect(w.mux).toBeUndefined();
+    expect(embed.calls).toEqual([]);
+    expect(video.mux).toBeUndefined();
   });
 });

@@ -41,14 +41,14 @@
     }
   },
   "gtag": {
-    "about": "gtag.js is not byte-stable (the inventory saw three variants in eight production loads) and none of the three can be requested on demand. The suite fetches the current gtag.js for the production measurement ID at run time and serves it under the fake test ID. productionSha256 lists the recorded variants. If the fetched bytes match one, the run records matchesProduction true; otherwise matchesProduction is false and every GA4 transmitted-payload criterion is reported not verified (indicative only). The suite never fails on a gtag.js hash mismatch, because the mismatch is the expected state, not a defect; it fails if the inventory's recorded hashes and this list disagree.",
+    "about": "gtag.js is served by Google and is not byte-stable: one capture day showed four variants in 48 loads, and they differ in a one-byte server flag or in the runtime version, never in the embedded property configuration. production records the one variant the suite tests, captured on capturedOn from the URL in source for the production measurement ID, after the 2026-10-10 GA4 property changes and re-recorded on 2026-10-11 when Google rotated the served bytes with the configuration unchanged (docs/privacy/capture-2026-10-10-gtag.md). The suite fetches the current gtag.js for that ID at run time (Node side only), retries up to fetchAttempts times until the bytes hash to production.sha256, and serves them under the fake test ID. If they never match, the GA4 provenance test is skipped with a re-record reason and every GA4 transmitted-payload result stays indicative; it never passes on unrecorded bytes, nor on a cached copy this run did not fetch. With NP_PRIVACY_REQUIRE_GA4=1, which the #1233 release run sets, those skips fail instead. To re-record after Google changes the tag, follow docs/agents/testing-requirements.md (GA4 tag refresh). The suite fails if this hash and the inventory's recorded hash disagree.",
     "source": "https://www.googletagmanager.com/gtag/js?id=<measurement ID>",
-    "productionSha256": [
-      "f34220e1a7dc7cfae8332511695a7b8859ef39ecf837443d059b48c893bd3ab3",
-      "1ee851e4853a414f6f17e6b1020939ca5c0d6a0d54df1d200f8cae6c23054274",
-      "45f1503d2a63c528ef137d553b1c6bf96b8bf893cd184a240f12afbaa13c5639"
-    ],
-    "fetchAttempts": 4
+    "production": {
+      "capturedOn": "2026-10-11",
+      "sha256": "c292b477d7e4e0609be9bd3d6833840f44bf2d5c426d2b508b1699beb3a48283",
+      "bytes": 488213
+    },
+    "fetchAttempts": 10
   },
   "axe": {
     "package": "axe-core",

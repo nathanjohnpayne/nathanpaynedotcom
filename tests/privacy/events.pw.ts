@@ -241,21 +241,37 @@ test.describe('PostHog events', () => {
     expect(leakHits(s.sink.searchableText('posthog'))).toEqual([]);
   });
 
-  test('PRIV-2 (observation) click identifiers outside the allowlist are copied into their own properties, a documented residual', async ({
+  test('PRIV-2 fbclid and msclkid reach PostHog in no property and no request, while utm_source and gclid are still copied (#1263)', async ({
     open,
   }) => {
-    // specs/analytics.md § Not Changed: PostHog copies fbclid and similar identifiers into separate
-    // properties; removing them would disable existing attribution, which needs Nathan's approval.
-    // Recorded here so the behavior is visible; it is reported, not asserted, because the contract's
-    // allowlist rule governs URLs and leaves these to Nathan's decision.
+    // Decision 11 (#1263): PostHog copies click identifiers out of the URL into their own event and
+    // person properties (and builds $fbc from fbclid), outside URL scrubbing. The non-Google ones are
+    // removed from every payload; the UTMs and the Google identifiers are copied as before.
+    // specs/analytics.md § Privacy Runtime.
     const s = await open();
-    await s.goto(`${FIXTURE_PATH}?fbclid=np-observation-fbclid&utm_source=fixture`);
+    await s.goto(
+      `${FIXTURE_PATH}?fbclid=np-click-fbclid&msclkid=np-click-msclkid&utm_source=fixture&gclid=np-click-gclid`,
+    );
     await expectCollecting(s, { ga4: false });
     const pageview = eventsNamed(s.sink.posthogEvents(), '$pageview')[0];
-    expect(pageview?.properties.$current_url).toBe(SCRUBBED_FIXTURE_URL);
-    test.info().annotations.push({
-      type: 'finding',
-      description: `fbclid copied into its own property outside the URL: ${'fbclid' in (pageview?.properties ?? {}) ? 'yes' : 'no'}`,
-    });
+    expect(pageview?.properties.$current_url).toBe(`${SCRUBBED_FIXTURE_URL}&gclid=np-click-gclid`);
+    // Positive controls: the copies the SDK makes of the kept parameters were sent.
+    expect(pageview?.properties.utm_source).toBe('fixture');
+    expect(pageview?.properties.gclid).toBe('np-click-gclid');
+    expect(pageview?.properties.$session_entry_gclid).toBe('np-click-gclid');
+    const searchable = s.sink.searchableText('posthog');
+    expect(searchable, 'fbclid value in any PostHog request').not.toContain('np-click-fbclid');
+    expect(searchable, 'msclkid value in any PostHog request').not.toContain('np-click-msclkid');
+    const copies = /^(\$initial_|\$session_entry_)?(fbclid|msclkid)$|^\$fbc$/;
+    for (const { event } of s.sink.posthogEvents()) {
+      for (const part of [event.properties, event.$set, event.$set_once]) {
+        expect(
+          Object.keys((part as Record<string, unknown> | undefined) ?? {}).filter((k) =>
+            copies.test(k),
+          ),
+          `${event.event} carries no fbclid or msclkid property`,
+        ).toEqual([]);
+      }
+    }
   });
 });

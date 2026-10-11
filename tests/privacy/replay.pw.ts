@@ -5,9 +5,10 @@
  * and masking happens in the recorder rather than in the event pipeline.
  */
 import { CANARIES, FIXTURE_PATH, SITE_ORIGIN } from './harness/constants';
-import { neutralRemoteConfig } from './harness/egress';
+import { neutralRemoteConfig, REMOTE_CONFIG } from './harness/egress';
 import {
   canaryHits,
+  eventsNamed,
   expectCollecting,
   fillContactForm,
   leakHits,
@@ -158,20 +159,12 @@ test.describe('replay payloads', () => {
       SCRUBBED_FIXTURE_URL,
     );
 
-    const requests = items
-      .filter((i) => i.type === 6)
-      .flatMap((i) =>
-        ((i.data?.payload as { requests?: Array<{ name: string }> })?.requests ?? []).map(
-          (r) => r.name,
-        ),
-      );
+    // Network timing is off in client config (#1261), so no request URL is recorded at all. The capture
+    // configuration tests below show the client setting winning over the project's config.
     expect(
-      requests.length,
-      'network timing entries were recorded (positive control)',
-    ).toBeGreaterThan(0);
-    expect(requests, 'the document request is recorded under its scrubbed URL').toContain(
-      SCRUBBED_FIXTURE_URL,
-    );
+      items.filter((i) => i.type === 6 && i.data?.plugin === 'rrweb/network@1'),
+      'no network-timing records',
+    ).toEqual([]);
 
     // --- Absence checks over fully decompressed replay payloads.
     expect(s.sink.undecodedCollection(), 'every replay body was decodable').toEqual([]);
@@ -271,67 +264,93 @@ test.describe('capture configuration (PRIV-13)', () => {
     ).toBe(false);
   });
 
-  test("PRIV-13 with the project's real config (console, canvas, network timing ON), the client leaves them as configured and never adds bodies", async ({
+  test("PRIV-13 with the project's real config (console, canvas, network timing ON), the client turns all three off, and replay and web vitals still flow", async ({
     open,
   }) => {
-    // The inventory found these three on in PostHog's remote config (Capture Conflicts C1 to C3). The contract
-    // says the runtime must leave them alone and report them to Nathan, not override them from the client.
+    // The inventory found these three on in PostHog's remote config (Capture Conflicts C1 to C3), and the harness
+    // serves that config. Nathan's decision 1 on #1079 (#1261) turns them off in client config, which wins over it.
+    expect(REMOTE_CONFIG.sessionRecording).toMatchObject({
+      consoleLogRecordingEnabled: true,
+      recordCanvas: true,
+    });
+    expect(REMOTE_CONFIG.capturePerformance).toMatchObject({ network_timing: true });
     const s = await open();
     await s.goto(FIXTURE_PATH);
     await expectCollecting(s, { ga4: false });
-    const marker =
-      'np-console-probe-with-url https://nathanpayne.test/x?email=NP-CANARY-QUERY%40example.test#NP-CANARY-FRAGMENT';
-    await s.page.evaluate((m) => console.log(m), marker);
+    // Something for each feature to record while replay runs: a console line carrying a URL, a canvas drawn on
+    // for over a second, and a request.
+    await s.page.evaluate(async (m) => {
+      console.log(m);
+      const canvas = document.createElement('canvas');
+      canvas.id = 'np-canvas-probe';
+      canvas.width = 160;
+      canvas.height = 80;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('no 2d context');
+      ctx.fillStyle = '#c03';
+      ctx.fillRect(0, 0, 160, 80);
+      document.body.append(canvas);
+      for (let i = 0; i < 10; i += 1) {
+        ctx.fillStyle = `hsl(${i * 36} 80% 50%)`;
+        ctx.fillRect(i * 16, 0, 16, 80);
+        await new Promise((r) => setTimeout(r, 150));
+      }
+      await fetch('/favicon.svg?np-network-probe=1', { cache: 'no-store' });
+    }, `np-console-probe-with-url ${SITE_ORIGIN}/x?email=${CANARIES.query}%40example.test#${CANARIES.fragment}`);
+    await humanActivity(s.page);
     await s.page.waitForTimeout(4000);
     await unloadAndSettle(s.page);
-    await expect
-      .poll(
-        () =>
-          replayItems(s).filter((i) => i.type === 6 && i.data?.plugin === 'rrweb/console@1').length,
-        { message: 'the console record reached the sink' },
-      )
-      .toBeGreaterThan(0);
+    expect(s.sink.undecodedCollection(), 'every replay body was decodable').toEqual([]);
 
+    // --- Positive controls: replay recorded the page, including the canvas element itself, and web vitals flowed.
     const items = replayItems(s);
+    expect(
+      items.some((i) => i.type === 2),
+      'a full DOM snapshot',
+    ).toBe(true);
+    expect(
+      items.some((i) => i.type === 3 && JSON.stringify(i.data).includes('np-canvas-probe')),
+      'the canvas element was recorded as a DOM node while replay ran',
+    ).toBe(true);
+    expect(
+      eventsNamed(s.sink.posthogEvents(), '$web_vitals').length,
+      'web vitals events were sent',
+    ).toBeGreaterThan(0);
     const options = customPayload(items, '$session_options') as
       { sessionRecordingOptions: Record<string, unknown>; activePlugins: string[] } | undefined;
+    expect(options, 'the recorder reported its effective options').toBeDefined();
+
+    // --- None of the three: no console, canvas, or network-timing record, and the recorder ran without them.
     expect(
-      options?.sessionRecordingOptions.recordCanvas,
-      'project canvas setting left in effect',
-    ).toBe(true);
-    expect(options?.activePlugins, 'project console and network settings left in effect').toEqual(
-      expect.arrayContaining(['rrweb/console@1', 'rrweb/network@1']),
-    );
+      items.filter((i) => i.type === 6 && i.data?.plugin === 'rrweb/console@1'),
+      'console records',
+    ).toEqual([]);
+    expect(
+      items.filter((i) => i.type === 3 && i.data?.source === 9),
+      'canvas mutation records',
+    ).toEqual([]);
+    expect(
+      items.filter((i) => i.type === 6 && i.data?.plugin === 'rrweb/network@1'),
+      'network-timing records',
+    ).toEqual([]);
+    const replayText = s.sink
+      .snapshotEvents()
+      .map(({ req }) => req.searchable)
+      .join('\n');
+    expect(replayText, 'a canvas image in a recorded node').not.toContain('rr_dataURL');
+    expect(replayText, 'the console probe').not.toContain('np-console-probe');
+    expect(replayText, 'the probe request URL').not.toContain('np-network-probe');
+    expect(
+      Boolean(options?.sessionRecordingOptions.recordCanvas),
+      'canvas capture is off in the recorder',
+    ).toBe(false);
+    expect(options?.activePlugins ?? [], 'no console plugin').not.toContain('rrweb/console@1');
+    expect(options?.activePlugins ?? [], 'no network plugin').not.toContain('rrweb/network@1');
     const clientConfig = (
       customPayload(items, '$posthog_config') as
         { config: { session_recording?: Record<string, unknown> } } | undefined
     )?.config;
     expect(clientConfig?.session_recording?.recordBody).toBe(false);
     expect(clientConfig?.session_recording?.recordHeaders).toBe(false);
-    for (const record of items.filter((i) => i.type === 6)) {
-      const requests =
-        (record.data?.payload as { requests?: Array<Record<string, unknown>> }).requests ?? [];
-      for (const r of requests) {
-        expect(
-          Object.keys(r).filter(
-            (k) => /body$|headers$/i.test(k) && !/^(encoded|decoded)BodySize$/.test(k),
-          ),
-        ).toEqual([]);
-      }
-    }
-    const consoleRecords = items.filter(
-      (i) => i.type === 6 && i.data?.plugin === 'rrweb/console@1',
-    );
-    const recorded = JSON.stringify(consoleRecords);
-    test.info().annotations.push({
-      type: 'finding',
-      description: `C1 live: console output is in the recording (${consoleRecords.length} record(s)); the probe URL was ${
-        recorded.includes('NP-CANARY') ? 'NOT scrubbed' : 'scrubbed'
-      } in it`,
-    });
-    expect(
-      consoleRecords.length,
-      'console capture is active, as configured by the project (conflict C1)',
-    ).toBeGreaterThan(0);
   });
 });

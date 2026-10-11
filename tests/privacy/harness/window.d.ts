@@ -6,6 +6,8 @@ export {};
 
 declare global {
   interface Window {
+    /** The page's gtag function, present when the GA4 tag is on the page. */
+    gtag?: (...args: unknown[]) => void;
     npPrivacy?: {
       version: number;
       get(): {
