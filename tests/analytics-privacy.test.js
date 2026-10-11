@@ -320,6 +320,21 @@ describe('production-mode build carries the privacy controls (PRIV-15 replacemen
       );
     });
 
+    it('catches a host spelled through composed CSS and URL decoding', () => {
+      for (const tag of [
+        // CSS turns \\2d plus space into "-", then URL parsing turns %2e into ".".
+        '<div style="background:url(https://www.google\\2d analytics%2ecom/g/collect)"></div>',
+        // The same host with the stages the other way round.
+        '<img src="https://www.google%5c2d analytics.com/g/collect">',
+      ]) {
+        const mutated = page.replace('</body>', `${tag}</body>`);
+        expect(
+          analyticsGateFindings(mutated).some((f) => f.includes('google-analytics.com')),
+          tag,
+        ).toBe(true);
+      }
+    });
+
     it('catches analytics URLs in every attribute form HTML accepts', () => {
       for (const tag of [
         '<img src=https://stats.doubleclick.net/pixel>',

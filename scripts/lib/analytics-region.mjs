@@ -171,14 +171,36 @@ function cssUnescape(text) {
 }
 
 /** A value as the hosts could be spelled in it: lowercased, percent- and CSS-decoded. */
+/** Percent-decodes every valid `%XX` and leaves anything else as it is, so one bad escape cannot hide the rest. */
+function percentDecode(value) {
+  return value.replace(/%([0-9a-f]{2})/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+}
+
+/**
+ * Every spelling a browser could arrive at. A browser applies its decoders in
+ * stages (CSS unescaping, then URL percent-decoding), so the decoders are
+ * composed, not just applied each to the raw value: every form found is fed
+ * through every decoder again until no new form appears. The parser has
+ * already decoded HTML entities.
+ */
 function spellings(value) {
-  const out = new Set([value.toLowerCase(), cssUnescape(value).toLowerCase()]);
-  try {
-    out.add(decodeURIComponent(value).toLowerCase());
-  } catch {
-    // Not valid percent-encoding: the raw spellings above are all there is.
+  const decoders = [cssUnescape, percentDecode];
+  const seen = new Set([value.toLowerCase()]);
+  let frontier = [...seen];
+  for (let round = 0; round < 8 && frontier.length; round++) {
+    const next = [];
+    for (const form of frontier) {
+      for (const decode of decoders) {
+        const decoded = decode(form).toLowerCase();
+        if (!seen.has(decoded)) {
+          seen.add(decoded);
+          next.push(decoded);
+        }
+      }
+    }
+    frontier = next;
   }
-  return [...out];
+  return [...seen];
 }
 
 function namedHosts(value) {
