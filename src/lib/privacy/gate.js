@@ -971,6 +971,17 @@
    * batch queue flushes on a timer without rechecking consent and has no
    * public API to empty it (request-queue.ts, v1.438.3:
    * https://github.com/PostHog/posthog-js/blob/posthog-js%401.438.3/packages/browser/src/request-queue.ts).
+   *
+   * It also refuses an analytics-host `src` on a script, img, or iframe
+   * element, set by property or by setAttribute (#1278). gtag.js reaches
+   * Google through elements it creates itself as well: on the page loads where
+   * it samples itself into tag diagnostics, it sends `/td` pings as images and,
+   * at pagehide, requests `gtag/js` again through a new script element, with
+   * `is_td=1`, the page's host and path, and its request counts in the query.
+   * `ga-disable-<ID>` stops neither. Those three element types are the ones
+   * gtag.js loads anything through, and posthog-js loads its lazy scripts the
+   * same way. A refused `src` is never set, so the element requests nothing.
+   *
    * Until a withdrawal it passes everything through untouched.
    */
   function installGuard() {
@@ -1006,6 +1017,48 @@
         if (withdrawn && isAnalyticsUrl(urls.get(this))) return undefined;
         return nativeSend.apply(this, arguments);
       };
+    }
+    var srcElements = [];
+    ['HTMLScriptElement', 'HTMLImageElement', 'HTMLIFrameElement'].forEach(function (name) {
+      var proto = w[name] && w[name].prototype;
+      var src = proto && Object.getOwnPropertyDescriptor(proto, 'src');
+      if (!src || typeof src.set !== 'function' || !src.configurable) return;
+      srcElements.push(w[name]);
+      Object.defineProperty(proto, 'src', {
+        configurable: true,
+        enumerable: src.enumerable,
+        get: src.get,
+        set: function (value) {
+          if (withdrawn && isAnalyticsUrl(value)) return;
+          src.set.call(this, value);
+        },
+      });
+    });
+    var El = w.Element;
+    if (
+      srcElements.length &&
+      El &&
+      El.prototype &&
+      typeof El.prototype.setAttribute === 'function'
+    ) {
+      var nativeSetAttribute = El.prototype.setAttribute;
+      El.prototype.setAttribute = function (name, value) {
+        if (
+          withdrawn &&
+          String(name).toLowerCase() === 'src' &&
+          isSrcElement(this) &&
+          isAnalyticsUrl(value)
+        ) {
+          return undefined;
+        }
+        return nativeSetAttribute.apply(this, arguments);
+      };
+    }
+    function isSrcElement(element) {
+      for (var i = 0; i < srcElements.length; i++) {
+        if (element instanceof srcElements[i]) return true;
+      }
+      return false;
     }
   }
 
