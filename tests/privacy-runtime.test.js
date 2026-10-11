@@ -1694,6 +1694,17 @@ describe('flag-on PostHog block', () => {
     expect(privacy.get().loadedThisPage).toBe(true);
   });
 
+  // #1261: the shapes posthog-js 1.438.3 lets win over remote config, which
+  // turns all three on. The browser check (tests/privacy-runtime/) shows the
+  // real SDK honoring them.
+  it('turns replay console, canvas, and network-timing capture off explicitly, and keeps web vitals on', () => {
+    const { config } = runPostHog();
+    expect(config.enable_recording_console_log).toBe(false);
+    expect(config.capture_performance).toEqual({ network_timing: false, web_vitals: true });
+    expect(config.session_recording.captureCanvas).toEqual({ recordCanvas: false });
+    expect(config.disable_session_recording).toBe(false);
+  });
+
   it('keeps the same unchanged settings as the flag-off block', () => {
     for (const setting of [
       "api_host: 'https://d.nathanpayne.com'",
