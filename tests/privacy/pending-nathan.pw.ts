@@ -1,32 +1,31 @@
 /**
- * Findings that are expected to stay open until Nathan decides. Each finding is
- * two tests in a serial pair. The first MEASURES and is an ordinary test: it must
- * navigate, collect, interact, and decode, or it fails for real, and it stores
- * what it found. The second asserts the CLEAN outcome the contract asks for on
- * that stored result and is marked expected-to-fail, so CI stays green while the
- * finding is real and turns red the day it stops being true (an expected failure
- * that passes is reported as a failure). Because the expected failure covers the
- * assertion only, a broken navigation or decode can never be counted as the
- * finding. When Nathan resolves an item, delete its `test.fail` line and the
- * second test becomes an ordinary gate.
+ * Findings that stayed open until Nathan decided. Each finding was a serial pair:
+ * an ordinary measuring test and an expected-to-fail assertion on its stored
+ * result, so CI stayed green while the finding was real and turned red the day it
+ * stopped being true.
  *
- * Reported as PRIV-2 / PRIV-13 "not verified, pending Nathan", not as pass.
- *
- * The GA4 enhanced-measurement finding that lived here closed on 2026-10-10,
- * when Nathan turned the leaking events off in the property. Its test is now an
- * ordinary gate in ga4.pw.ts. The console-record pair is the only open finding.
+ * Both findings have since closed, and this file keeps only the resulting gate:
+ * - GA4 enhanced measurement (PRIV-2) closed on 2026-10-10, when Nathan turned
+ *   the leaking events off in the property. Its gate lives in ga4.pw.ts (#1262).
+ * - Console records (PRIV-2, PRIV-13) closed with #1261. Its gate is below.
  */
 import { CANARIES, FIXTURE_PATH } from './harness/constants';
-import { canaryHits, expectCollecting, replayItems, unloadAndSettle } from './harness/helpers';
+import {
+  canaryHits,
+  expectCollecting,
+  humanActivity,
+  replayItems,
+  unloadAndSettle,
+} from './harness/helpers';
 import { expect, test } from './harness/test';
 
-let consoleMeasurement: { text: string } | undefined;
-
-test.describe.serial('pending Nathan: console records', () => {
-  test('PRIV-2 PRIV-13 (measurement) a URL logged to the console is recorded, and the recording decodes', async ({
+// Resolved by #1261 (Nathan's decision 1 on #1079): console-log capture is off in client config, which wins over
+// the project's remote config (Capture Conflicts C1), so the expected failure became an ordinary gate. The served
+// remote config still turns console capture on, so this fails the day the client setting stops winning.
+test.describe('resolved (#1261): console records', () => {
+  test('PRIV-2 PRIV-13 a URL logged to the console never reaches the recording: no console record, while replay records the page around it', async ({
     open,
   }) => {
-    consoleMeasurement = undefined;
     const s = await open();
     await s.goto(FIXTURE_PATH);
     await expectCollecting(s, { ga4: false });
@@ -34,29 +33,32 @@ test.describe.serial('pending Nathan: console records', () => {
       (m) => console.log(m),
       `np-console-probe https://nathanpayne.test/x?email=${CANARIES.query}%40example.test#${CANARIES.fragment}`,
     );
+    // Positive control: replay is still recording after the console call, so a console record would have been
+    // sent along with this DOM change.
+    await s.page.evaluate(() => {
+      const p = document.createElement('p');
+      p.id = 'np-after-console-probe';
+      p.textContent = 'Recorded after the console probe';
+      document.body.append(p);
+    });
+    await humanActivity(s.page);
     await s.page.waitForTimeout(4000);
     await unloadAndSettle(s.page); // let the unload flush reach the sink
     expect(s.sink.undecodedCollection(), 'every replay body was decodable').toEqual([]);
-    const consoleRecords = replayItems(s).filter(
-      (i) => i.type === 6 && i.data?.plugin === 'rrweb/console@1',
-    );
-    // No console records means console capture was turned off (resolved) or the probe was not recorded.
-    test.skip(
-      consoleRecords.length === 0,
-      'not verified: the console probe was not recorded. If console capture was turned off in the project, the finding is resolved: delete the test.fail in the next test and this skip.',
-    );
-    consoleMeasurement = { text: JSON.stringify(consoleRecords) };
-  });
-
-  test('PRIV-2 PRIV-13 [PENDING NATHAN: expected to fail] URLs in console records are scrubbed like every other URL the recording holds', () => {
-    test.fail(
-      true,
-      'Contract: with console capture on in PostHog remote config (Capture Conflicts C1) the runtime leaves it alone, yet "URL scrubbing still applies to any URL those features record". Console text is not rewritten, so a URL a page logs reaches the recording unscrubbed. Nathan decides: turn console capture off in the project, or accept and disclose.',
-    );
-    test.skip(!consoleMeasurement, 'not verified: the measurement test did not complete');
+    const items = replayItems(s);
     expect(
-      canaryHits(consoleMeasurement?.text ?? ''),
-      'sensitive URL parts in console records',
+      JSON.stringify(items),
+      'replay recorded the page after the console call (positive control)',
+    ).toContain('np-after-console-probe');
+    expect(
+      items.filter((i) => i.type === 6 && i.data?.plugin === 'rrweb/console@1'),
+      'console records in the recording',
     ).toEqual([]);
+    const replayText = s.sink
+      .snapshotEvents()
+      .map(({ req }) => req.searchable)
+      .join('\n');
+    expect(replayText, 'the console probe in any replay payload').not.toContain('np-console-probe');
+    expect(canaryHits(replayText), 'sensitive URL parts in any replay payload').toEqual([]);
   });
 });

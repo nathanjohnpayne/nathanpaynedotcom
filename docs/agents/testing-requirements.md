@@ -29,6 +29,7 @@ To re-record (Node side only; nothing here opens a browser, changes a GA4 settin
 
 A mismatch after a tag change that did not touch the configuration is routine and is fixed by steps 1 to 4. A configuration finding (`gtagConfigFindings` failing) is not routine: it means the property no longer has the settings #1079 relies on.
 
+`pending-nathan.pw.ts` no longer holds any expected failures. The GA4 enhanced-measurement finding closed when Nathan turned those events off in the property on 2026-10-10, and its gate is in `ga4.pw.ts` (#1262). The console-captured-URL finding closed with a client setting (#1261), and its gate is the one test left in `pending-nathan.pw.ts`.
 
 ## PDF test dependencies
 
