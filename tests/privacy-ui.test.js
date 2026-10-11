@@ -593,6 +593,10 @@ describe('/privacy/ page and footer link (PRIV-11, PRIV-15)', () => {
     expect(PAGE_TEMPLATE).toContain(
       'It does not copy the error message, and it carries no visitor ID.',
     );
+    // gtag.js tag diagnostics reach www.googletagmanager.com on sampled loads (#1278).
+    expect(PAGE_TEMPLATE).toContain(
+      'on a small share of page loads the tag also sends diagnostic reports there',
+    );
     // Every surface that names what the setting stops names Mux Data too (decision 12).
     expect(CONTROLS_HTML).toContain('Google Analytics 4, and Mux Data');
     expect(NOTICE_HTML).toContain("Mux's playback analytics");
