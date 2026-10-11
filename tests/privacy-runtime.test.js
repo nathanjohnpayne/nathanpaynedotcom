@@ -543,9 +543,57 @@ describe('transport guard', () => {
     });
   });
 
+  // #1278: gtag.js sends tag diagnostics through an image and a script
+  // element it creates, outside fetch, sendBeacon, and XHR.
+  it('drops an analytics-host src on script, img, and iframe elements after a withdrawal', () => {
+    const { w, privacy, gate } = boot();
+    const d = w.document;
+    gate.registerTool('t', { stop() {} });
+    const loader = d.createElement('script');
+    loader.src = 'https://www.googletagmanager.com/gtag/js?id=G-X';
+    privacy.set('denied');
+    const script = d.createElement('script');
+    script.src = 'https://www.googletagmanager.com/gtag/js?id=G-X&is_td=1&dl=nathanpayne.test%2F';
+    const ping = new w.Image(1, 1);
+    ping.src = 'https://www.googletagmanager.com/td?id=G-X';
+    const frame = d.createElement('iframe');
+    frame.setAttribute(
+      'src',
+      'https://www.googletagmanager.com/static/service_worker/x/sw_iframe.html',
+    );
+    const byAttribute = d.createElement('img');
+    byAttribute.setAttribute('SRC', 'https://region1.google-analytics.com/g/collect');
+    const lazy = d.createElement('script');
+    lazy.setAttribute('src', 'https://d.nathanpayne.com/static/posthog-recorder.js');
+    const image = d.createElement('img');
+    image.src = 'https://nathanpayne.test/images/a.png';
+    const bundle = d.createElement('script');
+    bundle.setAttribute('src', '/_astro/page.js');
+    const notALoader = d.createElement('div');
+    notALoader.setAttribute('src', 'https://d.nathanpayne.com/x');
+    const link = d.createElement('a');
+    link.setAttribute('href', 'https://www.googletagmanager.com/');
+    expect(loader.getAttribute('src')).toBe('https://www.googletagmanager.com/gtag/js?id=G-X');
+    expect([script, ping, frame, byAttribute, lazy].map((e) => e.getAttribute('src'))).toEqual([
+      null,
+      null,
+      null,
+      null,
+      null,
+    ]);
+    expect(image.src).toBe('https://nathanpayne.test/images/a.png');
+    expect(bundle.getAttribute('src')).toBe('/_astro/page.js');
+    expect(notALoader.getAttribute('src')).toBe('https://d.nathanpayne.com/x');
+    expect(link.getAttribute('href')).toBe('https://www.googletagmanager.com/');
+  });
+
   it('is installed only once a tool registers', () => {
-    const { w } = boot();
+    const { w, privacy } = boot();
     expect(w.fetch.toString()).toContain('sent.fetch.push');
+    privacy.set('denied');
+    const ping = w.document.createElement('img');
+    ping.src = 'https://www.googletagmanager.com/td?id=G-X';
+    expect(ping.getAttribute('src')).toBe('https://www.googletagmanager.com/td?id=G-X');
   });
 
   it.each([
