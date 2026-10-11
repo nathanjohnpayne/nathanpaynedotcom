@@ -2681,7 +2681,7 @@ body.blog-page {
   margin-top: 3rem;
   padding-top: 1.25rem;
   border-top: 1px solid var(--rule);
-  margin-bottom: 0.75rem;
+  margin-bottom: 0;
   font-family: var(--font-heading);
   font-weight: var(--heading-weight);
   font-style: italic;
@@ -2692,6 +2692,17 @@ body.blog-page {
 
 .project-copy h2:first-child {
   margin-top: 0;
+}
+
+/* A heading leads straight into its own content. `.project-copy` is a grid,
+   so margins do not collapse: the 1.2rem row gap, the heading's own bottom
+   margin, and a list's top margin used to stack, putting a heading about
+   2–2.5rem from its paragraph or list, further than the paragraphs sit from
+   each other. With no bottom margin on the heading, this pulls whatever
+   follows it up to 0.75rem, the same heading-to-text distance .blog-prose
+   gets from its collapsing margins. */
+.project-copy > :is(h2, h3) + * {
+  margin-top: -0.45rem;
 }
 
 /* One register below the italic h2, and upright rather than italic, so a
@@ -2706,7 +2717,7 @@ body.blog-page {
    as the quieter of the two. */
 .project-copy h3 {
   margin-top: 2.5rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0;
   font-family: var(--font-heading);
   font-weight: var(--heading-weight);
   font-size: clamp(1.15rem, 1.45vw, 1.36rem);
