@@ -35,6 +35,12 @@ A byte rotation that did not touch the configuration is routine and needs no act
 
 `pending-nathan.pw.ts` no longer holds any expected failures. The GA4 enhanced-measurement finding closed when Nathan turned those events off in the property on 2026-10-10, and its gate is in `ga4.pw.ts` (#1262). The console-captured-URL finding closed with a client setting (#1261), and its gate is the one test left in `pending-nathan.pw.ts`.
 
+## Privacy runtime suite (#1228, #1277)
+
+`tests/privacy-runtime/` drives the flag-on runtime in a real browser: the gate against the real SDKs, mid-visit withdrawal and the transport guard (#1278, #1286), the replay capture overrides (#1261), click-ID removal (#1263), and Mux Data (#1264). It has its own Playwright config and runs in the required `build-and-test` job as the step after the acceptance suite, with `npx playwright test -c tests/privacy-runtime/playwright.config.ts`.
+
+It needs two vendor files, passed as `NP_POSTHOG_JS_DIST` (the `dist/` directory of posthog-js 1.438.3) and `NP_GTAG_JS` (a local `gtag.js`). CI points both at what the acceptance suite's global setup already downloaded and verified, `node_modules/.cache/np-privacy-acceptance/posthog-js-1.438.3/package/dist` and `node_modules/.cache/np-privacy-acceptance/gtag.js`, and reuses its `dist-privacy-test/` build, so the step fetches nothing. Locally, run the acceptance suite once (or `npm run build:privacy-test` plus its global setup) and pass the same two paths. Inside the suite a missing file is a failure, not a skip: each spec's `beforeAll` asserts both exist. The CI step reads the acceptance setup's `state.json` first. It fails if that file is missing, because then the setup never ran. It skips the suite with a visible warning if `gtag.js` could not be fetched, matching how the acceptance suite skips GA4 so that a Google outage does not fail every PR. It runs with a warning if the tag's configuration is not the recorded production one; strict GA4 provenance is the #1233 release run's check (`NP_PRIVACY_REQUIRE_GA4=1`). Each spec launches Chromium behind its own local egress proxy (`tests/privacy-runtime/egress.ts`), the same default-deny boundary as the acceptance suite.
+
 ## PDF test dependencies
 
 `tests/resume.test.js` needs two PDF command-line tools, and will fail with an install hint rather than skip if either is missing. Skipping would quietly drop the only coverage of two regressions that are invisible to every other kind of check.

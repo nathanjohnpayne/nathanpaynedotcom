@@ -181,3 +181,65 @@ jobs:
           npm run build:privacy-test
           npx playwright test -c tests/privacy/playwright.config.ts
         timeout-minutes: 20
+
+      - name: Privacy runtime suite (Playwright, #1277)
+        # The real-browser checks of the flag-on runtime itself (#1228): the
+        # gate against the real SDKs, mid-visit withdrawal and the transport
+        # guard (#1278, #1286), the replay capture overrides (#1261), click-ID
+        # removal (#1263), and Mux Data (#1264). Suite: tests/privacy-runtime/,
+        # with its own config, run after the acceptance step because it reuses
+        # two things that step leaves behind: the flag-on build in
+        # dist-privacy-test/, and the vendor files its global setup downloaded
+        # and verified into node_modules/.cache/np-privacy-acceptance/
+        # (posthog-js 1.438.3 checked against the production hashes, and
+        # gtag.js served under the fake test ID). Nothing is fetched here.
+        #
+        # Network: the same default-deny boundary as the acceptance suite.
+        # Each spec launches Chromium behind its own local egress proxy
+        # (tests/privacy-runtime/egress.ts), which serves only the build and
+        # those two vendor files and records analytics endpoints locally.
+        #
+        # A missing vendor file is a failure inside the suite: each spec's
+        # beforeAll asserts both files exist. The one planned exception is a
+        # gtag.js the acceptance setup could not fetch, handled below.
+        #
+        # GA4 is optional here exactly as it is in the acceptance suite. The
+        # runtime specs need a gtag.js, and the acceptance setup writes one
+        # only when it could fetch it; when Google or the production page is
+        # unreachable it records the tag as unavailable and the acceptance
+        # suite skips GA4. This step reads that record (state.json) first:
+        #   - no state.json: fail, because the acceptance setup never ran;
+        #   - gtag unavailable: skip this suite with a visible warning, so a
+        #     Google outage does not fail every PR's required job;
+        #   - available but not the recorded production configuration: run,
+        #     with a visible warning (the suite tests the gate's behavior,
+        #     which any real gtag.js exercises);
+        #   - verified: run.
+        # Strict GA4 provenance belongs to the release run
+        # (NP_PRIVACY_REQUIRE_GA4=1, #1233), not to every PR.
+        env:
+          NP_POSTHOG_JS_DIST: ${{ github.workspace }}/node_modules/.cache/np-privacy-acceptance/posthog-js-1.438.3/package/dist
+          NP_GTAG_JS: ${{ github.workspace }}/node_modules/.cache/np-privacy-acceptance/gtag.js
+          NP_PRIVACY_STATE: ${{ github.workspace }}/node_modules/.cache/np-privacy-acceptance/state.json
+        run: |
+          rc=0
+          node -e '
+            const fs = require("node:fs");
+            const p = process.env.NP_PRIVACY_STATE;
+            if (!fs.existsSync(p)) {
+              console.log("::error title=No acceptance state::" + p + " is missing, so the acceptance setup did not run.");
+              process.exit(1);
+            }
+            const g = JSON.parse(fs.readFileSync(p, "utf8")).gtag || {};
+            if (g.available !== true) {
+              console.log("::warning title=GA4 fixture unavailable::gtag.js could not be fetched (" + (g.reason || "unknown") + "), so the privacy runtime suite is skipped on this run, as the acceptance suite skips GA4.");
+              process.exit(3);
+            }
+            const verified = g.source === "fetched" && g.matchesProduction === true;
+            console.log("GA4 fixture: " + (verified ? "verified against the recorded production configuration" : "NOT verified") + " (source=" + g.source + ", matchesProduction=" + g.matchesProduction + ")");
+            if (!verified) console.log("::warning title=GA4 fixture not verified::The runtime suite runs against a gtag.js whose configuration is not the recorded production one. Its gate checks still apply; GA4 provenance is checked strictly in the #1233 release run.");
+          ' || rc=$?
+          if [ "$rc" -eq 3 ]; then exit 0; fi
+          if [ "$rc" -ne 0 ]; then exit "$rc"; fi
+          npx playwright test -c tests/privacy-runtime/playwright.config.ts
+        timeout-minutes: 15
