@@ -200,9 +200,12 @@ recruiter-legible filename, for "attach your resume" forms and ATS pipelines
   rather than registered as its own integration: it needs the same headless
   Chromium and static dist/ server that hook already stands up, and
   `astro.config.mjs` is on the Do Not Touch list (`.ai_context.md`).
-- `RESUME_PDF_MARGIN` in the generator restates the `@page { margin }` value
-  (0.6in, the #420 Safari floor) because Chromium takes print margins from the
-  printToPDF parameters, not from CSS. The paired test asserts the two agree.
+- The page margin is the `@page { margin: 0.6in }` rule in the `@media print`
+  block (the #420 Safari floor), and only that: the generator passes no
+  `margin` to `page.pdf()`, because Chromium does not apply those parameters
+  when the page declares an `@page` margin (#1266). The paired tests assert
+  the rule in the built stylesheet and the left edge of the text in the built
+  PDF.
 - **Links are absolutized before the file is written (#683).** The render
   happens over a localhost static server, and Chromium resolves the PDF's link
   annotations against that base—so every root-relative `href` shipped as

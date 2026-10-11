@@ -20,6 +20,7 @@ import { STATUS_MARKER } from '../src/lib/lifecycle-marker';
 import {
   pdfTextInEmissionOrder,
   pdfPageCount,
+  pdfTextExtentPerPage,
   visibleMarkersPerPage,
   lifecycleMarkSignaturesPerPage,
   normalizeForOrder,
@@ -1152,21 +1153,54 @@ describe('Resume — downloadable PDF', () => {
     });
   });
 
-  it('the PDF margin constant matches the @page margin in the print stylesheet', () => {
-    // Chromium takes its print margins from the printToPDF parameters, not
-    // from the CSS @page rule, so the 0.6in floor (#420) is restated in the
-    // generator. If someone retunes one, this fails until they retune both.
-    const gen = readFileSync(resolve(__dirname, '../src/integrations/resume-pdf.mjs'), 'utf-8');
-    const genMargin = gen.match(/RESUME_PDF_MARGIN\s*=\s*'([^']+)'/)?.[1];
-    const css = readFileSync(resolve(__dirname, '../src/styles/global.css'), 'utf-8');
-    const printIdx = css.indexOf('@media print');
-    const cssMargin = css
-      .slice(printIdx)
-      .match(/@page\s*\{[\s\S]*?margin:\s*([^;]+);/)?.[1]
-      .trim();
-    expect(genMargin, 'RESUME_PDF_MARGIN not found in resume-pdf.mjs').toBeTruthy();
-    expect(cssMargin, '@page margin not found in the @media print block').toBeTruthy();
-    expect(genMargin).toBe(cssMargin);
+  describe('page margin (#1266)', () => {
+    // The margin is set by the `@page { margin }` rule in the `@media print`
+    // block of src/styles/global.css and by nothing else: Chromium's
+    // printToPDF does not apply the `margin` parameters of page.pdf() when the
+    // page declares one, so resume-pdf.mjs passes none. These tests used to
+    // assert that a restated JS constant matched the CSS — a coupling that did
+    // not exist, which passed whatever the JS said. They now check the rule and
+    // its effect on the file.
+    const MARGIN_IN = 0.6;
+    const MARGIN_PT = MARGIN_IN * 72;
+
+    /** Every `margin` declared in an `@page` rule of the built print CSS, in inches. */
+    function builtPageMarginsInInches() {
+      const margins = [];
+      for (const block of builtPrintBlocks()) {
+        for (const rule of block.matchAll(/@page\s*\{([^}]*)\}/g)) {
+          for (const decl of rule[1].matchAll(/(?:^|;)\s*margin\s*:\s*([^;}]+)/g)) {
+            const m = /^(\d*\.?\d+)(in|pt|px|cm|mm)$/.exec(decl[1].trim());
+            if (!m) throw new Error(`unrecognised @page margin value: ${decl[1].trim()}`);
+            const perInch = { in: 1, pt: 72, px: 96, cm: 2.54, mm: 25.4 }[m[2]];
+            margins.push(Number(m[1]) / perInch);
+          }
+        }
+      }
+      return margins;
+    }
+
+    it('declares a single 0.6in @page margin in the built print stylesheet', () => {
+      const margins = builtPageMarginsInInches();
+      expect(margins, 'no @page margin in an @media print block of the built CSS').toHaveLength(1);
+      expect(margins[0]).toBeCloseTo(MARGIN_IN, 5);
+    });
+
+    it('lays the text out 0.6in from the left and inside 0.6in of the right of every page', () => {
+      const pages = pdfTextExtentPerPage(PDF_PATH);
+      expect(pages.length).toBeGreaterThan(0);
+      for (const [i, page] of pages.entries()) {
+        const n = i + 1;
+        // Every page opens with left-aligned text, so the left edge of the
+        // text block is the margin itself, to within a glyph's side bearing.
+        expect(page.minX, `page ${n}: left edge of the text, pt`).toBeGreaterThan(MARGIN_PT - 1);
+        expect(page.minX, `page ${n}: left edge of the text, pt`).toBeLessThan(MARGIN_PT + 1);
+        // Ragged right: only the bound is meaningful.
+        expect(page.maxX, `page ${n}: right edge of the text, pt`).toBeLessThan(
+          page.width - MARGIN_PT + 1,
+        );
+      }
+    });
   });
 
   it('keeps the PDF out of the sitemap', () => {
