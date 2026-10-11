@@ -201,9 +201,15 @@ export function gtagConfigFindings(tags: GtagTag[]): string[] {
   const pageView = tags.find((t) => t.function === '__ccd_em_page_view');
   if (pageView && pageView.vtp_historyEvents !== true)
     findings.push('page views lost their history events');
-  for (const tag of tags.filter((t) => t.function === '__ogt_1p_data_v2'))
-    if (tag.vtp_isEnabled !== false)
-      findings.push('__ogt_1p_data_v2 (user-provided data) is not disabled');
+  // Exactly one user-provided-data tag, explicitly disabled. A missing, renamed, or duplicated tag is a finding:
+  // an unknown configuration is never read as "off".
+  const userData = tags.filter((t) => t.function === '__ogt_1p_data_v2');
+  if (userData.length !== 1)
+    findings.push(
+      `expected exactly one __ogt_1p_data_v2 (user-provided data) tag, found ${userData.length}`,
+    );
+  else if (userData[0]!.vtp_isEnabled !== false)
+    findings.push('__ogt_1p_data_v2 (user-provided data) is not disabled');
   return findings;
 }
 

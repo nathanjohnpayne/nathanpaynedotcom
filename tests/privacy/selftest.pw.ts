@@ -177,6 +177,15 @@ test.describe('GA4 served-configuration instrument', () => {
       ),
       'user-provided data turned back on',
     ).toEqual([expect.stringContaining('user-provided data')]);
+    // An unknown configuration never reads as "off": a missing or duplicated user-data tag is a finding.
+    expect(
+      gtagConfigFindings(clean.filter((t) => t.function !== '__ogt_1p_data_v2')),
+      'user-data tag missing or renamed',
+    ).toEqual([expect.stringContaining('found 0')]);
+    expect(
+      gtagConfigFindings([...clean, tag('__ogt_1p_data_v2', { vtp_isEnabled: false })]),
+      'user-data tag duplicated',
+    ).toEqual([expect.stringContaining('found 2')]);
     expect(
       gtagConfigFindings(clean.filter((t) => t.function !== '__ccd_em_scroll')),
       'scrolls turned off',
