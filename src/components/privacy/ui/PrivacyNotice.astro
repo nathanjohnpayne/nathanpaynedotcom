@@ -97,6 +97,15 @@ import noticeSource from './notice.js?raw';
     justify-content: flex-end;
     margin-top: var(--sp-sm);
   }
+  /* The notice is a screen control. With the flag on, the build-time résumé
+     PDF render (src/integrations/resume-pdf.mjs) is a first visit in a fresh
+     browser profile, so it showed the notice at the top of the PDF (#1233). */
+  @media print {
+    .privacy-notice,
+    .privacy-notice-status {
+      display: none;
+    }
+  }
 </style>
 
 <aside
