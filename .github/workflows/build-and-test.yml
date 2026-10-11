@@ -202,8 +202,28 @@ jobs:
         # A missing vendor file is a failure, not a skip: each spec's
         # beforeAll asserts both files exist, so this step cannot pass by
         # running nothing.
+        #
+        # GA4 provenance is reported, not required. This suite tests the
+        # gate's behavior (withdrawal, the transport guard, the overrides),
+        # which a real gtag.js exercises whether or not its configuration is
+        # the recorded production one. Requiring provenance here would fail
+        # every PR when Google is unreachable or the property changes; the
+        # strict check is the release run's (NP_PRIVACY_REQUIRE_GA4=1, #1233).
+        # So the step prints the fixture's provenance from the acceptance
+        # setup's state.json and raises a visible warning when it is not
+        # verified, rather than letting an unverified fixture pass silently.
         env:
           NP_POSTHOG_JS_DIST: ${{ github.workspace }}/node_modules/.cache/np-privacy-acceptance/posthog-js-1.438.3/package/dist
           NP_GTAG_JS: ${{ github.workspace }}/node_modules/.cache/np-privacy-acceptance/gtag.js
-        run: npx playwright test -c tests/privacy-runtime/playwright.config.ts
+          NP_PRIVACY_STATE: ${{ github.workspace }}/node_modules/.cache/np-privacy-acceptance/state.json
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            const p = process.env.NP_PRIVACY_STATE;
+            const g = fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf8")).gtag || {} : {};
+            const verified = g.available === true && g.source === "fetched" && g.matchesProduction === true;
+            console.log("GA4 fixture: " + (verified ? "verified against the recorded production configuration" : "NOT verified") + " (available=" + g.available + ", source=" + g.source + ", matchesProduction=" + g.matchesProduction + ")");
+            if (!verified) console.log("::warning title=GA4 fixture not verified::The runtime suite runs against a gtag.js whose configuration is not the recorded production one. Its gate checks still apply; GA4 provenance is checked strictly in the #1233 release run.");
+          '
+          npx playwright test -c tests/privacy-runtime/playwright.config.ts
         timeout-minutes: 15
