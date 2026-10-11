@@ -11,10 +11,14 @@
  * (the sections are cited beside each block), to the contract for what the
  * controls do (§ Choice Model, § Storage, § Withdrawal, § Re-Enable), or to
  * specs/analytics.md § Privacy Runtime for what the flag-on runtime strips
- * before sending. Facts the inventory could not verify are not stated: no
- * event or GA4 retention period, no demographic reporting, no Google Ads
- * link, no Cloudflare log retention. Nothing here claims anonymity,
- * compliance, legal sufficiency, or that data is "not sold" (PRIV-11).
+ * before sending. The vendor settings are as updated on 2026-10-11 (#1265):
+ * replay console, canvas, and network capture off; PostHog IP discarded;
+ * GA4 enhanced measurement limited to page views and scrolls; user-provided
+ * data off; NEL off; Mux Data under the opt-out; error issues without the
+ * error text. Facts the inventory could not verify are not stated: no
+ * PostHog person-profile retention, no Cloudflare log retention. Nothing
+ * here claims anonymity, compliance, legal sufficiency, or that data is "not
+ * sold" (PRIV-11).
  *
  * Styles are inline for the reason given in PrivacyNotice.astro: a hoisted
  * <style> is bundled by import graph, and this route module is loaded (for
@@ -55,8 +59,8 @@ const emailSpelled = `${emailUser} [at] ${emailDomain.replace(/\./g, ' [dot] ')}
 const title = 'Privacy | Nathan Payne';
 const canonical = new URL('/privacy/', Astro.site).href;
 
-/** The date of the inventory this page describes (docs/privacy/inventory.md, "Inventory taken"). */
-const INVENTORY_DATE = '2026-10-08';
+/** The date of the settings this page describes (docs/privacy/inventory.md, "Updated 2026-10-11"). */
+const SETTINGS_DATE = '2026-10-11';
 
 const sections = [
   { id: 'np-privacy-controls', label: 'Your choices' },
@@ -174,7 +178,7 @@ const sections = [
 
       <div class="project-copy privacy-copy">
         <p class="privacy-dated">
-          This page describes the site as it was inventoried on {INVENTORY_DATE}. Session replay is off on this page.
+          This page describes the site's settings as checked on {SETTINGS_DATE}. Session replay is off on this page.
         </p>
 
         <PrivacyControls />
@@ -188,7 +192,7 @@ const sections = [
             replay exclusion. ────────────────────────────────────────── */}
         <h2 id="collected">What is collected</h2>
         <p>
-          Two analytics tools, PostHog and Google Analytics 4, run on every page unless you turn them off here, your browser sends Global Privacy Control, or JavaScript is off. Cloudflare's own web analytics can run as well, depending on its settings and only where JavaScript runs, and the controls above do not reach it. This section says what each one receives.
+          Two analytics tools, PostHog and Google Analytics 4, run on every page unless you turn them off here, your browser sends Global Privacy Control, or JavaScript is off. On the one page with video, Mux Data, Mux's playback analytics, follows the same setting. Cloudflare's own web analytics can run as well, depending on its settings and only where JavaScript runs, and the controls above do not reach it. This section says what each one receives.
         </p>
 
         <h3>PostHog</h3>
@@ -200,7 +204,7 @@ const sections = [
             Page performance measurements and JavaScript errors the page raises.
           </li>
           <li>
-            Session replay: a recording of the page as you saw it, with its text and layout, your mouse movement, scrolling, and clicks. Anything you type is masked before it is recorded. Replay also records the browser console messages the page produces, the contents of any canvas element on a page, and the address and timing of each network request the page makes. Request and response bodies are not recorded.
+            Session replay: a recording of the page as you saw it, with its text and layout, your mouse movement, scrolling, and clicks. Anything you type is masked before it is recorded. Replay does not record the browser console, the contents of canvas elements, or the network requests the page makes.
           </li>
           <li>
             A random visitor ID, device ID, and session ID. PostHog keeps them in a first-party cookie that lasts 365 days and in your browser's local storage, and it creates a profile for every visitor.
@@ -212,7 +216,7 @@ const sections = [
             The page's address and the page that referred you, reduced to the site's origin and path plus campaign parameters (<code>utm_source</code>, <code>utm_medium</code>, <code>utm_campaign</code>, <code>utm_term</code>, <code>utm_content</code>, and the Google click identifiers <code>gclid</code>, <code>gbraid</code>, <code>wbraid</code>, and <code>dclid</code>). Other query parameters and fragments are removed before sending.
           </li>
           <li>
-            Your IP address, which PostHog stores with each event and uses to derive your country, region, city, postal code, approximate latitude and longitude, and time zone.
+            Your country, region, city, postal code, approximate latitude and longitude, and time zone, which PostHog derives from your IP address when an event arrives. PostHog then discards the IP address instead of storing it with the event.
           </li>
           <li>
             Named events for actions on this site: for example, which homepage panel you opened, which project or post you viewed, and whether you downloaded the résumé. None carries anything you typed.
@@ -222,7 +226,7 @@ const sections = [
         <h3>Google Analytics 4</h3>
         <ul>
           <li>
-            Page views, scroll depth, clicks on links that leave the site, file downloads, form interactions, and, when a page address carries a search parameter (<code>q</code>, <code>s</code>, <code>search</code>, <code>query</code>, or <code>keyword</code>), that term. For links that leave the site and for downloads, Google receives the full address of the link, including any query string.
+            Page views and scroll depth. Google Analytics' automatic tracking of clicks on links that leave the site, file downloads, form interactions, video, and site searches is turned off.
           </li>
           <li>
             The page's address and referrer, reduced the same way as for PostHog, the page title, your language, screen resolution, and User-Agent Client Hints describing your browser, operating system, and device model.
@@ -231,7 +235,7 @@ const sections = [
             A client ID and session ID, kept in first-party cookies named <code>_ga</code> and <code>_ga_</code> followed by the property ID. Google documents a two-year lifetime that refreshes on each visit; Chrome caps each write at 400 days.
           </li>
           <li>
-            Google's tag is set to detect an email address, phone number, or street address typed into a form and send it to Google as user-provided data. This site has no forms today.
+            User-provided data collection is off, so Google's tag does not look for email addresses, phone numbers, or street addresses. Google signals, which would add data from visitors' Google accounts, is also off.
           </li>
           <li>
             Google states that it derives your city, region, and country from your IP address.
@@ -243,7 +247,7 @@ const sections = [
           Cloudflare inserts its Web Analytics script into pages at its edge. Its settings can exclude some visitors, such as those in the EU, and which setting applies here has not been verified. It is not part of this site's code, and the controls on this page do not affect it. After a page loads, the script sends Cloudflare page-load timings, a page-load ID, the page's origin and path without query string or fragment, and your browser, operating system, and device type; it sends a second request when you leave the page. Cloudflare documents that the script also reports the address of the page you came from. Cloudflare states that it sets no cookies or local storage, does not fingerprint visitors by IP address or user agent, and discards the IP address it receives at the nearest data center.
         </p>
         <p>
-          Cloudflare also asks browsers that support Network Error Logging to report failed requests to it. Such a report carries the failed address without its fragment, the referring page, and connection details. The browser sends it on its own; page code cannot stop it. On pages that show an email address, Cloudflare inserts a small script that decodes the address in the browser; no data was observed leaving the page from it.
+          Cloudflare's Network Error Logging is turned off for this site. A browser that stored the site's earlier logging policy can still report a failed request to Cloudflare until that policy expires; such a report carries the failed address without its fragment, the referring page, and connection details. On pages that show an email address, Cloudflare inserts a small script that decodes the address in the browser; no data was observed leaving the page from it.
         </p>
 
         {/* ── Who receives it ───────────────────────────────────────────
@@ -256,7 +260,7 @@ const sections = [
             <strong>PostHog</strong> receives everything in the PostHog list above. Its requests go through <code>d.nathanpayne.com</code>, a reverse proxy PostHog manages and routes through Cloudflare, which PostHog lists as a subprocessor.
           </li>
           <li>
-            <strong>Google</strong> receives everything in the Google Analytics list above, at <code>www.google-analytics.com</code>.
+            <strong>Google</strong> receives everything in the Google Analytics list above, at <code>www.google-analytics.com</code>. The Google Analytics property is not linked to Google Ads or any other advertising product, and its setting that shares data with Google to improve Google's products and services is off. Its settings let Google use the data, aggregated and de-identified, for modeling and benchmarking, let Google's support staff access the account to solve problems, and let Google use account data to make recommendations.
           </li>
           <li>
             <strong>Cloudflare</strong> serves this site and receives every request for a page or file: your IP address, the address requested including any query string, your browser's user agent, and the referring page. It also receives the Web Analytics and error reports described above.
@@ -268,10 +272,10 @@ const sections = [
             <strong>Logo.dev</strong>, on the résumé page only, serves employer and school logos and receives the same, plus the name of each organization being looked up.
           </li>
           <li>
-            <strong>Mux</strong>, on the Swipe Watch project page only, streams that page's video and receives your IP address, user agent, and this site's origin as the referrer. Mux Data, its playback analytics, receives viewer and playback data including the full page address, and sets a first-party <code>muxData</code> cookie that lasts 365 days. Mux states that it derives your country and state from your IP address and then keeps only the first three parts of an IPv4 address.
+            <strong>Mux</strong>, on the Swipe Watch project page only, streams that page's video and receives your IP address, user agent, and this site's origin as the referrer. Mux Data, its playback analytics, runs only when analytics are on, and sends nothing when your browser sends Do Not Track. Otherwise it receives viewer and playback data, with the page address reduced the same way as for PostHog, and it sets no cookie. Mux states that it derives your country and state from your IP address and then keeps only the first three parts of an IPv4 address.
           </li>
           <li>
-            <strong>GitHub</strong>: when PostHog's error tracking detects a new error on the site, an automation files an issue in this site's public GitHub repository. The issue carries the error's name and description and the random visitor ID PostHog assigned to the session that hit it.
+            <strong>GitHub</strong>: when PostHog's error tracking detects a new error on the site, an automation files an issue in this site's public GitHub repository. The issue names the type of error and links to it in PostHog. It does not copy the error message, and it carries no visitor ID.
           </li>
         </ul>
 
@@ -286,19 +290,21 @@ const sections = [
 
         {/* ── Retention ─────────────────────────────────────────────────
             Only the periods the inventory verified (§ Retention: replay
-            setting read 2026-10-08; cookie lifetimes from the capture and
-            vendor docs). PostHog event and profile retention, GA4 retention,
-            Cloudflare and Firebase log retention are account settings the
-            inventory could not read and are not stated. ────────────────── */}
+            setting; GA4 retention read 2026-10-11; PostHog's plan read
+            2026-10-11 with the period as PostHog's pricing states it; cookie
+            lifetimes from the capture and vendor docs). PostHog person-profile
+            retention and Cloudflare's own logs are not stated. ──────────── */}
         <h2 id="retention">How long it is kept</h2>
         <ul>
           <li>PostHog session recordings: 30 days.</li>
-          <li>PostHog's identifiers: the cookie lasts 365 days; the same identifiers are also kept in your browser's local storage, which lasts until you clear it, and in session storage for as long as the tab is open. Google Analytics cookies: Google documents two years, refreshed on each visit, and Chrome caps each write at 400 days. The Mux Data cookie: 365 days.</li>
+          <li>PostHog events: PostHog lists 7-year data retention for the plan this site uses.</li>
+          <li>Google Analytics: event data 2 months; user data 14 months, counted again from each return visit.</li>
+          <li>PostHog's identifiers: the cookie lasts 365 days; the same identifiers are also kept in your browser's local storage, which lasts until you clear it, and in session storage for as long as the tab is open. Google Analytics cookies: Google documents two years, refreshed on each visit, and Chrome caps each write at 400 days.</li>
           <li>Cloudflare Web Analytics: Cloudflare states that it keeps raw data for 7 days and then a sample of about 10% for longer-term reporting.</li>
           <li>Mux Data playback data: up to 100 days, per Mux.</li>
           <li>Error-alert issues on GitHub: until the issue is deleted; PostHog's retention does not reach them.</li>
           <li>Firebase Hosting request logs, if exported to Cloud Logging: 30 days by default, per Firebase.</li>
-          <li>Other retention periods (PostHog events and profiles, Google Analytics data, and Cloudflare's own logs) are set in each vendor's account, were not verified, and are not stated here.</li>
+          <li>Other retention periods (PostHog visitor profiles and Cloudflare's own logs) are set in each vendor's account, were not verified, and are not stated here.</li>
         </ul>
 
         {/* ── GPC ──────────────────────────────────────────────────────
@@ -306,7 +312,7 @@ const sections = [
             (Cloudflare continues for GPC visitors). ─────────────────────── */}
         <h2 id="gpc">Global Privacy Control</h2>
         <p>
-          Global Privacy Control is a signal a browser or extension can send to ask sites to opt you out. This site honors it: when your browser sends it, PostHog and Google Analytics are off whatever you chose here, and the "Turn on analytics" button above is unavailable. If you turn analytics off here and your browser saves that choice, they stay off after your browser stops sending the signal. The signal does not reach Cloudflare's analytics or the other services listed above.
+          Global Privacy Control is a signal a browser or extension can send to ask sites to opt you out. This site honors it: when your browser sends it, PostHog, Google Analytics, and Mux Data are off whatever you chose here, and the "Turn on analytics" button above is unavailable. If you turn analytics off here and your browser saves that choice, they stay off after your browser stops sending the signal. The signal does not reach Cloudflare's analytics or the other services listed above.
         </p>
 
         {/* ── Limits ────────────────────────────────────────────────────
@@ -323,7 +329,7 @@ const sections = [
             It does not remove the cookies and storage entries the tools set earlier. They stay until they expire or you clear them; turning analytics off stops their use, not their existence.
           </li>
           <li>
-            It does not reach Cloudflare Web Analytics or Network Error Logging, the Cloudflare and Firebase servers that serve the site, Logo.dev, or Mux.
+            It does not reach Cloudflare Web Analytics, the Cloudflare and Firebase servers that serve the site, Logo.dev, or Mux's video streaming. It does stop Mux Data.
           </li>
           <li>
             Your choice is kept in your browser's local storage under the key <code>np-privacy</code>. No cookie is set for it, and it is not sent to a server. Turning analytics back on takes effect on the next page you load, provided your browser saves the choice; if it cannot, your earlier setting still applies.

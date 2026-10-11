@@ -173,7 +173,7 @@ describe('notice (PRIV-14, PRIV-6)', () => {
     const status = d.getElementById('np-privacy-notice-status');
     expect(status.getAttribute('role')).toBe('status');
     expect(status.textContent).toBe(
-      'PostHog and Google Analytics are off for this site in this browser.',
+      'PostHog, Google Analytics, and Mux Data are off for this site in this browser.',
     );
     expect(d.activeElement).toBe(status);
   });
@@ -247,7 +247,7 @@ describe('notice (PRIV-14, PRIV-6)', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(texts.join(' | ')).not.toContain('closed because your setting changed');
     expect(status.textContent).toBe(
-      'PostHog and Google Analytics are off for this site in this browser.',
+      'PostHog, Google Analytics, and Mux Data are off for this site in this browser.',
     );
     expect(d.activeElement).toBe(status);
   });
@@ -343,7 +343,7 @@ describe('controls (PRIV-10, PRIV-14)', () => {
     expect(root.querySelector('[data-np-privacy-action="deny"]').type).toBe('button');
     expect(root.querySelector('[data-np-privacy-action="grant"]').type).toBe('button');
     const covers = root.textContent.replace(/\s+/g, ' ');
-    expect(covers).toContain('PostHog, including session replay, and Google Analytics 4');
+    expect(covers).toContain('PostHog, including session replay, Google Analytics 4, and Mux Data');
     expect(covers).toContain('data already sent');
     expect(covers).toContain('next page you load');
   });
@@ -556,9 +556,44 @@ describe('/privacy/ page and footer link (PRIV-11, PRIV-15)', () => {
     // data) and 100 (Mux view data), the last three as vendor statements the
     // inventory records. Any other number is unsourced.
     expect([...days].sort()).toEqual(['100', '30', '365', '400', '7']);
+    // GA4 retention and PostHog's plan were read on 2026-10-11 (inventory §
+    // Retention); the 7-year figure is PostHog's pricing statement for that plan.
+    const months = new Set([...PAGE_TEMPLATE.matchAll(/\b(\d+) months\b/g)].map((m) => m[1]));
+    expect([...months].sort()).toEqual(['14', '2']);
+    expect(PAGE_TEMPLATE).toContain(
+      'PostHog lists 7-year data retention for the plan this site uses.',
+    );
     expect(PAGE_TEMPLATE).toContain(
       "are set in each vendor's account, were not verified, and are not stated here",
     );
+  });
+
+  it('describes the vendor settings as updated on 2026-10-11 (#1265)', () => {
+    // Each pair is a sentence the old settings made true and its replacement.
+    // Replay console, canvas, and network capture are off (decision 1).
+    expect(PAGE_TEMPLATE).not.toContain('browser console messages the page produces');
+    expect(PAGE_TEMPLATE).toContain('Replay does not record the browser console');
+    // PostHog discards the IP after GeoIP (decision 7).
+    expect(PAGE_TEMPLATE).not.toContain('PostHog stores with each event');
+    expect(PAGE_TEMPLATE).toContain('PostHog then discards the IP address');
+    // GA4 enhanced measurement is page views and scrolls only (decision 2),
+    // and user-provided data collection is off (decision 3).
+    expect(PAGE_TEMPLATE).not.toMatch(
+      /full address of the link|send it to Google as user-provided data/,
+    );
+    expect(PAGE_TEMPLATE).toContain('Page views and scroll depth.');
+    expect(PAGE_TEMPLATE).toContain('User-provided data collection is off');
+    // NEL is off (decision 13); Mux Data follows the setting with no cookie (decision 14).
+    expect(PAGE_TEMPLATE).toContain('Network Error Logging is turned off for this site');
+    expect(PAGE_TEMPLATE).not.toMatch(/<code>muxData<\/code>/);
+    expect(PAGE_TEMPLATE).toContain('It does stop Mux Data.');
+    // Error issues carry no error text and never carried a visitor ID (decision 9).
+    expect(PAGE_TEMPLATE).toContain(
+      'It does not copy the error message, and it carries no visitor ID.',
+    );
+    // Every surface that names what the setting stops names Mux Data too (decision 12).
+    expect(CONTROLS_HTML).toContain('Google Analytics 4, and Mux Data');
+    expect(NOTICE_HTML).toContain("Mux's playback analytics");
   });
 
   it('covers every section the contract names', () => {
