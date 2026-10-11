@@ -42,7 +42,7 @@ import { join } from 'node:path';
 
 /** Tools this module shells out to, and what each is the oracle for. */
 const TOOLS = {
-  pdftotext: 'Poppler — content-stream-order text extraction (#923)',
+  pdftotext: 'Poppler — content-stream-order text extraction (#923) and word boxes (#1266)',
   pdfinfo: 'Poppler — page count',
   mutool: 'MuPDF — page rendering for marker visibility (#925)',
 };
@@ -92,6 +92,40 @@ export function pdfTextInEmissionOrder(pdfPath) {
 }
 
 /**
+ * Where the text actually landed: the extent of every page's words, in PDF
+ * points from the page's top-left corner (the `-bbox` convention).
+ *
+ * This is the oracle for the page margin (#1266). The margin is a layout
+ * outcome, so it is read off the file rather than off whichever of the two
+ * mechanisms that could set it — the `@page` rule or a `printToPDF`
+ * parameter — happens to win; see the note on the margin geometry below.
+ *
+ * @param {string} pdfPath
+ * @returns {{ width: number, height: number, minX: number, maxX: number, minY: number, maxY: number }[]}
+ *   one entry per page, in page order
+ */
+export function pdfTextExtentPerPage(pdfPath) {
+  const html = run('pdftotext', ['-bbox', pdfPath, '-']);
+  return [...html.matchAll(/<page width="([\d.]+)" height="([\d.]+)">([\s\S]*?)<\/page>/g)].map(
+    ([, width, height, body]) => {
+      const words = [
+        ...body.matchAll(/<word xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)" yMax="([\d.]+)"/g),
+      ].map((m) => m.slice(1).map(Number));
+      if (words.length === 0)
+        throw new Error(`pdftotext -bbox found no words on a page of ${pdfPath}`);
+      return {
+        width: Number(width),
+        height: Number(height),
+        minX: Math.min(...words.map((w) => w[0])),
+        minY: Math.min(...words.map((w) => w[1])),
+        maxX: Math.max(...words.map((w) => w[2])),
+        maxY: Math.max(...words.map((w) => w[3])),
+      };
+    },
+  );
+}
+
+/**
  * @param {string} pdfPath
  * @returns {number}
  */
@@ -111,7 +145,10 @@ const devicePx = (css) => Math.round(((css * 0.75) / 72) * DPI);
  * Marker-column geometry, derived from the values the print stylesheet pins
  * rather than from measured pixel positions:
  *
- * - the page margin, `@page { margin: 0.6in }` (and `RESUME_PDF_MARGIN`);
+ * - the page margin, `@page { margin: 0.6in }`. That CSS rule is the only
+ *   thing that sets it: the generator passes no `margin` to `page.pdf()`,
+ *   because Chromium does not apply those parameters when the page declares
+ *   an `@page` margin (#1266);
  * - `--bullet-size: 0.36rem` = 5.76 CSS px;
  * - `.state-marker::before` = `calc(0.72em + 2px)` of the 7.5pt (10 CSS px)
  *   status kicker: 0.72em of mark plus its 1px border on each side. The rule

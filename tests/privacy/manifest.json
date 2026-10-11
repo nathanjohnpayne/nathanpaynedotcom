@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "about": "Fixtures manifest for the #1079 privacy acceptance suite (#1230). It pins the third-party code the suite serves to the browser to the production record in docs/privacy/inventory.md (Production SDK Versions) and docs/privacy/capture-2026-10-08.md (Production SDK Hashes). Only this manifest is committed; the bundles are fetched at run time into the gitignored node_modules/.cache/np-privacy-acceptance/ and verified against it. tests/privacy/selftest.pw.ts fails the run if this file and the inventory disagree.",
+  "about": "Fixtures manifest for the #1079 privacy acceptance suite (#1230). It pins the third-party code the suite serves to the browser to the production record in docs/privacy/inventory.md (Production SDK Versions) and docs/privacy/capture-2026-10-08.md (Production SDK Hashes): posthog-js by file bytes, gtag.js by the fingerprint of its embedded configuration, because Google rotates the gtag.js bytes (see gtag.about). Only this manifest is committed; the bundles are fetched at run time into the gitignored node_modules/.cache/np-privacy-acceptance/ and verified against it. tests/privacy/selftest.pw.ts fails the run if this file and the inventory disagree.",
   "posthog": {
     "package": "posthog-js",
     "version": "1.438.3",
@@ -41,14 +41,13 @@
     }
   },
   "gtag": {
-    "about": "gtag.js is served by Google and is not byte-stable: one capture day showed four variants in 48 loads, and they differ in a one-byte server flag or in the runtime version, never in the embedded property configuration. production records the one variant the suite tests, captured on capturedOn from the URL in source for the production measurement ID, after the 2026-10-10 GA4 property changes and re-recorded on 2026-10-11 when Google rotated the served bytes with the configuration unchanged (docs/privacy/capture-2026-10-10-gtag.md). The suite fetches the current gtag.js for that ID at run time (Node side only), retries up to fetchAttempts times until the bytes hash to production.sha256, and serves them under the fake test ID. If they never match, the GA4 provenance test is skipped with a re-record reason and every GA4 transmitted-payload result stays indicative; it never passes on unrecorded bytes, nor on a cached copy this run did not fetch. With NP_PRIVACY_REQUIRE_GA4=1, which the #1233 release run sets, those skips fail instead. To re-record after Google changes the tag, follow docs/agents/testing-requirements.md (GA4 tag refresh). The suite fails if this hash and the inventory's recorded hash disagree.",
+    "about": "gtag.js is served by Google and its bytes are not stable: Google rotates them roughly daily (eight variants over 2026-10-10 and 2026-10-11, differing in a one-byte server flag or in the runtime build), while the embedded property configuration, the container's whole resource object (version, macros, tags, predicates, rules), stayed identical in every one. So the suite pins the configuration, not the bytes. production.configSha256 is the SHA-256 of the canonical JSON (object keys sorted at every depth, array order kept, no whitespace) of that resource as served for the production measurement ID, recorded on capturedOn after the 2026-10-10 GA4 property changes (docs/privacy/capture-2026-10-10-gtag.md). The suite fetches the current gtag.js for that ID at run time (Node side only), computes the fingerprint, and serves the bytes under the fake test ID. The GA4 provenance test passes only when the bytes were fetched from production this run, the fingerprint equals configSha256, and the configuration has no findings. The byte SHA-256 and size are reported per run in the setup log and an annotation and are not committed as a pin; byte hashes survive only as dated history in the capture note. A different fingerprint means the property configuration changed: the provenance test is skipped with a re-record reason, every GA4 transmitted-payload result stays indicative, and the change goes to Nathan before anything is recorded (docs/agents/testing-requirements.md, GA4 tag refresh). It never passes on an unrecorded configuration, nor on a cached copy this run did not fetch. With NP_PRIVACY_REQUIRE_GA4=1, which the #1233 release run sets, those skips fail instead. fetchAttempts is how many times the fetch is tried after a transient failure. The suite fails if this fingerprint and the inventory's recorded fingerprint disagree.",
     "source": "https://www.googletagmanager.com/gtag/js?id=<measurement ID>",
     "production": {
       "capturedOn": "2026-10-11",
-      "sha256": "c292b477d7e4e0609be9bd3d6833840f44bf2d5c426d2b508b1699beb3a48283",
-      "bytes": 488213
+      "configSha256": "442c580f3f92f9c0e6d198c879154b8d946d822b1cc843c19c8f3ea16a69ccdd"
     },
-    "fetchAttempts": 10
+    "fetchAttempts": 3
   },
   "axe": {
     "package": "axe-core",
