@@ -57,8 +57,8 @@
       privacy.set('denied');
       announce(
         privacy.get().persisted
-          ? 'PostHog and Google Analytics are off for this site in this browser.'
-          : 'PostHog and Google Analytics are off for this page. Your browser did not save the choice, so it applies only to this page.',
+          ? 'PostHog, Google Analytics, and Mux Data are off for this site in this browser.'
+          : 'PostHog, Google Analytics, and Mux Data are off for this page. Your browser did not save the choice, so it applies only to this page.',
       );
     } else if (action === 'dismiss') {
       // Dismissing is not a choice (§ Runtime API): the saved choice stays unset.
