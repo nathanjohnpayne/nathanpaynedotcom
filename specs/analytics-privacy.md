@@ -32,6 +32,7 @@ Base commit: `347401c6` (`main` when this contract was written).
    - Otherwise a saved `denied` gives `denied` (reason `choice`), a saved `granted` gives `granted` (reason `choice`), and `unset` gives `granted` (reason `default`). Default-on is the owner's decision.
 3. **GPC precedence.** A saved in-site choice never overrides an active GPC signal. While GPC is active, `set('granted')` is rejected and changes nothing; `set('denied')` is accepted and saved, so the opt-out survives GPC being turned off later. If GPC is turned off after an opt-out, the saved `denied` keeps analytics off.
 4. Both tools follow the same effective state. There is no per-tool choice.
+5. Mux Data, the playback analytics on pages with a Mux hero video, follows the same effective state too, per Nathan's decision 14 (#1079, #1264). When analytics are on, it also sets no cookie, respects Do Not Track, and sends a scrubbed `page_url`. Mux Video playback (the stream and poster) is not analytics and is not gated.
 
 ## Storage
 
