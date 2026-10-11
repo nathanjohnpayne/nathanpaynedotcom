@@ -112,23 +112,24 @@ export async function expectNoAnalytics(s: Session, mark = 0, dwellMs = 7000): P
 
 /**
  * GA4 results are only as good as the gtag.js behind them. They are verified when the served file is the production
- * capture recorded in tests/privacy/manifest.json (its SHA-256 matches) and this run fetched it from production. When Google serves anything else, the
- * results are indicative and the criterion is NOT VERIFIED against production bytes until the capture is
- * re-recorded (docs/agents/testing-requirements.md, GA4 tag refresh). Call this from any test that asserts on GA4
+ * configuration recorded in tests/privacy/manifest.json (the fingerprint of its embedded resource object matches) and this run
+ * fetched it from production. The bytes themselves rotate and are not compared. When the configuration differs, the
+ * results are indicative and the criterion is NOT VERIFIED against the production configuration until Nathan decides
+ * what to record (docs/agents/testing-requirements.md, GA4 tag refresh). Call this from any test that asserts on GA4
  * traffic: it leaves that fact in the test's annotations so a green result cannot be read as verification. A
- * no-op when the served bytes are the recorded capture.
+ * no-op when the served configuration is the recorded one and was fetched this run.
  */
 export function noteGa4Provenance(): void {
   const { gtag } = loadFixtureState();
-  // Verified needs both: the bytes are the recorded capture, and this run fetched them from production.
+  // Verified needs both: the configuration is the recorded one, and this run fetched the bytes from production.
   if (gtag.matchesProduction && gtag.source === 'fetched') return;
   const info = test.info();
   if (info.annotations.some((a) => a.type === 'ga4-not-verified')) return;
   info.annotations.push({
     type: 'ga4-not-verified',
     description: gtag.matchesProduction
-      ? 'GA4 transmitted-payload results here are INDICATIVE, NOT VERIFIED: the cached gtag.js is the recorded capture, but this run did not fetch it, so it does not show production still serves it (run with CI=1, NP_PRIVACY_REFRESH=1, or NP_PRIVACY_REQUIRE_GA4=1)'
-      : 'GA4 transmitted-payload results here are INDICATIVE, NOT VERIFIED: the gtag.js served is not the production capture recorded in tests/privacy/manifest.json (re-record it)',
+      ? 'GA4 transmitted-payload results here are INDICATIVE, NOT VERIFIED: the cached gtag.js has the recorded configuration, but this run did not fetch it, so it does not show production still serves it (run with CI=1, NP_PRIVACY_REFRESH=1, or NP_PRIVACY_REQUIRE_GA4=1)'
+      : 'GA4 transmitted-payload results here are INDICATIVE, NOT VERIFIED: the configuration of the gtag.js served is not the production fingerprint recorded in tests/privacy/manifest.json (take it to Nathan; see GA4 tag refresh)',
   });
 }
 

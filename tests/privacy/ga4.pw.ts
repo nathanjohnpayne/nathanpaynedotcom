@@ -4,17 +4,22 @@
  *
  * COVERAGE LEVEL. These tests run the real gtag.js, fetched at run time for the
  * production measurement ID (Node side only) and served under the fake test ID.
- * The results are VERIFIED against production when those bytes hash to the
- * production capture recorded in tests/privacy/manifest.json and in
- * docs/privacy/inventory.md (the provenance test below). Google changes the
- * tag from time to time. When it serves other bytes, the provenance test is
+ * The results are VERIFIED against production when those bytes were fetched
+ * from production this run and the fingerprint of their embedded configuration
+ * (the whole resource object, canonicalized) equals the one recorded in
+ * tests/privacy/manifest.json and docs/privacy/inventory.md, with no
+ * configuration findings (the provenance test below). The bytes themselves are
+ * not pinned: Google rotates them roughly daily with the configuration
+ * unchanged, so their SHA-256 and size are reported per run (setup log and a
+ * `ga4-gtag-bytes` annotation) as evidence, not compared. A different
+ * fingerprint means the property configuration changed: the provenance test is
  * skipped with a "re-record" reason (never passes), every GA4 test carries a
- * `ga4-not-verified` annotation, and the capture is redone by following
- * docs/agents/testing-requirements.md (GA4 tag refresh). A cached copy reused
- * without a fetch is the recorded capture but does not show production still
- * serves it, so the provenance test skips on it too. Without a gtag.js fixture
- * the GA4 tests skip entirely. With NP_PRIVACY_REQUIRE_GA4=1 (the #1233
- * release run) every one of those skips is a failure instead.
+ * `ga4-not-verified` annotation, and the change goes to Nathan before anything
+ * is recorded (docs/agents/testing-requirements.md, GA4 tag refresh). A cached
+ * copy reused without a fetch has the recorded configuration but does not show
+ * production still serves it, so the provenance test skips on it too. Without
+ * a gtag.js fixture the GA4 tests skip entirely. With NP_PRIVACY_REQUIRE_GA4=1
+ * (the #1233 release run) every one of those skips is a failure instead.
  *
  * Since 2026-10-10 the GA4 property has enhanced measurement limited to page
  * views and scrolls and user-provided data off. This file holds both halves:
@@ -59,11 +64,11 @@ function skipOrRequire(condition: boolean, reason: string): void {
   test.skip(condition, reason);
 }
 
-/** Where the configuration evidence came from, for annotations: verified only on the recorded capture. */
+/** Where the configuration evidence came from, for annotations: verified only on the recorded production configuration. */
 function configEvidence(gtag: GtagState): string {
   return gtag.matchesProduction
-    ? 'verified by the configuration test on the recorded production capture'
-    : 'indicative only: the configuration test read a gtag.js that is not the recorded production capture';
+    ? 'verified by the configuration test on the recorded production configuration'
+    : 'indicative only: the configuration test read a gtag.js whose configuration is not the recorded production one';
 }
 
 test.beforeEach(({ fixtureState }) => {
@@ -75,34 +80,43 @@ test.beforeEach(({ fixtureState }) => {
 });
 
 test.describe('GA4 provenance', () => {
-  test('PRIV-2 GA4 transmitted-payload criteria are verified against the recorded production gtag.js capture', ({
+  test('PRIV-2 GA4 transmitted-payload criteria are verified against the recorded production gtag.js configuration', ({
     fixtureState,
   }) => {
     // This is the criterion-level reading of every GA4 result in the suite. It passes only when the gtag.js the
-    // suite serves hashes to the production capture recorded in the manifest, and this run fetched those bytes from
-    // production. Anything else reads "re-record" (or "not checked" for a cached copy): skipped, never passed, and
-    // the other GA4 tests below stay indicative. Under NP_PRIVACY_REQUIRE_GA4=1 either skip is a failure.
-    const recorded = loadManifest().gtag.production.sha256;
-    const verdict = gtagProvenance(fixtureState.gtag.rawSha256, recorded);
+    // suite serves was fetched from production this run and the fingerprint of its embedded configuration equals
+    // the one recorded in the manifest, with no configuration findings. Anything else reads "re-record" (the
+    // configuration changed) or "not checked" (a cached copy): skipped, never passed, and the other GA4 tests below
+    // stay indicative. Under NP_PRIVACY_REQUIRE_GA4=1 either skip is a failure. The bytes are reported, not compared.
+    const { gtag } = fixtureState;
+    test.info().annotations.push({
+      type: 'ga4-gtag-bytes',
+      description: `gtag.js bytes this run (${gtag.source ?? 'unknown'}): SHA-256 ${gtag.rawSha256 ?? 'unknown'}, ${gtag.rawBytes ?? 'unknown'} bytes; configuration fingerprint ${gtag.configSha256 ?? 'unreadable'}. Evidence for this run, not a pin: Google rotates the bytes.`,
+    });
+    const recorded = loadManifest().gtag.production.configSha256;
+    const verdict = gtagProvenance(gtag.configSha256, recorded, gtag.configFindings);
     skipOrRequire(
       verdict.status === 're-record',
       `re-record: ${(verdict as { reason?: string }).reason}`,
     );
     skipOrRequire(
-      fixtureState.gtag.source !== 'fetched',
-      'not checked against production: the cached gtag.js is the recorded capture, but this run did not fetch it, so it does not show production still serves those bytes (run with CI=1, NP_PRIVACY_REFRESH=1, or NP_PRIVACY_REQUIRE_GA4=1)',
+      gtag.source !== 'fetched',
+      'not checked against production: the cached gtag.js has the recorded configuration, but this run did not fetch it, so it does not show production still serves that configuration (run with CI=1, NP_PRIVACY_REFRESH=1, or NP_PRIVACY_REQUIRE_GA4=1)',
     );
-    expect(fixtureState.gtag.matchesProduction, 'the setup reached the same verdict').toBe(true);
-    expect(fixtureState.gtag.rawSha256, 'raw bytes as Google served them').toBe(recorded);
-    expect(fixtureState.gtag.rawBytes, 'the byte count recorded with the capture').toBe(
-      loadManifest().gtag.production.bytes,
+    expect(gtag.matchesProduction, 'the setup reached the same verdict').toBe(true);
+    expect(gtag.configSha256, 'fingerprint of the configuration as Google served it').toBe(
+      recorded,
     );
+    expect(gtag.configFindings, 'departures from the 2026-10-10 property settings').toEqual([]);
+    // The bytes are evidence, not a pin: they were obtained and are not empty.
+    expect(gtag.rawSha256, 'raw bytes as Google served them').toMatch(/^[0-9a-f]{64}$/);
+    expect(gtag.rawBytes, 'size of the bytes as Google served them').toBeGreaterThan(100_000);
     // The copy the browser is served is the very file those bytes became, with only the ID substituted.
     expect(
       sha256Hex(readFileSync(fixtureState.gtagPath)),
       'the served copy is the measured copy',
-    ).toBe(fixtureState.gtag.servedSha256);
-    expect(fixtureState.gtag.substitutions, 'the production ID was replaced').toBeGreaterThan(0);
+    ).toBe(gtag.servedSha256);
+    expect(gtag.substitutions, 'the production ID was replaced').toBeGreaterThan(0);
   });
 
   test('PRIV-2 the served gtag.js configuration has enhanced measurement on page views and scrolls only, and user-provided data off', ({
