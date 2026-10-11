@@ -88,5 +88,6 @@ Across 2026-10-10 and 2026-10-11 that makes eight byte variants (A through D, A2
 - `__ogt_1p_data_v2` flipped to enabled did the same.
 - A cached copy (a second local run, no `CI`, no strict mode) skipped the provenance test as not checked against production.
 - Strict mode with `NP_PRIVACY_OFFLINE=1` failed every GA4 test, including provenance.
+- A changed rule (one added), a changed predicate (`arg1` flipped), and a changed macro (a value flipped), each applied to the served text while the tags stayed untouched: the fingerprint changed, provenance failed with the re-record reason, and the tag-based configuration test still passed, so the fingerprint alone caught them. These are the cases the first version of this record, which fingerprinted `resource.tags` alone, would have missed.
 
 `selftest.pw.ts` holds the matching browserless controls: key order and whitespace do not change the fingerprint, nor do other bytes around the same configuration; a changed, added, removed, or reordered setting does; and a re-enabled outbound click or user-provided data reads `re-record`.
