@@ -30,12 +30,16 @@ import { defineConfig } from '@playwright/test';
  *   NP_GA_MEASUREMENT_ID     production GA4 ID, if the page cannot be read
  *   NP_PRIVACY_REQUIRE_UI=1  fail, instead of skip, when the notice or /privacy/ (#1229) is absent;
  *                            the change that flips the feature flag (#1233) must run with it set
+ *   NP_PRIVACY_REQUIRE_GA4=1 fail, instead of skip, unless GA4 provenance passes on bytes fetched from
+ *                            production this run (never the cache); #1233 must run with it set too
  *
  * Coverage levels, stated plainly:
  *   PostHog: the real posthog-js 1.438.3 bundles, byte-identical to production (SHA-256 checked).
- *   GA4:     the real gtag.js, but INDICATIVE only. It is fetched live and matches none of the three
- *            variants the inventory recorded, so GA4 transmitted-payload criteria are reported not
- *            verified against production bytes.
+ *   GA4:     the real gtag.js. VERIFIED when the bytes fetched at run time hash to the production capture
+ *            recorded in tests/privacy/manifest.json (capturedOn there, after the 2026-10-10 property changes).
+ *            When Google serves other bytes, the provenance test is skipped as "re-record", the other GA4
+ *            results are INDICATIVE only, and the capture is redone by following
+ *            docs/agents/testing-requirements.md (GA4 tag refresh).
  */
 export default defineConfig({
   testDir: '.',

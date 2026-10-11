@@ -5,12 +5,27 @@
  * canary in every encoding the SDKs use?"
  */
 import { createHash } from 'node:crypto';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { REPO_ROOT } from './harness/constants';
-import { loadManifest } from './harness/fixtures';
-import { canaryHits, contactHits, ga4MarkerViolations, urlViolations } from './harness/helpers';
+import {
+  gtagConfigFindings,
+  gtagEmbeddedTags,
+  gtagProvenance,
+  loadManifest,
+  reusableGtag,
+  sha256Hex,
+  type GtagState,
+} from './harness/fixtures';
+import {
+  canaryHits,
+  contactHits,
+  disabledEnhancedMeasurement,
+  ga4MarkerViolations,
+  urlViolations,
+} from './harness/helpers';
 import { decodeBody, deepExpand, ga4Events, postHogEvents } from './harness/payloads';
 import { expect, test } from '@playwright/test';
 
@@ -60,10 +75,177 @@ test.describe('fixtures manifest agrees with the production record', () => {
     }
   });
 
-  test('PRIV-1 the three recorded gtag.js variants equal the inventory (the fixture itself is not hash-gated, see manifest.json)', () => {
-    expect(new Set(hashesIn(rowFor(section, '`gtag.js`')))).toEqual(
-      new Set(manifest.gtag.productionSha256),
+  test('PRIV-1 the recorded gtag.js production capture equals the inventory (the tested variant is the first hash in its row)', () => {
+    const recorded = hashesIn(rowFor(section, '`gtag.js`'));
+    expect(manifest.gtag.production.sha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(recorded[0], 'the tested variant').toBe(manifest.gtag.production.sha256);
+    expect(manifest.gtag.production.capturedOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(rowFor(section, '`gtag.js`')).toContain(manifest.gtag.production.capturedOn);
+  });
+});
+
+test.describe('GA4 provenance verdicts', () => {
+  const recorded = loadManifest().gtag.production.sha256;
+
+  test('PRIV-2 (control) the recorded production hash is verified, and any other bytes, a tampered record, or no bytes read re-record, never verified', () => {
+    expect(gtagProvenance(recorded, recorded).status).toBe('verified');
+    // Google serves other bytes (a new tag version, or a variant that was never recorded).
+    const other = gtagProvenance('0'.repeat(64), recorded);
+    expect(other.status).toBe('re-record');
+    expect((other as { reason: string }).reason).toContain('re-record');
+    // The record itself is altered: the very bytes that matched no longer do.
+    const tampered = gtagProvenance(
+      recorded,
+      `${recorded.slice(0, -1)}${recorded.endsWith('0') ? '1' : '0'}`,
     );
+    expect(tampered.status).toBe('re-record');
+    // Nothing was fetched.
+    expect(gtagProvenance(undefined, recorded).status).toBe('re-record');
+  });
+});
+
+test.describe('cached gtag.js reuse', () => {
+  const recorded = loadManifest().gtag.production.sha256;
+  const bytes = 'cached gtag.js stand-in';
+  let dir = '';
+  let file = '';
+  const entry = (extra: Partial<GtagState> = {}): GtagState => ({
+    available: true,
+    rawSha256: recorded,
+    servedSha256: sha256Hex(bytes),
+    substitutions: 3,
+    matchesProduction: false, // the stored verdict is never trusted
+    ...extra,
+  });
+
+  test.beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'np-gtag-cache-'));
+    file = join(dir, 'gtag.js');
+    writeFileSync(file, bytes);
+  });
+  test.afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+  test('PRIV-2 (control) an intact entry for the recorded capture is reused, with the verdict recomputed', () => {
+    expect(reusableGtag(entry(), file, recorded)).toMatchObject({
+      matchesProduction: true,
+      servedSha256: sha256Hex(bytes),
+      source: 'cache', // the recorded bytes, but not seen served by production this run
+    });
+  });
+
+  test('PRIV-2 (control) a cache entry whose file bytes no longer match is rebuilt, not reused', () => {
+    writeFileSync(file, `${bytes} edited`);
+    expect(reusableGtag(entry(), file, recorded)).toBeUndefined();
+    writeFileSync(file, bytes.slice(0, 5)); // truncated
+    expect(reusableGtag(entry(), file, recorded)).toBeUndefined();
+    rmSync(file); // gone
+    expect(reusableGtag(entry(), file, recorded)).toBeUndefined();
+  });
+
+  test('PRIV-2 (control) a legacy cache entry without the served hash or the substitution count is rebuilt, not reused', () => {
+    expect(reusableGtag(entry({ servedSha256: undefined }), file, recorded)).toBeUndefined();
+    expect(reusableGtag(entry({ substitutions: undefined }), file, recorded)).toBeUndefined();
+  });
+
+  test('PRIV-2 (control) an entry for other bytes than the recorded capture, or an unavailable one, is rebuilt', () => {
+    expect(reusableGtag(entry({ rawSha256: '0'.repeat(64) }), file, recorded)).toBeUndefined();
+    expect(reusableGtag(entry({ available: false }), file, recorded)).toBeUndefined();
+    expect(reusableGtag(undefined, file, recorded)).toBeUndefined();
+  });
+});
+
+test.describe('GA4 served-configuration instrument', () => {
+  const tag = (name: string, extra: Record<string, unknown> = {}) => ({ function: name, ...extra });
+  const clean = [
+    tag('__ogt_auto_events'),
+    tag('__ogt_1p_data_v2', { vtp_isEnabled: false, vtp_isAutoCollectPiiEnabledFlag: true }),
+    tag('__ccd_em_page_view', { vtp_historyEvents: true }),
+    tag('__ccd_em_scroll'),
+    tag('__ccd_auto_redact', { vtp_redactEmail: true }),
+  ];
+
+  test('PRIV-2 (control) the 2026-10-10 configuration is clean, and each re-enabled event or user-data setting is a finding', () => {
+    expect(gtagConfigFindings(clean)).toEqual([]);
+    for (const event of ['outbound_click', 'site_search', 'form', 'video', 'download']) {
+      expect(
+        gtagConfigFindings([...clean, tag(`__ccd_em_${event}`)]),
+        `re-enabled ${event}`,
+      ).toEqual([expect.stringContaining(`__ccd_em_${event} is present`)]);
+    }
+    expect(
+      gtagConfigFindings(
+        clean.map((t) => (t.function === '__ogt_1p_data_v2' ? { ...t, vtp_isEnabled: true } : t)),
+      ),
+      'user-provided data turned back on',
+    ).toEqual([expect.stringContaining('user-provided data')]);
+    // An unknown configuration never reads as "off": a missing or duplicated user-data tag is a finding.
+    expect(
+      gtagConfigFindings(clean.filter((t) => t.function !== '__ogt_1p_data_v2')),
+      'user-data tag missing or renamed',
+    ).toEqual([expect.stringContaining('found 0')]);
+    expect(
+      gtagConfigFindings([...clean, tag('__ogt_1p_data_v2', { vtp_isEnabled: false })]),
+      'user-data tag duplicated',
+    ).toEqual([expect.stringContaining('found 2')]);
+    // The same exact-one rule for the enhanced-measurement tags that stay on, and every page-view tag is checked.
+    expect(gtagConfigFindings([...clean, tag('__ccd_em_scroll')]), 'scroll tag duplicated').toEqual(
+      ['expected exactly one __ccd_em_scroll, found 2'],
+    );
+    expect(
+      gtagConfigFindings([...clean, tag('__ccd_em_page_view', { vtp_historyEvents: false })]),
+      'a second page-view tag without history events',
+    ).toEqual([
+      'expected exactly one __ccd_em_page_view, found 2',
+      'page views lost their history events',
+    ]);
+    expect(
+      gtagConfigFindings(clean.filter((t) => t.function !== '__ccd_em_scroll')),
+      'scrolls turned off',
+    ).toEqual([expect.stringContaining('__ccd_em_scroll is missing')]);
+  });
+
+  test('PRIV-2 (control) the embedded configuration parses out of a gtag.js-shaped file, and a file of another shape reads as unreadable, not as empty', () => {
+    const body = `var data = {\n\n"resource": {\n  "version":"2",\n  "tags":[{"function":"__ccd_em_page_view","vtp_historyEvents":true}],\n  "rules":[[["if",0]]]\n}\n\n\n\n,"runtime":[\n[50,"__x"]]};`;
+    expect(gtagEmbeddedTags(body)?.map((t) => t.function)).toEqual(['__ccd_em_page_view']);
+    expect(gtagEmbeddedTags('(function(){})();')).toBeUndefined();
+    expect(gtagEmbeddedTags('"resource": {not json\n}\n,"runtime"')).toBeUndefined();
+  });
+
+  test('PRIV-2 (control) the disabled-event detector flags each disabled event and parameter, and passes the events that are still on', () => {
+    const ev = (name: string, params: Record<string, string> = {}) => ({ name, params });
+    expect(
+      disabledEnhancedMeasurement([
+        ev('page_view', { dl: 'https://nathanpayne.test/' }),
+        ev('scroll', { 'epn.percent_scrolled': '90' }),
+        ev('user_engagement', { 'epn.engagement_time_msec': '10' }),
+      ]),
+    ).toEqual([]);
+    expect(
+      disabledEnhancedMeasurement([
+        ev('click', { 'ep.outbound': 'true', 'ep.link_url': 'https://x.test/?a=1' }),
+        ev('file_download', { 'ep.file_name': 'a.pdf' }),
+        ev('view_search_results', { 'ep.search_term': 'x' }),
+        ev('form_submit', { 'ep.form_destination': 'https://x.test/' }),
+        ev('video_progress', { 'ep.video_url': 'https://x.test/v.mp4' }),
+      ]),
+    ).toEqual(
+      expect.arrayContaining([
+        'click parameter link_url',
+        'click parameter outbound',
+        'event file_download',
+        'file_download parameter file_name',
+        'event view_search_results',
+        'view_search_results parameter search_term',
+        'event form_submit',
+        'form_submit parameter form_destination',
+        'event video_progress',
+        'video_progress parameter video_url',
+      ]),
+    );
+    // A disabled parameter on an event that is allowed still counts.
+    expect(
+      disabledEnhancedMeasurement([ev('scroll', { 'ep.link_url': 'https://x.test/' })]),
+    ).toEqual(['scroll parameter link_url']);
   });
 });
 
