@@ -75,7 +75,7 @@ may be removed later without affecting the other.
 | `social_link_clicked` | Click on a `.social-row` link | `platform` |
 | `donation_link_clicked` | Click on a Community-panel `.effort-link` | `organization` |
 | `writing_link_clicked` | Click on a `.writing-list` link in the About panel—article links only | `href` |
-| `index_link_clicked` | Click on a `.ribbon-exit` index link on the Projects, About, or Connect footer ribbon | `panel`, `href` |
+| `index_link_clicked` | Click on a `.ribbon-exit` index link on the Projects, About, or Connect footer ribbon; since #1233 that includes the Connect panel's Privacy link (`href` `/privacy/`) | `panel`, `href` |
 | `project_page_viewed` | A project detail page loads | `project_slug`, `project_title`, `project_status` |
 | `project_live_link_clicked` | Live-CTA button click—labelled "View Live Product" by default, or the project's own `liveLabel` (Device Source of Truth uses "View Demo"). The event and its properties do not vary with the label | `project_title`, `url` |
 | `project_github_link_clicked` | "View on GitHub" button click | `project_title`, `url` |

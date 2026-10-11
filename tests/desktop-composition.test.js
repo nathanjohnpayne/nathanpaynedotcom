@@ -110,6 +110,36 @@ async function openPage({ width, height }) {
 }
 
 /**
+ * Scroll a panel into view and return the middle of its visible part. With the
+ * privacy notice (#1079, on since #1233) above the grid on a first visit the
+ * page is taller than the viewport, and a collapsed bottom panel can sit
+ * entirely below the fold (Connect, while About is open at 1440x900), where a
+ * cursor hovers nothing. Refuses to proceed if the point is not on screen.
+ */
+async function aimAtPanel(page, name) {
+  const panel = page.locator(`[data-panel="${name}"]`);
+  await panel.scrollIntoViewIfNeeded();
+  // Let the page's scroll guard (`body.is-scrolling`, which suspends hover)
+  // clear before the cursor arrives.
+  await page
+    .waitForFunction(() => !document.body.classList.contains('is-scrolling'), null, {
+      timeout: 5_000,
+    })
+    .catch(() => {});
+  await page.waitForTimeout(IDLE_SETTLE_MS);
+  const box = await panel.boundingBox();
+  const viewport = page.viewportSize();
+  const top = Math.max(box.y, 0);
+  const bottom = Math.min(box.y + box.height, viewport.height);
+  const x = box.x + box.width / 2;
+  const y = (top + bottom) / 2;
+  if (!(bottom > top && x > 0 && x < viewport.width)) {
+    throw new Error(`${name} is not on screen to hover (visible rows ${top}–${bottom})`);
+  }
+  return { x, y };
+}
+
+/**
  * Hover a panel the way a reader does and report whether it opened. The
  * cursor is parked and every panel allowed to close first, because an open
  * neighbor moves this panel's cell and a box read before that would aim at
@@ -132,25 +162,7 @@ async function hoverPanel(page, name, { expectOpen }) {
   // a hover ever happening (CodeRabbit, PR #1043). Scroll it into view, aim at
   // the middle of its VISIBLE part, and refuse to proceed if that point is not
   // on screen.
-  const panel = page.locator(`[data-panel="${name}"]`);
-  await panel.scrollIntoViewIfNeeded();
-  // Let the page's scroll guard (`body.is-scrolling`, which suspends hover)
-  // clear before the cursor arrives.
-  await page
-    .waitForFunction(() => !document.body.classList.contains('is-scrolling'), null, {
-      timeout: 5_000,
-    })
-    .catch(() => {});
-  await page.waitForTimeout(IDLE_SETTLE_MS);
-  const box = await panel.boundingBox();
-  const viewport = page.viewportSize();
-  const top = Math.max(box.y, 0);
-  const bottom = Math.min(box.y + box.height, viewport.height);
-  const x = box.x + box.width / 2;
-  const y = (top + bottom) / 2;
-  if (!(bottom > top && x > 0 && x < viewport.width)) {
-    throw new Error(`${name} is not on screen to hover (visible rows ${top}–${bottom})`);
-  }
+  const { x, y } = await aimAtPanel(page, name);
   await page.mouse.move(x, y);
   const selector = `[data-panel="${name}"].is-content-visible`;
   if (expectOpen) {
@@ -596,8 +608,8 @@ describe('keyboard access to a capped panel', () => {
           ),
           'the click on About text did not focus its scroll region',
         ).toBe(true);
-        const connect = await page.locator('[data-panel="connect"]').boundingBox();
-        await page.mouse.move(connect.x + connect.width / 2, connect.y + connect.height / 2);
+        const connect = await aimAtPanel(page, 'connect');
+        await page.mouse.move(connect.x, connect.y);
         await page.waitForTimeout(IDLE_SETTLE_MS + 300);
         const switched = await readFocus(page);
         // Control: the switch left focus on About's label with Connect open.
@@ -621,8 +633,8 @@ describe('keyboard access to a capped panel', () => {
       const page = await openPage({ width: 1440, height: 900 });
       try {
         await keyboardOpenAbout(page);
-        const connect = await page.locator('[data-panel="connect"]').boundingBox();
-        await page.mouse.move(connect.x + connect.width / 2, connect.y + connect.height / 2);
+        const connect = await aimAtPanel(page, 'connect');
+        await page.mouse.move(connect.x, connect.y);
         await page.waitForTimeout(IDLE_SETTLE_MS + 300);
         const focus = await readFocus(page);
         expect(focus.open, 'the hover did not switch to Connect').toEqual(['connect']);

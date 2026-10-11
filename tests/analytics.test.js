@@ -643,15 +643,21 @@ describe('PostHog', () => {
 
     const exits = [...document.querySelectorAll('.ribbon-exit')];
     // Control: the sweep below says nothing if it swept nothing. Three panels
-    // exit to an index — Projects, About, Connect (#975).
-    expect(exits.length, 'expected three .ribbon-exit links').toBe(3);
+    // exit to an index — Projects, About, Connect (#975) — and since #1233 the
+    // Connect panel's privacy row (#1079) is a fourth .ribbon-exit.
+    expect(exits.length, 'expected four .ribbon-exit links').toBe(4);
     for (const exit of exits) {
       exit.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     }
 
     const calls = capture.mock.calls.filter((c) => c[0] === 'index_link_clicked').map((c) => c[1]);
-    expect(calls.map((c) => c.panel).sort()).toEqual(['about', 'connect', 'projects']);
-    expect(calls.map((c) => c.href).sort()).toEqual(['/blog/', '/blog/', '/projects/']);
+    expect(calls.map((c) => c.panel).sort()).toEqual(['about', 'connect', 'connect', 'projects']);
+    expect(calls.map((c) => c.href).sort()).toEqual([
+      '/blog/',
+      '/blog/',
+      '/privacy/',
+      '/projects/',
+    ]);
     expect(
       calls.some((c) => c.panel === 'unknown'),
       'an exit is not inside a [data-panel] .panel container',
