@@ -12,17 +12,16 @@ import type { Ga4Event, PostHogEvent } from './payloads';
 
 export type Choice = 'granted' | 'denied' | 'unset';
 
-/** The contract's URL allowlist (Capture Minimization item 3). The only place the suite restates it. */
+/**
+ * The contract's URL allowlist (Capture Minimization item 3): the five UTMs. Decision 11 took the Google click
+ * identifiers off it (#1294). The only place the suite restates it.
+ */
 export const ALLOWED_QUERY_PARAMS = new Set([
   'utm_source',
   'utm_medium',
   'utm_campaign',
   'utm_term',
   'utm_content',
-  'gclid',
-  'gbraid',
-  'wbraid',
-  'dclid',
 ]);
 
 /** Storage state with the gate's one key pre-set, for "a returning visitor who already chose". */
