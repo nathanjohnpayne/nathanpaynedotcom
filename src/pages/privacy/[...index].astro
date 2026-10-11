@@ -247,7 +247,7 @@ const sections = [
             Your browser, operating system, device type, language, time zone, screen and window size, and the full user-agent string.
           </li>
           <li>
-            The page's address and the page that referred you, reduced to the site's origin and path plus campaign parameters (<code>utm_source</code>, <code>utm_medium</code>, <code>utm_campaign</code>, <code>utm_term</code>, and <code>utm_content</code>). Other query parameters, click identifiers such as <code>gclid</code> and <code>fbclid</code> included, and fragments are removed before sending.
+            The page's address and the page that referred you, reduced to the site's origin and path plus campaign parameters (<code>utm_source</code>, <code>utm_medium</code>, <code>utm_campaign</code>, <code>utm_term</code>, and <code>utm_content</code>). Other query parameters, click identifiers such as <code>gclid</code> and <code>fbclid</code> included, and fragments are removed before sending. PostHog does still record two campaign values from the address, <code>gad_source</code> and <code>mc_cid</code>, as their own properties when the address carries them.
           </li>
           <li>
             Your country, region, city, postal code, approximate latitude and longitude, and time zone, which PostHog derives from your IP address when an event arrives. PostHog then discards the IP address instead of storing it with the event.
@@ -260,7 +260,7 @@ const sections = [
         <h3>Google Analytics 4</h3>
         <ul>
           <li>
-            Page views and scroll depth. Google Analytics' automatic tracking of clicks on links that leave the site, file downloads, form interactions, video, and site searches is turned off.
+            Page views and scroll depth, and, on the homepage, which panels you hover over with a mouse. Google Analytics' automatic tracking of clicks on links that leave the site, file downloads, form interactions, video, and site searches is turned off.
           </li>
           <li>
             The page's address and referrer, reduced the same way as for PostHog, the page title, your language, screen resolution, and User-Agent Client Hints describing your browser, operating system, and device model.
@@ -294,7 +294,7 @@ const sections = [
             <strong>PostHog</strong> receives everything in the PostHog list above. Its requests go through <code>d.nathanpayne.com</code>, a reverse proxy PostHog manages and routes through Cloudflare, which PostHog lists as a subprocessor.
           </li>
           <li>
-            <strong>Google</strong> receives everything in the Google Analytics list above, at <code>www.google-analytics.com</code>. Your browser loads Google's tag from <code>www.googletagmanager.com</code>, and on a small share of page loads the tag also sends diagnostic reports there, with the page's host and path and counts of the requests it made. The Google Analytics property is not linked to Google Ads or any other advertising product, and its setting that shares data with Google to improve Google's products and services is off. Its settings let Google use the data, aggregated and de-identified, for modeling and benchmarking, let Google's support staff access the account to solve problems, and let Google use account data to make recommendations.
+            <strong>Google</strong> receives everything in the Google Analytics list above, at <code>www.google-analytics.com</code>. Your browser loads Google's tag from <code>www.googletagmanager.com</code>, and on a small share of page loads the tag also sends diagnostic reports there, with the page's host and path and counts of the requests it made. The Google Analytics property is not linked to Google Ads or any other advertising product, and its setting that shares data with Google to improve Google's products and services is off. Its settings let Google use the data for modeling and benchmarking, which Google states it aggregates and de-identifies first, let Google's support staff access the account to solve problems, and let Google use account data to make recommendations.
           </li>
           <li>
             <strong>Cloudflare</strong> serves this site and receives every request for a page or file: your IP address, the address requested including any query string, your browser's user agent, and the referring page. It also receives the Web Analytics and error reports described above.

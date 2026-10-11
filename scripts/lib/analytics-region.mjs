@@ -123,9 +123,12 @@ const MUX_DATA_SOURCE = readFileSync(
 ).trim();
 
 const SCRIPT_RE = /<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi;
+// Every attribute form HTML accepts: any case, separated from the tag name or
+// the previous attribute by whitespace or `/`, and a value that is
+// double-quoted, single-quoted, or unquoted (HTML's unquoted-value rule).
 const URL_ATTR_RE =
-  /\s(?:src|href|srcset|data|action|formaction|poster|ping|content)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
-const SCRIPT_ATTR_RE = /\b(src|async|defer|type)\s*=/;
+  /[\s/](?:src|href|srcset|data|action|formaction|poster|ping|content)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/gi;
+const SCRIPT_ATTR_RE = /\b(src|async|defer|type)\s*=/i;
 
 /**
  * Index of the `}` that closes the `{` at `open` in inline JavaScript, or -1.
@@ -296,7 +299,7 @@ export function analyticsGateFindings(html) {
     markup = markup.replace(/<!--[\s\S]*?-->/g, '');
   }
   for (const m of markup.matchAll(URL_ATTR_RE)) {
-    const value = m[1] ?? m[2];
+    const value = (m[1] ?? m[2] ?? m[3]).toLowerCase();
     for (const host of ANALYTICS_HOSTS) {
       if (value.includes(host)) findings.push(`markup attribute names analytics host ${host}`);
     }

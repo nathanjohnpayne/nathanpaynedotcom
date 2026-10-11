@@ -320,6 +320,23 @@ describe('production-mode build carries the privacy controls (PRIV-15 replacemen
       );
     });
 
+    it('catches analytics URLs in every attribute form HTML accepts', () => {
+      for (const tag of [
+        '<img src=https://stats.doubleclick.net/pixel>',
+        '<IMG SRC="https://stats.doubleclick.net/pixel">',
+        '<img/src="https://stats.doubleclick.net/pixel">',
+        "<link REL=preconnect HREF='https://www.google-analytics.com'>",
+      ]) {
+        const mutated = page.replace('</body>', `${tag}</body>`);
+        expect(
+          analyticsGateFindings(mutated).some((f) =>
+            f.startsWith('markup attribute names analytics host'),
+          ),
+          tag,
+        ).toBe(true);
+      }
+    });
+
     it('catches a DoubleClick pixel in <body>', () => {
       const mutated = page.replace(
         '</body>',
