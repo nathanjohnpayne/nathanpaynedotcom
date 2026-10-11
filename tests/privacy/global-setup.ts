@@ -21,10 +21,14 @@ export default async function globalSetup(): Promise<void> {
       gtag.available
         ? gtag.matchesProduction
           ? gtag.source === 'cache'
-            ? 'served (the recorded production capture, reused from the cache without a fetch: the provenance test skips as not checked against production)'
-            : 'served (the recorded production capture, fetched from production this run)'
-          : 'served, but it is not the production capture recorded in tests/privacy/manifest.json: re-record it (docs/agents/testing-requirements.md, GA4 tag refresh); GA4 transmitted-payload results are indicative and NOT VERIFIED against production bytes'
+            ? 'served (its configuration is the recorded production one, but the copy was reused from the cache without a fetch: the provenance test skips as not checked against production)'
+            : 'served (fetched from production this run; its embedded configuration matches the recorded fingerprint)'
+          : 'served, but its embedded configuration does not match the production fingerprint recorded in tests/privacy/manifest.json (or has findings, or could not be read): take it to Nathan before recording anything (docs/agents/testing-requirements.md, GA4 tag refresh); GA4 transmitted-payload results are indicative and NOT VERIFIED against the production configuration'
         : `unavailable (${gtag.reason ?? 'unknown'}); GA4 transmitted-payload criteria are not verified`
     }`,
   );
+  if (gtag.available)
+    console.log(
+      `[privacy] gtag.js bytes this run (${gtag.source ?? 'unknown'}): SHA-256 ${gtag.rawSha256 ?? 'unknown'}, ${gtag.rawBytes ?? 'unknown'} bytes; configuration fingerprint ${gtag.configSha256 ?? 'unreadable'}`,
+    );
 }
