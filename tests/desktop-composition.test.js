@@ -1453,15 +1453,26 @@ describe('a homepage that streams slowly', () => {
         setTimeout(() => res.end(html.slice(cut)), 800);
         return;
       }
-      const upstream = await fetch(`http://127.0.0.1:${port}${req.url}`);
-      res.writeHead(upstream.status, {
-        'Content-Type': upstream.headers.get('content-type') ?? 'application/octet-stream',
-      });
-      res.end(Buffer.from(await upstream.arrayBuffer()));
+      // Every other request is proxied to the ordinary server; a failed
+      // upstream answers 502 so the page never waits on it.
+      try {
+        const upstream = await fetch(`http://127.0.0.1:${port}${req.url}`);
+        res.writeHead(upstream.status, {
+          'Content-Type': upstream.headers.get('content-type') ?? 'application/octet-stream',
+        });
+        res.end(Buffer.from(await upstream.arrayBuffer()));
+      } catch {
+        if (!res.headersSent) res.writeHead(502);
+        res.end();
+      }
     });
-    await new Promise((done) => slow.listen(0, '127.0.0.1', done));
-    const page = await browser.newPage({ viewport: { width: 1440, height: 840 } });
+    let page;
     try {
+      await new Promise((resolve, reject) => {
+        slow.once('error', reject);
+        slow.listen(0, '127.0.0.1', resolve);
+      });
+      page = await browser.newPage({ viewport: { width: 1440, height: 840 } });
       await page.goto(`http://127.0.0.1:${slow.address().port}/`, { waitUntil: 'load' });
       await page.evaluate(() => document.fonts.ready);
       await page.addStyleTag({
@@ -1476,7 +1487,7 @@ describe('a homepage that streams slowly', () => {
         OVERFLOW_TOLERANCE_PX,
       );
     } finally {
-      await page.close();
+      await page?.close();
       slow.closeAllConnections?.();
       slow.close();
     }
