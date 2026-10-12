@@ -1,8 +1,8 @@
 # Friends & Family Billing—voice approval packet
 
-Draft date: 2026-10-12. Status: owner approved the copy for a PR and merge on 2026-10-12, subject to live Firebase Rules API verification before merge. The two requested copy fixes are applied. PR/push/merge remain on hold until the parent supplies the live-rule conclusion and confirms the conditions. No PR, push, merge, or deployment has occurred for this draft.
+Draft date: 2026-10-12. Status: owner approved the copy for a PR and merge on 2026-10-12, conditional on the live rules check and two wording fixes. Those conditions have been addressed in this revision; the parent must confirm the readback before starting the PR workflow. No PR, push, merge, or deployment has occurred for this draft.
 
-Factual baseline: `467d26110ae1b3850f03b88296300b4f23262909`, `origin/main` when this pass began. Final validation includes dependency merge `ff2daa3e1f4b370a673d0f8ac75b757bdb171f72` (#1299), which supplies the evidence paragraph style; the captured original remains the initial baseline. Source: `src/content/projects/friends-and-family-billing.mdx`. Historical facts ledger: `plans/correctness-pass-2026-10-06/friends-and-family-billing-ledger.md`. Product evidence retains that ledger's pinned 2026-10-06 audit; this is a voice and meaning review, not a new audit of the live product.
+Factual baseline: `467d26110ae1b3850f03b88296300b4f23262909`, `origin/main` when this pass began. Final validation includes dependency merge `ff2daa3e1f4b370a673d0f8ac75b757bdb171f72` (#1299), which supplies the evidence paragraph style; the captured original remains the initial baseline. Source: `src/content/projects/friends-and-family-billing.mdx`. Historical facts ledger: `plans/correctness-pass-2026-10-06/friends-and-family-billing-ledger.md`. Product evidence retains that ledger's pinned 2026-10-06 audit except R18, whose deployed-rule verification is freshly dated 2026-10-12. That read-only check covered rules/configuration; no private product data was read.
 
 ## Approval summary
 
@@ -10,7 +10,7 @@ The complete page is rewritten: hero, homepage/project card, search snippet, fou
 
 The prose distinguishes the April rendering fix from the September security change. It keeps the recipient invoice outside the tested parity claim, preserves the lack of automatic sending, and makes visit counts about visits rather than people. The overpayment record still admits that I got the model right before providing the views the coordinator and recipient needed.
 
-One qualification repair is explicit: the previous page called the source rules deployed, though R18's evidence did not read the deployed ruleset. The decision's cost/evidence and the Access bullet now name the source review and say deployment remains unverified. R18's summary and detailed row are repaired in place. No production read occurred. The intended member and linked-household exposure remains bounded to what the checked source establishes.
+The original 2026-10-06 audit checked source only, so the first draft removed its unverified deployment assertion. The parent's read-only Firebase Rules API check on 2026-10-12 now confirms that the complete deployed rules match current product main. The deployed wording is restored and the three hedges are removed. Exposure is bounded to a known-hash read of an existing cached member view, including linked household members: a successfully deleted cache cannot expose its payload. The normal revocation and pruning deletion paths are explained once in decision 1 Cost; its evidence keeps the link-management outcome, and the Access recap links issue #492. R18's summary/detail now record live provenance and retract the source-only conclusion in place. No private member documents or tokens were probed and no data/configuration changed.
 
 The canonical résumé and site mirror still agree verbatim. Its claims—recurring household costs, showing the arithmetic, tracking settlement, handling questions without accounts, nine people across five households—hold against this draft. Only `claimsReviewed.caseStudy` and the date change; the body, body hash, private canonical, and unrelated entries stay untouched.
 
@@ -105,13 +105,11 @@ A recipient needs four things: an amount, its derivation, a way to pay, and a wa
 
 **Cost**
 
-The application treats whoever holds the link as the recipient. The data-layer rules reviewed for this page don't fully enforce its intended expiry and revocation, so a leaked link can expose that member's view and any linked household members. I haven't verified the deployed ruleset.
+The application treats whoever holds the link as the recipient. The deployed data-layer rules let anyone who knows the token hash read an existing cached view of that member and any linked household members, without checking expiry or revocation. Revocation marks the token revoked and tries to delete the cache, but ignores a failed delete; pruning batch-deletes caches. A successfully deleted cache no longer exposes its payload.
 
 **What it changed**
 
 Managing links became part of my workflow. I can read each link's lifecycle, visit count, and last-viewed date to see that a bill was opened without asking.
-
-I built those controls into the application, but the checked data-layer rules don't fully back them. Source review establishes that gap; it doesn't verify the deployed ruleset.
 
 ### The coordinator doesn't keep the change
 
@@ -175,7 +173,7 @@ I kept getting the model right and stopping before the screen someone needed.
 
 - **Rendering.** From April to September 2026, the preview and test send shared a canonical renderer. The recipient's invoice didn't; its dialog sent plain text with no HTML field. A security change on 2026-09-30 (friends-and-family-billing#459) closed that particular gap by taking every email off the client's HTML. Both sent messages now render server-side from plain-text bodies, which still differ in serialization. Only the preview uses the canonical renderer.
 - **Settlement.** I modeled overpayment and built the subsystem behind it. I can see an `Owed to members` tile, but there's no `Overpaid` filter to take me to the household. The recipient's share page has no badge for the money I owe them.
-- **Access.** I built expiry, revocation, and pruning into the application. The data-layer rules reviewed for this page don't fully enforce them, so a leaked link can expose the intended member's view. I haven't verified the deployed ruleset.
+- **Access.** I built expiry, revocation, and pruning into the application. The deployed rules leave an existing cached member view readable to anyone who knows its token hash, without checking expiry or revocation. [The missing backstop is tracked in issue #492](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/492).
 
 The gaps sit at different layers, but I made the same mistake each time: I stopped checking just before the boundary that mattered.
 
@@ -246,13 +244,13 @@ Every year, someone would ask how much they owed. I'd open a spreadsheet, work t
 
 **Choice:** Names the surfaces and direction of change. The invoice did not drift or move; it was the path the fix missed. Historical cost remains distinct from the September update.
 
-### What the source review proves
+### What the deployed rules establish
 
 **Before:** The weakness is enforcement—expiry and revocation live in the application, and the deployed data-layer rule does not fully back them.
 
-**After:** I built those controls into the application, but the checked data-layer rules don't fully back them. Source review establishes that gap; it doesn't verify the deployed ruleset.
+**After:** The application treats whoever holds the link as the recipient. The deployed data-layer rules let anyone who knows the token hash read an existing cached view of that member and any linked household members, without checking expiry or revocation. Revocation marks the token revoked and tries to delete the cache, but ignores a failed delete; pruning batch-deletes caches. A successfully deleted cache no longer exposes its payload.
 
-**Choice:** Removes the unsupported leap from checked source to deployed configuration. This is a qualification repair, not a claim that the exposure was fixed.
+**Choice:** The 2026-10-12 live API readback now supports deployment wording. The first draft's source-only hedges are withdrawn, not left alongside the new claim. This identifies the missing rules backstop without saying cache deletion never works or claiming a private payload was read. Nathan is not presented as the person who performed the API check.
 
 ### The closing admission
 
@@ -279,7 +277,7 @@ Every distinct point in the original is accounted for here. Ledger row numbers r
 | Member-scoped view includes equivalent summaries for linked household members | Access chosen/body; same scope (R17). |
 | Expiry/revocation/pruning; counters and last-viewed date for each link | Access chosen/evidence and body; lifecycle/counters retained (R17). |
 | 365-day default; No expiry silently creates that default | Constraint retains exact value and the misleading dialog option (R14). |
-| Link-holder is treated as recipient; possible exposure bounded to member and linked households | Access cost/body; risk retained. Checked source boundary replaces unverified deployment assertion (R18 repair). |
+| Link-holder is treated as recipient; possible exposure bounded to member and linked households | Access cost/body; risk retained and now verified against the deployed rule. Exposure is confined to an existing member/linked-household cache at a known hash; normal successful deletion removes the payload. R18 records the read-only API provenance and issue #492. |
 | No scheduler; coordinator still presses Send once per member per year | No scheduler constraint/body/closing; no automatic sends asserted (R15). |
 | Inline arithmetic example and canonical fields; no display recomputation or invented rounding | Body exact code example retained. Image caption is byte-identical, with the same second formula (R29, R34). |
 | Email greeting/total/link; email asks/page explains | Body retains the thesis and scope. It remains an abbreviated description, not an exhaustive email-content inventory (R30). |
@@ -317,7 +315,7 @@ Every distinct point in the original is accounted for here. Ledger row numbers r
 
 ## Supporting records and review judgments
 
-- R18 is repaired in both summary and detail. The source rule remains SUPPORTED within its reviewed-source boundary; the deployed ruleset remains unverified. The historical tally stays 27 supported/7 stale/3 unprovable because this narrows one supported claim's scope rather than introducing a newly verified deployment.
+- R18 is repaired in both summary and detail to SUPPORTED, DEPLOYMENT VERIFIED 2026-10-12. The original audit tally remains 27 supported, 7 stale and 3 unprovable; R18 was already supported within source scope, so extending it with deployed evidence does not change its bucket. The first draft's source-only conclusion is expressly superseded in place by the exact live readback below.
 - The overpayment evidence says the headline exposes the debt but the filters and recipient page still fail the action someone needs. This keeps the original UI inventory and removes a contradictory blanket sentence, without claiming the product changed.
 - The account rationale remains judgment: I expected an account requirement to discourage an annual visit. It is not measured recipient abandonment or a documented accounts-versus-links evaluation.
 - The ADR sentence names the March implementation first and the later explicit rule second. No ADR-caused-March-state claim remains.
@@ -326,18 +324,28 @@ Every distinct point in the original is accounted for here. Ledger row numbers r
 
 ## Validation and mechanical exceptions
 
-The reader-facing authored text is 2089 → 2022 words. This counts title, hero, format/focus/stack, constraint values/glosses, all decision text/lenses/statuses, and visible body prose/headings/caption; it excludes imports/components, fenced diagram source and hidden accessibility metadata, template labels, and the separately reviewed card/search renditions. It uses whitespace-separated words after removing Markdown destinations/format markers. The brevity checker separately reports whole-source 2,456 → 2,397 and body-only prose 1,043 → 971 (−6.9%). Final counts were recomputed after the dependency refresh and the two owner-requested copy fixes.
+The reader-facing authored text is 2,089 → 2,021 words, a 3.3% cut. This counts title, hero, format/focus/stack, constraint values/glosses, all decision text/lenses/statuses, and visible body prose/headings/caption; it excludes imports/components, fenced diagram source and hidden accessibility metadata, template labels, and the separately reviewed card/search renditions. It uses whitespace-separated words after removing Markdown destinations/format markers. The brevity checker separately reports whole source 2,456 → 2,395 and body-only prose 1,043 → 974 (−6.6%). These counts were regenerated from the complete source after the owner fixes and live-rules revision; the earlier packet's stale plain-number reader figure is replaced.
 
-The brevity checker reports two intentional failures: its pinned `seoDescription` changed because the task includes the search rendition, and its indented-code detector treats indented YAML evidence prose as protected code when changed to literal paragraph scalars. These are the complete decision prose records, not executable code. Actual fenced Mermaid/code, tables, all URLs/link destinations, PR references, numeric tokens, timestamps and all five inline code spans are unchanged by occurrence. The spelled-out-number advisory was manually reviewed against every mapping row above: the group, four recipient needs/grants, three decisions/states/attempts/coordination steps, fourth balance state, five ADRs, six PRs, roughly twenty hours, six of seven functions, and two historical tests remain with their subjects. Removed occurrences were duplicates or ordering language. The checker was not weakened.
+The brevity checker reports six intentional failures: the search description rewrite; changed YAML evidence prose treated as indented code; and the new issue #492's URL, link destination, issue reference and numeric occurrences. The issue identifier occurs twice in the numeric inventory, in the label and URL. These supporting additions are authorized by the owner's live-verification condition. The checked date and release/ruleset timestamps are new evidence in this packet and R18, not changed historical events or shifted dates in the page. All original URLs/destinations, PR references, numeric tokens, timestamps, all five inline code spans, actual fenced Mermaid/code and tables remain; the checker reports no lost protected tokens. The YAML evidence scalars are authored prose, not executable code. The spelled-out-number advisory was reviewed against the complete mapping: all original distinct counts retain their subjects. No checker was weakened.
 
 The blog voice CLI explicitly rejects project MDX with exit 2, “Supply one blog Markdown (.md) file.” It has not passed this page. Sentence-case headings, straight apostrophes, American spelling, narrator pronouns, source attribution and complete original/ledger meaning comparison were reviewed manually. The preserved decision title “Fix the rendering model, not the preview” is the original substantive decision assertion; it stays intentionally.
 
-Initial and final uncredentialed builds passed. On the final source, the project/schema/résumé-stamp subset passed 159 tests; final targeted desktop/phone diagram checks passed 17 with 1 existing skip, and their setup revalidated all served build bytes. Focused existing project/schema/résumé/ribbon/Mermaid tests: 280 passed, 5 skipped; the skips are existing optional fixture cases. Full responsive suite against the dedicated preview: 369 passed, 51 skipped, with every built file validated against served bytes first. Lint passed (including advisory CMOS title-case suggestions retained because the requested headings are sentence case); typecheck reported 0 errors and 0 warnings. No new tests were added for copy. The final build includes #1299. At 1440px and 375px, the page has no document or article-copy overflow and no page errors; all three records render every authored field exactly, and every evidence field computes to `white-space: pre-line`. Desktop and phone hero and complete decision screenshots were inspected; the evidence paragraph break remains visible, and the social card fits without clipping. Render evidence is in `/tmp/project-voice-batch-2026-10-12/billing/` (`desktop-top.png`, `phone-top.png`, desktop/phone decision 1–3, full-page captures and `visual.json`). Only this project's regenerated OG reference is included in the commit.
+The original preparation passed an uncredentialed build; focused project/schema/résumé/ribbon/Mermaid suites (280 passed, 5 existing skips); the full responsive suite (369 passed, 51 existing skips); lint; and typecheck (0 errors, 0 warnings). No new tests were added for copy.
+
+The latest live-rules revision was rebuilt uncredentialed and checked with the affected project/schema/résumé-stamp subset (159 passed), changed-file prose lint, and scoped desktop/phone diagram checks (17 passed, 1 existing skip). The scoped browser setup verifies every built file against served bytes before the assertions. No broad suite was repeated for this supporting revision. Advisory CMOS title-case suggestions are retained because the requested headings are sentence case.
+
+At 1440px and 375px, every authored field in all three records renders exactly, with no page error, document overflow or article-copy overflow. Every evidence field computes to `white-space: pre-line`; the Access outcome is now one paragraph, while the other evidence records retain visible gaps. The final decision 1 cost, outcome and phone layout were inspected after the cache qualification was added. The unchanged social rendition remains 166 characters and fits without clipping. Render evidence is in `/tmp/project-voice-batch-2026-10-12/billing/` (desktop/phone top, full-page and decision 1–3 captures; `visual.json`). Only this project's regenerated OG reference is included in the branch.
+
+## Live-rules provenance and read-only boundary
+
+Checked 2026-10-12 by the parent workflow through the Firebase Rules API. The `projects/friends-and-family-billing/releases/cloud.firestore` release points to ruleset `527a0ae0-e202-437d-bed0-5290c97b8957`, created `2026-09-30T17:42:10.927663Z`; the release was updated `2026-09-30T17:42:16.063254Z`. Its entire `firestore.rules` byte-matches current product main `3691ab5b9f2580f3ffa324bba46674aef47184fc`, with SHA-256 `be4264dffc76f5a34b2d8e310c4a8774d5ad182e7fdf65b602bf04d860be46dc` on both sides. This revision independently read back the artifacts and rechecked byte/hash equality.
+
+The `publicShares` get rule is unconditional. Current revocation marks the token revoked and then tries cache deletion, ignoring a deletion failure; pruning batch-deletes caches. Therefore the verified defect is the missing expiry/revocation backstop for a known-hash read of an existing cache. It is not a claim that a successfully deleted cache remains exposed. No private member documents or tokens were tested; no data or configuration changed. The captures are `/tmp/project-voice-batch-2026-10-12/billing/live-rule-comparison.json`, `live-release.json`, `live-ruleset.json`, and `live-firestore.rules`.
+
+The parent searched open/all-history issues and filed the distinct exposure as [friends-and-family-billing#492](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/492). #424 list isolation and #464 rawToken/requestShareLink concerns are separate. This page revision performs no fix or deployment to the billing product.
 
 ## Approval record
 
-The owner approved this copy for a PR and merge on 2026-10-12 with two wording fixes: the card now says "I got the model right", and the diagram's following caption now says "the two the tests covered". Both are applied in the complete text and metadata above, and the résumé stamp is refreshed.
+The owner approved the copy for a PR and merge on 2026-10-12, with live rules verification and two wording fixes. The card says "I got the model right", and the diagram's following caption says "the two the tests covered". The completed live check supports deployed wording; the three unverified-deployment hedges are removed, and normal cache deletion is acknowledged. Full reader text, metadata, source, supporting R18 and résumé stamp are synchronized.
 
-The owner-requested card and caption fixes were built uncredentialed and checked in the emitted project card and detail-page text. The affected project-page/résumé-stamp subset passed 149 tests, and changed-file prose lint passed. No broad suite was repeated for these two copy changes.
-
-Merge is conditional on the parent's read-only Firebase Rules API verification. If the checked source and live rules match, the deployed wording should be restored and hedges reduced. If they differ, the page should state that difference. The parent also owns the duplicate-issue check. No production fix or deployment to Friends & Family Billing is authorized. No PR, push or merge proceeds until the parent supplies the live-rule conclusion and confirms the conditions. Required PR checks still apply; deployment is separate.
+The parent must verify the final readback and confirm the conditions before starting the PR workflow. Required PR checks still apply. No PR, push, merge, billing-product fix or deployment has been performed by this drafting agent. Deployment remains separate and is not authorized by this record.

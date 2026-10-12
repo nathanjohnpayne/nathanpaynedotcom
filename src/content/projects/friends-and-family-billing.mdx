@@ -32,11 +32,9 @@ decisions:
     context: "A household member checks their bill a handful of times a year. I didn't want to put a password, recovery flow, and sign-in in front of that, especially for the person I was asking to pay. The token link was already there before the React app. No ADR, spec, or pull request records a comparison with recipient accounts."
     chosen: "I gave recipients a URL. It opens their member view, including equivalent summaries for any linked household members. I added expiry, revocation, and pruning, plus a visit count and last-viewed date for each link."
     rationale: "A recipient needs four things: an amount, its derivation, a way to pay, and a way to object. Those are read-and-request acts. I didn't need to establish an identity for them, and I expected an account requirement to stop someone who only checks once a year from looking at all."
-    cost: "The application treats whoever holds the link as the recipient. The data-layer rules reviewed for this page don't fully enforce its intended expiry and revocation, so a leaked link can expose that member's view and any linked household members. I haven't verified the deployed ruleset."
+    cost: "The application treats whoever holds the link as the recipient. The deployed data-layer rules let anyone who knows the token hash read an existing cached view of that member and any linked household members, without checking expiry or revocation. Revocation marks the token revoked and tries to delete the cache, but ignores a failed delete; pruning batch-deletes caches. A successfully deleted cache no longer exposes its payload."
     evidence: |
       Managing links became part of my workflow. I can read each link's lifecycle, visit count, and last-viewed date to see that a bill was opened without asking.
-
-      I built those controls into the application, but the checked data-layer rules don't fully back them. Source review establishes that gap; it doesn't verify the deployed ruleset.
     status: "mixed"
   - title: "The coordinator doesn't keep the change"
     lens: "Settlement"
@@ -113,7 +111,7 @@ I kept getting the model right and stopping before the screen someone needed.
 
 - **Rendering.** From April to September 2026, the preview and test send shared a canonical renderer. The recipient's invoice didn't; its dialog sent plain text with no HTML field. A security change on 2026-09-30 (friends-and-family-billing#459) closed that particular gap by taking every email off the client's HTML. Both sent messages now render server-side from plain-text bodies, which still differ in serialization. Only the preview uses the canonical renderer.
 - **Settlement.** I modeled overpayment and built the subsystem behind it. I can see an `Owed to members` tile, but there's no `Overpaid` filter to take me to the household. The recipient's share page has no badge for the money I owe them.
-- **Access.** I built expiry, revocation, and pruning into the application. The data-layer rules reviewed for this page don't fully enforce them, so a leaked link can expose the intended member's view. I haven't verified the deployed ruleset.
+- **Access.** I built expiry, revocation, and pruning into the application. The deployed rules leave an existing cached member view readable to anyone who knows its token hash, without checking expiry or revocation. [The missing backstop is tracked in issue #492](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/492).
 
 The gaps sit at different layers, but I made the same mistake each time: I stopped checking just before the boundary that mattered.
 
