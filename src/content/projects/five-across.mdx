@@ -1,9 +1,9 @@
 ---
 title: "Five Across"
 slug: "five-across"
-description: "I built a live bingo game for a nine-night Mediterranean cruise. It ran at sea, then became the engine for other events. Getting people to play was a separate problem."
-seoDescription: "Eight days to build multiplayer bingo for a cruise, then ten days running it at sea. What I chose, what players used, and what the records couldn't prove."
-cardDescription: "I built multiplayer bingo in eight days, then ran it for ten days at sea. The standings held, but the social mechanics barely caught on. A second event showed that reusing the engine wasn't enough."
+description: "I built a live bingo game for a nine-night Mediterranean cruise. It ran at sea, then became the engine for a second event. Getting people to play was a separate problem."
+seoDescription: "Eight days to build multiplayer bingo for a cruise, then ten days running it aboard. What I chose, what players used, and what the records couldn't prove."
+cardDescription: "I built multiplayer bingo in eight days, then ran it through the ten-day cruise. The standings held, but the social mechanics barely caught on. A second event showed reusing the engine wasn't enough."
 kicker: "Consumer × Social × Live Ops"
 order: 0
 screenshotAspect: "narrow"
@@ -38,7 +38,7 @@ decisions:
     chosen: "I chose honor-system marking, with no server validation. Players write their own boards, and the client sorts the leaderboard. Each event can require a pledge, proof-to-mark, or admin confirmation. The default is a one-tap Cross My Heart."
     rejected: "Cloud Functions checking every mark. That's the standard multiplayer approach, and the safer choice for an audience of strangers."
     rationale: "Cheating wasn't in the threat model for this group. I trusted the friends and the feed to challenge a claim if they needed to. Server enforcement would have added work for a problem I wasn't designing this launch around. Leaving it out also let Phase 0 deploy without Cloud Functions at all."
-    cost: "The standings are claims, not independently verified results. A player writes their own board, so the record can't distinguish a real mark from an invented one. Any player could demand proof, but that escape hatch was used seven times in ten days, all by one person."
+    cost: "The standings are claims, not independently verified results. A player writes their own board, so the record can't distinguish a real mark from an invented one. Any player could demand proof."
     evidence: "The frozen production Firestore holds 845 squares. Analytics recorded seven proof-demand events over ten days, all from the same player. Those are events, not seven distinct challenged squares; they can't be subtracted from the square count. The rest stood on the pledge."
     status: "validated"
   - title: "Make marking work without a connection"
@@ -65,8 +65,8 @@ decisions:
     chosen: "I started with frozen cards from a seeded shuffle, with no rerolls."
     rejected: "Mulligans or rerolls whenever a player disliked their card. That would be a forgiving choice for a casual game."
     rationale: "A fixed deal made the fairness rule clear: nobody could negotiate their board or the score it produced."
-    cost: "A player whose card didn't fit the trip was stuck with it, with no way to tell whether the problem was the card or the trip. Two days into main-pool play, no main card had produced a bingo. I had to revisit the rule while the event was running."
-    evidence: "The two cards after the embark tutorial finished the cruise with one bingo apiece, both claimed on the last full day. I changed the rule from a final deal to a deal that becomes final when the player acts on it. A card with zero marks can be traded for a fresh one, three times per player. Once a player has marked it, they can't trade it.\n\nThat made the first deal negotiable for anyone who used the feature. The limit prevents shopping for a better board mid-play; it doesn't preserve the original rule intact. The repository calls it a reshuffle and explicitly avoids mulligan. It shipped on the itinerary's sole sea day, alongside easy embark-pool squares blended into main cards. Three of sixteen players used seven reshuffles, all during the sailing."
+    cost: "A player whose card didn't fit the trip was stuck with it, with no way to tell whether the problem was the card or the trip. Two days into main-pool play, no main card had produced a bingo. The two cards after the embark tutorial would finish the cruise with one bingo apiece, both claimed on the last full day. I had to revisit the rule while the event was running."
+    evidence: "I changed the rule from a final deal to a deal that becomes final when the player acts on it. A card with zero marks can be traded for a fresh one, three times per player. Once a player has marked it, they can't trade it.\n\nThat made the first deal negotiable for anyone who used the feature. The limit prevents shopping for a better board mid-play; it doesn't preserve the original rule intact. The repository calls it a reshuffle and explicitly avoids mulligan. It shipped on the itinerary's sole sea day, alongside easy embark-pool squares blended into main cards. Three of sixteen players used seven reshuffles, all during the sailing."
     status: "revised"
   - title: "Hold the cutover"
     lens: "Platform"
@@ -120,7 +120,7 @@ I also sized moderation for a private adult friend group. Before departure, the 
 
 The production Firestore preserved the standings, frozen at 08:00 on disembarkation morning. The app's final share card survived too. Those records let me look back at ten days of live play.
 
-Firestore's day buckets credit the embark tutorial with 27 bingos from seven players. None landed on embark day itself; the easy card kept paying out for days. The next two cards produced one bingo apiece over the whole cruise, both claimed on the last full day.
+Firestore's day buckets credit the embark tutorial with 27 bingos from seven players. None landed on embark day itself; the easy card kept paying out for days.
 
 The player rows show ten people with an event-wide bingo, and PostHog independently counts ten. The scoring tests explicitly include embark bingos in the event total. Seven people with an embark bingo fits inside ten across the event.
 
@@ -130,7 +130,7 @@ The social mechanics had little use. One player gave all nineteen hearts. One pl
 
 Marking reached most of the group. Fourteen of sixteen players marked at least one square in the frozen Firestore. PostHog sees fewer marks and twelve markers, nine of whom marked on five or more days. The frozen event totals 845 squares and 61 bingos, with zero blackouts.
 
-Zacaria Arab won with 16 bingos across 124 squares. Logan Murdock marked more squares, 129 to 124, and finished second. The leaderboard sorts bingos first. Marking the most squares didn't make him the winner.
+Zacaria Arab won with 16 bingos across 124 squares. Logan Murdock marked more squares, 129 to 124, and finished second. The leaderboard sorts bingos first. The rule, not volume, crowned the champion.
 
 ![The app's own final-standings share card for Day 10, Barcelona, with champion Zacaria Arab at 16 bingos and 124 squares, Turntilla's cruise-wide First to BINGO, and the ten daily honors spread from Trieste to Barcelona.](/images/projects/five-across-final-standings.png)
 
@@ -166,7 +166,7 @@ The cutover is still held. The wildcard event router has written routes that hav
 
 Sixteen friends can't validate retention, acquisition, pricing or how strangers treat each other in a game. Those questions need an audience this launch didn't have.
 
-The launch did test the social mechanics on the people I'd designed them for. Hearts and doubts failed with this group, and I have counts for that. The honor model let the standings run: 845 squares stood, and one player demanded proof seven times. It didn't make those marks independently verifiable.
+What it could test, it tested harshly. The launch did test the social mechanics on the people I'd designed them for. Hearts and doubts failed with this group, and I have counts for that. The honor model let the standings run: 845 squares stood. It didn't make those marks independently verifiable.
 
 Offline-first's effect remains unresolved. Over the scoring window, Firestore holds 62 more marks than analytics logged. Offline queueing and ordinary analytics loss could both explain the gap. PostHog captured fifteen exception events containing `auth/network-request-failed`. They establish request failures, not successful offline marking or an effect on participation.
 

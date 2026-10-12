@@ -1,6 +1,6 @@
 # Five Across—voice approval packet
 
-Draft date: 2026-10-11. Status: awaiting direct owner approval. No PR, push, merge or deployment is authorized by this packet.
+Draft date: 2026-10-11. Status: owner approved opening a PR after the precision fixes requested on 2026-10-11. Those fixes are applied below. Merge and deployment remain separate decisions.
 
 Factual baseline: `ccdc529ec31a811c9d38b7ad1896ea4488dd65cc`, current `origin/main` when this pass began. [Published page](https://nathanpayne.com/projects/five-across/). Source: `src/content/projects/five-across.mdx`. Historical facts ledger: `plans/correctness-pass-2026-10-06/five-across-ledger.md`.
 
@@ -8,7 +8,7 @@ Factual baseline: `ccdc529ec31a811c9d38b7ad1896ea4488dd65cc`, current `origin/ma
 
 The complete page is rewritten, including all five decision records, all three learning records, and the hero, card and search renditions. The first-person account names my decisions and keeps the agents' role in build, test and review. It retains the six sections and the positions of the constraint strip, decision ledger, standings image and learning ledger. The long results, operations and platform paragraphs are split into smaller paragraphs; no component or section is moved.
 
-The reader-facing text count is 3,250 → 2,858 words, a 12.1% cut. This counts the authored title, hero, format/focus/stack, constraints, decision and learning text, headings, caption and MDX prose, excluding shared template labels and the separate search/card renditions. It is not the brevity script's body-only figure: that script excludes the frontmatter, which holds much of this page. All distinct substantive points remain mapped below.
+The reader-facing text count is 3,240 → 2,814 words, a 13.1% cut. This counts the authored title, hero, format/focus/stack, constraints, decision and learning text, headings, caption and MDX prose, excluding MDX imports/component markup, shared template labels and the separate search/card renditions. Counts use whitespace-separated words in those authored fields and the body. It is not the brevity script's body-only figure: that script excludes the frontmatter, which holds much of this page. All distinct substantive points remain mapped below.
 
 Two qualification repairs are explicit. The two early main cards' bingos were claimed on the **last full day**, matching R11's July 23 ship-time timestamps rather than implying disembarkation day. R54's supporting ledger row and detail now remove the invalid freeze-move control and the blanket claim that no live-ops records exist. R13 says the freeze was never moved; R3 records a rules-deploy incident. Neither repair changes an event count or adds a new production read.
 
@@ -16,25 +16,25 @@ The canonical résumé's Five Across entry was read against the draft and matche
 
 ## Metadata proposed for approval
 
-These remain frontmatter renditions. The templates are unchanged. The hero also supplies the project share-card line through the existing fallback; 167 characters is below its 180-character cap. The 197-character card supplies both `/projects/` and the homepage Projects panel and is within the existing 120–200 band. The search snippet is separate at 154 characters.
+These remain frontmatter renditions. The templates are unchanged. The hero also supplies the project share-card line through the existing fallback; 169 characters is below its 180-character cap. The 199-character card supplies both `/projects/` and the homepage Projects panel and is within the existing 120–200 band. The search snippet is separate at 154 characters.
 
 ### Hero / detail-page description / social-card fallback
 
 **Before (161 characters):** A live multiplayer bingo platform that turns a group trip into a shared game—born on a nine-night Mediterranean cruise, generalizing into a multi-event platform.
 
-**After (167 characters):** I built a live bingo game for a nine-night Mediterranean cruise. It ran at sea, then became the engine for other events. Getting people to play was a separate problem.
+**After (169 characters):** I built a live bingo game for a nine-night Mediterranean cruise. It ran at sea, then became the engine for a second event. Getting people to play was a separate problem.
 
 ### Project index and homepage card
 
 **Before (170 characters):** A multiplayer bingo game built in eight days for a nine-night cruise, then operated live at sea—where real players exposed what the architecture could and couldn't prove.
 
-**After (197 characters):** I built multiplayer bingo in eight days, then ran it for ten days at sea. The standings held, but the social mechanics barely caught on. A second event showed that reusing the engine wasn't enough.
+**After (199 characters):** I built multiplayer bingo in eight days, then ran it through the ten-day cruise. The standings held, but the social mechanics barely caught on. A second event showed reusing the engine wasn't enough.
 
 ### Search snippet
 
 **Before (155 characters):** A live multiplayer bingo platform for group trips—daily themed cards, offline-first marking, live proofs, and a choreographed finale, built and run at sea.
 
-**After (154 characters):** Eight days to build multiplayer bingo for a cruise, then ten days running it at sea. What I chose, what players used, and what the records couldn't prove.
+**After (154 characters):** Eight days to build multiplayer bingo for a cruise, then ten days running it aboard. What I chose, what players used, and what the records couldn't prove.
 
 ## Complete proposed page
 
@@ -42,7 +42,7 @@ The reader view below expands the existing components into their complete copy. 
 
 # Five Across
 
-I built a live bingo game for a nine-night Mediterranean cruise. It ran at sea, then became the engine for other events. Getting people to play was a separate problem.
+I built a live bingo game for a nine-night Mediterranean cruise. It ran at sea, then became the engine for a second event. Getting people to play was a separate problem.
 
 ## The problem
 
@@ -85,7 +85,7 @@ Cheating wasn't in the threat model for this group. I trusted the friends and th
 
 **Cost**
 
-The standings are claims, not independently verified results. A player writes their own board, so the record can't distinguish a real mark from an invented one. Any player could demand proof, but that escape hatch was used seven times in ten days, all by one person.
+The standings are claims, not independently verified results. A player writes their own board, so the record can't distinguish a real mark from an invented one. Any player could demand proof.
 
 **What it changed**
 
@@ -173,11 +173,11 @@ A fixed deal made the fairness rule clear: nobody could negotiate their board or
 
 **Cost**
 
-A player whose card didn't fit the trip was stuck with it, with no way to tell whether the problem was the card or the trip. Two days into main-pool play, no main card had produced a bingo. I had to revisit the rule while the event was running.
+A player whose card didn't fit the trip was stuck with it, with no way to tell whether the problem was the card or the trip. Two days into main-pool play, no main card had produced a bingo. The two cards after the embark tutorial would finish the cruise with one bingo apiece, both claimed on the last full day. I had to revisit the rule while the event was running.
 
 **What it changed**
 
-The two cards after the embark tutorial finished the cruise with one bingo apiece, both claimed on the last full day. I changed the rule from a final deal to a deal that becomes final when the player acts on it. A card with zero marks can be traded for a fresh one, three times per player. Once a player has marked it, they can't trade it.
+I changed the rule from a final deal to a deal that becomes final when the player acts on it. A card with zero marks can be traded for a fresh one, three times per player. Once a player has marked it, they can't trade it.
 
 That made the first deal negotiable for anyone who used the feature. The limit prevents shopping for a better board mid-play; it doesn't preserve the original rule intact. The repository calls it a reshuffle and explicitly avoids mulligan. It shipped on the itinerary's sole sea day, alongside easy embark-pool squares blended into main cards. Three of sixteen players used seven reshuffles, all during the sailing.
 
@@ -213,7 +213,7 @@ This decision isn't validated yet. The router carries no production traffic. The
 
 The production Firestore preserved the standings, frozen at 08:00 on disembarkation morning. The app's final share card survived too. Those records let me look back at ten days of live play.
 
-Firestore's day buckets credit the embark tutorial with 27 bingos from seven players. None landed on embark day itself; the easy card kept paying out for days. The next two cards produced one bingo apiece over the whole cruise, both claimed on the last full day.
+Firestore's day buckets credit the embark tutorial with 27 bingos from seven players. None landed on embark day itself; the easy card kept paying out for days.
 
 The player rows show ten people with an event-wide bingo, and PostHog independently counts ten. The scoring tests explicitly include embark bingos in the event total. Seven people with an embark bingo fits inside ten across the event.
 
@@ -223,7 +223,7 @@ The social mechanics had little use. One player gave all nineteen hearts. One pl
 
 Marking reached most of the group. Fourteen of sixteen players marked at least one square in the frozen Firestore. PostHog sees fewer marks and twelve markers, nine of whom marked on five or more days. The frozen event totals 845 squares and 61 bingos, with zero blackouts.
 
-Zacaria Arab won with 16 bingos across 124 squares. Logan Murdock marked more squares, 129 to 124, and finished second. The leaderboard sorts bingos first. Marking the most squares didn't make him the winner.
+Zacaria Arab won with 16 bingos across 124 squares. Logan Murdock marked more squares, 129 to 124, and finished second. The leaderboard sorts bingos first. The rule, not volume, crowned the champion.
 
 ![The app's own final-standings share card for Day 10, Barcelona, with champion Zacaria Arab at 16 bingos and 124 squares, Turntilla's cruise-wide First to BINGO, and the ten daily honors spread from Trieste to Barcelona.](https://nathanpayne.com/images/projects/five-across-final-standings.png)
 
@@ -299,7 +299,7 @@ The cutover is still held. The wildcard event router has written routes that hav
 
 Sixteen friends can't validate retention, acquisition, pricing or how strangers treat each other in a game. Those questions need an audience this launch didn't have.
 
-The launch did test the social mechanics on the people I'd designed them for. Hearts and doubts failed with this group, and I have counts for that. The honor model let the standings run: 845 squares stood, and one player demanded proof seven times. It didn't make those marks independently verifiable.
+What it could test, it tested harshly. The launch did test the social mechanics on the people I'd designed them for. Hearts and doubts failed with this group, and I have counts for that. The honor model let the standings run: 845 squares stood. It didn't make those marks independently verifiable.
 
 Offline-first's effect remains unresolved. Over the scoring window, Firestore holds 62 more marks than analytics logged. Offline queueing and ordinary analytics loss could both explain the gap. PostHog captured fifteen exception events containing `auth/network-request-failed`. They establish request failures, not successful offline marking or an effect on participation.
 
@@ -327,7 +327,7 @@ The standings cannot be verified, only trusted. Because each player writes their
 
 **After**
 
-The standings are claims, not independently verified results. A player writes their own board, so the record can't distinguish a real mark from an invented one. Any player could demand proof, but that escape hatch was used seven times in ten days, all by one person.
+The standings are claims, not independently verified results. A player writes their own board, so the record can't distinguish a real mark from an invented one. Any player could demand proof.
 
 ### Offline evidence boundary
 
@@ -404,7 +404,7 @@ This is a voice rewrite against the published source and its audited corrections
 | Reuse and themes | Original/default Gay Cruise Bingo on its own domain/project; Vacay travel edition; Five Across platform; complete brand-record quotation/ellipsis unchanged; different-host Sonoma Coast August 2026 event and opening-day unlock fixes; four markers, 27 squares, no bingo, guests stop Saturday morning; cruise prompts/ritual/host combination and no isolated contribution; fifteen cruise themes, thirteen party/two tutorial, twenty-two platform themes, CSS-derived WCAG AA checks | R4, R63–R68 |
 | Limits and accountability | Friends do not validate retention/acquisition/pricing/stranger behavior; social-mechanic counts test this group; honor marks remain unverified; offline effect unresolved; a live at-sea operating example, not general proof; my product decisions remain mine, agents expand build/test/review capacity | R9–R10, R34, R38, R49, R61, R69; original closing |
 
-The only changed time label is **last full day**, correcting the ambiguity while preserving the recorded instants. No numerical value, percentage, timestamp, named actor, URL, edition relationship or status is swapped. The source quote and image caption are unchanged. Repeated spoken-number occurrences were reviewed by field: removed “nine” belongs to the replaced card rendition (nine-night remains in hero and body); removed “twelve” restates the twelve-marker antecedent; zero-mark eligibility, three-per-player cap, seven uses, three users, fifteen/thirteen/two/twenty-two themes and the ninety-six commit count all remain. Ordinary “one”/“first”/“two” setup phrases were shortened without dropping a count.
+The only changed time label is **last full day**, correcting the ambiguity while preserving the recorded instants. No numerical value, percentage, timestamp, named actor, URL, edition relationship or status is swapped. The source quote and image caption are unchanged. Repeated spoken-number occurrences were reviewed by field: removed “nine” belongs to the replaced card rendition (nine-night remains in hero and body); removed “twelve” restates the twelve-marker antecedent; zero-mark eligibility, three-per-player cap, seven uses, three users, fifteen/thirteen/two/twenty-two themes and the ninety-six commit count all remain. The owner's final precision review removed duplicate proof-demand and early-card-result mentions; the qualified seven demand events remain in the trust evidence, and both last-full-day results remain in the reshuffle cost and learning record. Ordinary “one”/“first”/“two” setup phrases were shortened without dropping a distinct count.
 
 ## Supporting files
 
@@ -416,13 +416,19 @@ The only changed time label is **last full day**, correcting the ambiguity while
 
 ## Validation and checker limits
 
-- Full native suite: 79 files passed; 1,849 tests passed, six skipped. After the final explicit any-player clarification and capitalization fix, the 43-page build and all 159 focused project/schema/résumé-claims assertions passed. Rendered review at 1440×1000 and 390×844 confirms all decision/learning fields are present, with no horizontal overflow or page errors. The regenerated social card passes the build fit check and was visually inspected.
+- Final approved source: 79 native test files passed; 1,849 tests passed, six skipped. The 43-page build, type check and all 369 browser assertions passed (51 conditional skips). The managed preview launcher exited early; the browser suite used the supported dedicated `E2E_BASE_URL` path, with Astro-equivalent `/404` routing. Its global setup compared every served build file against this worktree. No test or checker changed. The earlier complete rendered review at 1440×1000 and 390×844 found all decision/learning fields, no horizontal overflow and no page errors. The regenerated final social card passes the build fit check and was visually inspected.
 - Lint: pass. Vale's sentence-case heading warnings are advisory; the six section headings are unchanged and retain the owner's sentence-case convention. No checker/configuration is weakened.
-- `verify-brevity.py`: every URL, link, weekday, timestamp, numeral, code span, code/diagram/table block and pinned identity field passes. One intentional failure: `seoDescription` is a proposed metadata voice edit, not a facts-only brevity change. Before/after text is printed above for explicit owner approval. Spoken-number occurrence warnings are advisory and dispositioned in the meaning review. No checker changes.
+- `verify-brevity.py`: every URL, link, weekday, timestamp, numeral, code span, code/diagram/table block and pinned identity field passes. One intentional failure: `seoDescription` is a proposed metadata voice edit, not a facts-only brevity change. Before/after text is printed above; the owner explicitly approved the search-snippet change with the aboard correction. Spoken-number occurrence warnings are advisory and dispositioned in the meaning review. No checker changes.
 - The separate blog voice CLI rejects this project MDX input with `Supply one blog Markdown (.md) file` (exit 2). That is a scope limitation, not a voice verdict. I did not disguise the page as a blog post or alter the checker. All structured frontmatter and rendered project text were reviewed manually instead.
 - Protected metadata, four constraints, five decision records, three learning records, decision lenses/statuses, component/import order, links, quotation and image asset/caption are checked independently of prose style.
-- Writing-style route: installed skill with sufficient supplied references and direct owner feedback in this chat; no additional retrieval, private-writing cache or learned profile. The approved blog revisions are owner-approved model revisions, not newly user-authored samples. Passing any check does not establish voice or factual fidelity; direct human approval is still pending.
+- Writing-style route: installed skill with sufficient supplied references and direct owner feedback in this chat; no additional retrieval, private-writing cache or learned profile. The approved blog revisions are owner-approved model revisions, not newly user-authored samples. Passing any check does not establish voice or factual fidelity; the owner's direct approval is for a PR after the three precision fixes below, all now applied.
 
-## Approval prompt
+## Owner precision review
+
+On 2026-10-11, the owner approved opening a PR once three fixes were applied: replace the metadata's literal ten days at sea with aboard/through the cruise; name one second event in the hero; and put the first two main cards' poor results beside the problem that prompted the reshuffle, rather than opening its outcome. Those changes are applied throughout this packet and the source. The hero is 169 characters, card 199 and search snippet 154.
+
+I also removed the proof-demand count from the trust decision's cost and the closing qualification, keeping the qualified event count in its evidence and the social-mechanics results. The early cards' last-full-day result remains in the reshuffle cost and learning record; the repeated results-paragraph sentence is removed. Restored: "The rule, not volume, crowned the champion" and "What it could test, it tested harshly." The final reader-facing count is recalculated excluding MDX component markup.
+
+## Original approval prompt
 
 Approve the complete Five Across rewrite for a PR, including its three metadata renditions, the last-full-day clarification, R54's in-place correction and the résumé review-stamp refresh? The figures, limitations, assets, links and decision statuses remain as reviewed above. This approval is for opening a PR after validation; merge and deployment remain separate decisions for this project-page revision.
