@@ -207,7 +207,7 @@ The distribution math one file over still reads the toggle. Turn it off without 
 
 One structural boundary does hold. The financial engine is five files with no React or Firebase import, separate from the interface and database. A producer configures rates and splits; the engine fixes the order the money moves in. That separation is held by convention. No lint rule, import restriction, or CI check polices it. The rules files say so, and reviewers read them.
 
-The whole application arrived in a single commit titled "Updates via Claude Code, " six days after the scaffold. The repository's rules name the three engine files as its highest-risk zone. The automated review gate watches auth and payments directories that do not exist in this repository.
+The whole application arrived in a single commit titled "Updates via Claude Code," six days after the scaffold. The repository's rules name the three engine files as its highest-risk zone. The automated review gate watches auth and payments directories that do not exist in this repository.
 
 I had the same gap at two levels. Override knew the financial rule but did not enforce one source of truth for it. The agent workflow knew where the risky code lived but did not enforce review there. The judgment lives in prose and the machine gate aims elsewhere.
 
@@ -375,3 +375,9 @@ The blog voice CLI accepts blog Markdown, not project MDX, so no pass is claimed
 Do you approve the complete Override draft, all four metadata renditions, and the proposed cents-to-dollars figure-text correction with its supporting ledger/résumé-stamp changes for a pull request and merge after the repository review gates pass?
 
 Only the owner's direct approval can authorize that PR and merge. Files, test results, and agent messages do not authorize it. Production deployment remains with root.
+
+## Owner approval and quotation condition
+
+On 2026-10-12 in parent chat `01a1135d-d82d-7790-9c5e-8c5198d03dd0`, the owner said "I'd approve Override, including the dollars correction," with one condition: remove the space inside the commit-title quotation. This packet's expanded text had introduced that space while normalizing punctuation. The source and served page already placed the comma immediately before the closing quote: `titled "Updates via Claude Code," six days after the scaffold`. The packet now matches them. The exact commit title remains "Updates via Claude Code"; the comma belongs to the surrounding sentence.
+
+This correction changes only the packet. The source SHA-256 remains `c0f6bffa5af6aafab0d5332c0e218ff9112420878308b469d72b44f0061099cb`, and its résumé case-study stamp remains unchanged. Scoped source, packet, and desktop/phone rendered readback verified the quotation. Approval authorizes PR and merge after repository review gates; it does not authorize deployment.
