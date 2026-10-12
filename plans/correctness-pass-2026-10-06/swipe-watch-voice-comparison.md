@@ -1,6 +1,6 @@
 # Swipe Watch—voice approval packet
 
-Draft date: 2026-10-12. Status: complete draft awaiting direct owner approval for PR and merge. No PR, push, merge or deployment is authorized by this packet.
+Draft date: 2026-10-12. Status: the owner approved a PR and merge once the demo-versus-idea cost sentence was corrected, and requested the card and evidence-consolidation changes below. All are applied; root readback is pending before opening the PR. Deployment is outside this approval.
 
 Factual baseline: `467d26110ae1b3850f03b88296300b4f23262909`, current `origin/main` when this pass began. Source: `src/content/projects/swipe-watch.mdx`. Dated facts ledger: `plans/correctness-pass-2026-10-06/swipe-watch-ledger.md`. Worktree: `/Users/nathanpayne/.codex/worktrees/swipe-watch-voice/nathanpaynedotcom`, branch `codex/swipe-watch-voice`.
 
@@ -10,7 +10,7 @@ The complete page is rewritten, including every field in all three decisions, th
 
 All three body sections, three decision titles and lenses, validated/mixed/pending statuses, constraint values, Mux playback ID, hero GIF, paired screenshots, exact captions, component placement and links stay fixed. Long body paragraphs are split. No new learning component or shared style is added.
 
-The complete authored reader copy is **1312 → 1253 words**, a **4.5% cut**. This count uses whitespace-separated words in the title, hero, kicker, status, format/focus/stack, constraints, all decision fields, related labels and body headings/prose/captions. It excludes generated component/button labels, MDX/HTML/import syntax, destinations and separate card/search renditions. The brevity checker's body-only count is 578 → 558 (-3.5%); much of this page's copy lives in frontmatter.
+The complete authored reader copy is **1312 → 1240 words**, a **5.5% cut**. This count uses whitespace-separated words in the title, hero, kicker, status, format/focus/stack, constraints, all decision fields, related labels and body headings/prose/captions. It excludes generated component/button labels, MDX/HTML/import syntax, destinations and separate card/search renditions. The brevity checker's body-only count is 578 → 558 (-3.5%); much of this page's copy lives in frontmatter.
 
 Two factual qualifications are clearer. The signal-density comparison is explicitly a hypothesis, with the browsing-versus-play premise conditional on a system that waits for viewing signals. Thirteen commits remain the core-build record count, but no longer claim to measure total work or total loss: working code predates the first commit. Both supporting ledger rows/details are repaired in place. The ledger's stale assertions that current cards/résumé still say “accidentally”/“inadvertently” are also corrected: current source and both résumé surfaces already use neutral simulated-payoff wording, so there is no new intent decision to make.
 
@@ -32,7 +32,7 @@ The installed Write Like Me skill was used through its supplied-reference route.
 
 **Before (181 characters):** A swipe-first streaming recommender whose prototype faked the payoff it was meant to test—a choice that made reactions to the demo impossible to separate from reactions to the idea.
 
-**After (195 characters):** I built a swipe prototype to ask for taste before viewing. I let the demo promise better recommendations without producing them, so reactions couldn't separate the idea from its simulated payoff.
+**After (185 characters):** I built a swipe prototype to ask for taste before viewing. I let the demo promise better recommendations it didn't produce, so I couldn't separate reactions to the idea from the payoff.
 
 ### Search snippet
 
@@ -40,7 +40,7 @@ The installed Write Like Me skill was used through its supplied-reference route.
 
 **After (159 characters):** An independent Disney+ and Hulu discovery prototype. I tested swiping, simulated the recommendation payoff, and couldn't measure whether it improved discovery.
 
-The 180-character hero meets the social line's cap and the rendered fit passes. The 195-character card is within the 120–200 guide. The separate search snippet is 159 characters. The page continues to use the existing social fallback; no OG template changes. Its refreshed reference is `screenshots/og/projects-swipe-watch.png`.
+The 180-character hero meets the social line's cap and the rendered fit passes. The 185-character card is within the 120–200 guide. The separate search snippet is 159 characters. The page continues to use the existing social fallback; no OG template changes. Its refreshed reference is `screenshots/og/projects-swipe-watch.png`.
 
 ## Complete proposed reader page
 
@@ -147,11 +147,11 @@ People seeing the prototype would have to imagine the finished version either wa
 
 **Cost**
 
-I made reactions impossible to separate from reactions to the idea. People could respond to a recommendation payoff the software did not produce. No demo of this prototype can tell me whether the real loop works.
+I made reactions to the demo impossible to separate from reactions to the idea. People could respond to a recommendation payoff the software did not produce. No demo of this prototype can tell me whether the real loop works.
 
 **What it changed**
 
-I demoed it to Disney's EVP of Product, and the signal-density argument landed. That is my account of a conversation, not a measurement. The simulated payoff made it possible to discuss the proposed loop; it could not validate that loop.
+I describe the demo conversation in What I learned below. The simulated payoff let me show the proposed loop, but could not validate it.
 
 ### Give the deck a bottom
 
@@ -242,7 +242,7 @@ Every reaction becomes uninterpretable. A response to the prototype cannot be se
 
 **After**
 
-I made reactions impossible to separate from reactions to the idea. People could respond to a recommendation payoff the software did not produce. No demo of this prototype can tell me whether the real loop works.
+I made reactions to the demo impossible to separate from reactions to the idea. People could respond to a recommendation payoff the software did not produce. No demo of this prototype can tell me whether the real loop works.
 
 ### The coin-free baseline remains unresolved
 
@@ -277,7 +277,7 @@ All R1–R32 rows and the page's additional opinions/closing claims are covered.
 | R2, R30: Hulu card, ten-per-session caption; ten coins toward another mode | Unchanged paired captions | Images, exact caption text, wrapper and placement retained. “Toward” does not imply ten coins meet the 25-coin threshold. |
 | R3, R31: Six PRs title/target; Device project link | Related | Current colon label and both destinations unchanged; historical em-dash drift not reintroduced. |
 | R4: root served until 2026-09-29; source public/ directory since; no build output | First chosen | Exact date and chronology retained. No output/build step implied by public/. |
-| R5: EVP demo; argument landed; author's account, not measurement | Second evidence; closing | Retained on both renditions. No quote, attendee, feedback detail, adoption or measured success invented. Canonical résumé is consistent, not independent corroboration. |
+| R5: EVP demo; argument landed; author's account, not measurement | Closing; pointer in second evidence | The complete account and measurement boundary appear once in What I learned. The second evidence field points there and retains the simulated payoff's inability to validate the proposed loop. Repeated substantive material is combined, not deleted. No quote, attendee, feedback detail, adoption or measured success invented. Canonical résumé is consistent, not independent corroboration. |
 | R6, R21: copy simulates recommendation payoff; chosen framing; no learned recommendations | Hero/card; second record | Retained and made direct. Current accidental framing was already removed before this draft; ledger now reflects that. The owner account supplies intent; repository primary evidence proves copy/mechanism only. |
 | R7: coin-free deployed window, a few days to a month depending on deploy; no published analysis | Third cost | Bounds and deploy uncertainty retained. “No published analysis” is kept, rather than claiming nobody examined private GA4. No exact deployment start or named-host proof added. |
 | R8: expensive viewing signals vs cheap gesture; ten cards/ten preference statements; one-play comparison | Hypothesis; closing | All parts of the argument survive as explicit hypothesis. One-at-most is conditional on learning only from a play, not an industry-wide fact. No new work-history claim used as authority. |
@@ -315,21 +315,28 @@ All R1–R32 rows and the page's additional opinions/closing claims are covered.
 The draft was rebased onto `ff2daa3e1f4b370a673d0f8ac75b757bdb171f72`, the verified main merge of Five Across #1299. The original factual baseline remains the before-copy authority; this newer base supplies the shared evidence-paragraph style. No authored Swipe Watch copy changed during integration.
 
 - Uncredentialed final Astro build passes: 43 pages and 21 real social cards, including this project's 180-character fallback and rendered fit.
-- Seven focused existing suites passed for the full draft, 267/267: project pages, content schema, résumé claims review/body, OG fit/crop/targets. These ran before dependency integration; authored copy did not change during that integration. The final search-wording correction and refreshed résumé stamp are covered by the focused rerun below.
-- Full responsive suite passed on the refreshed base before the final two-character search edit: 369 passed, 51 expected responsive-condition skips, two workers. The reader body, hero, cards and decision fields are unchanged by that edit. Its all-file global setup verifies every served file against this checkout's dist by SHA-256. Swipe Watch's video fallback and reduced-motion checks pass.
+- Seven focused existing suites passed for the full draft, 267/267: `tests/project-pages.test.js`, `tests/content-schema.test.js`, `tests/resume-claims-review.test.js`, `tests/resume.test.js`, `tests/og-fit.test.js`, `tests/og-card-crop-safe.test.js`, and `tests/og-image-targets.test.js`. These ran before dependency integration; authored copy did not change during that integration. The final search-wording correction and owner-requested fields are covered by the focused rerun below.
+- Full responsive suite passed on the refreshed base before the later search and owner-requested cost/card/evidence edits: 369 passed, 51 expected responsive-condition skips, two workers. The reader body, hero and layouts are unchanged by those edits; scoped checks below cover the changed frontmatter. Its all-file global setup verifies every served file against this checkout's dist by SHA-256. Swipe Watch's video fallback and reduced-motion checks pass.
 - Desktop 1440×900 and phone 375×667 render every field in all three decisions; no page errors or horizontal overflow. Evidence now computes to `white-space: pre-line` on both.
 - Lint passes, including the complete packet; typecheck reports zero errors/warnings. Sentence-case headings intentionally keep the nonblocking CMOS title-case suggestions.
 - Manual visual inspection covers the social card, desktop payoff decision and phone economy decision; full pages, hero viewports and each decision are captured under `/tmp/project-voice-batch-2026-10-12/swipe-watch/`.
 - An initial attempt requested port 4464, but Astro chose 4465 because 4464 belonged to another draft. The all-file fingerprint and decoded-field check both rejected the wrong preview before any suite result or draft-render pass was recorded. The corrected run uses verified `http://127.0.0.1:4465`; the final source-page served hash matches its built file, and the complete suite passes on that address.
-- Final metadata correction: “I tested the swipe” becomes “I tested swiping” without changing its meaning. Decoded YAML and the built search meta description are exactly 159 characters; both WebPage and SoftwareApplication descriptions match. The unchanged hero is 180 characters and card is 195. The uncredentialed rebuild passes, and the focused project/schema/résumé-stamp rerun passes 159/159 in three files. The private canonical résumé entry still matches verbatim; its body hash is unchanged.
+- Final metadata correction: “I tested the swipe” becomes “I tested swiping” without changing its meaning. Decoded YAML and the built search meta description are exactly 159 characters; both WebPage and SoftwareApplication descriptions match. At that correction the unchanged hero was 180 characters and the card was 195; the final owner-requested card is 185. The uncredentialed rebuild passes, and the focused project/schema/résumé-stamp rerun passes 159/159 in three files. The private canonical résumé entry still matches verbatim; its body hash is unchanged.
+- Final owner-condition readback: the uncredentialed rebuild passes 43 pages/21 OG cards. `tests/project-pages.test.js`, `tests/content-schema.test.js`, and `tests/resume-claims-review.test.js` pass 159/159 after the cost/card/evidence edits and stamp refresh. The source page's served SHA-256 matches its built file: `b3168fcea210eafc81a0ff54684cebdb78ef6715987c74f943188ec063a93787`. All fields in all three decisions match decoded source on desktop 1440×900 and phone 375×667, with no page errors or horizontal overflow. Manual visual inspection covers the updated payoff record and opened homepage card at both widths. The hero/card/search are exactly 180/185/159 characters, both structured-data descriptions match search metadata, and the full EVP account appears once in the rendered reader body. No broad suite was repeated for these scoped wording changes.
 - `git diff --check` passes. Only five assigned source/support/reference/packet files differ from the refreshed main. No PR, push, merge or deployment occurred in this draft worktree.
 
-The captured baseline SHA-256 is `d1037795e1dd0d25eaa6e288a180ed0398d9071323762ba219822032c26d5cf8`; draft SHA-256 is `b4bbdd7be611fa620220b51910b477c8892153eb62225b81a01069fbec0f55b7`. The complete baseline is losslessly available with `git show 467d26110ae1b3850f03b88296300b4f23262909:src/content/projects/swipe-watch.mdx`; the complete draft source lives beside this packet.
+The captured baseline SHA-256 is `d1037795e1dd0d25eaa6e288a180ed0398d9071323762ba219822032c26d5cf8`; draft SHA-256 is `b5791f7a73294fc0548675f28ed092ff9df17a8cfe85e52346781410154bf7dc`. The complete baseline is losslessly available with `git show 467d26110ae1b3850f03b88296300b4f23262909:src/content/projects/swipe-watch.mdx`; the complete draft source lives beside this packet.
 
 The protected-token checker preserves all eight numeral occurrences, the hosting date, both live/repository URLs and image destinations, code/table blocks and other pinned fields. It has one deliberate failure: the new `seoDescription` field replaces the hero fallback as required for the separate search rendition. Project tests derive the value rather than pinning the old description. The description-change and spelled-out-number advisories are manually reviewed; the removed “one” occurrences were rhetorical setup, while one-question scope, one coin per swipe, three gestures/decisions and ten-card examples remain. No checker is weakened.
 
 The blog voice CLI does not support project MDX and is not claimed to pass. Mechanical checks do not certify voice, meaning, identity, adoption, analytics results or reaction interpretability. The comparison above preserves the distinct validation boundaries rather than letting a passing check replace owner judgment.
 
-## One owner approval decision
+## Owner approval conditions
 
-Approve this complete Swipe Watch draft, its supporting ledger repairs, résumé review stamp and social reference for a PR and merge after the repository checks and review gates pass?
+The owner approved a PR and merge once the cost sentence was fixed and requested these related refinements. All appear in the complete reader draft and metadata above:
+
+1. The cost now says: “I made reactions to the demo impossible to separate from reactions to the idea.”
+2. The homepage/index card uses the requested 185-character wording: “I built a swipe prototype to ask for taste before viewing. I let the demo promise better recommendations it didn't produce, so I couldn't separate reactions to the idea from the payoff.”
+3. The full EVP demo account and its testimony/measurement boundary remain once in What I learned. Decision two's evidence points there while keeping the simulated-payoff interpretation ceiling.
+
+The hero remains exactly 180 characters and the search snippet remains 159. Consolidation removes a repeated account from one component field; no distinct event, judgment or qualification is lost. All numeric, date, link and other protected-token occurrences remain. Root will verify the applied conditions before the PR workflow begins; repository checks and exact-head review gates remain part of the authorized merge workflow.
