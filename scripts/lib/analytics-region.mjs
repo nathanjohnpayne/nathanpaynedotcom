@@ -170,7 +170,6 @@ function cssUnescape(text) {
     .replace(/\\(.)/gs, '$1');
 }
 
-/** A value as the hosts could be spelled in it: lowercased, percent- and CSS-decoded. */
 /** Percent-decodes every valid `%XX` and leaves anything else as it is, so one bad escape cannot hide the rest. */
 function percentDecode(value) {
   return value.replace(/%([0-9a-f]{2})/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
