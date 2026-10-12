@@ -285,7 +285,7 @@ The absence of real-use evidence remains. The qualification already required by 
 
 **After:** "post-recoup profit split per hundred dollars ... forty-five dollars to the limited partners, five to the GP, fifty to creatives."
 
-This is a factual correction proposed for approval, not merely a voice edit. The supplied image says "Per $100" and 45.0%/5.0%/50.0%, so the dollar amounts are 45 / 5 / 50. The percentages, recipient relationship, investor-pool carve, and demonstration's base-case no-recoup qualification remain. The image pixels, dimensions, placement, and generated caption remain.
+This is a factual correction proposed for approval, not merely a voice edit. The supplied image says "Per $100" and 45.0%/5.0%/50.0%, so the dollar amounts are 45 / 5 / 50. The percentages, recipient relationship, investor-pool carve, and demonstration's base-case no-recoup qualification remain. The image pixels, dimensions, and placement remain. Both the alt text and its generated visible caption carry the cents-to-dollars correction.
 
 ## Complete manual meaning review
 
@@ -329,7 +329,7 @@ The full original source was captured before editing in the local review evidenc
 | Credible specialized software was question; subscription funnel consumes domain time/answers unasked question | Decision 4 | Scope rationale |
 | No distribution/feedback, unknown pay / adopt / onboarding; lead CRM/signing roadmap unbuilt | R23 | Scope cost; neither revenue nor adoption claim added |
 | Only real producer capitalization can validate choice/domain model; pending status/no validation | R5, R41 | Scope validation boundary; explicitly cannot establish from build alone |
-| Profit split per $100: $45 / $5 / $50, GP carve out of investor pool, not creative pool; demo does not recoup at base assumptions | R1, R34 | Third image; only unit cents→dollars proposed; all values/relationships/qualification retained |
+| Profit split per $100: $45 / $5 / $50, GP carve out of investor pool, not creative pool; demo does not recoup at base assumptions | R1, R34 | Third image alt and generated visible caption; only unit cents→dollars proposed; all values/relationships/qualification retained |
 | Financial trust requires more than green tests; Hadestown calibration: 947 seats, 93%, $155, $530K, 14% plus expected results | R35 | Trust section; all parameters/attribution preserved |
 | Historical calibration rerun six months later while writing August version; not CI-enforced; exact $1,046,283, 57.0%, week 37 | R35 | Trust section; historical framing prevents implication of fresh run |
 | 109 tests as of Oct 6, up from 86 in August; only 8 engine, same file; pipeline / phase / ownership no direct tests | R2, R36 | Trust section; every count, comparison date, and test gap remain |
@@ -348,8 +348,9 @@ The full original source was captured before editing in the local review evidenc
 
 ## Supporting files and structural choices
 
-- `src/content/projects/override.mdx`: whole-page voice rewrite including all four frontmatter decision records and description renditions. Longer financial explanation becomes shorter paragraphs in the same order. No title, heading anchor, semantic field, count, status, lens, component placement, image bytes/dimensions, generated caption, or destination changes. The sole proposed figure-text change is R34's unit. New OG rendition handles the longer hero and preserves the real-use caveat.
+- `src/content/projects/override.mdx`: whole-page voice rewrite including all four frontmatter decision records and description renditions. Longer financial explanation becomes shorter paragraphs in the same order. No title, heading anchor, semantic field, count, status, lens, component placement, image bytes/dimensions, or destination changes. The sole proposed figure-text change is R34's unit in both alt text and its generated visible caption; the other generated captions remain unchanged. New OG rendition handles the longer hero and preserves the real-use caveat.
 - `plans/correctness-pass-2026-10-06/override-ledger.md`: R34 summary/detail now marks the unit wrong and explains the proposed dollar correction with the figure's label and percentages as evidence. Verdict totals change accordingly, and the old fixes-applied note identifies this later correction rather than treating all R9-R41 sentences as supported. Historical audit quotations remain identified as the claims reviewed, never their own evidence. No source arithmetic changes.
+- `plans/correctness-pass-2026-10-06/SUMMARY.md`: the aggregate Override row and R34 fix list reflect the same approved unit correction. A dated note gives the totals derived from that one reclassification while preserving the original audit's historical totals and other pages' rows.
 - `src/content/resume/projects/override.md`: re-reviewed against the full case study and only the needed canonical Override section in the private canonical résumé. The body remains verbatim: AI coding exercise, no real capitalization, and the owner's investment in the revival of Proof. Only the case-study hash and review date change; résumé-body hash and private canonical stay unchanged.
 - `screenshots/og/projects-override.png`: this specific generated social reference is refreshed after fit/visual verification. No unrelated references are included.
 - This packet supplies the complete expanded reader text, metadata variants/lengths, before/after passages, meaning mapping, and checks.
