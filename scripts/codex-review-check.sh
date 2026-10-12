@@ -156,6 +156,15 @@ if [ -r "$__CODEX_CHECK_DIR/lib/codex-request-evidence.sh" ]; then
   . "$__CODEX_CHECK_DIR/lib/codex-request-evidence.sh"
 fi
 
+# Governing author authority uses the same YAML parser as Phase 4b capture,
+# including valid flow-style/quoted keys. A missing parser is unknown authority.
+if [ ! -r "$__CODEX_CHECK_DIR/lib/feedback-policy-helpers.sh" ]; then
+  echo "ERROR: governing-policy parser missing: $__CODEX_CHECK_DIR/lib/feedback-policy-helpers.sh" >&2
+  exit 3
+fi
+# shellcheck source=lib/feedback-policy-helpers.sh
+. "$__CODEX_CHECK_DIR/lib/feedback-policy-helpers.sh"
+
 # --- Codex failure-marker regexes (#722) ------------------------------------
 # Source the shared usage-limit / not-connected marker patterns so gate (c)'s
 # failure message can name an account-level quota or app-not-connected block
@@ -547,8 +556,13 @@ if [ -z "$REVIEWERS" ]; then
   echo "ERROR: no available_reviewers found in $CONFIG" >&2
   exit 3
 fi
-AUTHOR_IDENTITY=$(grep -m1 '^author_identity:' "$CONFIG" | awk '{print $2}' | sed -E "s/^[\"']//; s/[\"']\$//" || true)
-AUTHOR_IDENTITY="${AUTHOR_IDENTITY:-nathanjohnpayne}"
+# The resolver above selected governing CONFIG; parse it rather than guessing
+# authority from line shape. Malformed present identities never use the default.
+AUTHOR_POLICY_JSON=$(policy_yaml_to_json "$CONFIG") &&
+  AUTHOR_IDENTITY=$(crqe_policy_author "$AUTHOR_POLICY_JSON") || {
+    echo "ERROR: governing policy author_identity could not be read" >&2
+    exit 3
+  }
 
 # --- logging helpers --------------------------------------------------------
 
@@ -2910,10 +2924,14 @@ if [ "$CLEARED" != "true" ] && [ "$ALLOW_PHASE_4B_SUBSTITUTE" = "true" ]; then
         --arg login "$PHASE_4B_LOGIN" --arg at "$PHASE_4B_TIME" --arg sha "$HEAD_SHA" '
           [ .[] | select(.user.login == $login and .submitted_at == $at and .commit_id == $sha) ]
           | last
-          | [ (.body // "") | scan("<!-- mergepath-p4b-request-generation: ([^>]*) -->") | .[0] ]
-          | if length == 0 then "none"
-            elif length > 1 then "invalid"
-            else (last | try (fromjson | select(type == "array" and all(.[]; type == "number")) | tojson) catch "invalid")
+          | (.body // "") as $body
+          # #1619: count prefixes independently: a damaged/unterminated
+          # record is unreadable evidence, never an absent manual record.
+          | [ $body | scan("<!-- mergepath-p4b-request-generation") ] as $prefixes
+          | [ $body | scan("<!-- mergepath-p4b-request-generation: ([^>]*) -->") | .[0] ] as $records
+          | if ($prefixes | length) == 0 then "none"
+            elif ($prefixes | length) != 1 or ($records | length) != 1 then "invalid"
+            else ($records[0] | try (fromjson | select(type == "array" and all(.[]; type == "number")) | tojson) catch "invalid")
                  // "invalid"
             end' 2>/dev/null || printf invalid)
       if ! declare -F crqe_trigger_generation >/dev/null 2>&1 || ! declare -F crqe_latest_trigger_time >/dev/null 2>&1; then
