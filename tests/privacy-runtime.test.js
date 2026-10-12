@@ -2176,22 +2176,54 @@ describe('local hosts (§ Gate 4, #1297)', () => {
     expect(boot().gate.isLocalHost(host)).toBe(expected);
   });
 
-  it('is defined once for the flag-on runtime, as the same test the flag-off PostHog block makes', () => {
-    const local = ['/^(localhost|127\\.0\\.0\\.1|\\[::1\\])$/', '/\\.localhost$/'];
-    // The flag-off block keeps its own copy, because the flag-off build must
-    // not change; the gate's copy must stay the same test.
-    const flagOff = scriptBody(POSTHOG_SRC, '<script is:inline define:vars={{ token }}>', 0);
-    for (const pattern of local) {
-      expect(flagOff).toContain(pattern);
-      expect(GATE_SRC.split(pattern)).toHaveLength(2);
+  /**
+   * The local-host test a PostHog block makes, run from its own source: the
+   * expression assigned to `variable`, evaluated with `host` bound to the
+   * hostname it reads (`pageHost` in the flag-on block, `posthogHost` in the
+   * flag-off one).
+   */
+  function postHogLocalTest(block, variable, host) {
+    const match = new RegExp(`const ${variable} =([^;]+);`).exec(block);
+    expect(match, `${variable} in posthog.astro`).not.toBeNull();
+    return new Function(host, `return (${match[1]});`);
+  }
+
+  it("classifies every host exactly as both PostHog blocks' own tests do, so the copies cannot drift", () => {
+    const { gate } = boot();
+    const flagOn = postHogLocalTest(POSTHOG_ON, 'pageIsLocal', 'pageHost');
+    const flagOff = postHogLocalTest(
+      scriptBody(POSTHOG_SRC, '<script is:inline define:vars={{ token }}>', 0),
+      'posthogIsLocal',
+      'posthogHost',
+    );
+    const hosts = [
+      'localhost',
+      '127.0.0.1',
+      '[::1]',
+      'preview.localhost',
+      'a.b.localhost',
+      '.localhost',
+      'localhost.',
+      'nathanpayne.test',
+      'nathanpayne.com',
+      'localhost.nathanpayne.com',
+      'notlocalhost',
+      'mylocalhost',
+      '127.0.0.2',
+      '127.0.0.1.example',
+      '0.0.0.0',
+      '::1',
+      'LOCALHOST',
+      '',
+    ];
+    for (const host of hosts) {
+      const expected = gate.isLocalHost(host);
+      expect(flagOn(host), `flag-on PostHog on ${JSON.stringify(host)}`).toBe(expected);
+      expect(flagOff(host), `flag-off PostHog on ${JSON.stringify(host)}`).toBe(expected);
     }
-    // The flag-on PostHog block and the Mux Data script call the gate's.
-    for (const [name, src] of [
-      ['the flag-on PostHog block', POSTHOG_ON],
-      ['mux-data.js', MUX_DATA_SRC],
-    ]) {
-      expect(src, name).toContain('gate.isLocalHost(');
-      expect(src, name).not.toContain('localhost|127');
-    }
+    // The table holds both answers, so agreement is not agreement on one.
+    expect(new Set(hosts.map((h) => gate.isLocalHost(h)))).toEqual(new Set([true, false]));
+    // The Mux Data script uses the gate's.
+    expect(MUX_DATA_SRC).toContain('gate.isLocalHost(w.location.hostname)');
   });
 });

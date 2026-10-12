@@ -35,8 +35,8 @@
  *   missing or broken: fail closed): the assignment is discarded and the global reads as undefined,
  *   so the component never starts a monitor. The mux-embed chunk still
  *   downloads from this site, but it never monitors, sets a cookie, or sends.
- *   A local host is the gate's isLocalHost, the test the PostHog block uses
- *   (#1297): dev servers, `astro preview`, and the e2e suite serve the site
+ *   A local host is the gate's isLocalHost, the same test the PostHog blocks
+ *   make (#1297): dev servers, `astro preview`, and the e2e suite serve the site
  *   from localhost, and would otherwise report real Mux Data views.
  * - Withdrawn mid-visit: the global reads as undefined from then on, active
  *   monitors are destroyed, and the gate's transport guard refuses anything

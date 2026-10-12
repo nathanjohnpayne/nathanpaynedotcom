@@ -413,11 +413,11 @@
   /**
    * True on a host that never sends analytics (§ Gate 4): localhost and any
    * `*.localhost` name, 127.0.0.1, and [::1]. Dev servers, `astro preview`,
-   * the e2e suite, and build-time renders serve the site from these. The
-   * flag-on PostHog block and the Mux Data script (#1297) both skip on them
-   * through this one definition. The flag-off PostHog block in posthog.astro
-   * keeps its own copy of the same test, because the flag-off build must not
-   * change (§ Feature Flag 4).
+   * the e2e suite, and build-time renders serve the site from these. The Mux
+   * Data script skips them through this (#1297). posthog.astro's two blocks
+   * keep their own copies of the same test, so the PostHog output stays as
+   * it is; tests/privacy-runtime.test.js checks that all three classify every
+   * host alike.
    */
   function isLocalHost(hostname) {
     var host = String(hostname);
