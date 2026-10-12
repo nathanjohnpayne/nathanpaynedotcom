@@ -13,16 +13,22 @@ This is the contract for #1079: a default-on privacy notice, persistent opt-out 
 
 Everything this contract adds ships behind one build-time flag, defined in `src/lib/privacy-flag.ts`.
 
-1. `PRIVACY_CONTROLS_COMMITTED` is the committed value. It is `false` until #1233, which is the only change allowed to set it to `true`.
-2. **Test-only override.** A build run in the Astro mode `privacy-test` (`astro build --mode privacy-test`) enables the flag regardless of the committed value. `npm run build:privacy-test` produces that build in `dist-privacy-test/` with fixed fake tokens. The override reads nothing but the Astro mode: no environment variable, file, or query string can enable it. A production build runs in mode `production`, so it ignores the override by construction, and the production build in CI (`build-artifact.yml`) always runs in that mode.
-3. `privacyControlsEnabled()` is the only switch any component may consult. `isPrivacyTestBuild()` additionally gates the test fixture page, which must never be built in mode `production`, even after #1233. Both take no arguments and read the actual Astro mode; the mode-taking `flagStateForMode()` exists for unit tests, and no file under `src/` other than the flag module may call it.
-4. **Flag off means no change.** With the flag off, a production build differs from `main` at this contract's base commit in none of these ways:
-   - no gate script, notice, controls, footer link, or `/privacy/` route
-   - no scrubbing, masking, or replay-exclusion change
-   - the analytics region of every page's `<head>`—from `<!-- PostHog -->` up to `<!-- Google Fonts -->`—is byte-identical to the base commit's, with the same tokens
-5. `tests/analytics-privacy.test.js` enforces item 4 inside the required `build-and-test` job. `npm test` first runs `scripts/build-flag-off.mjs`, which builds the site into `dist-flag-off/` in mode `production` with fixed fake tokens, before the main build, so no build runs while other suites read `.astro/`. The test compares each page's analytics region with `tests/fixtures/privacy/flag-off-analytics-region.json`, which was captured from the base commit. It also fails if any built file contains a runtime marker (see [Runtime API](#runtime-api)) or if `privacy/` or `test-fixtures/` exist in the output. Every PR for #1227–#1230 must pass it. #1233 replaces it with the flag-on invariants when it flips the flag; until then, nobody regenerates the fixture.
+1. `PRIVACY_CONTROLS_COMMITTED` is the committed value. It was `false` while the controls were built, through #1232. #1233 set it to `true` (2026-10-11), and no other change may change it. With it `true`, every build in every mode renders the controls.
+2. **Test-only override.** A build run in the Astro mode `privacy-test` (`astro build --mode privacy-test`) enables the flag regardless of the committed value. Since #1233 the override adds nothing to the controls, but it alone builds the test fixture page. `npm run build:privacy-test` produces that build in `dist-privacy-test/` with fixed fake tokens. The override reads nothing but the Astro mode: no environment variable, file, or query string can enable it. A production build runs in mode `production`, so it ignores the override by construction, and the production build in CI (`build-artifact.yml`) always runs in that mode.
+3. `privacyControlsEnabled()` is the only switch any component may consult. `isPrivacyTestBuild()` additionally gates the test fixture page, which must never be built in mode `production`, now that the flag is on. Both take no arguments and read the actual Astro mode; the mode-taking `flagStateForMode()` exists for unit tests, and no file under `src/` other than the flag module may call it.
+4. **Flag on means the controls ship.** From #1233, a production build (mode `production`) has all of these:
+   - the gate script, as one plain synchronous inline script in `<head>`, before `<!-- PostHog -->`
+   - the notice and the footer link, with the hooks in [UI Hooks](#ui-hooks), and the `/privacy/` route with the controls
+   - the analytics region of `<head>`—from `<!-- PostHog -->` up to `<!-- Google Fonts -->`—holds exactly two plain inline scripts, PostHog's and GA4's, and no static script element. Every statement in them that loads, defines, or configures a tool comes after the guard that requires the gate's boot decision and the current state to be `granted`, so the GA4 `gtag/js` loader is created by that script and no PostHog or GA4 request can start without the gate
+   - no attribute outside a script body names an analytics host, so no preconnect, prefetch, image, or pixel starts a request the gate cannot stop
+   - no `/test-fixtures/` route, link, or canary, and no fake token of either check build, anywhere in the output
+   - the runtime markers (see [Runtime API](#runtime-api)) in the inline gate of every page, and in no other emitted file
+   - no analytics block runs on a page without a gate: if the gate is missing, the blocks fail closed (see [Gate](#gate))
 
-Base commit: `347401c6` (`main` when this contract was written).
+   Through #1232 the flag was off, and a production build differed from `main` at this contract's base commit in none of these ways: no gate script, notice, controls, footer link, or `/privacy/` route; no scrubbing, masking, or replay-exclusion change; and an analytics region byte-identical to the base commit's, with the same tokens. That invariant ended when #1233 turned the flag on.
+5. `tests/analytics-privacy.test.js` enforces item 4 inside the required `build-and-test` job. `npm test` first runs `scripts/build-production-check.mjs`, which builds the site into `dist-production-check/` in mode `production` with fixed fake tokens (not the `privacy-test` build's tokens), before the main build, so no build runs while other suites read `.astro/`. The fake tokens make both analytics blocks render, so the structural check is not vacuous. The test applies the gate checks (`analyticsGateFindings` in `scripts/lib/analytics-region.mjs`) to every page, and carries controls that mutate a real page—dropping the gate, adding a static `gtag/js` element, removing or moving a guard, naming an analytics host in markup—and require the check to flag each. It then runs the presence and absence checks on both that build and the real `dist/` that `npm test` built, which also must contain neither the `privacy-test` tokens nor the check build's. The flag-off comparison (`scripts/build-flag-off.mjs`, `tests/fixtures/privacy/flag-off-analytics-region.json`, captured from the base commit) was removed by #1233.
+
+Base commit: `347401c6` (`main` when this contract was written). It was the flag-off comparison point through #1232.
 
 ## Choice Model
 
@@ -71,7 +77,7 @@ window.npPrivacy = {
 
 - After every applied change, the runtime dispatches `np:privacy-change` on `window` with the `get()` snapshot as `detail`, then calls `onChange` listeners.
 - `notice.shouldShow()` is true while the saved choice is `unset`, the notice has not been dismissed, and GPC is not active. Dismissing the notice is not a choice: it sets `noticeDismissed` and leaves the choice `unset`.
-- **Runtime markers.** The strings `npPrivacy`, `np:privacy-change`, `data-np-privacy`, and the storage key `np-privacy` appear in every gate, runtime, and UI implementation, and nowhere in a flag-off build. The flag-off check fails on any of them.
+- **Runtime markers.** The strings `npPrivacy`, `np:privacy-change`, `data-np-privacy`, and the storage key `np-privacy` appear in every gate, runtime, and UI implementation. With the flag on, the production-build check expects all four in the inline gate of every page and fails on any of them in another emitted file. (Through #1232, with the flag off, the check failed on any of them anywhere.)
 
 ## Withdrawal
 
@@ -147,7 +153,7 @@ No two parallel tracks edit the same file.
 | #1228 runtime | `src/components/posthog.astro`, `src/layouts/BaseLayout.astro` (head analytics blocks), `src/components/privacy/PrivacyHead.astro`, `src/lib/privacy/`, `specs/analytics.md`, `tests/privacy-runtime*` |
 | #1229 notice and page | `src/components/privacy/PrivacyBody.astro`, `src/components/privacy/ui/`, `src/pages/privacy/`, `src/content/site-copy/privacy.md` and its schema entry, the `/privacy/` row in `docs/agents/repository-overview.md`, the footer link in `Footer.astro`, `src/pages/index.astro`, and `src/pages/404.astro`, `screenshots/privacy/`, `tests/privacy-ui*` |
 | #1230 acceptance suite | `tests/privacy/`, its Playwright config, its fixtures manifest, and its CI wiring |
-| #1233 enable | `PRIVACY_CONTROLS_COMMITTED`, and the flag-off test's replacement |
+| #1233 enable | `PRIVACY_CONTROLS_COMMITTED`, and the flag-off test's replacement (`tests/analytics-privacy.test.js`, `scripts/build-production-check.mjs`, `scripts/lib/analytics-region.mjs`) |
 
 `PrivacyHead` and the analytics blocks are `is:inline` scripts that can't import modules, so #1228 owns the gate end to end. Anything outside this table needs the orchestrator's assignment first.
 
@@ -171,7 +177,7 @@ Every track reports against these IDs as pass, fail, not verified, or needs Nath
 | PRIV-12 | Replay never records an excluded page, including after navigating to it from an allowed page | proposal 3 |
 | PRIV-13 | Client config never turns on network body capture, and it turns console, canvas, and network-timing capture off over the remote config while session replay and web vitals still record; every other remote-config conflict is reported to Nathan rather than overridden | proposal 3; decision 1 of 2026-10-09 |
 | PRIV-14 | The notice is non-modal and dismissible, dismissing is not a choice, and opting out takes no more steps than re-enabling | proposal 2, 4 |
-| PRIV-15 | With the flag off, the build is unchanged per [Feature flag](#feature-flag) item 4 | decision 6 |
+| PRIV-15 | The production build carries the controls and loads analytics only through the gate per [Feature flag](#feature-flag) item 4. Through #1232 the criterion was that, with the flag off, the build was unchanged | decision 6 |
 | PRIV-16 | No new identity, advertising, or enrichment feature is enabled, and no existing demographic, identity, or advertising feature is disabled, except the click identifiers dropped under decision 11 (the non-Google ones in #1263, and the Google ones on 2026-10-11 in #1294, [#1079 record](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/1079#issuecomment-6113782861)) and GA4 user-provided data collection, turned off by Nathan under decision 3 | decision 4; decisions 3 and 11 |
 | PRIV-17 | Cloudflare Web Analytics, if present, is inventoried and disclosed, with whether the site's opt-out controls it | decision 5 |
 | PRIV-18 | No raw request capture, HAR file, real identifier, token, or counsel material is committed | Part C hard constraints |
