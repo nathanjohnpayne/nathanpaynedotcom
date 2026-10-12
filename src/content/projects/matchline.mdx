@@ -103,7 +103,7 @@ This was a hypothesis about my own job search. I did no external user research o
 | Fabrication gate blocking export | Built, never user-validated; the export it gates is a Phase 2 stub |
 | Latency and cost targets | Measured once (2026-04-27): cost met, latency 11.8× over |
 
-I deferred LinkedIn and long-form ingestion. An earlier version of this page listed uploaded PRDs, decks, and retrospectives as inputs. That was wrong. They were specified, but never built. I'm keeping the correction here because the earlier page claimed more than the product did.
+LinkedIn and long-form ingestion were deferred. Uploaded PRDs, decks, and retrospectives never existed—an earlier version of this page listed them as inputs, incorrectly. They were specified, but never built. I'm keeping the correction here because the earlier page claimed more than the product did.
 
 ## The evidence model
 
@@ -270,7 +270,11 @@ I hadn't written restart or kill criteria while I was building. The repository h
 
 As of September 2026, my job search had resumed. Matchline finally had the situation it was built to test.
 
-Writing this page also exposed three stacked production failures. Missing Cloud Run invoker bindings blocked CORS preflights. Trailing newlines in both provider secrets broke authentication. Extraction had a sixty-second timeout for three long model calls.
+Writing this page also exposed three stacked production failures:
+
+- missing Cloud Run invoker bindings blocked CORS preflights;
+- trailing newlines in both provider secrets broke authentication;
+- extraction had a sixty-second timeout for three long model calls.
 
 Once those were fixed, résumé extraction and JD parsing ran end to end. That exposed the next problem: the matching ontology under-recognizes out-of-domain requirements. Until a fix on 2026-09-01, `jaccard()` zeroed 45% of the score before fit was even considered.
 
