@@ -16,7 +16,7 @@ Run the script directly, never through `npm run` or as `bash scripts/deploy-arti
 
 **Do not call `op-firebase-deploy` directly.** It deploys to Firebase but does not purge Cloudflare, so the edge keeps serving the old copy and production appears unchanged while the deploy reports success. Images sit at the edge for several hours (observed `max-age=14400` on `/images/**`). If you deploy by hand anyway, run `scripts/cf-cache-purge.sh` afterwards.
 
-**Deploy from the main checkout, not a worktree.** Only `~/GitHub/nathanpaynedotcom` has `.env.local` (gitignored, so no worktree has one), and the CI build is guarded by `scripts/check-deploy-env.sh` against a missing `PUBLIC_*` client var (no brand logos, no PostHog or GA4). `scripts/check-deploy-deps.sh` (lockfile drift) is no longer in the deploy path because nothing is built locally.
+**Deploy from the main checkout on `main`, not a worktree.** Run `git switch main && git pull --ff-only` in `~/GitHub/nathanpaynedotcom` first. A worktree usually holds a feature branch, and the script's own check is what makes that matter: it refuses to run when its bytes differ from `scripts/deploy-artifact.sh` on `origin/main`. The deployed bytes come only from the CI artifact, whose build reads repository Actions variables and is guarded by `scripts/check-deploy-env.sh` against a missing `PUBLIC_*` client var (no brand logos, no PostHog or GA4); no local `.env.local` is involved. `scripts/check-deploy-deps.sh` (lockfile drift) is no longer in the deploy path because nothing is built locally.
 
 **Merging a PR deploys nothing.** There is no deploy workflow in `.github/workflows/`—deploys are manual. `.github/workflows/build-artifact.yml` builds and attests the credential-free `dist/` archive on every push to `main` (#1238); `scripts/deploy-artifact.sh` (#1239) verifies and deploys it, and is the only deploy path (the npm aliases were removed in #1240).
 
@@ -25,11 +25,16 @@ asset and confirm the new bytes are being served (`curl -s <url> | md5`). A
 successful deploy plus a warm CDN edge looks exactly like a successful deploy
 that reached users.
 
+The owner's step-by-step version of this procedure, with verification and rollback, is the nathanpaynedotcom owner's manual in the private docs vault ([publish and deploy](https://github.com/nathanjohnpayne/docs/blob/9284108e3f8275c3d79e54e302199f207f1c5d41/projects/nathanpaynedotcom/owners-manual/10-publish-and-deploy.md)).
+
 See `DEPLOYMENT.md` for the 1Password-backed GCP ADC bootstrap, `gcloud` wrapper install, first-time impersonation setup, cache-bust steps, caching rules, security headers, rollback procedure, and secrets management.
 
 - If credential preflight was run at session start (`scripts/op-preflight.sh --mode all`),
-  deploy credentials are already cached in `GOOGLE_APPLICATION_CREDENTIALS`. No additional
-  biometric prompt is needed for deployment.
+  deploy credentials are cached for about ten hours and no additional biometric prompt is
+  needed. They are exported only in the shell where the preflight output was `eval`'d: a
+  fresh shell or agent tool call must re-run `eval "$(scripts/op-preflight.sh --agent <agent> --check --print-exports)"`
+  (since #1021, `--check` alone prints no exports). Without `CF_API_TOKEN` in the deploy shell
+  the Cloudflare purge prints a warning and is skipped while the deploy still reports success.
 
 If an `op` command fails with a sign-in or biometric error during deploy, follow the pause-and-prompt procedure in [operating-rules.md](operating-rules.md#1password-cli-authentication-failures). Do not retry or work around the failure without the human present.
 

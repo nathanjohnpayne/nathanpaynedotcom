@@ -6,7 +6,7 @@ Runbook for the PostHog error-tracking configuration on project `NathanPayne.com
 
 This is the part most likely to be re-derived the hard way. Until 2026-08-05 this project had never recorded a single `$exception` event—the event was not even present in the project taxonomy—because `autocapture_exceptions_opt_in` was `null`.
 
-Turning it on required no change to [`src/components/posthog.astro`](../src/components/posthog.astro) and no redeploy. `posthog.init()` there sets `api_host`, `ui_host`, and `defaults` only; it says nothing about exception capture, so the server-side project setting governs and the browser SDK picks it up from remote config:
+Turning it on required no change to [`src/components/posthog.astro`](../src/components/posthog.astro) and no redeploy. `posthog.init()` there sets `api_host`, `ui_host`, `defaults`, `person_profiles`, the privacy `before_send` chain, and session-replay options, but nothing about exception capture, so the server-side project setting governs and the browser SDK picks it up from remote config:
 
 ```text
 call project-settings-update {"id":469428,"autocapture_exceptions_opt_in":true}
@@ -14,7 +14,7 @@ call project-settings-update {"id":469428,"autocapture_exceptions_opt_in":true}
 
 Read it back with `project-get`. Sibling toggles that live on the same endpoint and behave the same way: `autocapture_opt_out`, `autocapture_web_vitals_opt_in`, `capture_console_log_opt_in`, `capture_dead_clicks`, `session_recording_opt_in`, `heatmaps_opt_in`.
 
-Two conditions still gate whether exceptions actually arrive, both inherited from how analytics is wired on this site rather than from error tracking itself. `posthog.astro` renders nothing when `PUBLIC_POSTHOG_PROJECT_TOKEN` is unset, so a CI build or a checkout that has not run `scripts/bootstrap.sh` reports no exceptions by construction. And all traffic goes through the first-party reverse proxy at `d.nathanpayne.com`, so a proxy outage silently stops exception capture along with every other event.
+Three conditions still gate whether exceptions actually arrive, all inherited from how analytics is wired on this site rather than from error tracking itself. `posthog.astro` renders nothing when `PUBLIC_POSTHOG_PROJECT_TOKEN` is unset, so the `build-and-test` CI build or a local checkout without `.env.local` reports no exceptions by construction (the deployed `build-artifact.yml` build does carry the token), and PostHog never starts on local hosts. All traffic goes through the first-party reverse proxy at `d.nathanpayne.com`, so a proxy outage silently stops exception capture along with every other event. And since the #1079 privacy controls went live, a visitor who turns analytics off or whose browser sends Global Privacy Control loads no PostHog at all, so their errors never reach PostHog or its alerts.
 
 ## Rate limits
 

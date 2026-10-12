@@ -23,7 +23,7 @@ the test verifies the structural invariants below against the built
 ## Data source—content collections
 
 The page is driven entirely by collections defined inline in
-`src/content.config.ts` using the `glob()` loader (the same Astro 6 API as
+`src/content.config.ts` using the `glob()` loader (the same Astro 7 API as
 `blog`/`projects`/`bio`). A resume edit is therefore a one-file change. The
 collections are:
 
@@ -48,7 +48,7 @@ The `resumeProjects` collection must remain separate from the existing
   - **Left accent margin** (`.resume-canvas-margin--header|body|footer`,
     `aria-hidden`)—the red / yellow→ink→paper→blue Mondrian stripe.
   - **Header** (`.resume-canvas-header`)—breadcrumbs (`Nathan Payne /
-    Resume`), the name (`<h1>`), the title, and the **contact line**
+    Résumé`), the name (`<h1>`), the title, and the **contact line**
     (location · email · website · LinkedIn · GitHub, composed from the
     `myself` handles, each prefixed by a small decorative icon—`ContactIcon.astro`, brand glyphs + Lucide mail/globe/map-pin/download/
     calendar). **No Bluesky** on the resume (it remains on the homepage). The
@@ -74,8 +74,8 @@ The `resumeProjects` collection must remain separate from the existing
   - **Content column** (`.resume-canvas-content`)—the section components,
     closed by the **availability CTA** (`.resume-cta`, screen-only) described
     below.
-  - **Sidebar** (`.resume-canvas-sidebar`, sticky, screen-only)—an "In this resume" in-page ToC (`.resume-canvas-toc-list`) + several (≈5) `.resume-highlight` metric cards, accents cycling red/yellow/blue. Each card is a named `highlights` field on the `experience` entry it condenses; `src/pages/resume.astro` owns only which cards show and their order, selecting them by entry id and key, and fails the build on a missing one (#1166).
-  - **Footer** (`.resume-canvas-footer`)—attribution + nav.
+  - **Sidebar** (`.resume-canvas-sidebar`, sticky, screen-only)—an "In this résumé" in-page ToC (`.resume-canvas-toc-list`) + several (≈5) `.resume-highlight` metric cards, accents cycling red/yellow/blue. Each card is a named `highlights` field on the `experience` entry it condenses; `src/pages/resume.astro` owns only which cards show and their order, selecting them by entry id and key, and fails the build on a missing one (#1166).
+  - **Footer** (the shared `Footer` component, `variant="canvas"`, class `site-footer--resume`)—attribution + nav.
 - Sections compose in this order: **Summary, Skills, Experience,
   Education, Certifications, Projects, Writing.**
   - `AwardsSection` is a dormant future scaffold. When the first award entry lands, restore its collection schema and add Awards after Writing; until then no empty collection is registered (#654).
@@ -500,7 +500,7 @@ All seven entries were first stamped on 2026-10-07. The stamps record the state 
 3. Each Experience role / Education / Certification renders a `.company-logo`
    (logo or initials fallback).
 4. Experience renders `<h3>` roles and `<ul>`/`<li>` bullets.
-5. Certifications (3) and Projects (6) are present; CSP-PO credits Scrum
+5. Certifications (3) and Projects (7) are present; CSP-PO credits Scrum
    Alliance.
 6. The emitted CSS hides `.company-logo` inside an `@media print` block.
 7. The page exposes a resolvable `og:image` and a `Nathan Payne | Résumé`
