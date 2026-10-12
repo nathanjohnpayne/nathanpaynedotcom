@@ -1,8 +1,8 @@
 # Friends & Family Billing—voice approval packet
 
-Draft date: 2026-10-12. Status: owner approved the copy for a PR and merge on 2026-10-12, conditional on the live rules check and two wording fixes. Those conditions have been addressed in this revision; the parent must confirm the readback before starting the PR workflow. No PR, push, merge, or deployment has occurred for this draft.
+Draft date: 2026-10-12. Status: owner-approved copy in PR #1304. The parent confirmed the live-rules condition and two wording fixes before PR creation. This revision clarifies the three-part conversation lead after review feedback, as directed by the parent; the approved facts and automation limits are unchanged. Merge still requires current-head review, feedback accounting, up-to-date main and all required PR checks. No deployment is authorized.
 
-Factual baseline: `467d26110ae1b3850f03b88296300b4f23262909`, `origin/main` when this pass began. Final validation includes dependency merge `ff2daa3e1f4b370a673d0f8ac75b757bdb171f72` (#1299), which supplies the evidence paragraph style; the captured original remains the initial baseline. Source: `src/content/projects/friends-and-family-billing.mdx`. Historical facts ledger: `plans/correctness-pass-2026-10-06/friends-and-family-billing-ledger.md`. Product evidence retains that ledger's pinned 2026-10-06 audit except R18, whose deployed-rule verification is freshly dated 2026-10-12. That read-only check covered rules/configuration; no private product data was read.
+Factual baseline: `467d26110ae1b3850f03b88296300b4f23262909`, `origin/main` when this pass began. Final validation includes dependency merge `ff2daa3e1f4b370a673d0f8ac75b757bdb171f72` (#1299), which supplies the evidence paragraph style, and Device page merge `1cbe9dae0a2b738fc59fb50e46a2d862a400cbb8` (#1302); the captured original remains the initial baseline. Source: `src/content/projects/friends-and-family-billing.mdx`. Historical facts ledger: `plans/correctness-pass-2026-10-06/friends-and-family-billing-ledger.md`. Product evidence retains that ledger's pinned 2026-10-06 audit except R18, whose deployed-rule verification is freshly dated 2026-10-12. That read-only check covered rules/configuration; no private product data was read.
 
 ## Approval summary
 
@@ -70,7 +70,7 @@ A link can let someone question a charge, approve or reject my proposed resoluti
 
 "Question This Charge" stays inside that no-login flow. It submits a scoped review request, rate-limits it, writes a server-side audit entry, and emails me the question with a link straight into my review queue. Six of the seven Cloud Functions serve someone who has no account.
 
-That removes three steps from the old conversation. A recipient can find the amount and its derivation without asking me. I can see that their link was opened without asking them: each link has a visit count and a last-viewed date. Those count visits through the app, not people. A forwarded link and a second look give me the same signal.
+I moved three parts of the old conversation into the product: explaining the amount, checking whether the link was opened, and requesting a replacement. A recipient can find the amount and its derivation without asking me. I can see that their link was opened without asking them: each link has a visit count and a last-viewed date. Those count visits through the app, not people. A forwarded link and a second look give me the same signal.
 
 An expired link has a "Request New Link" control. The system emails me the request, but I still have to create and deliver the replacement.
 
@@ -260,6 +260,14 @@ Every year, someone would ask how much they owed. I'd open a spreadsheet, work t
 
 **Choice:** Keeps the admission and human responsibility. The next sentence retains the thesis that correctness stopped before the surface someone actually looks at.
 
+### The coordination lead after review
+
+**Previous prepared wording:** That removes three steps from the old conversation.
+
+**Clarified wording:** I moved three parts of the old conversation into the product: explaining the amount, checking whether the link was opened, and requesting a replacement.
+
+**Choice:** All three parts are named before their explanation. The amount and its derivation remain self-service; visit counts still count visits rather than people; the expired-page request emails me while I still create and deliver the link. Annual sending remains manual. The parent directed this review correction for #1316, which stays open until the source fix merges. The change preserves “three” and avoids implying automated fulfillment.
+
 ## Complete substantive-point and qualification mapping
 
 Every distinct point in the original is accounted for here. Ledger row numbers refer to the existing historical audit, not a new claim of live verification. Original quotations retained in historical ledger rows remain audit subjects, not evidence for themselves.
@@ -286,7 +294,7 @@ Every distinct point in the original is accounted for here. Ledger row numbers r
 | No recipient payment control or write scope; only coordinator posts money | Body keeps both the technical absence and decision right (R31). |
 | Question This Charge: scoped request/rate limit/server audit/email/deep review link | Body retains every step and exact control label (R32). |
 | Six of seven Cloud Functions serve no-account recipients | Body retains both counts with their subject (R32). |
-| Three eliminated coordination steps; amount/derivation self-service, visit check, replacement request | Body splits the three steps into readable paragraphs. Replacement still requires my manual creation/delivery; sending is not counted as eliminated (R33). |
+| Three coordination parts; amount/derivation self-service, visit check, replacement request | Lead now explicitly enumerates all three parts moved into the product. Replacement still requires my manual creation/delivery; annual Send remains manual. This resolves review #1316’s ambiguity without claiming automated fulfillment (R33). |
 | Visit counts are not people; forwarding and second look indistinguishable | Body preserves this exact validation boundary (R33). |
 | Household image: own 2026 bills, same inputs/derivation, subtotal crop, publication approval only own data | Exact caption, URL, image, and placement preserved. Same derivation means inputs/result, not an identical string (R34). No further data published. |
 | Three decisions, all mixed; two money decisions and rendering failure with companion chronology | Decisions intro preserves count, status and linkage (R35–R36). |
@@ -324,7 +332,7 @@ Every distinct point in the original is accounted for here. Ledger row numbers r
 
 ## Validation and mechanical exceptions
 
-The reader-facing authored text is 2,089 → 2,021 words, a 3.3% cut. This counts title, hero, format/focus/stack, constraint values/glosses, all decision text/lenses/statuses, and visible body prose/headings/caption; it excludes imports/components, fenced diagram source and hidden accessibility metadata, template labels, and the separately reviewed card/search renditions. It uses whitespace-separated words after removing Markdown destinations/format markers. The brevity checker separately reports whole source 2,456 → 2,395 and body-only prose 1,043 → 974 (−6.6%). These counts were regenerated from the complete source after the owner fixes and live-rules revision; the earlier packet's stale plain-number reader figure is replaced.
+The reader-facing authored text is 2,089 → 2,037 words, a 2.5% cut. This counts title, hero, format/focus/stack, constraint values/glosses, all decision text/lenses/statuses, and visible body prose/headings/caption; it excludes imports/components, fenced diagram source and hidden accessibility metadata, template labels, and the separately reviewed card/search renditions. It uses whitespace-separated words after removing Markdown destinations/format markers. The brevity checker separately reports whole source 2,456 → 2,411 and body-only prose 1,043 → 990 (−5.1%). These counts were regenerated from the complete source after the owner fixes, live-rules revision and enumeration clarification; the earlier packet's stale plain-number reader figure is replaced.
 
 The brevity checker reports six intentional failures: the search description rewrite; changed YAML evidence prose treated as indented code; and the new issue #492's URL, link destination, issue reference and numeric occurrences. The issue identifier occurs twice in the numeric inventory, in the label and URL. These supporting additions are authorized by the owner's live-verification condition. The checked date and release/ruleset timestamps are new evidence in this packet and R18, not changed historical events or shifted dates in the page. All original URLs/destinations, PR references, numeric tokens, timestamps, all five inline code spans, actual fenced Mermaid/code and tables remain; the checker reports no lost protected tokens. The YAML evidence scalars are authored prose, not executable code. The spelled-out-number advisory was reviewed against the complete mapping: all original distinct counts retain their subjects. No checker was weakened.
 
@@ -332,7 +340,7 @@ The blog voice CLI explicitly rejects project MDX with exit 2, “Supply one blo
 
 The original preparation passed an uncredentialed build; focused project/schema/résumé/ribbon/Mermaid suites (280 passed, 5 existing skips); the full responsive suite (369 passed, 51 existing skips); lint; and typecheck (0 errors, 0 warnings). No new tests were added for copy.
 
-The latest live-rules revision was rebuilt uncredentialed and checked with the affected project/schema/résumé-stamp subset (159 passed), changed-file prose lint, and scoped desktop/phone diagram checks (17 passed, 1 existing skip). The scoped browser setup verifies every built file against served bytes before the assertions. No broad suite was repeated for this supporting revision. Advisory CMOS title-case suggestions are retained because the requested headings are sentence case.
+The live-rules revision was rebuilt uncredentialed and checked with the affected project/schema/résumé-stamp subset (159 passed), changed-file prose lint, and scoped desktop/phone diagram checks (17 passed, 1 existing skip). The scoped browser setup verifies every built file against served bytes before the assertions. The final enumeration clarification was also rebuilt uncredentialed after the Device integration and passed all 159 focused tests; the count, roles and remaining manual work were reread together. No broad suite was repeated for these supporting revisions. Advisory CMOS title-case suggestions are retained because the requested headings are sentence case.
 
 At 1440px and 375px, every authored field in all three records renders exactly, with no page error, document overflow or article-copy overflow. Every evidence field computes to `white-space: pre-line`; the Access outcome is now one paragraph, while the other evidence records retain visible gaps. The final decision 1 cost, outcome and phone layout were inspected after the cache qualification was added. The unchanged social rendition remains 166 characters and fits without clipping. Render evidence is in `/tmp/project-voice-batch-2026-10-12/billing/` (desktop/phone top, full-page and decision 1–3 captures; `visual.json`). Only this project's regenerated OG reference is included in the branch.
 
@@ -348,4 +356,4 @@ The parent searched open/all-history issues and filed the distinct exposure as [
 
 The owner approved the copy for a PR and merge on 2026-10-12, with live rules verification and two wording fixes. The card says "I got the model right", and the diagram's following caption says "the two the tests covered". The completed live check supports deployed wording; the three unverified-deployment hedges are removed, and normal cache deletion is acknowledged. Full reader text, metadata, source, supporting R18 and résumé stamp are synchronized.
 
-The parent must verify the final readback and confirm the conditions before starting the PR workflow. Required PR checks still apply. No PR, push, merge, billing-product fix or deployment has been performed by this drafting agent. Deployment remains separate and is not authorized by this record.
+The parent confirmed the conditions before PR #1304 opened as nathanjohnpayne. The parent then directed the explicit three-part lead to resolve observation #1316; all original manual-work, amount/derivation and visits-not-people qualifications remain. The source, exact reader, mapping, R33 note, counts and résumé stamp now agree on that clarification. Required current-head review/CI and feedback gates still apply. No billing-product fix or deployment was performed; deployment remains separate and unauthorized by this record.

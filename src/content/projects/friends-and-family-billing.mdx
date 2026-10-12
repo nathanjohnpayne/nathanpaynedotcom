@@ -89,7 +89,7 @@ A link can let someone question a charge, approve or reject my proposed resoluti
 
 "Question This Charge" stays inside that no-login flow. It submits a scoped review request, rate-limits it, writes a server-side audit entry, and emails me the question with a link straight into my review queue. Six of the seven Cloud Functions serve someone who has no account.
 
-That removes three steps from the old conversation. A recipient can find the amount and its derivation without asking me. I can see that their link was opened without asking them: each link has a visit count and a last-viewed date. Those count visits through the app, not people. A forwarded link and a second look give me the same signal.
+I moved three parts of the old conversation into the product: explaining the amount, checking whether the link was opened, and requesting a replacement. A recipient can find the amount and its derivation without asking me. I can see that their link was opened without asking them: each link has a visit count and a last-viewed date. Those count visits through the app, not people. A forwarded link and a second look give me the same signal.
 
 An expired link has a "Request New Link" control. The system emails me the request, but I still have to create and deliver the replacement.
 
