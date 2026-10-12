@@ -1585,6 +1585,28 @@ describe('Project OG cards (#1088)', () => {
     }
   });
 
+  it('uses the image rendition for social descriptions and keeps the SEO rendition separate', () => {
+    for (const file of projectSourceFiles()) {
+      const data = readProjectFrontmatter(file);
+      if (data.draft === true) continue;
+      setupDOM(readDistHtml(`projects/${data.slug}/index.html`));
+      const socialDescription = (data.ogDescription ?? data.description).trim();
+      for (const selector of [
+        'meta[property="og:description"]',
+        'meta[name="twitter:description"]',
+      ]) {
+        expect(
+          document.querySelector(selector)?.getAttribute('content'),
+          `${data.slug} ${selector} must match its OG image rendition`,
+        ).toBe(socialDescription);
+      }
+      expect(
+        document.querySelector('meta[name="description"]')?.getAttribute('content'),
+        `${data.slug} search description must retain its SEO rendition`,
+      ).toBe((data.seoDescription || data.description).trim());
+    }
+  });
+
   it('renders a card PNG for every published project at the path its page names', () => {
     for (const file of projectSourceFiles()) {
       const data = readProjectFrontmatter(file);

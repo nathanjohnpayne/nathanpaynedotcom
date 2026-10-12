@@ -583,7 +583,11 @@ describe('/privacy/ page and footer link (PRIV-11, PRIV-15)', () => {
     expect(PAGE_TEMPLATE).not.toMatch(
       /full address of the link|send it to Google as user-provided data/,
     );
-    expect(PAGE_TEMPLATE).toContain('Page views and scroll depth.');
+    expect(PAGE_TEMPLATE).toContain(
+      'Page views and scroll depth, and, on the homepage, which panels you hover over with a mouse.',
+    );
+    // gad_source and mc_cid still reach PostHog as properties, and the page says so.
+    expect(PAGE_TEMPLATE).toContain('<code>gad_source</code> and <code>mc_cid</code>');
     expect(PAGE_TEMPLATE).toContain('User-provided data collection is off');
     // NEL is off (decision 13); Mux Data follows the setting with no cookie (decision 14).
     expect(PAGE_TEMPLATE).toContain('Network Error Logging is turned off for this site');

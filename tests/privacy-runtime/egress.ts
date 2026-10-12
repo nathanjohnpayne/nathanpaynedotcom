@@ -6,8 +6,9 @@
  * 1. `startEgressProxy` is the browser's ONLY network path. Chromium is
  *    launched with `--proxy-server` pointing here, `--proxy-bypass-list=<-loopback>`
  *    so even loopback goes through it, and host-resolver rules that fail every
- *    other name. The proxy serves the site under test (`nathanpayne.test`)
- *    from `dist-privacy-test/` and records and refuses everything else,
+ *    other name. The proxy serves the site under test (`nathanpayne.test`,
+ *    and `localhost` where a test opts in) from `dist-privacy-test/` and
+ *    records and refuses everything else,
  *    including every CONNECT tunnel. It has no code path that opens an
  *    outbound connection; `runtime.pw.ts` asserts that statically.
  *    Playwright routes do not see requests sent while a page unloads
@@ -28,6 +29,12 @@ import { gunzipSync } from 'node:zlib';
 import type { BrowserContext, Route } from '@playwright/test';
 
 export const SITE_HOST = 'nathanpayne.test';
+/**
+ * A local host the site can also be served on, for a test that needs the page
+ * to see one (#1297). Opt-in per proxy and per route; still served from
+ * dist/ by the proxy itself, never forwarded.
+ */
+export const LOCAL_SITE_HOST = 'localhost';
 /** The token `npm run build:privacy-test` bakes in. Fake by construction. */
 export const POSTHOG_TOKEN = 'phc_privacy_test_fake';
 export const POSTHOG_HOST = 'd.nathanpayne.com';
@@ -85,7 +92,11 @@ export async function startEgressProxy(
   siteRoot: string,
   // `no-store` keeps every load fresh. A test that needs a back/forward-cache
   // restore passes `no-cache`, because Chromium never caches a no-store document.
-  { cacheControl = 'no-store' }: { cacheControl?: 'no-store' | 'no-cache' } = {},
+  // `siteHosts` are the hostnames served as the site; anything else is refused.
+  {
+    cacheControl = 'no-store',
+    siteHosts = [SITE_HOST],
+  }: { cacheControl?: 'no-store' | 'no-cache'; siteHosts?: readonly string[] } = {},
 ): Promise<EgressProxy> {
   const root = normalize(siteRoot);
   const log: ProxyRecord[] = [];
@@ -100,7 +111,11 @@ export async function startEgressProxy(
     } catch {
       url = null;
     }
-    if (url && url.hostname === SITE_HOST && (req.method === 'GET' || req.method === 'HEAD')) {
+    if (
+      url &&
+      siteHosts.includes(url.hostname) &&
+      (req.method === 'GET' || req.method === 'HEAD')
+    ) {
       log.push({ kind: 'served', method: req.method, target, at: Date.now(), body });
       const file = await siteFile(root, url.pathname);
       res.writeHead(file.status, { 'content-type': file.type, 'cache-control': cacheControl });
@@ -287,12 +302,13 @@ export const REMOTE_CONFIG = {
 export async function installDefaultDenyRoute(
   context: BrowserContext,
   vendor: { posthogDist: string; gtagFile: string },
+  { siteHosts = [SITE_HOST] }: { siteHosts?: readonly string[] } = {},
 ): Promise<Sink> {
   const sink: Sink = { records: [], blocked: [], served: [] };
   await context.route('**/*', async (route: Route) => {
     const request = route.request();
     const url = new URL(request.url());
-    if (url.hostname === SITE_HOST) {
+    if (siteHosts.includes(url.hostname)) {
       await route.continue();
       return;
     }
