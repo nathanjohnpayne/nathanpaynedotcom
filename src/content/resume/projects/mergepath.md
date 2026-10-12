@@ -5,7 +5,7 @@ url: "https://htmlpreview.github.io/?https://raw.githubusercontent.com/nathanjoh
 repo: "https://github.com/nathanjohnpayne/mergepath"
 order: 2
 claimsReviewed:
-  caseStudy: "eed3066a7350f942a905ad9f606ce864044bf4c28008973e349cea18f352390b"
+  caseStudy: "1d44ebcf13f1abf3ebeb72ef4c4e9795cb786b25627cf82f331c64bda2c6fc7d"
   resume: "d964d3b7cd1973ba0db0b4305f87e9943f07daa3f99f156e080a4a3ab0d61e15"
   date: "2026-10-12"
 ---

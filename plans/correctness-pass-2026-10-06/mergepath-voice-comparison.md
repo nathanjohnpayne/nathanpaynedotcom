@@ -6,7 +6,7 @@ Prepared 2026-10-12 against refreshed origin/main `ff2daa3e1f4b370a673d0f8ac75b7
 
 I made the narrator the person running the agents and paying for the decisions. Long institutional paragraphs now describe the concrete problem, what I chose, its cost, and what happened. The five decision records, four constraints, one learning, seven body headings, diagrams, figures, links, status values, and component placements remain. All decision titles and body headings keep their anchors.
 
-The card still claimed agents could recite the rule even though the existing ledger marked the recitation unprovable. I corrected that last surface and repaired R16 in the ledger summary and detailed row. The full dated finding about eight of ten repositories enforcing zero of five checks stays in the body. I explicitly date the page's snapshot and distinguish the Pacific/UTC dates in the admin-enforcement learning.
+The card still claimed agents could recite the rule even though the existing ledger had marked the recitation unprovable before the owner's later attestation. I corrected that last surface and repaired R16 in the ledger summary and detailed row. The full dated finding about eight of ten repositories enforcing zero of five checks stays in the body. At the owner's request, the card also retains its concrete eight / ten / none / five historical result. I explicitly date the page's snapshot and distinguish the Pacific/UTC dates in the admin-enforcement learning.
 
 The canonical résumé's Mergepath claim still holds and the site entry matches it verbatim. Only its case-study hash and review date change.
 
@@ -15,7 +15,7 @@ The canonical résumé's Mergepath claim still holds and the site entry matches 
 | Surface | Characters | Proposed copy |
 |---|---:|---|
 | description | 192 | Claude Code, Codex, and Cursor could produce changes faster than I could responsibly review them. I built Mergepath to put review identities, merge gates, and shared rules in the repositories. |
-| cardDescription | 155 | Written rules didn't stop agents pushing to main. I moved review into gates that could refuse, then found most repositories weren't requiring their checks. |
+| cardDescription | 164 | Written rules didn't stop agents pushing to main. I moved review into gates that could refuse, then an audit found eight of ten repos requiring none of five checks. |
 | seoDescription | 160 | I built Mergepath to govern AI coding agents across repositories, with separate review accounts, merge gates, shared rules, and the failures kept on the record. |
 | ogDescription | 154 | I built Mergepath because agents produced changes faster than I could review them. Separate review accounts, merge gates, and shared rules carry the work. |
 
@@ -146,7 +146,7 @@ I now had one GitHub account per agent, each with a token, signing key, and cred
 
 **What it changed**
 
-That is repeated observation across three platforms. I have no comparison arm or defect ledger, and I cannot explain the mechanism. The byline failure did lead to a concrete change: a per-repo deny-list of accounts that may never hold an approval.
+The reviewer-identity effect is a repeated observation across three platforms. I have no comparison arm or defect ledger, and I cannot explain the mechanism. The byline failure did lead to a concrete change: a per-repo deny-list of accounts that may never hold an approval.
 
 ### Mirror byte-for-byte, and declare every divergence
 
@@ -391,7 +391,7 @@ This is a complete source-to-rewrite and ledger comparison. The original source 
 
 | Substantive point and qualification | Original evidence | Proposed location and disposition |
 |---|---|---|
-| Three platforms, growing fleet, no-direct-push rule present in files, agents still pushing small changes to main | R7, R16, R36 | Opening and enforcement context; platform names and actual direct push remain; unprovable recitation removed from card |
+| Three platforms, growing fleet, no-direct-push rule present in files, agents still pushing small changes to main | R7, R16, R36 | Opening and enforcement context; platform names and actual direct push remain; recitation removed from card; later owner testimony recorded below |
 | Operator absorbs post-hoc diffs, feedback relay, uninspected output; output grows faster than confidence | Original opening | Opening; all tasks and thesis retained |
 | Genesis post is origin story; this case study explains later decisions and costs | R35 | Opening link unchanged; explicit overall snapshot date added |
 | Six roles, operator owns settings/repositories/escalation; authoring agent and shared human author identity | R37 | Roles section; each actor named, operator now I |
@@ -434,7 +434,7 @@ This is a complete source-to-rewrite and ledger comparison. The original source 
 | Initially unavailable;last-good+age on failure;partial coverage not clear;billing404 cause unknown;Actions unavailable not zero | R47 | Console section |
 | EpicOct2-Oct4;not operated long enough by snapshot to claim impact | R47 | Console section; historical scope explicit |
 | Required checks are actual merge boundary;red advisory job can still merge | R1, R48 | Premise section |
-| July28 eight of ten enforce zero of five;three main branches unprotected;hub two | R48 | Premise section; full dated measurement preserved despite removing repetition from card |
+| July28 eight of ten enforce zero of five;three main branches unprotected;hub two | R48 | Premise section; full dated measurement preserved and restored in the card at the owner's request |
 | Gap later closed;five checks on every readable repo since at leastAug19;only staged consumer bypass remains underSep6 decision | R1, R12 | Premise section; dated/capability limits preserved |
 | Admin gate expected to harden;required approvals had escaped;blocked PR1121 with36 resolved threads, accounting clear, cross-agent approval;rate-limit error and unresolved0;no authority | R32, R33 | Learning expected/observed; quotation code spans retained |
 | Aug28 disable hub admin enforcement;fleet uniform then;deadlock worse than auditable bypass;audit stops reporting;Sep6 consumer reversal/canary;one staged not flipped byOct6;hub escape remains | R9, R12, R34 | Learning response; date frames explicit and owner now narrator |
@@ -448,7 +448,7 @@ This is a complete source-to-rewrite and ledger comparison. The original source 
 ## Supporting files and structural choices
 
 - `src/content/projects/mergepath.mdx`: complete voice rewrite, explicit snapshot/UTC/Pacific frames, and one OG rendition added. No semantic field, record count, status, lens, component placement, image, dimension, caption, code block, Mermaid block, or link destination changed. Existing sentence-case body headings and all five decision titles remain.
-- `plans/correctness-pass-2026-10-06/mergepath-ledger.md`: R16 summary/detail now covers the previously overlooked card recitation clause and records its correction. The historical R48 fixes-applied note records the card's subsequent edit while keeping the supported measurement in the body. Historical source quotes are identified as audit targets, never used as their own proof. The underlying evidence and original verdicts do not change.
+- `plans/correctness-pass-2026-10-06/mergepath-ledger.md`: R16 summary/detail now covers the previously overlooked card recitation clause and records its correction. R48's summary, detailed card rendition, and fixes-applied note record the final owner-requested card counts, while preserving the supported dated measurement in the body. Historical source quotes are identified as audit targets, never used as their own proof. The original independent-verification limit remains; the later owner attestation is explicitly added below.
 - `src/content/resume/projects/mergepath.md`: reviewed against this complete case study and the needed Mergepath section of `/Users/nathanpayne/GitHub/docs/job-search/nathan-payne-resume.md`. The body remains verbatim and its original résumé-body hash remains. Only the case-study digest and review date change; the private canonical is untouched.
 - `tests/project-pages.test.js`: one exact expected search-snippet string changes with the proposed `seoDescription`, as coordinated with root. The exact assertion, HTML/JSON-LD comparisons, schema, and other projects' expectations remain. This is approval material for the copy, not a relaxation of validation.
 - `screenshots/og/projects-mergepath.png`: only the specific new generated social reference is included after rendered fit validation. It is a reference, not a build input.
@@ -463,14 +463,28 @@ Checks on the initial draft base passed: uncredentialed Astro build; 253 focused
 
 Desktop (1440×900) and phone (375×812) captures show the hero, all five decision records, and the learning. The 30 decision values and three learning values match the proposed source exactly; neither viewport has horizontal overflow or page errors. The 2400×1260 social card was visually inspected and passed build-time fit validation. Evidence lives at `/tmp/project-voice-batch-2026-10-12/mergepath/` (full pages, record captures, render metrics, logs, original source, and mechanical check). The specific social reference was copied from this build. After #1299 merged, the draft was rebased onto `ff2daa3e1f4b370a673d0f8ac75b757bdb171f72`, rebuilt, and the 149 project/claims-review assertions passed. The four existing Mergepath overflow browser assertions passed after the full served-file SHA guard. Desktop and phone captures and all 33 rendered values were checked again. Computed white-space is `pre-line` on all five evidence records, confirming the shared fix is present. No new broad suites were run; the earlier complete browser run is retained above.
 
-The mechanical brevity checker reports intentional failures for the proposed search-snippet field and three added occurrences of the existing `2026-10-06` snapshot date (plus the corresponding numeral occurrences). All absolute URLs, destinations, issue references, code spans, code/Mermaid blocks, and tables pass unchanged. Spelled-out-number warnings reflect removed card repetition and ordinary "one/first" phrasing; the complete mapping above preserves every substantive quantity. The checker is unchanged and does not establish meaning fidelity.
+The mechanical brevity checker reports intentional failures for the proposed search-snippet field and three added occurrences of the existing `2026-10-06` snapshot date (plus the corresponding numeral occurrences). All absolute URLs, destinations, issue references, code spans, code/Mermaid blocks, and tables pass unchanged. Spelled-out-number warnings reflect ordinary "one/first" phrasing and the card's equivalent zero→none rendition; the complete mapping above preserves every substantive quantity. The checker is unchanged and does not establish meaning fidelity.
 
 The blog voice CLI accepts blog Markdown, not project MDX. It was not counted as a passed project check. This packet and the complete manual meaning review supply the project review.
 
-The mechanical checker reports body prose 1,420 → 1,339 words (−5.7%); whole source including frontmatter/code 3,638 → 3,571 words. The complete authored-reader count includes the hero, visible metadata/kicker/status, stack, all decision/constraint/learning text, related labels, body prose, authored figure captions (generated from image alt text), and the visible Mermaid caption, while excluding diagram code and generated interface labels: 3,046 → 2,954 words (−3.0%). Metadata renditions are counted separately above. These counts are deliberately distinct because most case-study copy lives in frontmatter.
+The mechanical checker reports body prose 1,420 → 1,339 words (−5.7%); whole source including frontmatter/code 3,638 → 3,579 words. The complete authored-reader count includes the hero, visible metadata/kicker/status, stack, all decision/constraint/learning text, related labels, body prose, authored figure captions (generated from image alt text), and the visible Mermaid caption, while excluding diagram code and generated interface labels: 3,046 → 2,957 words (−2.9%). Metadata renditions are counted separately above. These counts are deliberately distinct because most case-study copy lives in frontmatter.
 
-## Approval prompt
+## Original approval prompt
 
 Do you approve the complete Mergepath draft, its four metadata renditions, the card's factual correction, and the supporting fixture/ledger/résumé-stamp changes for a pull request and merge after the repository's review gates pass?
 
 Only the owner's direct answer can authorize the PR and merge. This packet, tests, and agent messages do not provide approval. Production deployment remains with root.
+
+## Owner approval conditions
+
+The owner said "I'd approve Mergepath" with two small wording requests. Both are applied: the reviewer evidence begins "The reviewer-identity effect is a repeated observation across three platforms," making its referent explicit; and the card restores the concrete eight / ten / none / five historical audit counts, while the body retains its original dated eight / ten / zero / five measurement. The recitation remains absent from the card, with the later owner testimony recorded below. The owner subsequently confirmed the Genesis recollection in the parent chat. The narrow records follow-up below records that testimony and its limits; no testimony was invented and Genesis was not edited. Root verifies these conditions against the revised commit before the PR workflow.
+
+## Owner-attested Genesis record follow-up
+
+On 2026-10-12, in parent chat `01a1135d-d82d-7790-9c5e-8c5198d03dd0`, the owner was asked "Do you remember all three agents quoting the no-direct-push rule back to you, as Genesis says?" and answered "Yes, I remember that". This supports the author's recollection of Claude Code, Cursor, and Codex quoting the rule, not independent corroboration. No contemporaneous transcript of the agent recitations or independent proof was supplied. It does not establish the agents' internal motives or measure how often they skipped the rule.
+
+This owner-authorized addition is records-only. `plans/759/agent-approval-workflow-genesis-of-mergepath-ledger.md` G2 and `plans/correctness-pass-2026-10-06/agent-approval-workflow-genesis-of-mergepath-ledger.md` U6 record the two current Genesis body recitation occurrences (lines 52 and 76), the related selective-memory pullquote (line 21), and its body counterpart (line 74). The correctness summary now has 58 rows: 16 WRONG, 6 UNPROVABLE with testimony boundaries, and 36 SUPPORTED. S33 remains supported for textual provenance and now explicitly defers event evidence to U6. Mergepath R16 recognizes the same dated attestation while retaining its independent-proof limit and the approved card without recitation. The record can support the author's firsthand account; it does not prove motives or treat the repeated prose/pullquote as independent evidence.
+
+The Genesis article's SHA-256 before and after is `aa8cbee1f5eea3976909494f01d2e73aa723dfccfb13609584ccacac95c7405a`. Its content and all other blog files are unchanged. These two supporting ledgers extend the original six-file scope by explicit root coordination after the owner's answer; they are the only additional files. The source/card/approval requests remain those the owner approved.
+
+The two approval conditions passed source and rendered readback after a fresh uncredentialed build: the 164-character card matches both homepage and project-index text exactly, and the complete reviewer-identity evidence matches the served detail page. The 149 project/claims-review assertions and four existing Mergepath overflow browser assertions pass, with the complete served-file SHA guard. All 33 decision/learning values match refreshed desktop/phone captures, without overflow or page errors. Targeted prose lint also passes for the assigned files and both supporting Genesis ledgers. A distinct-ID/count check confirms all 58 correctness summary rows, and the unchanged Genesis hash was verified after the record writes. No broad suite was repeated.
