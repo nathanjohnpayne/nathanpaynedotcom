@@ -1,9 +1,9 @@
 ---
 title: "Friends & Family Billing"
 slug: "friends-and-family-billing"
-description: "Shared billing that shows the math, tracks the money, and takes the awkward checking out of splitting recurring costs."
-seoDescription: "A household billing tool built on one question: how do you show someone what they owe, and why, without making them create an account?"
-cardDescription: "Shared billing for nine people that handles the explaining and asking without recipient accounts. Its three biggest failures shared one gap: the model was right before the interface was."
+description: "I built shared billing for nine people so I could stop reopening a spreadsheet every time someone asked what they owed. The math was easy. Explaining it was the work."
+seoDescription: "I built a household billing tool for nine people. It shows what they owe and why without an account, but getting the model right didn't make every screen right."
+cardDescription: "I built billing for nine people without recipient accounts. It handles the explaining and checking, but I got the model right before I made it easy to see."
 kicker: "AI × Utility × Finance"
 order: 6
 screenshotAspect: "wide"
@@ -19,38 +19,45 @@ metadata:
 stack: "React · JavaScript · Vite · Firebase · Vitest · Playwright"
 constraints:
   - value: "9 people"
-    label: "one group, five households, no shared budget—the only users there have ever been, on my own account"
+    label: "one group across five households, no shared budget; the only users there have ever been, on my account"
   - value: "No accounts"
-    label: "recipients hold a link; possession is the credential the design intends"
+    label: "recipients hold a link; I designed possession of it to be their credential"
   - value: "No scheduler"
-    label: "the coordinator still presses Send, per member, once a year"
+    label: "I still press Send for each member once a year"
   - value: "365 days"
-    label: "the default link life, and what the dialog's No-expiry option silently mints"
+    label: "the default link life, including what the dialog silently creates when I choose No expiry"
 decisions:
   - title: "Make the link the credential"
     lens: "Access"
-    context: "A household member checks their bill a handful of times a year. An account—password, recovery, sign-in—prices that rare act absurdly, and the person paying is the one I least wanted to burden. The token link predates the React app entirely, and no ADR, spec, or pull request ever records an account model being weighed against it."
-    chosen: "A recipient holds a URL and nothing else. Opening it presents that member's view, including equivalent summaries for any linked household members, and the application gives each link a lifecycle: expiry, revocation, and pruning, with a visit count and last-viewed date against every link."
-    rationale: "The recipient's four needs—an amount, its derivation, a way to pay, a way to object—are all read-and-request acts. None of them requires an identity, and putting an identity in front of them is what would have killed them: a person who checks a bill once a year does not create an account, they just never look."
-    cost: "Whoever holds the link is treated as the recipient. The data-layer rules do not fully enforce the application's intended expiry and revocation model, so a leaked link can expose the intended member's view, including linked household members."
-    evidence: "Link management became part of the coordinator's workflow: every link carries a lifecycle, a visit count and a last-viewed date, so I can see that someone opened their bill without asking them whether they did. The weakness is enforcement—expiry and revocation live in the application, and the deployed data-layer rule does not fully back them."
+    context: "A household member checks their bill a handful of times a year. I didn't want to put a password, recovery flow, and sign-in in front of that, especially for the person I was asking to pay. The token link was already there before the React app. No ADR, spec, or pull request records a comparison with recipient accounts."
+    chosen: "I gave recipients a URL. It opens their member view, including equivalent summaries for any linked household members. I added expiry, revocation, and pruning, plus a visit count and last-viewed date for each link."
+    rationale: "A recipient needs four things: an amount, its derivation, a way to pay, and a way to object. Those are read-and-request acts. I didn't need to establish an identity for them, and I expected an account requirement to stop someone who only checks once a year from looking at all."
+    cost: "The application treats whoever holds the link as the recipient. The deployed data-layer rules let anyone who knows the token hash read an existing cached view of that member and any linked household members, without checking expiry or revocation. Revocation marks the token revoked and tries to delete the cache, but ignores a failed delete; pruning batch-deletes caches. A successfully deleted cache no longer exposes its payload."
+    evidence: |
+      Managing links became part of my workflow. I can read each link's lifecycle, visit count, and last-viewed date to see that a bill was opened without asking.
     status: "mixed"
   - title: "The coordinator doesn't keep the change"
     lens: "Settlement"
-    context: "The vanilla-JS app had exactly three balance states—outstanding, partial, settled—and no overpaid branch. But a service credit applied after someone has already paid creates a real position: the household is holding money that belongs to a member, and a three-state model has nowhere to put it."
-    chosen: "A fourth state, overpaid, added in the React port on 2026-03-21—in a Phase 2a commit, not an ADR. What forces it to exist is ADR-0004, which bans the write-off: an overpayment must be discharged, by refund or carry-forward, never absorbed."
-    rejected: "The write-off. Letting the coordinator quietly keep small overpayments is what most informal arrangements do, and ADR-0004 removes the option deliberately—it records the absence of any forgive-credit action as intentional."
-    rationale: "Between people who share a phone plan, the money that flows back is what decides whether the system is trusted. A model that can say settled but cannot say overpaid converts the household's error into the coordinator's gain and calls it even."
-    cost: "The fourth state is not self-clearing. It opens a disposition the coordinator must close, and behind that one badge came a subsystem—credit adjustments, refund events, a refund-notice service, a refunds scope on share links, a Cloud Function for the recipient to confirm receipt, and five ADRs settling how credit moves."
-    evidence: "Modeling the state was not the same as surfacing it. The board does carry a headline Owed to members tile, so the coordinator can see that a debt exists at all; what it has no way to do is find it. The filter row runs All, Outstanding, Partial, Settled—no Overpaid chip—so an overpaid household is reachable only by scrolling All. And the share page never imports the status badge, so the person whose money it is sees two states: a green settled, or a red amount due. The money is modeled correctly and shown to nobody who would act on it."
+    context: "The vanilla-JS app had three balance states: outstanding, partial, settled. Then consider a service credit applied after someone has paid. I'm holding money that belongs to them, and none of those states says so."
+    chosen: "I added overpaid as a fourth state in the React port on 2026-03-21, in a Phase 2a commit rather than an ADR. ADR-0004 later made the rule explicit: I have to return an overpayment as a refund or carry it forward. I can't absorb it."
+    rejected: "Writing it off. A coordinator can quietly keep a small overpayment in an informal arrangement. I deliberately removed that option; ADR-0004 records the absence of a forgive-credit action as intentional."
+    rationale: "If I can call a balance settled but can't say that I owe someone money, I can turn the household's error into my gain and call it even. Between people sharing a phone plan, returning the money matters to whether the arrangement feels fair."
+    cost: "The fourth state doesn't clear itself. I have to close it by deciding where the money goes. Behind the badge came credit adjustments, refund events, a refund-notice service, a refunds scope on share links, a Cloud Function for the recipient to confirm receipt, and five ADRs about how credit moves."
+    evidence: |
+      I got the state into the model before I made it easy to find. The board has an Owed to members tile, so I can see that I owe money. Its filters are All, Outstanding, Partial, Settled. There's no Overpaid chip; I have to scroll All to find the household.
+
+      The share page doesn't import the status badge. The person whose money I'm holding sees green settled or a red amount due. I made the debt visible in the headline and left both people who need to act without the view they need.
     status: "mixed"
   - title: "Fix the rendering model, not the preview"
     lens: "Parity"
-    context: "The invoice template rendered three ways: the editor drew its own DOM with unresolved token pills, the preview ran one markdown pipeline, and the sent email ran another. Six pull requests shipped in one session on this surface across roughly twenty hours without closing it, and the three attempts at the bug itself had all converged on the same move—make the surfaces look closer."
-    chosen: "PR #161 introduced a canonical renderer—its docstring names it the single source of truth for the Invoicing preview and template email HTML—bypassed the plain-text bridge on that path, and left behind a regression test in a required check that held the preview's DOM and the test email's payload to the same HTML until 2026-09-30."
-    rationale: "The sent email is the source of truth, so the renderer had to become one thing rather than three things reconciled. Making Preview merely look closer was the failure mode, not the fix."
-    cost: "The fix landed on the surface being watched. Before it, the test email and the invoice rendered identically; after it, the proven surface and the real one diverged—and the pull request that unified the first two never touched the file that sends the third."
-    evidence: "After the third failed attempt I rewrote the brief as an invariant, banned in writing the approach that had failed three times, and moved the task to a different agent. That produced the canonical renderer and required tests that guard the preview against the test send—two at the time, though the set has changed since. None checks the invoice people actually receive, so the tests still encode the same incomplete definition of parity the fix did. [Six PRs, One Bug](/blog/six-prs-one-bug-agent-failure-modes/) has the chronology."
+    context: "The invoice template had three render paths. The editor drew its own DOM with unresolved token pills, the preview used one markdown pipeline, and the sent email used another. Six pull requests shipped on this surface in one session across roughly twenty hours without closing the gap. The three attempts at the bug itself all tried to make the surfaces look closer."
+    chosen: "I changed the brief, and Codex delivered PR #161. It introduced a canonical renderer whose docstring calls it the single source of truth for the Invoicing preview and template email HTML. That path bypassed the plain-text bridge. A regression test in a required check held the preview's DOM and the test email's payload to the same HTML until 2026-09-30."
+    rationale: "The sent email is the source of truth. I needed one renderer that the other surfaces used. Making Preview look closer kept the three competing versions in place, which was the approach that had already failed."
+    cost: "The fix reached the surfaces I was watching. Before it, the test email and the invoice rendered identically. After it, they diverged: the preview and test send moved together, and the invoice stayed where it was. The pull request never touched the file that sends the recipient's invoice."
+    evidence: |
+      After the third failed attempt, I rewrote the brief as an invariant, explicitly banned the approach that had failed three times, and moved the task to a different agent. That produced the canonical renderer and required tests comparing the preview with the test send: two at the time, though the set has changed since.
+
+      None checks the invoice people actually receive. The tests still cover the same incomplete set of surfaces the fix did. [Six PRs, One Bug](/blog/six-prs-one-bug-agent-failure-modes/) has the chronology.
     status: "mixed"
 related:
   - label: "Blog: Six PRs, One Bug: What AI Agents Actually Get Wrong"
@@ -64,21 +71,29 @@ import DecisionLedger from '../../components/projects/DecisionLedger.astro';
 
 ## The math was never the problem
 
-My husband and I split T-Mobile, Apple One, and 1Password with my parents, my sister's family, and two friends—nine people in five households, which is the detail the product's name was carrying all along. Every year, someone would ask how much they owed, I would open a spreadsheet, re-derive the math for three bills, and text them a number. Then someone else would ask, and I would do it again.
+My husband and I split T-Mobile, Apple One, and 1Password with my parents, my sister's family, and two friends. Nine people in five households. The name was fairly literal.
 
-The arithmetic was trivial. The product problem was the coordination wrapped around it—calculate, explain, ask, remind, verify, repeat—and its social texture: asking for money feels awkward, checking feels intrusive, and both jobs default to whoever set the thing up.
+Every year, someone would ask how much they owed. I'd open a spreadsheet, work through the math for three bills, and text them a number. Then someone else would ask, and I'd do it again.
 
-That loop holds two users with different needs. The coordinator needs accuracy and an auditable record—I am the one vouching for the numbers. A recipient needs an amount, the arithmetic behind it, a way to pay, and a way to object, with no account in the way. Friends & Family Billing holds those two jobs apart.
+The arithmetic was trivial. I had to calculate, explain, ask, remind, verify, and repeat. Asking friends for money feels awkward. Checking whether they've looked feels intrusive. Both jobs fall to whoever set the arrangement up, which was me.
+
+I needed accurate numbers and a record I could audit, because I was the one vouching for them. A recipient needed an amount, the arithmetic behind it, a way to pay, and a way to object. I built Friends & Family Billing around those two jobs and kept an account out of the recipient's way.
 
 ## One link is the recipient's whole year
 
-A household member's entire relationship with this product is a no-login link. Opening it loads a member-scoped view, including equivalent summaries for any linked household members, and the page is built around one choice: show the arithmetic, not just the answer. Every bill renders its derivation inline—`$300.00/mo ÷ 8 members = $37.50/mo · ×12 = $450.00/yr`—and nothing in that line is recomputed for display: each figure reads from the canonical fields the billing math wrote, so the page cannot imply a rounding the calculation never took. The invoice email carries a greeting, a total, and the link—the email asks, the page explains.
+A household member opens a no-login link. It shows their member-scoped view, including equivalent summaries for any linked household members. I wanted the page to explain the number I used to text them.
 
-A link can grant four things, none requiring an account: question a specific charge, approve or reject the resolution I propose, confirm or deny receipt of a refund, and request a fresh link when theirs has died. The first three are per-link scopes rather than universal rights—a link minted without them opens to a summary and no controls. They cannot record a payment—no such control or write scope exists. The recipient sees, questions, and confirms; only the coordinator posts money.
+Every bill shows its derivation inline: `$300.00/mo ÷ 8 members = $37.50/mo · ×12 = $450.00/yr`. The display reads each figure from the canonical fields the billing math wrote. It doesn't calculate them again, so it can't imply a rounding step the calculation never took. The invoice email carries a greeting, a total, and the link. The email asks; the page explains.
 
-The question path stays inside the no-login product. "Question This Charge" submits a scoped review request, rate-limits it, writes a server-side audit entry, and emails me the question with a deep link into my review queue. Six of the seven Cloud Functions exist to serve someone who has no account.
+A link can let someone question a charge, approve or reject my proposed resolution, confirm or deny receipt of a refund, and request a fresh link when theirs has died. The first three depend on the scopes I grant that link. Without them, it opens to a summary with no controls. Recipients can't record payments; there's no payment control or write scope. They see, question, and confirm. I post the money.
 
-Three coordination steps are verifiably gone. The recipient learns their amount and its derivation without asking me. I learn that the link was opened, without asking—every link carries a visit count and a last-viewed date I can read back. It counts visits through the app, not people: a forwarded link and a second look are the same signal. And a dead link moves the request into the product: the expired page offers "Request New Link," and the system emails me, but I still have to mint and deliver the replacement. A fourth step is not gone: nothing sends on its own—there is no scheduler in this codebase. Once a year I still open a dialog and press Send, per member. The product removed the explaining and the checking; it routed the asking without automating the sending.
+"Question This Charge" stays inside that no-login flow. It submits a scoped review request, rate-limits it, writes a server-side audit entry, and emails me the question with a link straight into my review queue. Six of the seven Cloud Functions serve someone who has no account.
+
+I moved three parts of the old conversation into the product: explaining the amount, checking whether the link was opened, and requesting a replacement. A recipient can find the amount and its derivation without asking me. I can see that their link was opened without asking them: each link has a visit count and a last-viewed date. Those count visits through the app, not people. A forwarded link and a second look give me the same signal.
+
+An expired link has a "Request New Link" control. The system emails me the request, but I still have to create and deliver the replacement.
+
+Sending is still my job too. There's no scheduler in this codebase. Once a year, I open a dialog and press Send for each member. I removed the explaining and the checking, and moved the request for a replacement into the product. I didn't automate the sending.
 
 ![My own share of the 2026 bills, from the live product. Each line shows its derivation and not just its result—`$300.00 / month × 12 ÷ 8 members = $450.00`—and every figure is read from the field the billing math wrote, not recomputed for display, so the page cannot imply a rounding the calculation never took. This is the same derivation a recipient's link renders. The capture stops at my own subtotal: the rows below it belong to another member, and my approval to publish covers my data and nobody else's.](/images/projects/friends-and-family-billing-household.png)
 
@@ -86,19 +101,19 @@ Three coordination steps are verifiably gone. The recipient learns their amount 
 
 ## The decisions
 
-Three decisions carry the argument, all three mixed—real support beside a real limitation. Two are about the money: who may see a household's numbers without an account, and what the model owes the person who overpaid. The third is the day the rendering model broke, told at length in [Six PRs, One Bug](/blog/six-prs-one-bug-agent-failure-modes/).
+All three decisions are mixed. Each has real support and a real limitation. Two concern the money: who can see a household's numbers without an account, and what I owe someone who overpaid. The third is the rendering failure I wrote about in [Six PRs, One Bug](/blog/six-prs-one-bug-agent-failure-modes/).
 
 <DecisionLedger decisions={props.decisions} />
 
 ## What broke
 
-All three decisions left the same gap between the model and the surface that mattered.
+I kept getting the model right and stopping before the screen someone needed.
 
-- **Rendering.** From April to September 2026 the preview and the test send shared a canonical renderer and the invoice a household member actually receives did not: its dialog sends plain text with no HTML field. A security change on 2026-09-30 (friends-and-family-billing#459) closed that gap by taking every email off the client's HTML: both sent messages now render server-side from plain-text bodies that still differ in serialization, and only the preview is on the canonical renderer.
-- **Settlement.** Overpayment exists in the model and in a subsystem behind it. The coordinator gets an `Owed to members` tile but no `Overpaid` filter to reach the household, and the share page carries no badge at all for the person whose money it is.
-- **Access.** Expiry, revocation and pruning exist in the application. The deployed data-layer rule does not fully enforce them, so a leaked link can expose the intended member's view.
+- **Rendering.** From April to September 2026, the preview and test send shared a canonical renderer. The recipient's invoice didn't; its dialog sent plain text with no HTML field. A security change on 2026-09-30 (friends-and-family-billing#459) closed that particular gap by taking every email off the client's HTML. Both sent messages now render server-side from plain-text bodies, which still differ in serialization. Only the preview uses the canonical renderer.
+- **Settlement.** I modeled overpayment and built the subsystem behind it. I can see an `Owed to members` tile, but there's no `Overpaid` filter to take me to the household. The recipient's share page has no badge for the money I owe them.
+- **Access.** I built expiry, revocation, and pruning into the application. The deployed rules leave an existing cached member view readable to anyone who knows its token hash, without checking expiry or revocation. [The missing backstop is tracked in issue #492](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/492).
 
-Different layers, one failure: the invariant stops just before the boundary where it would have mattered.
+The gaps sit at different layers, but I made the same mistake each time: I stopped checking just before the boundary that mattered.
 
 ```mermaid title="Three render paths, one template" description="One invoice template renders along three paths. The editor draws its own document and shows tokens unresolved, so it never matched the output on screen; the brief's ask that it reflect final output was never delivered. The canonical renderer, added by the 2026 parity fix, produces the preview, and from April to September 2026 it produced the test send too, with a required regression test holding those two together. The invoice email a household member actually receives always took the third path, through the plain-text bridge into the server's markdown renderer, which the fix never reached; since 2026-09-30 the test send takes that path as well, so the only surface still on the canonical renderer is the one nobody receives."
 flowchart TD
@@ -130,12 +145,14 @@ flowchart TD
     style INV fill:#11100d,stroke:#11100d,stroke-width:1.5px,color:#fffdf8
 ```
 
-Three paths out of one template. The two the parity fix unified were the two anyone tested, and the third was the one that reaches a person; since 2026-09-30 the test send has rejoined the invoice on the bridge, leaving only the preview on the canonical renderer.
+Three paths out of one template. The two the parity fix unified were the two the tests covered, and the third was the one that reaches a person; since 2026-09-30 the test send has rejoined the invoice on the bridge, leaving only the preview on the canonical renderer.
 
 ## What I learned
 
-The product did not make splitting a phone plan mathematically easier. The arithmetic was always a division. What it removed was the explaining and the checking—and it removed those by showing the derivation instead of the answer, so the question a recipient would have asked is answered before they ask it. It routed the asking without automating the sending, which is the right place to stop: nothing here should decide on its own that a friend owes money.
+Splitting a phone plan wasn't mathematically hard. It was always a division. Showing the derivation answers the question someone would otherwise ask me, and the visit count lets me check without another message.
 
-The harder lesson is that getting the model right is not the same as getting it seen. I modeled overpayment correctly, refused on principle to let the coordinator absorb it, and then left the coordinator scrolling for it and the recipient with no sign of it at all. I unified the renderer and missed the one path that reaches a person's inbox. Both are the same failure at different layers: correctness that stops before the surface someone actually looks at.
+I routed the asking without automating the sending. That feels like the right place to stop. Nothing here should decide on its own that a friend owes money.
 
-In a product moving money between people who know each other, that is the whole job. The household does not experience the balance state or the canonical renderer. It experiences an amount, an explanation, and whether the arrangement still feels fair a year later.
+The harder lesson was mine. I modeled overpayment correctly and refused to let the coordinator absorb it, then left myself scrolling to find it and the recipient with no sign of it. I unified the renderer and missed the path into a person's inbox. In both cases, I stopped at correctness before reaching the surface someone actually looks at.
+
+The household doesn't experience a balance state or a canonical renderer. It experiences an amount, an explanation, and whether the arrangement still feels fair a year later. In a product moving money between people who know each other, that is the whole job.
