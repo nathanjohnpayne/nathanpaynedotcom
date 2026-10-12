@@ -25,7 +25,7 @@ Two method notes that cost the most here. First, the propagation audit block (R2
 | R13 | "0 forks" / "public and forkable since March 2026" | lines 28 to 29 | UNPROVABLE | Zero forks is current (`forkCount: 0`); no primary source dates the switch to public. Weaker form: "public and forkable since at least April 2026 (created 2026-03-24; the site published the link on 2026-04-16)" | GraphQL repository `forkCount`, `visibility`, `createdAt`; nathanpaynedotcom `08cdade` (#193) |
 | R14 | "Every mechanism in it exists because a specific failure happened while the fleet was live" | line 140 | UNPROVABLE | A universal over 76 checks that no record ties one-to-one to incidents. Weaker form: "most of the mechanisms in it exist because a specific failure happened while the fleet was live" | no tree-wide mapping exists; sampled checks (`check_doc_ownership`, `check_git_identity_hygiene`) cite incidents, others do not |
 | R15 | "Across three agent platforms, the separate reviewer identity kept producing findings the authoring session had not." | line 47 | UNPROVABLE | The page's own evidence field already states the weaker form: repeated observation, no comparison arm, no defect ledger | line 49 |
-| R16 | "asking any of them to recite it produced the rule" | lines 35, 101 | UNPROVABLE | No transcript is on the record. Weaker form: "the rule was in the files the agents read" | none available |
+| R16 | "asking any of them to recite it produced the rule"; card "Agents could recite the no-direct-push rule" | lines 6, 35, 101 | UNPROVABLE | No transcript is on the record. The 2026-10-06 pass removed the body claim but retained it on the card. The 2026-10-12 voice pass corrects the card to "Written rules didn't stop agents pushing to main" | none available for recitation; direct-push record R36 |
 | R17 | "8 repos" / "the hub plus seven consumers, as of 2026-10-06"; "One standard, seven consumer repositories"; "seven repositories" | lines 24 to 25, 53, 56 | SUPPORTED | seven consumer names at HEAD | `.mergepath-sync.yml` consumers at `57292ea`; GitHub `main` oid equals local HEAD |
 | R18 | "609 PRs" / "merged on the hub by 2026-10-06" | lines 26 to 27 | SUPPORTED | 609 at 2026-10-06T16:30:44Z | GraphQL `pullRequests(states:MERGED).totalCount` |
 | R19 | "No baseline" / "nobody timed the manual path"; "the one savings figure ... thirty-to-180-minute constant"; "The two real measurement systems both measure cost" | lines 30 to 31, 186 | SUPPORTED | constants 30 and 180 at `accounting.sh:97-98`; both latency systems present | `scripts/phase-4b/accounting.sh`; `scripts/audit-codex-latency.sh`, `scripts/repo-lint-latency-report.sh`, `docs/audits/` |
@@ -144,9 +144,9 @@ Adjudication note (coordinator, 2026-10-06): the Override auditor counts 29 dire
 **UNPROVABLE, and the page says so.** No comparison arm or defect ledger exists in any checkout; the evidence field at line 49 already states "Repeated observation across three platforms, not controlled measurement". Weaker form: the evidence field's own wording. Source: line 49; no ledger found under `docs/audits/` in the hub.
 
 ### R16: "asking any of them to recite it produced the rule"
-> "asking any of them to recite it produced the rule" (lines 35, 101)
+> "asking any of them to recite it produced the rule" (lines 35, 101); "Agents could recite the no-direct-push rule" (cardDescription, line 6)
 
-**UNPROVABLE.** No transcript or issue records the recitation. Weaker form: "the rule was in the files the agents read". Source: none available.
+**UNPROVABLE.** No transcript or issue records the recitation. The 2026-10-06 pass removed it from the body, but the card still repeated it. On 2026-10-12 the voice pass corrects that remaining surface to "Written rules didn't stop agents pushing to main", supported by the direct-push record in R36. The card now names the same enforcement failure as the body without claiming an unevidenced recitation. Source: none available for recitation; R36 for the direct push.
 
 ### R17: eight repositories, seven consumers
 > "8 repos" / "the hub plus seven consumers, as of 2026-10-06"; "One standard, seven consumer repositories"; "A standard that seven repositories apply differently is seven standards." (lines 24 to 25, 53, 56)
@@ -362,6 +362,6 @@ Applied 2026-10-06 to `src/content/projects/mergepath.mdx` only, per `FIX-BRIEF.
 - R14: "Every mechanism in it exists because a specific failure happened" -> "Most of the mechanisms in it exist because a specific failure happened".
 - Coordinator's extra: `related` label "Blog: Six PRs, One Bug—What AI Agents Actually Get Wrong" -> "Blog: Six PRs, One Bug: What AI Agents Actually Get Wrong" (matches the post's `title:`).
 - R15: left as is; the evidence field at line 49 already carries the weaker form the brief asks for.
-- R48 / cardDescription: left as is; "then an audit found eight of ten repos enforcing zero of five checks" is past tense and dated in the body, and the card-length test pins a band the current line sits inside.
+- R48 / cardDescription: the 2026-10-06 pass retained "then an audit found eight of ten repos enforcing zero of five checks" because it is past tense and dated in the body. The 2026-10-12 voice pass removes that repeated count from the card while preserving the complete dated R48 measurement in the body; it also repairs the card's unprovable recitation clause under R16.
 - Constraint strip values ("8 repos ... as of 2026-10-06", "609 PRs ... by 2026-10-06"): left as is per the coordinator; both re-derived today (R17, R18).
 - Diagram 1 (line 111) and its caption "Roles as of 2026-08-28": left as is; dated, so R11's drift does not reach it.
