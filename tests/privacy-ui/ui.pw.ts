@@ -388,7 +388,7 @@ test.describe('unsaved choices across a back/forward restore (#1258)', () => {
       check: async (page) => {
         await expect(notice(page)).toBeHidden();
         await expect(page.locator('#np-privacy-notice-status')).toHaveText(
-          /^Notice dismissed for this page\./,
+          /^Analytics stay on\. Your browser did not save that, so this notice may appear again on the next page\./,
         );
       },
     },

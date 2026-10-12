@@ -30,17 +30,37 @@ import noticeSource from './notice.js?raw';
     border-bottom: var(--line) solid var(--ink);
     font-family: var(--font-body);
   }
+  /* Arrival: the notice slides down into its slot and fades in, on the
+     homepage panel morph's duration and curve (--motion-plane,
+     --ease-standard). Only transform and opacity move. The slot is in the
+     document flow from first paint, so the page below never shifts (no
+     layout shift), and the notice never sits over content (PRIV-14). */
+  @keyframes np-privacy-notice-in {
+    from {
+      opacity: 0;
+      transform: translateY(-100%);
+    }
+  }
+  .privacy-notice:not([hidden]) {
+    animation: np-privacy-notice-in var(--motion-plane) var(--ease-standard) both;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .privacy-notice:not([hidden]) {
+      animation: none;
+    }
+  }
+  /* Copy on the left, the two choices at the top right. Below 40rem the
+     choices drop under the copy and share its full width. */
   .privacy-notice__inner {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
     gap: var(--sp-md) var(--sp-lg);
     max-width: 72rem;
     margin: 0 auto;
     padding: var(--sp-lg) clamp(1rem, 4vw, var(--page-gutter));
   }
   .privacy-notice__copy {
-    flex: 1 1 22rem;
     min-width: 0;
   }
   .privacy-notice__title {
@@ -61,19 +81,41 @@ import noticeSource from './notice.js?raw';
     text-decoration-thickness: 1px;
     text-underline-offset: 0.18em;
   }
+  /* Two equal choices: `1fr` tracks in an auto-sized grid both take the
+     wider label's width, and both buttons share one style, so turning
+     analytics off is exactly as large and as visible as keeping them on.
+     Each target is at least 44px tall (WCAG 2.5.5). */
   .privacy-notice__actions {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.6rem;
   }
   .privacy-notice .nav-button {
+    justify-content: center;
+    min-height: 2.75rem;
+    padding: 0.7rem 1.1rem;
     font-family: var(--font-body);
-    line-height: normal;
+    line-height: 1.25;
+    text-align: center;
     cursor: pointer;
   }
+  /* The site's .nav-button hover swap (ink fill, light label) is the
+     highlight; keyboard focus adds a heavy ring clear of the fill. */
   .privacy-notice .nav-button:focus-visible {
-    outline: 2px solid currentColor;
-    outline-offset: 2px;
+    outline: 3px solid var(--ink);
+    outline-offset: 3px;
+  }
+  @media (max-width: 40rem) {
+    .privacy-notice__inner {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  /* Too narrow for both labels on one line side by side: stack them, full
+     width, turning analytics off first, so neither wraps or shrinks. */
+  @media (max-width: 30rem) {
+    .privacy-notice__actions {
+      grid-template-columns: minmax(0, 1fr);
+    }
   }
   .privacy-notice-status {
     padding: var(--sp-sm) clamp(1rem, 4vw, var(--page-gutter));
@@ -124,8 +166,8 @@ import noticeSource from './notice.js?raw';
       </p>
     </div>
     <div class="privacy-notice__actions">
-      <button type="button" class="nav-button" data-np-privacy-action="deny">Turn off analytics</button>
-      <button type="button" class="nav-button" data-np-privacy-action="dismiss">Dismiss</button>
+      <button type="button" class="nav-button" data-np-privacy-action="deny">Turn analytics off</button>
+      <button type="button" class="nav-button" data-np-privacy-action="dismiss">Keep analytics on</button>
     </div>
   </div>
 </aside>

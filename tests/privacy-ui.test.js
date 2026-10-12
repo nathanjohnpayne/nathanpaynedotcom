@@ -189,7 +189,7 @@ describe('notice (PRIV-14, PRIV-6)', () => {
     });
     expect(privacy.notice.shouldShow()).toBe(false);
     expect(d.getElementById('np-privacy-notice').hidden).toBe(true);
-    expect(d.getElementById('np-privacy-notice-status').textContent).toContain('Notice dismissed');
+    expect(d.getElementById('np-privacy-notice-status').textContent).toContain('Analytics stay on.');
   });
 
   it('says a dismissal applies only to this page when it could not be saved', () => {
@@ -197,7 +197,7 @@ describe('notice (PRIV-14, PRIV-6)', () => {
     click(w, d.querySelector('[data-np-privacy-action="dismiss"]'));
     expect(privacy.get()).toMatchObject({ saved: 'unset', persisted: false });
     expect(d.getElementById('np-privacy-notice-status').textContent).toContain(
-      'Your browser did not save that, so it may appear again on the next page.',
+      'Your browser did not save that, so this notice may appear again on the next page.',
     );
   });
 
@@ -271,7 +271,7 @@ describe('notice (PRIV-14, PRIV-6)', () => {
     const status = d.getElementById('np-privacy-notice-status');
     click(w, notice.querySelector('[data-np-privacy-action="dismiss"]'));
     expect(notice.hidden).toBe(true);
-    expect(status.textContent).toContain('Notice dismissed');
+    expect(status.textContent).toContain('Analytics stay on.');
     // Another tab clears the saved setting: the notice shows again.
     w.localStorage.removeItem('np-privacy');
     w.dispatchEvent(new w.StorageEvent('storage', { key: 'np-privacy' }));
@@ -286,7 +286,7 @@ describe('notice (PRIV-14, PRIV-6)', () => {
     click(w, notice.querySelector('[data-np-privacy-action="dismiss"]'));
     w.dispatchEvent(new w.PageTransitionEvent('pageshow', { persisted: true }));
     expect(notice.hidden).toBe(true);
-    expect(status.textContent).toContain('Notice dismissed for this page');
+    expect(status.textContent).toContain('Analytics stay on. Your browser did not save that');
   });
 
   it('B5: an unsaved opt-out from the notice survives a back/forward restore (#1258)', () => {
