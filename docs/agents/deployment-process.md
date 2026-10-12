@@ -32,8 +32,10 @@ See `DEPLOYMENT.md` for the 1Password-backed GCP ADC bootstrap, `gcloud` wrapper
 - If credential preflight was run at session start (`scripts/op-preflight.sh --mode all`),
   deploy credentials are cached for about ten hours and no additional biometric prompt is
   needed. They are exported only in the shell where the preflight output was `eval`'d: a
-  fresh shell or agent tool call must re-run `eval "$(scripts/op-preflight.sh --agent <agent> --check --print-exports)"`
-  (since #1021, `--check` alone prints no exports). Without `CF_API_TOKEN` in the deploy shell
+  fresh shell or agent tool call must re-run `eval "$(scripts/op-preflight.sh --agent <agent> --mode all --check --print-exports)"`
+  with the same `--mode` the preflight used (`all` or `deploy`). Without `--mode`, the script
+  defaults to `review` and actively clears `GOOGLE_APPLICATION_CREDENTIALS` and `CF_API_TOKEN`.
+  Since #1021, `--check` alone prints no exports. Without `CF_API_TOKEN` in the deploy shell
   the Cloudflare purge prints a warning and is skipped while the deploy still reports success.
 
 If an `op` command fails with a sign-in or biometric error during deploy, follow the pause-and-prompt procedure in [operating-rules.md](operating-rules.md#1password-cli-authentication-failures). Do not retry or work around the failure without the human present.
