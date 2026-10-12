@@ -18,7 +18,7 @@ export default [
   // (e.g., functions/lib for cloud-functions repos).
   //
   // `dist-*/**` covers secondary build outputs (e.g. nathanpaynedotcom's
-  // `dist-flag-off/` and `dist-privacy-test/` feature-flag builds); they
+  // `dist-production-check/` and `dist-privacy-test/` feature-flag builds); they
   // are minified bundles, never source, and are not tracked anywhere.
   //
   // `.claude/worktrees/**` is the per-agent worktree root that

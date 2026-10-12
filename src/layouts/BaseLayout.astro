@@ -76,9 +76,10 @@ const gaId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID || '';
 // in src/content/site-copy/blog.md reaches every page's <head> (#1166).
 const { title: feedTitle } = await getSiteCopy('blog');
 
-// #1079 privacy controls, behind a build-time flag that is off in committed
-// code (specs/analytics-privacy.md § Feature Flag). Off, neither mount renders
-// anything and the analytics blocks below are unchanged.
+// #1079 privacy controls, behind a build-time flag that #1233 committed on
+// (specs/analytics-privacy.md § Feature Flag). With it on, both mounts render
+// and the analytics blocks below take their gated branch; the other branch
+// is what the site shipped before #1233.
 const privacyEnabled = privacyControlsEnabled();
 ---
 
@@ -230,9 +231,9 @@ const privacyEnabled = privacyControlsEnabled();
   {/* The typefaces are self-hosted since #1250: the @font-face rules for
       Cormorant Garamond and Inter are at the top of src/styles/global.css and
       point at /fonts/site/, so this page no longer contacts Google Fonts. The
-      marker comment above stays because it ends the flag-off analytics region
-      (scripts/lib/analytics-region.mjs), compared byte for byte against the
-      #1079 base commit. */}
+      marker comment above stays because it ends the analytics region that
+      scripts/lib/analytics-region.mjs and tests/analytics-privacy.test.js
+      check for the gate (#1079, #1233). */}
   <!-- Gate Mondrian panel labels behind webfont readiness so the boxed
        "Nathan Payne" + tile labels don't visibly swap from system
        fallback to Cormorant Garamond on first paint. The pattern is
