@@ -102,14 +102,19 @@ const noticeAction = (page: Page, name: string) =>
 const controlAction = (page: Page, name: string) =>
   page.locator(`#np-privacy-controls [data-np-privacy-action="${name}"]`);
 
+// `animations: 'disabled'` fast-forwards the notice's slide-in (#1339) to its
+// end; a shot taken the moment the notice is visible otherwise catches it
+// transparent and above the viewport.
 async function shot(page: Page, name: string, options: { fullPage?: boolean } = {}) {
   if (!WRITE_SHOTS) return;
-  await page.screenshot({ path: join(SHOTS, `${name}.png`), ...options });
+  await page.screenshot({ path: join(SHOTS, `${name}.png`), animations: 'disabled', ...options });
 }
 
 async function elementShot(page: Page, selector: string, name: string) {
   if (!WRITE_SHOTS) return;
-  await page.locator(selector).screenshot({ path: join(SHOTS, `${name}.png`) });
+  await page
+    .locator(selector)
+    .screenshot({ path: join(SHOTS, `${name}.png`), animations: 'disabled' });
 }
 
 /**
