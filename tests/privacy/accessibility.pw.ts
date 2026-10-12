@@ -87,15 +87,34 @@ async function tabTo(page: Page, selector: string, limit = 60): Promise<number> 
 
 /**
  * The focused element, reached by keyboard, must look different from the same element unfocused, and the
- * difference must be a painted (non-transparent) outline or shadow. Reading only "is there a shadow" passes a
- * permanent or transparent one, and so misses a lost `:focus-visible` treatment.
+ * difference must be a painted (non-transparent) outline or shadow, or a change of the element's own opaque
+ * background with at least 3:1 contrast between the two states (WCAG 2.4.13's change-of-contrast form; the
+ * notice buttons use it so focus cannot be mistaken for a resting border). Reading only "is there a shadow"
+ * passes a permanent or transparent one, and so misses a lost `:focus-visible` treatment.
  */
+/** WCAG contrast ratio of two opaque `rgb()`/`rgba()` colors as getComputedStyle reports them. */
+function contrastRatio(a: string, b: string): number {
+  const luminance = (color: string): number => {
+    const [r, g, bl] = (/rgba?\(([^)]+)\)/.exec(color)?.[1] ?? '0 0 0')
+      .split(/[ ,/]+/)
+      .filter(Boolean)
+      .slice(0, 3)
+      .map((v) => {
+        const c = parseFloat(v) / 255;
+        return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+      });
+    return 0.2126 * r! + 0.7152 * g! + 0.0722 * bl!;
+  };
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi! + 0.05) / (lo! + 0.05);
+}
+
 async function expectFocusIndicator(page: Page, selector: string, label: string): Promise<void> {
   await tabTo(page, selector, 200);
-  const paint = (): Promise<string> =>
+  const paint = (): Promise<{ ring: string; background: string }> =>
     page.evaluate((sel) => {
       const el = document.querySelector(sel);
-      if (!el) return 'missing';
+      if (!el) return { ring: 'missing', background: '' };
       const style = getComputedStyle(el);
       const opaque = (color: string): boolean => {
         const m = /rgba?\(([^)]+)\)/.exec(color);
@@ -111,7 +130,10 @@ async function expectFocusIndicator(page: Page, selector: string, label: string)
           : '';
       const shadowColor = /rgba?\([^)]*\)/.exec(style.boxShadow)?.[0] ?? '';
       const shadow = style.boxShadow !== 'none' && opaque(shadowColor) ? style.boxShadow : '';
-      return `${outline}|${shadow}`;
+      return {
+        ring: `${outline}|${shadow}`,
+        background: opaque(style.backgroundColor) ? style.backgroundColor : '',
+      };
     }, selector);
   const focused = await paint();
   await page.evaluate(
@@ -119,8 +141,16 @@ async function expectFocusIndicator(page: Page, selector: string, label: string)
     selector,
   );
   const unfocused = await paint();
-  expect(focused, `${label}: focusing paints an outline or shadow`).not.toBe('|');
-  expect(focused, `${label}: the focused look differs from the unfocused look`).not.toBe(unfocused);
+  const ringChanged = focused.ring !== '|' && focused.ring !== unfocused.ring;
+  const fillContrast =
+    focused.background && unfocused.background
+      ? contrastRatio(focused.background, unfocused.background)
+      : 0;
+  expect(
+    ringChanged || fillContrast >= 3,
+    `${label}: focusing paints a new outline or shadow, or changes the fill by at least 3:1 ` +
+      JSON.stringify({ fillContrast: Number(fillContrast.toFixed(2)), focused, unfocused }),
+  ).toBe(true);
   // Restore focus so the caller can keep driving the control from the keyboard.
   await page.evaluate(
     (sel) => (document.querySelector(sel) as HTMLElement | null)?.focus(),
