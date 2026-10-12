@@ -22,18 +22,22 @@
  * ProjectMuxPlayer.astro imports mux-embed and assigns it to that global. This
  * script turns the global into an accessor:
  *
- * - Granted (the gate exists, and its boot decision and the current state are
- *   both granted): the assigned mux-embed is replaced by a wrapper whose
+ * - Granted (the gate exists, the page is not on a local host, and the
+ *   gate's boot decision and the current state are both granted): the
+ *   assigned mux-embed is replaced by a wrapper whose
  *   monitor() adds `disableCookies: true` (no `muxData` cookie),
  *   `respectDoNotTrack: true` (nothing is sent while the browser sends Do Not
  *   Track, a signal separate from GPC), and `data.page_url` reduced by the
  *   gate's own scrubUrl. All three are documented mux-embed 5.18.1 options
  *   (the package's dist/types/mux-embed.d.ts, `Options` and `Metadata`);
  *   without the last, it sends `window.location.href` whole.
- * - Otherwise (denied by choice or by GPC, or the gate missing or broken: fail
- *   closed): the assignment is discarded and the global reads as undefined,
+ * - Otherwise (denied by choice or by GPC, on a local host, or the gate
+ *   missing or broken: fail closed): the assignment is discarded and the global reads as undefined,
  *   so the component never starts a monitor. The mux-embed chunk still
  *   downloads from this site, but it never monitors, sets a cookie, or sends.
+ *   A local host is the gate's isLocalHost, the test the PostHog block uses
+ *   (#1297): dev servers, `astro preview`, and the e2e suite serve the site
+ *   from localhost, and would otherwise report real Mux Data views.
  * - Withdrawn mid-visit: the global reads as undefined from then on, active
  *   monitors are destroyed, and the gate's transport guard refuses anything
  *   mux-embed still sends to litix.io, including the final flush that
@@ -45,7 +49,10 @@
   var privacy = w.npPrivacy;
   var gate = privacy && privacy[Symbol.for('np-privacy.internal')];
   var granted =
-    !!gate && gate.boot.effective === 'granted' && privacy.get().effective === 'granted';
+    !!gate &&
+    !gate.isLocalHost(w.location.hostname) &&
+    gate.boot.effective === 'granted' &&
+    privacy.get().effective === 'granted';
   var real = null;
   var wrapped;
   var monitored = [];

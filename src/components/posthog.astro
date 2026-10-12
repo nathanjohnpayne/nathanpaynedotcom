@@ -68,15 +68,18 @@ const privacyEnabled = privacyControlsEnabled();
     // person_profiles, and the local-host skip.
     // (Names differ from the flag-off block's because astro check type-checks
     // both inline scripts in one scope.)
-    const pageHost = window.location.hostname;
-    const pageIsLocal =
-      /^(localhost|127\.0\.0\.1|\[::1\])$/.test(pageHost) || /\.localhost$/.test(pageHost);
     const privacy = window.npPrivacy;
     const gate = privacy && privacy[Symbol.for('np-privacy.internal')];
-    // Fail closed: without the gate, or unless its boot decision and the
-    // current state are both granted, no script element is created, no
-    // global is defined, and nothing is sent.
-    if (!pageIsLocal && gate && gate.boot.effective === 'granted' && privacy.get().effective === 'granted') {
+    // Fail closed: without the gate, on a local host (the gate's
+    // isLocalHost, the same test as the flag-off block's), or unless the
+    // gate's boot decision and the current state are both granted, no script
+    // element is created, no global is defined, and nothing is sent.
+    if (
+      gate &&
+      !gate.isLocalHost(window.location.hostname) &&
+      gate.boot.effective === 'granted' &&
+      privacy.get().effective === 'granted'
+    ) {
       // stopSessionRecording()/startSessionRecording() are not on the snippet
       // stub, so before array.js loads use the set_config() they wrap
       // (posthog-core.ts, v1.438.3). Docs:
