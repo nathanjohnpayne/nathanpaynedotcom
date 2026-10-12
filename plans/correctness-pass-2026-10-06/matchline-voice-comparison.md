@@ -503,7 +503,7 @@ Every distinct point in the original is accounted for below. Row numbers refer t
 
 ## Supporting records and review judgments
 
-- R11 is repaired in both summary and detail to source-only allowlist behavior, with anonymous client evidence and unverified deployed enforcement distinguished. The original audit's 10 wrong/5 stale/6 unprovable/38 supported tally is expressly historical; it no longer implies R11's original statement describes this draft.
+- R11 is repaired in both summary and detail to source-only allowlist behavior, with anonymous client evidence and unverified deployed enforcement distinguished. The original audit totals are labeled historical: 10 wrong, 5 stale, 6 unprovable and 38 supported. The current 59-row table was recounted separately: 10 wrong, 4 stale, 6 unprovable and 39 supported. R11's supported source-only verdict accounts for the change; deployment enforcement remains unverified.
 - R47's summary and detail now include identity and CI tooling. The no-product-path claim remains the same; this is an inventory repair from existing evidence, not a new product outcome.
 - The broader 2026-10-06 ledger still retains historical, explicitly marked WRONG/STALE original quotations beside corrected values. Those quotations are the audit subjects, never their own support. Older cross-ledger warnings remain labeled as historical defects; this packet does not edit shared project ledgers or another page.
 - The source keeps market premises, no-external-research testimony, reason for prioritizing the cruise, Phase 2's unmet real-application condition, and page-writing causation in their original judgment/testimony scope. Neither repository absence nor timestamps become proof of experiences or causes beyond the evidence.

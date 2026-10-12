@@ -70,7 +70,9 @@ Commit classification used throughout: a commit is a **product commit** when it 
 | R58 | frontmatter `description`, `seoDescription`, `cardDescription` ("48% extraction and 19% match"; "before running it against the product again") | lines 4–7 | SUPPORTED | holds only for runs after 2026-07-31; see R3 | #177; `sweep.ts` |
 | R59 | "The model's job is selection, sequencing, and framing" | line 81 | SUPPORTED | design statement matching the spec's non-goal | `specs/matchline.md:26` |
 
-Counts for the original 2026-10-06 audit: WRONG 10, STALE 5, UNPROVABLE 6, SUPPORTED 38. R11 was revised on 2026-10-12 to a supported source-only assertion with deployment enforcement explicitly unverified; its original STALE classification remains part of this historical tally.
+Historical totals for the original 2026-10-06 audit: WRONG 10, STALE 5, UNPROVABLE 6, SUPPORTED 38 (59 rows).
+
+Current table verdict totals after the 2026-10-12 R11 repair: WRONG 10, STALE 4, UNPROVABLE 6, SUPPORTED 39 (59 rows, recounted from the table). R11 is now SUPPORTED, SOURCE ONLY, with deployment enforcement explicitly unverified; its original STALE classification remains only in the labeled historical totals.
 
 ## Rows
 
