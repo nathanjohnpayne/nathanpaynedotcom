@@ -4,12 +4,14 @@
  * Contract: specs/analytics-privacy.md § Feature Flag. Everything the controls
  * add — the head gate, notice, footer link, `/privacy/` page, scrubbing and
  * replay minimization — renders only when `privacyControlsEnabled()` is true.
- * With it false, a production build is unchanged, which
- * tests/analytics-privacy.test.js enforces byte for byte.
+ * The committed value became true in #1233, so every production build carries
+ * the controls; tests/analytics-privacy.test.js enforces that on a
+ * production-mode build, and that the test fixture page is never in one.
  */
 
-/** The committed value. Only #1233 may set this to true. */
-export const PRIVACY_CONTROLS_COMMITTED = false;
+/** The committed value. #1233 set it to true; the privacy-test mode no longer
+ * adds anything to it, but still alone gates the test fixture page. */
+export const PRIVACY_CONTROLS_COMMITTED = true;
 
 /**
  * The Astro mode of the test-only override (`astro build --mode privacy-test`,
