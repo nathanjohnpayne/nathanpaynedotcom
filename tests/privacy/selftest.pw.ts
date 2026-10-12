@@ -93,8 +93,9 @@ test.describe('fixtures manifest agrees with the production record', () => {
 
 test.describe('GA4 measurement-ID discovery', () => {
   const built = readFileSync(join(DIST_DIR, 'index.html'), 'utf8');
-  const legacy = (id: string): string =>
-    `<html><head><script src="https://www.googletagmanager.com/gtag/js?id=${id}"></script></head><body></body></html>`;
+  const loader = (id: string): string =>
+    `<script src="https://www.googletagmanager.com/gtag/js?id=${id}"></script>`;
+  const legacy = (id: string): string => `<html><head>${loader(id)}</head><body></body></html>`;
 
   test('PRIV-2 the actual flag-on build supplies the ID without a static loader', () => {
     expect(built).not.toContain(`gtag/js?id=${FAKE_GA_ID}`);
@@ -119,9 +120,7 @@ test.describe('GA4 measurement-ID discovery', () => {
       productionGaId(built.replace(`const gaId = "${FAKE_GA_ID}";`, 'const gaId = "UA-123";')),
     ).toBeUndefined();
     expect(
-      productionGaId(
-        built.replace('</head>', legacy('G-OTHER0').match(/<script.*?<\/script>/)![0] + '</head>'),
-      ),
+      productionGaId(built.replace('</head>', loader('G-OTHER0') + '</head>')),
     ).toBeUndefined();
   });
 
