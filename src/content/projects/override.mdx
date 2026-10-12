@@ -128,7 +128,7 @@ The gap helps explain how a real flaw survived. The producer's screen shows whic
 
 The distribution math one file over still reads the toggle. Turn it off without changing the split, and the badge reads "Profit Sharing Active" while the engine pays investors nothing. The deal room shows a prospective backer a 50% investor pool for that same deal. The repository records the inconsistency and says to preserve the behavior. Two sources of truth for one economic question is exactly the failure a financial tool cannot afford.
 
-One structural boundary does hold. The financial engine is five files with no React or Firebase import, separate from the interface and database. A producer configures rates and splits; the engine fixes the order the money moves in. That separation is held by convention. No lint rule, import restriction, or CI check polices it. The rules files say so, and reviewers read them.
+One structural boundary does hold. The financial engine is five files with no React or Firebase import, separate from the interface and database. A producer configures rates and splits; the engine fixes the order the money moves in. That separation is held by convention. No lint rule, import restriction, or CI check polices it. The rules files require the separation, and reviewers read them.
 
 The whole application arrived in a single commit titled "Updates via Claude Code," six days after the scaffold. The repository's rules name the three engine files as its highest-risk zone. The automated review gate watches auth and payments directories that do not exist in this repository.
 
