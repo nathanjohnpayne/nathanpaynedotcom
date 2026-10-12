@@ -1,10 +1,10 @@
 ---
 title: "Matchline"
 slug: "matchline"
-description: "A career CRM that turns work history into approved evidence, then refuses to let a generated claim through unless it traces back to that evidence. Paused before launch, after rebuilding the measurement system but before running it against the product again."
-seoDescription: "A career CRM where a claim that fails to trace to approved evidence stops at the gate. Paused pre-launch at 48% extraction and 19% match against an 80% bar."
-cardDescription: "Paused with better instruments and the same 48% extraction and 19% match against an 80% bar: the final session fixed the ruler, not the product."
-ogDescription: "A career CRM that turns work history into approved evidence, then refuses to let a generated claim through unless it traces back to that evidence. Paused before launch."
+description: "I built a career CRM to turn my work history into evidence I could reuse and defend. Claims have to trace to evidence I've approved. I paused before launch, after repairing the measurement system and before running it against the product again."
+seoDescription: "My career CRM traces claims to approved evidence. Paused before launch at 48% extraction and 19% match against an 80% bar, with export still a stub."
+cardDescription: "Paused before launch with 48% extraction and 19% match against an 80% bar. My final session fixed the ruler, not the product."
+ogDescription: "I built a career CRM around evidence I could defend. Claims have to trace to evidence I've approved. I paused before launch; the export behind the gate is still a stub."
 kicker: "AI × Product × Career Tools"
 order: 4
 status: "PAUSED"
@@ -21,46 +21,55 @@ metadata:
 stack: "React · TypeScript · Vite · Tailwind · Firebase · Anthropic · OpenAI · Vitest"
 constraints:
   - value: "1 user"
-    label: "the entire V1 user base, by design"
+    label: "me; I deliberately kept V1 to my own job search"
   - value: "$25/mo"
-    label: "the Anthropic cap—about twelve tuning runs"
+    label: "my Anthropic cap, enough for about twelve tuning runs"
   - value: "10 × 12"
-    label: "the evaluation corpus on 2026-10-06: résumés by job descriptions"
+    label: "résumés by job descriptions in the evaluation corpus on 2026-10-06"
 decisions:
   - title: "Make zero fabrication a gate, not a warning"
     lens: "Trust"
-    context: "A generated application is a document the candidate has to defend out loud, in a room, weeks later. The failure mode is not a bad sentence—it is a good sentence about something that never happened, which reads as confident until someone asks a follow-up question."
-    chosen: "Parse every claim in a draft back to the Experience Unit it came from, and disable export while any claim fails to trace. The user resolves it by editing the claim, removing it, or supplying a Unit that supports it."
-    rejected: "Score each claim's confidence and show the risky ones in a warning banner—the standard pattern, and the one that lets a user ship anyway on a deadline."
-    rationale: "A warning transfers the judgment to the person least able to make it: someone under time pressure, looking at prose that sounds like their own. Blocking is only defensible if the thing being blocked is genuinely disqualifying, and an unprovable claim in a job application is."
-    cost: "The tool is most obstructive exactly when the user is in a hurry. It also cannot ship a claim that is true but undocumented—if the user has not written the evidence down, their real accomplishment is unusable, so the product taxes the honest case and the careless one identically."
-    evidence: "The gate is real in code and pinned by a fixture whose only job is to break it. What that proves is that the orchestration blocks fabrication; the language-model checks underneath are mocked in that test, so the detector's own reliability is unmeasured, and the product records no use of a generated output by a user."
+    context: "An application I send is something I may have to defend out loud, in a room, weeks later. A good sentence about something that never happened can sound confident right up to the follow-up question."
+    chosen: "I required every claim in a draft to trace back to its Experience Unit and disabled export while any claim failed. To clear it, I have to edit the claim, remove it, or supply a Unit that supports it."
+    rejected: "A confidence score and a warning banner for risky claims. That's the standard pattern, and it still lets someone ship when a deadline matters more than the warning."
+    rationale: "I didn't want to leave that judgment to someone in a hurry, reading prose that sounds like their own. A block needs a disqualifying reason. An unprovable claim in a job application qualifies."
+    cost: "The tool gets in my way most when I'm in a hurry. It also blocks a true accomplishment if I haven't documented it. I have to write the evidence down before I can use it, so an honest missing record and a careless invented claim pay the same tax."
+    evidence: |
+      The gate exists in code, with a fixture designed to break it. That test proves the orchestration blocks a known fabricated claim. The language-model checks are mocked, so it doesn't measure whether the detector reliably catches a new one.
+
+      The product records no use of a generated output by a user. The export behind the gate remains a stub.
     status: "pending"
   - title: "Build for one user and refuse to generalize"
     lens: "Scope"
-    context: "Every V2 layer worth wanting—outcome-driven tuning, a referral graph, a should-I-apply score—was specifiable on day one, and each would have been more interesting to build than the four steps underneath it."
-    chosen: "Scope V1 to a single user with a single job search, and put multi-user, sharing, teams, job-board integrations, and every learning layer explicitly out of scope in the spec rather than in a backlog."
-    rejected: "Build the multi-user foundation first, on the usual reasoning that retrofitting tenancy is expensive and doing it up front is cheap."
-    rationale: "The open question was never whether the architecture could hold more users. It was whether evidence-grounded generation produces an application a person would actually send, which one user can answer and a thousand cannot answer any better."
-    cost: "Every validation signal the product can generate is self-generated. The only customer is also the author, the evaluation corpus is drawn from his own prospect list, and there is no reading of the results that separates a product that works from a product its builder is willing to tolerate."
+    context: "I could specify outcome-driven tuning, a referral graph, and a should-I-apply score on day one. All those V2 layers were more interesting to build than the four steps that had to work first."
+    chosen: "I kept V1 to one user and one job search. The spec explicitly put multi-user, sharing, teams, job-board integrations, and every learning layer out of scope. I didn't leave them waiting in a backlog."
+    rejected: "Building the multi-user foundation first, on the usual argument that tenancy is cheap to add up front and expensive to retrofit."
+    rationale: "I needed to find out whether evidence-grounded generation could produce an application I'd send. One user could answer that question. A thousand users wouldn't answer it any better. Whether the architecture could hold them was a different question."
+    cost: "I'm the only customer and the author. The evaluation corpus comes from my prospect list. Every signal is one I generated myself, and I can't separate a product that works from one its builder is willing to tolerate."
     status: "pending"
   - title: "Fix the ruler before trusting the measurement"
     lens: "Method"
-    context: "Match accuracy was the number the whole matching layer was being tuned against. One run reported 18.1%, across a spread of 12.5% to 25.0% over three samples of a single fixture. The spread was wider than any improvement being measured."
-    chosen: "Stop tuning the matcher and repair the measurement instead: replace the absolute 0.30 similarity threshold with relative best-match mapping and a 0.10 sanity floor, then build a content-addressed stage cache so a tuning run replays unchanged stages for free."
-    rejected: "Keep tuning against the noisy metric and average more samples, which is cheaper in engineering time and was affordable within the cap."
-    rationale: "A metric whose run-to-run noise exceeds its effect size cannot tell you whether a change helped. Averaging buys precision at a per-run cost, and the cost was binding: one run at three samples was $2.06 against a $25 monthly cap, so the budget bought about twelve tuning runs a month."
-    cost: "The final session produced no user-visible change. The product is paused with better instruments and its four-pair baseline unchanged—the one run after the mapping repair confirmed the noise fell and the mean sat near 19%—and the work that would have shown up in a demo is exactly the work that did not get done."
-    evidence: "Both repairs landed; only the first was measured. The mapping fix was run once, in its own pull request, on one fixture at three samples: the range fell from 12.5 points to 4.1 and the mean settled at 19.4%. Eight weeks of product work separate it from the cache, which landed in the final session at the end of July; no run under the repaired mapping ever touched the four-pair corpus, and none followed the cache. So the project stopped with a better-designed instrument and one fixture's worth of evidence that it was better."
+    context: "I was tuning the matching layer against match accuracy. One run reported 18.1%, with three samples of a single fixture ranging from 12.5% to 25.0%. That spread was wider than the improvement I was trying to measure."
+    chosen: "I stopped tuning the matcher and repaired the measurement. I replaced the absolute 0.30 similarity threshold with relative best-match mapping and a 0.10 sanity floor. Later, I built a content-addressed stage cache so unchanged stages could replay for free."
+    rejected: "Continuing to tune against the noisy metric and averaging more samples. It would cost less engineering time and was affordable within the cap."
+    rationale: "When a metric's run-to-run noise is larger than the effect I'm measuring, I can't tell whether a change helped. Averaging costs another run. At three samples, a run cost $2.06 against my $25 monthly cap, enough for about twelve tuning runs a month."
+    cost: "My final session changed no user-facing feature. I paused with better instruments and the four-pair baseline unchanged. The one run after the mapping repair showed less noise and a mean near 19%. The work someone would have seen in a demo was the work I didn't do."
+    evidence: |
+      Both repairs landed, but I measured only the first. In its own pull request, the mapping fix ran once on one fixture at three samples. The range fell from 12.5 points to 4.1, and the mean was 19.4%.
+
+      Eight weeks of product work separated that repair from the cache, which landed in the final session at the end of July. No run under the repaired mapping touched the four-pair corpus, and none followed the cache. I stopped with a better-designed instrument and one fixture's evidence that it was better.
     status: "mixed"
   - title: "A deadline someone else depends on wins"
     lens: "Prioritization"
-    context: "In early July two projects wanted the same summer. One was this: a single-user tool, no launch date, nobody waiting. The other was Five Across, a live multiplayer bingo game for a nine-night cruise, with a sailing date that could not move and players who would either have it or not."
-    chosen: "Stop Matchline and ship the game, then spend the one remaining Matchline session on measurement infrastructure rather than features."
-    rejected: "Push Matchline to a usable V1 first, on the argument that a tool this close to working should not be abandoned mid-flight."
-    rationale: "A date someone else set is not negotiable and a date I set is. The reasoning here is mine and the record can only corroborate its shape, not its cause: the commit timestamps establish that one project stopped and another started, and nothing in them establishes why."
-    cost: "The instruments were finally cheap, the accuracy was not yet there, and the four-pair run under the repaired mapping, the run the cache was built to make cheap, was never made. Knowing whether matching works needs more than that one run—a finished corpus, and a real application end to end—but the run was the next step, and it is the step that did not happen."
-    evidence: "Product work stopped the day before the Five Across repository was created, apart from one final session spent on the evaluation cache. That cache closed the phase; the next product commit lands a month later."
+    context: "In early July, Matchline and Five Across wanted the same summer. Matchline had one user, no launch date, and nobody waiting. Five Across was a live multiplayer bingo game for a nine-night cruise. The sailing date wasn't going to move, and the players would either have the game or not."
+    chosen: "I stopped Matchline to ship the game. I spent the one remaining Matchline session on measurement infrastructure instead of features."
+    rejected: "Pushing Matchline to a usable V1 first, on the argument that a tool this close to working shouldn't stop mid-flight."
+    rationale: "A date someone else set is not negotiable and a date I set is. That's my reasoning. The commits corroborate the sequence, not its cause: one project stopped and another started. Their timestamps can't tell anyone why I chose it."
+    cost: "The instruments were finally cheap, but accuracy wasn't there. I never made the four-pair run under the repaired mapping that the cache was built to make cheap. That was the next step, though it wouldn't alone establish that matching works. I still needed a finished corpus and a real application end to end."
+    evidence: |
+      Product work stopped the day before the Five Across repository was created, apart from one final session on the evaluation cache.
+
+      The cache closed that phase. The next product commit landed a month later.
     status: "mixed"
 related:
   - label: "Project: Mergepath"
@@ -74,13 +83,13 @@ import DecisionLedger from '../../components/projects/DecisionLedger.astro';
 
 ## The problem
 
-Matchline is built on two premises about the 2026 job market. First, anyone can generate a tailored résumé and cover letter in seconds, so every application is polished and polish is no longer a signal. Second, what remains as signal is specificity a candidate can defend—and a generative writer can't supply it, because the model doesn't know which projects mattered, which numbers are honest, or which claims survive an interview.
+I started Matchline with two premises about the 2026 job market. If anyone can generate a tailored résumé and cover letter in seconds, polish stops telling a hiring manager much. Specificity that a candidate can defend might still tell them something. A generative writer doesn't know which of my projects mattered, which numbers are honest, or which claims I can defend in an interview.
 
-The clearest version of the problem is not lying. It is the twelve phrases the validator refuses to let through—*collaborated cross-functionally*, *drove results*, *moved the needle*. Each one survives any traceability check, because the user did collaborate on something somewhere, and each one tells a reader nothing. The problem is not that applications contain lies. It is that they contain sentences which are true and empty.
+An application doesn't need a lie to be empty. Matchline's validator refuses twelve phrases, including *collaborated cross-functionally*, *drove results*, and *moved the needle*. I can trace those back to something I did somewhere. They can be true and still tell a reader nothing.
 
-So Matchline inverts the usual order. A typical AI career tool takes a résumé and a job description and generates prose. Matchline treats work history as a structured graph of capabilities, outcomes, and evidence, built once and refined over time, and uses AI to select from that graph against a specific opportunity. The model's job is selection, sequencing, and framing. A claim that doesn't trace to something the user has documented and approved is treated as a defect, and the product's central mechanism exists to catch it.
+A typical AI career tool takes a résumé and a job description and generates prose. I wanted to build the evidence first: a structured graph of capabilities, outcomes, and evidence that I could keep refining. AI would select from it for a particular opportunity. Its job was selection, sequencing, and framing. A claim that didn't trace to something I'd documented and approved was a defect to catch.
 
-Matchline began as a single-user hypothesis, based on my own job search. I did no external user research and no market validation, and V1 was deliberately scoped to proving whether the workflow worked for me before it was worth asking whether it worked for anyone else.
+This was a hypothesis about my own job search. I did no external user research or market validation. I kept V1 to finding out whether the workflow worked for me before asking whether it worked for anyone else.
 
 <ConstraintStrip constraints={props.constraints} />
 
@@ -94,11 +103,11 @@ Matchline began as a single-user hypothesis, based on my own job search. I did n
 | Fabrication gate blocking export | Built, never user-validated; the export it gates is a Phase 2 stub |
 | Latency and cost targets | Measured once (2026-04-27): cost met, latency 11.8× over |
 
-LinkedIn and long-form ingestion were deferred. Uploaded PRDs, decks and retrospectives never existed—an earlier version of this page listed them as inputs, incorrectly, and the correction is recorded here rather than made silently.
+LinkedIn and long-form ingestion were deferred. Uploaded PRDs, decks, and retrospectives never existed—an earlier version of this page listed them as inputs, incorrectly. They were specified, but never built. I'm keeping the correction here because the earlier page claimed more than the product did.
 
 ## The evidence model
 
-An Experience Unit is the product's atom. It is not a sentence about a job—it is one claim with the structure that makes the claim checkable, and the schema is strict about it, so the model cannot return a Unit that is missing its evidence:
+An Experience Unit is one checkable claim about work. I gave it a strict schema, so the model can't return a Unit without the evidence the contract requires:
 
 ```ts
 export const ExtractedUnitV1Schema = z
@@ -125,18 +134,22 @@ export const ExtractedUnitV1Schema = z
   .strict();
 ```
 
-Here is one, from the repository's own evaluation corpus—a hand-labeled Unit for a synthetic candidate, quoted as the fixture stores it:
+This one is mine. I labeled it from my own résumé on April 26, 2026, and the exhibit quotes [the fixture](https://github.com/nathanjohnpayne/matchline/blob/798df55c3caee2cf32745f1cee003647591fb4a8/tests/fixtures/expected-units/nathan-2026.json). The same claim is on my [published résumé](https://nathanpayne.com/resume/):
 
 <dl class="unit-exhibit">
-  <div><dt>Claim</dt><dd>Led Threadline B2B pivot from D2C-brand-as-customer to factory-as-customer, ran 38 customer development calls in six weeks; ARR per logo doubled, monthly churn dropped from 4.1% to 1.8%</dd></div>
-  <div><dt>Skills</dt><dd>customer development · go-to-market strategy · pricing strategy · founder-led sales</dd></div>
-  <div><dt>Domains</dt><dd>b2b saas · founder operations</dd></div>
-  <div><dt>Tools</dt><dd>—</dd></div>
+  <div><dt>Claim</dt><dd>Introduced AI-powered PR review reducing median PR cycle time from 7.4 to 4 days, beating the 30% Q2 OKR target</dd></div>
+  <div><dt>Skills</dt><dd>engineering productivity · AI tooling adoption · OKR ownership · process change</dd></div>
+  <div><dt>Domains</dt><dd>developer tools · AI-augmented engineering</dd></div>
+  <div><dt>Tools</dt><dd>GitHub · AI code review</dd></div>
 </dl>
 
-That is the unit of currency. Not "led a pivot"—a specific pivot, with the calls that informed it and the two numbers that moved, decomposed so the matcher can ask whether *this* claim answers *that* requirement. The fixture carries four fields, of which the scorer compares two, the summary and the skills; a Unit the extractor returns in production also carries metrics, seniority and scope signals, an evidence type and a confidence score, all produced by the model and validated server-side against the contract above.
+"Improved developer productivity" wouldn't give the matcher much to work with. This Unit names the change, the before and after, and the target it beat. It separates those details so the matcher can ask whether this claim answers a particular requirement.
 
-Approval is not in that list, deliberately: the extractor is barred from returning it, and the server stamps every extracted Unit unapproved. For anything the model proposes, review is the only path into matching, and the filter that enforces it runs server-side at every place evidence is consumed, four as of 2026-10-06. A user can also type a Unit by hand, and those arrive pre-approved and marked `user_confirmed`—a Unit the user wrote is already the user's own assertion, so there is nothing for review to add.
+The fixture carries four fields. The scorer compares two: the summary and the skills. A production Unit also carries metrics, seniority and scope signals, an evidence type, and a confidence score. The model produces them; the server validates them against the contract above.
+
+I kept approval out of the extractor's output. It can't return that field, and the server stamps every extracted Unit unapproved. Anything the model proposes has to pass review before matching can use it. The enforcing filter runs server-side wherever evidence is consumed, four places as of 2026-10-06.
+
+I can also type a Unit myself. Those arrive pre-approved and marked `user_confirmed`, because I've already made the assertion. Another review would add nothing.
 
 ```mermaid title="The core loop, and where approval sits in it" description="A pasted resume is extracted into Experience Units, each of which is written to the capability graph already, but unapproved. Human review flips that approval flag in place. The gate is not on the way into the graph but on the way out of it: a server-side filter passes only approved Units into matching, so an unapproved Unit sits in the store and is never read. Units the user types by hand arrive pre-approved instead. Separately, a job description is parsed into requirements. The matching engine scores approved Units against those requirements and surfaces requirements with no qualifying evidence as gaps rather than hiding them. Generation draws only on approved matches, and a traceability check sits between the generated draft and export: a claim that cannot be traced back to an approved Unit is stopped at the gate until the user resolves it."
 flowchart TD
@@ -168,7 +181,9 @@ flowchart TD
     style X fill:#11100d,stroke:#11100d,stroke-width:1.5px,color:#fffdf8
 ```
 
-The two orange nodes are the whole product. Note where the first one sits: unapproved Units are written to the graph immediately, and the gate is a read filter on the way out rather than a lock on the way in—which is why the audit calls it a read gate and not a write gate. Everything else is plumbing that a competent team would build the same way; those two are where the thesis lives. Requirements with no qualifying evidence are surfaced as a gaps panel in the same tab as the matches, above the list, rather than on a separate screen—the gaps are the point, not an embarrassment to bury.
+The two orange nodes are the whole product. The first sits after the graph: unapproved Units are stored immediately, then filtered out when something reads the evidence. The audit calls it a read gate because it doesn't stop a Unit from being written. Those two checks carry the thesis. The rest is plumbing a competent team would build the same way.
+
+I put requirements with no qualifying evidence in a gaps panel above the match list, inside the same tab. I wanted to see the gaps when I looked at the matches. They were the point, not an embarrassment to bury.
 
 ## The decisions
 
@@ -176,9 +191,11 @@ The two orange nodes are the whole product. Note where the first one sits: unapp
 
 ## The measurement problem
 
-The quality bar was 80% extraction accuracy and 80% match accuracy. Neither was reached, and how the number moved is more interesting than where it stopped.
+I set the bar at 80% extraction accuracy and 80% match accuracy. Matchline reached neither. How the numbers moved matters more than where they stopped.
 
-The scorer first compared generated summaries to hand-labeled ones with string equality, and language models paraphrase, so the metric collapsed to 3.3%. Token overlap lifted it to 34%. A coefficient that gives full credit when the labeled set is covered by a longer generated one lifted it to 50.3%. Only then did a real system change—expanding the matching vocabulary from roughly 220 entries to 415—move it, by a single point, to 51.3%.
+The first scorer compared generated summaries with hand-labeled ones using string equality. The model paraphrased, and the score was 3.3%. Token overlap brought it to 34%. A coverage coefficient gave full credit when a longer generated set covered the labeled set, bringing it to 50.3%. I had changed the ruler twice.
+
+The next change was to the product: expanding the matching vocabulary from roughly 220 entries to 415. That added a single point, reaching 51.3%.
 
 ```mermaid title="Extraction accuracy: two ruler changes and one system change" description="Extraction accuracy rose from 3.3 percent to 51.3 percent across four measurements, against an 80 percent target that was never reached. Three of those four measurements came from different definitions of the scoring metric rather than from any change to the product: string equality scored 3.3 percent, token overlap 34 percent, and a coverage coefficient 50.3 percent. Only the last step was a change to the system itself, an expansion of the matching vocabulary, and it added a single point to reach 51.3 percent."
 flowchart TD
@@ -200,55 +217,75 @@ flowchart TD
     style T fill:#11100d,stroke:#11100d,stroke-width:1.5px,color:#fffdf8
 ```
 
-All four of those measurements came from a single résumé-and-job pair. Run later the same day across all four labeled pairs, three samples each, the system scored 48.4% extraction and 19.1% match. That aggregate is still the baseline of record.
+All four measurements came from one résumé-and-job pair. Later the same day, a run across all four labeled pairs, three samples each, scored 48.4% extraction and 19.1% match. That aggregate remains the baseline of record.
 
-Match accuracy went from 4.2% to 16.7% on that same vocabulary work, and then stopped being legible at all. One run reported 18.1%, and three samples of that one fixture spread from 12.5% to 25.0%—eight to thirteen points of noise, against a target improvement smaller than the noise. Averaging it away costs money, and money was binding: a single run cost $2.06 against a $25 monthly cap, about twelve runs a month.
+The vocabulary work also moved match accuracy from 4.2% to 16.7%. After that, I couldn't read the signal. One run reported 18.1%, with three samples of that one fixture ranging from 12.5% to 25.0%. Eight to thirteen points of noise was more than the improvement I was trying to measure.
 
-So the last working session went into the instrument rather than the product.
+I could average more runs, but a single run cost $2.06 against my $25 monthly cap. That bought about twelve runs a month.
+
+I spent the last working session on the instrument rather than the product.
 
 ## The artifact
 
-A zero-fabrication constraint is easy to state and easy to fake: any validator that returns "looks fine" scores well on honest inputs. So the repository carries a hand-labeled adversarial case—a fabricated paragraph attached to a real résumé, claiming a multi-year x86 and Arm CPU roadmap, a hundred-million-VM fleet, a 40% throughput gain on SAP HANA, and $400M in contracts displacing a competitor. None of it traces to any Experience Unit. The fixture enumerates all four untraceable claims with the reason each fails, and records the expected validation status as failed.
+A validator that says "looks fine" can score well if every input is honest. I needed a case that should fail. The repository has a hand-labeled fabricated paragraph attached to my own résumé, the one the Unit above comes from. It claims a multi-year x86 and Arm CPU roadmap, a hundred-million-VM fleet, a 40% throughput gain on SAP HANA, and $400M in contracts displacing a competitor.
 
-It runs in continuous integration against the Firestore emulator, and a passing run means the export was blocked. That proves the orchestration refuses a known untraceable claim. It does not prove the model reliably detects a novel one, because the model checks are mocked in that test—its integration boundary is the database, not the model API.
+Both claims carry a number. The 7.4-to-4-day cycle time traces to the Unit above. I've never worked on SAP HANA, so a 40% throughput gain on it is a claim I couldn't defend, however plausible the sentence sounds. None of those four claims traces to an Experience Unit. The fixture lists all four, explains why each fails, and expects validation to fail.
+
+That test runs in continuous integration against the Firestore emulator. Passing means the gate blocked the Export control, whose handler is still a stub. It proves the orchestration refuses a known untraceable claim. The model checks are mocked, so it doesn't establish that the model catches a new one. The integration reaches the database, not the model API.
 
 ## How it was built
 
-Agents authored the implementation and independent agent identities reviewed it, under the enforcement system documented in [Mergepath](/projects/mergepath/). The reviews materially changed the product: they caught a seniority scorer that was zeroing every Experience Unit because extraction emits verbs where the ladder matched nouns, a schema converter silently returning an empty object that had disabled model-input validation across four subsystems at once, and a matching rerun that discarded the user's rejections. On that last one my own first reply to the reviewer was wrong, cited a test that did not cover the case, and the reviewer pushed back a second time before it was fixed.
+Agents wrote the implementation, and independent agent identities reviewed it under the enforcement system documented in [Mergepath](/projects/mergepath/). They caught three defects that materially changed the product:
 
-The pause has a date the commits set: the evening of 2026-07-31, Pacific, when the eval stage cache landed. For the month after that only maintenance moved—dependency bumps and repository-template syncs, none of it touching the product. Product commits resumed on 2026-08-31 and, as of 2026-09-01, are still landing; what they fixed is the subject of the next section.
+- A seniority scorer zeroed every Experience Unit because extraction emitted verbs and the ladder matched nouns.
+- A schema converter silently returned an empty object, disabling model-input validation across four subsystems.
+- A matching rerun discarded the user's rejections.
 
-A development build is deployed behind a sign-in wall, and the "View Live Product" button above goes to it. It was redeployed on the evening of 2026-08-31, replacing the 2026-05-02 build it had served until then, and again on 2026-10-02, so the live build carries the June and July work this page rests on and the fixes that followed. Signing in with another account gets nothing: since 2026-09-30 an owner allowlist refuses every read and call from any uid but mine, so the link shows the shell, not the corpus.
+On that last one, my first reply to the reviewer was wrong. I cited a test that didn't cover the case. The reviewer pushed back a second time before it was fixed.
+
+The eval stage cache landed on the evening of 2026-07-31, Pacific. That dates the pause. For the month after it, maintenance continued: dependency bumps, repository-template syncs, and identity and CI tooling. None touched the product.
+
+Product commits resumed on 2026-08-31 and, as of 2026-09-01, were still landing. The fixes below belong to that later work. Paused means I hadn't launched or decided to restart; it doesn't mean the repository stopped receiving product fixes.
+
+A development build is deployed behind a sign-in wall, and the "View Live Product" button above goes to it. It was redeployed on the evening of 2026-08-31, replacing the 2026-05-02 build it had served until then, and again on 2026-10-02. The served build checked for this page carries the June and July work and the fixes that followed.
+
+Since 2026-09-30, the source rules and callable gates restrict reads and calls to my owner allowlist. The audit read the anonymous sign-in shell and its bundle; it didn't verify the deployed rules or try another account. The link shows that shell, not the corpus.
 
 ## What would restart it
 
-I never wrote these criteria down while the project was live, which is itself a finding: the repository had exit criteria for finishing V1, but none for deciding whether to continue. Criteria for building, not for deciding.
+I hadn't written restart or kill criteria while I was building. The repository had exit criteria for finishing V1, but none for deciding whether to continue. I had criteria for building, not for deciding.
 
 **Resume it when:**
 
-- The evaluation corpus is finished and labeled.
-- Measurement is trustworthy enough to distinguish improvement from noise.
-- One real application has gone through the product end to end—the condition the second build phase set for itself and never met.
+- I've finished and labeled the evaluation corpus.
+- I can trust the measurement enough to distinguish improvement from noise.
+- I've taken one real application through the product end to end. The second build phase required it, and I never met that condition.
 
 **Kill it when:**
 
-- Matching remains fundamentally poor after a full tuning cycle on the cheap evaluation infrastructure. At that point, the approach is wrong rather than merely untuned.
-- I complete a job search without reaching for it. The product's success metric was becoming my primary tool rather than another system abandoned for a spreadsheet. If I do not use it under real pressure, that answers the question.
+- Matching is still fundamentally poor after a full tuning cycle on the cheap evaluation infrastructure. Then I'd be treating the wrong approach as something that just needs more tuning.
+- I finish a job search without reaching for it. The success metric was making Matchline my primary tool, instead of another system I abandon for a spreadsheet. If I don't use it under real pressure, that answers the question.
 
 ### Where it stands
 
-As of September 2026, the conditions for revisiting the project are becoming real rather than hypothetical. The job search it was built for has resumed, giving Matchline the real-world test it never received.
+As of September 2026, my job search had resumed. Matchline finally had the situation it was built to test.
 
-Writing this page also exposed three stacked production failures: missing Cloud Run invoker bindings blocked CORS preflights, trailing newlines in both provider secrets broke authentication, and extraction held a sixty-second timeout against three long model calls. With those fixed, résumé extraction and JD parsing ran end to end—and exposed a worse problem: the matching ontology under-recognizes out-of-domain requirements, and until a fix on 2026-09-01 `jaccard()` zeroed 45% of the score before fit was considered.
+Writing this page also exposed three stacked production failures:
 
-The eval harness can now route tuning runs through a subscription CLI instead of the metered Anthropic cap that had limited testing to roughly twelve runs a month.
+- missing Cloud Run invoker bindings blocked CORS preflights;
+- trailing newlines in both provider secrets broke authentication;
+- extraction had a sixty-second timeout for three long model calls.
 
-**The project remains paused.** But the infrastructure now works, the cost of experimentation is low, and the job search provides the test it was built for. The next step is a deliberate restart against the criteria above—not continued development by inertia.
+Once those were fixed, résumé extraction and JD parsing ran end to end. That exposed the next problem: the matching ontology under-recognizes out-of-domain requirements. Until a fix on 2026-09-01, `jaccard()` zeroed 45% of the score before fit was even considered.
+
+The eval harness can now route tuning runs through a subscription CLI. Those runs don't draw on the metered Anthropic cap that had limited me to roughly twelve runs a month.
+
+**The project remains paused.** The infrastructure works, experiments are cheap, and my job search supplies the test. I still need to decide to restart against the criteria above. Continuing to make commits isn't that decision.
 
 ## What I learned
 
-The hardest part of building an AI product wasn't getting the model to produce something plausible. It was deciding what evidence would make the output trustworthy—and then building a measurement system trustworthy enough to tell whether the product was improving.
+Getting the model to produce something plausible wasn't the hardest part. I had to decide what evidence would make its output trustworthy, then build a measurement system I could trust to tell me whether the product was improving.
 
-Matchline got the first half further than the second. It can structure evidence, ground claims, and refuse an untraceable claim at the gate. The matching layer stayed well below its quality bar, and I stopped after fixing the instrument that could finally measure it.
+I got further with the evidence than with the measurement. Matchline can structure it, ground claims, and stop an untraceable claim at the gate. Matching stayed well below the quality bar. I stopped after fixing the instrument that could finally measure it.
 
-That is why the project is paused rather than shipped. A product that exists is not necessarily a product that works, and a metric that moves is not necessarily evidence that anything got better.
+That's why I paused before shipping. A product that exists is not necessarily a product that works, and a metric that moves is not necessarily evidence that anything got better.
