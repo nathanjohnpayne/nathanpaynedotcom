@@ -91,7 +91,7 @@ The standings are claims, not independently verified results. A player writes th
 
 The frozen production Firestore holds 845 squares. Analytics recorded seven proof-demand events over ten days, all from the same player. Those are events, not seven distinct challenged squares; they can't be subtracted from the square count. The rest stood on the pledge.
 
-### Make marking work without a connection
+### Assume the connection is already gone
 
 Reach · mixed
 
@@ -416,7 +416,7 @@ The only changed time label is **last full day**, correcting the ambiguity while
 
 ## Validation and checker limits
 
-- Final approved source: 79 native test files passed; 1,849 tests passed, six skipped. The 43-page build, type check and all 369 browser assertions passed (51 conditional skips). The managed preview launcher exited early; the browser suite used the supported dedicated `E2E_BASE_URL` path, with Astro-equivalent `/404` routing. Its global setup compared every served build file against this worktree. No test or checker changed. The earlier complete rendered review at 1440×1000 and 390×844 found all decision/learning fields, no horizontal overflow and no page errors. The regenerated final social card passes the build fit check and was visually inspected.
+- Owner-approved copy at `1b363de`: 79 native test files passed; 1,849 tests passed, six skipped. The 43-page build, type check and all 369 browser assertions passed (51 conditional skips). The managed preview launcher exited early; the browser suite used the supported dedicated `E2E_BASE_URL` path, with Astro-equivalent `/404` routing. Its global setup compared every served build file against this worktree. No test or checker changed. The earlier complete rendered review at 1440×1000 and 390×844 found all decision/learning fields, no horizontal overflow and no page errors. The regenerated final social card passes the build fit check and was visually inspected.
 - Lint: pass. Vale's sentence-case heading warnings are advisory; the six section headings are unchanged and retain the owner's sentence-case convention. No checker/configuration is weakened.
 - `verify-brevity.py`: every URL, link, weekday, timestamp, numeral, code span, code/diagram/table block and pinned identity field passes. One intentional failure: `seoDescription` is a proposed metadata voice edit, not a facts-only brevity change. Before/after text is printed above; the owner explicitly approved the search-snippet change with the aboard correction. Spoken-number occurrence warnings are advisory and dispositioned in the meaning review. No checker changes.
 - The separate blog voice CLI rejects this project MDX input with `Supply one blog Markdown (.md) file` (exit 2). That is a scope limitation, not a voice verdict. I did not disguise the page as a blog post or alter the checker. All structured frontmatter and rendered project text were reviewed manually instead.
@@ -432,3 +432,11 @@ I also removed the proof-demand count from the trust decision's cost and the clo
 ## Original approval prompt
 
 Approve the complete Five Across rewrite for a PR, including its three metadata renditions, the last-full-day clarification, R54's in-place correction and the résumé review-stamp refresh? The figures, limitations, assets, links and decision statuses remain as reviewed above. This approval is for opening a PR after validation; merge and deployment remain separate decisions for this project-page revision.
+
+## Codex feedback on PR #1299
+
+On 2026-10-12, Codex found two defects on `1b363de`: the offline-decision rename broke Product Travel's exact cross-page reference, and the plain-text evidence renderer collapsed authored paragraph breaks. Both are corrected. The established title, "Assume the connection is already gone," is restored in the source and complete draft above. Product Travel and its ledger keep their valid reference without a cross-post edit.
+
+The shared evidence `dd` rule now uses `white-space: pre-line`, preserving newlines while still wrapping long lines. This displays the offline record as three paragraphs and the reshuffle record as two. It is a rendering change in `src/styles/global.css`; component markup, evidence wording and record classifications stay intact. Single-paragraph records retain their layout. The résumé's case-study hash and review date follow the refreshed source; its prose remains unchanged.
+
+Feedback-fix validation: 43-page build, type check and lint pass; 198 focused project/schema/résumé assertions passed (five conditional skips). Browser checks at 1440 and 390 pixels confirm preserved paragraph gaps, unchanged single-paragraph heights and no horizontal overflow. Only the two Five Across evidence fields currently contain paragraph separators across all project records. The established title appears in the rendered page, so Product Travel's quoted cross-page reference is intact.

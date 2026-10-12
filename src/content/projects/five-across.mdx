@@ -41,7 +41,7 @@ decisions:
     cost: "The standings are claims, not independently verified results. A player writes their own board, so the record can't distinguish a real mark from an invented one. Any player could demand proof."
     evidence: "The frozen production Firestore holds 845 squares. Analytics recorded seven proof-demand events over ten days, all from the same player. Those are events, not seven distinct challenged squares; they can't be subtracted from the square count. The rest stood on the pledge."
     status: "validated"
-  - title: "Make marking work without a connection"
+  - title: "Assume the connection is already gone"
     lens: "Reach"
     context: "Ship Wi-Fi was flaky and expensive, with dead zones at sea. Requiring a connection every time someone tapped a square would make the game unavailable when the group was together without coverage."
     chosen: "I chose an installable PWA with an offline-first Firestore cache. Marks queue on the device and sync when the connection returns. A cold boot doesn't wait for the network."
