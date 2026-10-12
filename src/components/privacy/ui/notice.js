@@ -65,8 +65,8 @@
       privacy.notice.dismiss();
       announce(
         privacy.get().persisted
-          ? 'Notice dismissed. The privacy page has the analytics controls.'
-          : 'Notice dismissed for this page. Your browser did not save that, so it may appear again on the next page. The privacy page has the analytics controls.',
+          ? 'Analytics stay on. You can turn them off anytime on the privacy page.'
+          : 'Analytics stay on. Your browser did not save that, so this notice may appear again on the next page. You can turn them off anytime on the privacy page.',
       );
     } else {
       localChange = false;

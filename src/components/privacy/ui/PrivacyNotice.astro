@@ -8,9 +8,11 @@
  * with a label, not a dialog: nothing is modal, nothing takes focus, nothing
  * locks scroll. Both buttons call window.npPrivacy and nothing else.
  *
- * Every factual sentence here traces to docs/privacy/inventory.md § Summary
- * (the two tools, and that PostHog records sessions). It names no retention
- * period and makes no claim of anonymity or compliance (PRIV-11).
+ * The copy is Nathan's (2026-10-12). Its facts trace to docs/privacy/inventory.md
+ * § Summary: analytics with session replay (PostHog) and video playback data
+ * (Mux Data). The tools are named on /privacy/, one link away. It names no
+ * retention period and makes no claim of anonymity, compliance, or "not sold"
+ * (PRIV-11).
  *
  * Styles and the script are inlined rather than hoisted. Astro bundles a
  * component's <style> and <script> by import graph, so a hoisted one would be
@@ -30,17 +32,37 @@ import noticeSource from './notice.js?raw';
     border-bottom: var(--line) solid var(--ink);
     font-family: var(--font-body);
   }
+  /* Arrival: the notice slides down into its slot and fades in, on the
+     homepage panel morph's duration and curve (--motion-plane,
+     --ease-standard). Only transform and opacity move. The slot is in the
+     document flow from first paint, so the page below never shifts (no
+     layout shift), and the notice never sits over content (PRIV-14). */
+  @keyframes np-privacy-notice-in {
+    from {
+      opacity: 0;
+      transform: translateY(-100%);
+    }
+  }
+  .privacy-notice:not([hidden]) {
+    animation: np-privacy-notice-in var(--motion-plane) var(--ease-standard) both;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .privacy-notice:not([hidden]) {
+      animation: none;
+    }
+  }
+  /* Copy on the left, the two choices at the top right. Below 40rem the
+     choices drop under the copy and share its full width. */
   .privacy-notice__inner {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
     gap: var(--sp-md) var(--sp-lg);
     max-width: 72rem;
     margin: 0 auto;
     padding: var(--sp-lg) clamp(1rem, 4vw, var(--page-gutter));
   }
   .privacy-notice__copy {
-    flex: 1 1 22rem;
     min-width: 0;
   }
   .privacy-notice__title {
@@ -61,19 +83,70 @@ import noticeSource from './notice.js?raw';
     text-decoration-thickness: 1px;
     text-underline-offset: 0.18em;
   }
+  /* Two equal choices: `1fr` tracks in an auto-sized grid both take the
+     wider label's width, and both buttons share one style, so turning
+     analytics off is exactly as large and as visible as keeping them on.
+     Each target is at least 44px tall (WCAG 2.5.5). */
   .privacy-notice__actions {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.6rem;
   }
   .privacy-notice .nav-button {
+    justify-content: center;
+    min-height: 2.75rem;
+    padding: 0.7rem 1.1rem;
     font-family: var(--font-body);
-    line-height: normal;
+    line-height: 1.25;
+    text-align: center;
     cursor: pointer;
   }
+  /* No accent fill here: the site's .nav-button hover/focus swap paints the
+     page accent (yellow on some project pages), which made one choice look
+     selected. Hover is a light ink tint on either button.
+     "Keep analytics on" carries a permanent double line: a bold outer border
+     and a thin inner line, drawn by an inset shadow whose gap takes the
+     button's own background (--np-button-bg), so the gap stays clean on hover.
+     Keyboard focus is deliberately unlike any line: a solid ink fill with a
+     light label, so focus can never be mistaken for that resting border. */
+  .privacy-notice .nav-button {
+    --np-button-bg: var(--paper);
+    background: var(--np-button-bg);
+    /* Color changes are instant, so the focus fill is never caught halfway;
+       only the site's hover lift eases. */
+    transition: transform var(--motion-hover) var(--ease-standard);
+  }
+  .privacy-notice .nav-button:hover {
+    --np-button-bg: color-mix(in srgb, var(--ink) 8%, var(--paper));
+    background: var(--np-button-bg);
+    color: var(--ink);
+  }
+  .privacy-notice .nav-button[data-np-privacy-action='dismiss'] {
+    border: 3px solid var(--ink);
+    box-shadow:
+      inset 0 0 0 2px var(--np-button-bg),
+      inset 0 0 0 3px var(--ink);
+  }
   .privacy-notice .nav-button:focus-visible {
-    outline: 2px solid currentColor;
-    outline-offset: 2px;
+    --np-button-bg: var(--ink);
+    /* Transparent, so invisible here, but forced-colors mode (which drops
+       the fill) paints it, so focus stays visible there too. */
+    outline: 3px solid transparent;
+    outline-offset: 3px;
+    background: var(--np-button-bg);
+    color: var(--paper);
+  }
+  @media (max-width: 40rem) {
+    .privacy-notice__inner {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  /* Too narrow for both labels on one line side by side: stack them, full
+     width, turning analytics off first, so neither wraps or shrinks. */
+  @media (max-width: 30rem) {
+    .privacy-notice__actions {
+      grid-template-columns: minmax(0, 1fr);
+    }
   }
   .privacy-notice-status {
     padding: var(--sp-sm) clamp(1rem, 4vw, var(--page-gutter));
@@ -120,12 +193,12 @@ import noticeSource from './notice.js?raw';
     <div class="privacy-notice__copy">
       <p class="privacy-notice__title" id="np-privacy-notice-title">Analytics on this site</p>
       <p class="privacy-notice__text">
-        This site uses PostHog, including session replay, which records how a page is used, and Google Analytics, plus Mux's playback analytics on the page with video. You can turn them off now, or read what they collect and change your mind later on the <a href="/privacy/">privacy page</a>.
+        This is my personal site. I use analytics, including session replay and video playback data, to see what's working and improve it. Leaving them on helps me, and you can turn them off anytime. <a href="/privacy/">Privacy details</a>.
       </p>
     </div>
     <div class="privacy-notice__actions">
-      <button type="button" class="nav-button" data-np-privacy-action="deny">Turn off analytics</button>
-      <button type="button" class="nav-button" data-np-privacy-action="dismiss">Dismiss</button>
+      <button type="button" class="nav-button" data-np-privacy-action="deny">Turn analytics off</button>
+      <button type="button" class="nav-button" data-np-privacy-action="dismiss">Keep analytics on</button>
     </div>
   </div>
 </aside>

@@ -2045,6 +2045,30 @@ describe('Mux Data under the gate (#1264)', () => {
     expect(MUX_PLAYER_SRC.match(/^<script>$/gm)).toHaveLength(1);
   });
 
+  it('is the only way video reaches a page, so the analytics choice covers every video', () => {
+    // The notice promises the choice covers "video playback data". That holds
+    // only while every video goes through ProjectMuxPlayer, the one component
+    // that inlines this bridge. A raw <video>, a Mux element, a mux-embed
+    // import, or a third-party video iframe anywhere else would play outside it.
+    const VIDEO =
+      /<video\b|<mux-[a-z-]+|from ['"](?:mux-embed|@mux\/)|import\(['"](?:mux-embed|@mux\/)|<iframe\b[^>]*(?:youtube|youtu\.be|vimeo|loom|wistia|mux\.com)/i;
+    const offenders = [];
+    const walk = (dir) => {
+      for (const name of readdirSync(dir)) {
+        const path = join(dir, name);
+        if (statSync(path).isDirectory()) walk(path);
+        else if (
+          /\.(astro|mdx?|[jt]sx?|html)$/.test(name) &&
+          VIDEO.test(readFileSync(path, 'utf8'))
+        )
+          offenders.push(path.slice(ROOT.length + 1));
+      }
+    };
+    walk(join(ROOT, 'src'));
+    walk(join(ROOT, 'public'));
+    expect(offenders).toEqual(['src/components/ProjectMuxPlayer.astro']);
+  });
+
   it('is a classic script with no imports, no network calls, and nothing HTML could misparse', () => {
     expect(MUX_DATA_SRC).not.toMatch(/^\s*(import|export)\b/m);
     expect(MUX_DATA_SRC).not.toMatch(
