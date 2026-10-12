@@ -1,6 +1,6 @@
 # Friends & Family Billing—voice approval packet
 
-Draft date: 2026-10-12. Status: complete draft pending owner approval for a PR and merge. No PR, push, merge, or deployment has occurred for this draft.
+Draft date: 2026-10-12. Status: owner approved the copy for a PR and merge on 2026-10-12, subject to live Firebase Rules API verification before merge. The two requested copy fixes are applied. PR/push/merge remain on hold until the parent supplies the live-rule conclusion and confirms the conditions. No PR, push, merge, or deployment has occurred for this draft.
 
 Factual baseline: `467d26110ae1b3850f03b88296300b4f23262909`, `origin/main` when this pass began. Final validation includes dependency merge `ff2daa3e1f4b370a673d0f8ac75b757bdb171f72` (#1299), which supplies the evidence paragraph style; the captured original remains the initial baseline. Source: `src/content/projects/friends-and-family-billing.mdx`. Historical facts ledger: `plans/correctness-pass-2026-10-06/friends-and-family-billing-ledger.md`. Product evidence retains that ledger's pinned 2026-10-06 audit; this is a voice and meaning review, not a new audit of the live product.
 
@@ -28,7 +28,7 @@ The hero supplies the social-card line through the existing fallback. The card s
 
 **Before (186 characters):** Shared billing for nine people that handles the explaining and asking without recipient accounts. Its three biggest failures shared one gap: the model was right before the interface was.
 
-**After (155 characters):** I built billing for nine people without recipient accounts. It handles the explaining and checking, but I got the money right before I made it easy to see.
+**After (155 characters):** I built billing for nine people without recipient accounts. It handles the explaining and checking, but I got the model right before I made it easy to see.
 
 ### Search snippet
 
@@ -209,7 +209,7 @@ flowchart TD
     style INV fill:#11100d,stroke:#11100d,stroke-width:1.5px,color:#fffdf8
 ```
 
-Three paths out of one template. The two the parity fix unified were the two anyone tested, and the third was the one that reaches a person; since 2026-09-30 the test send has rejoined the invoice on the bridge, leaving only the preview on the canonical renderer.
+Three paths out of one template. The two the parity fix unified were the two the tests covered, and the third was the one that reaches a person; since 2026-09-30 the test send has rejoined the invoice on the bridge, leaving only the preview on the canonical renderer.
 
 ## What I learned
 
@@ -308,7 +308,7 @@ Every distinct point in the original is accounted for here. Ledger row numbers r
 | Third failed attempt; owner rewrites invariant/bans failed approach/changes agent; two required tests then; set changed since | Rendering evidence retains every action and count. Codex named as agent rather than narrator (R7, R28). |
 | No test renders actual recipient invoice; incomplete parity scope persists | Rendering evidence preserves the negative assertion and links the chronology (R7, R35, R37). |
 | April–September 2026 preview/test on canonical versus recipient dialog plain text/no HTML | Rendering bullet keeps history separate from dated update (R1–R2, R37). |
-| 2026-09-30 security change friends-and-family-billing#459 takes all email off client HTML; server render/plain bodies still differ serialization; preview alone canonical | Rendering bullet and byte-identical Mermaid/description/caption preserve complete update (R1–R7). No current byte parity or completed recipient coverage asserted. |
+| 2026-09-30 security change friends-and-family-billing#459 takes all email off client HTML; server render/plain bodies still differ serialization; preview alone canonical | Rendering bullet and byte-identical Mermaid/description plus the owner-revised caption preserve the complete update (R1–R7). No current byte parity or completed recipient coverage asserted. |
 | Same gap across layers; invariant/model stops before needed boundary | What broke intro/closing preserve the thesis with human ownership rather than abstraction. |
 | Arithmetic was always division; explaining/checking removed via derivation; asking routed/sending manual; nothing should decide friend's debt | What I learned preserves product result and explicit owner judgment about stopping point. No measured time savings added. |
 | Owner modeled overpayment/refused absorption but missed views; unified renderer/missed inbox path | Closing retains both admissions, responsibility, and distinct failures. |
@@ -321,12 +321,12 @@ Every distinct point in the original is accounted for here. Ledger row numbers r
 - The overpayment evidence says the headline exposes the debt but the filters and recipient page still fail the action someone needs. This keeps the original UI inventory and removes a contradictory blanket sentence, without claiming the product changed.
 - The account rationale remains judgment: I expected an account requirement to discourage an annual visit. It is not measured recipient abandonment or a documented accounts-versus-links evaluation.
 - The ADR sentence names the March implementation first and the later explicit rule second. No ADR-caused-March-state claim remains.
-- The untouched image caption, diagram source/accessibility description, and diagram caption preserve their historical qualifications and publication boundary. The accessible description explicitly carries both April and September states.
+- The untouched image caption and diagram source/accessibility description preserve their historical qualifications and publication boundary. The diagram's following caption now says 'the two the tests covered' rather than 'the two anyone tested', as the owner requested; its dates and surface relationships are unchanged. The accessible description explicitly carries both April and September states.
 - No private writing was retrieved or cached. The installed writing-style skill used the human-designated model prose and other owner-approved model revisions from the batch brief. Those are style references, not newly user-authored writing or new facts.
 
 ## Validation and mechanical exceptions
 
-The reader-facing authored text is 2089 → 2022 words. This counts title, hero, format/focus/stack, constraint values/glosses, all decision text/lenses/statuses, and visible body prose/headings/caption; it excludes imports/components, fenced diagram source and hidden accessibility metadata, template labels, and the separately reviewed card/search renditions. It uses whitespace-separated words after removing Markdown destinations/format markers. The brevity checker separately reports whole-source 2,456 → 2,396 and body-only prose 1,043 → 970 (−7.0%). Final counts were recomputed after the dependency refresh.
+The reader-facing authored text is 2089 → 2022 words. This counts title, hero, format/focus/stack, constraint values/glosses, all decision text/lenses/statuses, and visible body prose/headings/caption; it excludes imports/components, fenced diagram source and hidden accessibility metadata, template labels, and the separately reviewed card/search renditions. It uses whitespace-separated words after removing Markdown destinations/format markers. The brevity checker separately reports whole-source 2,456 → 2,397 and body-only prose 1,043 → 971 (−6.9%). Final counts were recomputed after the dependency refresh and the two owner-requested copy fixes.
 
 The brevity checker reports two intentional failures: its pinned `seoDescription` changed because the task includes the search rendition, and its indented-code detector treats indented YAML evidence prose as protected code when changed to literal paragraph scalars. These are the complete decision prose records, not executable code. Actual fenced Mermaid/code, tables, all URLs/link destinations, PR references, numeric tokens, timestamps and all five inline code spans are unchanged by occurrence. The spelled-out-number advisory was manually reviewed against every mapping row above: the group, four recipient needs/grants, three decisions/states/attempts/coordination steps, fourth balance state, five ADRs, six PRs, roughly twenty hours, six of seven functions, and two historical tests remain with their subjects. Removed occurrences were duplicates or ordering language. The checker was not weakened.
 
@@ -334,6 +334,10 @@ The blog voice CLI explicitly rejects project MDX with exit 2, “Supply one blo
 
 Initial and final uncredentialed builds passed. On the final source, the project/schema/résumé-stamp subset passed 159 tests; final targeted desktop/phone diagram checks passed 17 with 1 existing skip, and their setup revalidated all served build bytes. Focused existing project/schema/résumé/ribbon/Mermaid tests: 280 passed, 5 skipped; the skips are existing optional fixture cases. Full responsive suite against the dedicated preview: 369 passed, 51 skipped, with every built file validated against served bytes first. Lint passed (including advisory CMOS title-case suggestions retained because the requested headings are sentence case); typecheck reported 0 errors and 0 warnings. No new tests were added for copy. The final build includes #1299. At 1440px and 375px, the page has no document or article-copy overflow and no page errors; all three records render every authored field exactly, and every evidence field computes to `white-space: pre-line`. Desktop and phone hero and complete decision screenshots were inspected; the evidence paragraph break remains visible, and the social card fits without clipping. Render evidence is in `/tmp/project-voice-batch-2026-10-12/billing/` (`desktop-top.png`, `phone-top.png`, desktop/phone decision 1–3, full-page captures and `visual.json`). Only this project's regenerated OG reference is included in the commit.
 
-## Approval prompt
+## Approval record
 
-Do you approve this complete Friends & Family Billing rewrite, including the explicit source-versus-deployment qualification and the hero/card/search renditions, for a PR and merge after the required PR checks? Deployment is handled separately by the parent workflow.
+The owner approved this copy for a PR and merge on 2026-10-12 with two wording fixes: the card now says "I got the model right", and the diagram's following caption now says "the two the tests covered". Both are applied in the complete text and metadata above, and the résumé stamp is refreshed.
+
+The owner-requested card and caption fixes were built uncredentialed and checked in the emitted project card and detail-page text. The affected project-page/résumé-stamp subset passed 149 tests, and changed-file prose lint passed. No broad suite was repeated for these two copy changes.
+
+Merge is conditional on the parent's read-only Firebase Rules API verification. If the checked source and live rules match, the deployed wording should be restored and hedges reduced. If they differ, the page should state that difference. The parent also owns the duplicate-issue check. No production fix or deployment to Friends & Family Billing is authorized. No PR, push or merge proceeds until the parent supplies the live-rule conclusion and confirms the conditions. Required PR checks still apply; deployment is separate.
