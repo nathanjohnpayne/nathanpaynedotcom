@@ -346,7 +346,7 @@ describe('Project Pages — routes', () => {
     const metaDescription = description?.getAttribute('content');
 
     expect(metaDescription).toBe(
-      'A repository standard for AI-agent development: independent review identities, fail-closed gates, and cross-repo propagation—with the failures on the record.',
+      'I built Mergepath to govern AI coding agents across repositories, with separate review accounts, merge gates, shared rules, and the failures kept on the record.',
     );
     expect(webPage.description).toBe(metaDescription);
     expect(webPage.keywords).toBe('Infrastructure, AI Tooling, GitHub Actions, Bash');
@@ -1582,6 +1582,28 @@ describe('Project OG cards (#1088)', () => {
         description: (data.ogDescription ?? data.description).trim(),
         meta: data.tags.map((tag) => tag.trim()).join(' · '),
       });
+    }
+  });
+
+  it('uses the image rendition for social descriptions and keeps the SEO rendition separate', () => {
+    for (const file of projectSourceFiles()) {
+      const data = readProjectFrontmatter(file);
+      if (data.draft === true) continue;
+      setupDOM(readDistHtml(`projects/${data.slug}/index.html`));
+      const socialDescription = (data.ogDescription ?? data.description).trim();
+      for (const selector of [
+        'meta[property="og:description"]',
+        'meta[name="twitter:description"]',
+      ]) {
+        expect(
+          document.querySelector(selector)?.getAttribute('content'),
+          `${data.slug} ${selector} must match its OG image rendition`,
+        ).toBe(socialDescription);
+      }
+      expect(
+        document.querySelector('meta[name="description"]')?.getAttribute('content'),
+        `${data.slug} search description must retain its SEO rendition`,
+      ).toBe((data.seoDescription || data.description).trim());
     }
   });
 

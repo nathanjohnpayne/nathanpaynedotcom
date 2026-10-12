@@ -32,6 +32,15 @@ import { builtPages, writeSanitizedDOM } from './helpers/dom.js';
 const ADDRESS = 'hire@nathanpayne.com';
 
 /**
+ * The /privacy/ page (#1079) assembles the same way but to its own contact
+ * address; it ships with the flag on since #1233. Every other route keeps the
+ * hiring address.
+ */
+const PRIVACY_ADDRESS = 'privacy@nathanpayne.com';
+const PRIVACY_ROUTE = '/privacy/';
+const addressFor = (route) => (route === PRIVACY_ROUTE ? PRIVACY_ADDRESS : ADDRESS);
+
+/**
  * Parse built markup without executing any of it.
  *
  * `DOMParser` never runs scripts, which is what makes it safe to parse a page
@@ -109,6 +118,9 @@ describe('base64-assembled mail links resolve at load (#790)', () => {
   it('ships no contiguous address, and no resolved href, in the static HTML', () => {
     for (const { route, html } of pages) {
       expect(html, `${route}: literal address shipped in the built HTML`).not.toContain(ADDRESS);
+      expect(html, `${route}: literal address shipped in the built HTML`).not.toContain(
+        PRIVACY_ADDRESS,
+      );
 
       writeSanitizedDOM(html);
       for (const anchor of document.querySelectorAll('a[data-u]')) {
@@ -146,7 +158,7 @@ describe('base64-assembled mail links resolve at load (#790)', () => {
         // rather than the encoding an assembly happened to choose.
         const [recipient, query] = href.slice('mailto:'.length).split('?');
         expect(decodeURIComponent(recipient), `${label} resolved to the wrong address`).toBe(
-          ADDRESS,
+          addressFor(route),
         );
 
         // A subject is optional, but an empty one is a broken assembly rather
@@ -168,8 +180,9 @@ describe('base64-assembled mail links resolve at load (#790)', () => {
       const noscript = [...document.querySelectorAll('noscript')]
         .map((el) => el.textContent)
         .join(' ');
+      const [user, domain, tld] = addressFor(route).split(/[@.]/);
       expect(noscript, `${route}: no <noscript> fallback for the mail address`).toMatch(
-        /hire\s*\[at\]\s*nathanpayne\s*\[dot\]\s*com/,
+        new RegExp(`${user}\\s*\\[at\\]\\s*${domain}\\s*\\[dot\\]\\s*${tld}`),
       );
     }
   });

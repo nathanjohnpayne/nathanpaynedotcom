@@ -9,7 +9,8 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
-import { REPO_ROOT } from './harness/constants';
+import { DIST_DIR, FAKE_GA_ID, REPO_ROOT } from './harness/constants';
+import { productionGaId } from './harness/ga4-measurement-id.js';
 import {
   canonicalJson,
   gtagConfigFindings,
@@ -87,6 +88,62 @@ test.describe('fixtures manifest agrees with the production record', () => {
     ]);
     expect(manifest.gtag.production.capturedOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(row).toContain(manifest.gtag.production.capturedOn);
+  });
+});
+
+test.describe('GA4 measurement-ID discovery', () => {
+  const built = readFileSync(join(DIST_DIR, 'index.html'), 'utf8');
+  const loader = (id: string): string =>
+    `<script src="https://www.googletagmanager.com/gtag/js?id=${id}"></script>`;
+  const legacy = (id: string): string => `<html><head>${loader(id)}</head><body></body></html>`;
+
+  test('PRIV-2 the actual flag-on build supplies the ID without a static loader', () => {
+    expect(built).not.toContain(`gtag/js?id=${FAKE_GA_ID}`);
+    expect(productionGaId(built)).toBe(FAKE_GA_ID);
+  });
+
+  test('PRIV-2 the legacy static loader supplies its complete ID', () => {
+    expect(productionGaId(legacy('G-LEGACY0'))).toBe('G-LEGACY0');
+    expect(productionGaId(legacy('G-LEGACY0').replace('?id=', '?l=dataLayer&amp;id='))).toBe(
+      'G-LEGACY0',
+    );
+  });
+
+  test('PRIV-2 malformed, non-G, and ambiguous IDs remain unavailable', () => {
+    for (const id of ['', 'UA-123', 'G-LOWERcase', 'G-VALID.bad', 'G-ONE&amp;id=G-TWO']) {
+      expect(productionGaId(legacy(id)), id).toBeUndefined();
+    }
+    expect(
+      productionGaId(built.replace(`const gaId = "${FAKE_GA_ID}";`, 'const gaId = null;')),
+    ).toBeUndefined();
+    expect(
+      productionGaId(built.replace(`const gaId = "${FAKE_GA_ID}";`, 'const gaId = "UA-123";')),
+    ).toBeUndefined();
+    expect(
+      productionGaId(built.replace('</head>', loader('G-OTHER0') + '</head>')),
+    ).toBeUndefined();
+  });
+
+  test('PRIV-2 unrelated declarations, markup text, and other hosts do not supply an ID', () => {
+    for (const html of [
+      '<html><head><script>const gaId = "G-PRIVACYTEST";</script></head></html>',
+      '<html><head><!-- https://www.googletagmanager.com/gtag/js?id=G-COMMENT --></head></html>',
+      '<html><head></head><body><p>https://www.googletagmanager.com/gtag/js?id=G-TEXT</p></body></html>',
+      legacy('G-FOREIGN').replace('www.googletagmanager.com', 'other.example'),
+      legacy(FAKE_GA_ID)
+        .replace('<script', '<template><script')
+        .replace('</script>', '</script></template>'),
+    ]) {
+      expect(productionGaId(html)).toBeUndefined();
+    }
+  });
+
+  test('PRIV-2 discovery reads scripts as data without executing them', () => {
+    const hostile = built.replace(
+      '</head>',
+      '<script>document.querySelectorAll("head > script").forEach((node) => node.remove());</script></head>',
+    );
+    expect(productionGaId(hostile)).toBe(FAKE_GA_ID);
   });
 });
 
