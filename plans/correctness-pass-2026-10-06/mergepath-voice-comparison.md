@@ -467,7 +467,7 @@ The mechanical brevity checker reports intentional failures for the proposed sea
 
 The blog voice CLI accepts blog Markdown, not project MDX. It was not counted as a passed project check. This packet and the complete manual meaning review supply the project review.
 
-The mechanical checker reports body prose 1,420 → 1,339 words (−5.7%); whole source including frontmatter/code 3,638 → 3,571 words. A separate authored-reader count includes the hero, metadata, stack, all decision/constraint/learning text, related labels, and body prose while excluding image alt text and fenced code: 2,942 → 2,850 words (−3.1%). Metadata renditions are counted separately above. These counts are deliberately distinct because most case-study copy lives in frontmatter.
+The mechanical checker reports body prose 1,420 → 1,339 words (−5.7%); whole source including frontmatter/code 3,638 → 3,571 words. The complete authored-reader count includes the hero, visible metadata/kicker/status, stack, all decision/constraint/learning text, related labels, body prose, authored figure captions (generated from image alt text), and the visible Mermaid caption, while excluding diagram code and generated interface labels: 3,046 → 2,954 words (−3.0%). Metadata renditions are counted separately above. These counts are deliberately distinct because most case-study copy lives in frontmatter.
 
 ## Approval prompt
 
