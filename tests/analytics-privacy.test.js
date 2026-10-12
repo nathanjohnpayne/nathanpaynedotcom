@@ -1,18 +1,19 @@
 // @vitest-environment node
 //
-// #1079 analytics privacy controls — the feature flag and its flag-off
-// regression check (specs/analytics-privacy.md § Feature Flag, PRIV-15).
+// #1079 analytics privacy controls — the feature flag and the production-build
+// invariants (specs/analytics-privacy.md § Feature Flag, PRIV-15).
 //
-// The flag-off check reads a site built in mode `production` with fixed fake
-// tokens and requires the result to be indistinguishable from `main` at the
-// contract's base commit: every page's analytics region byte-identical to the
-// captured fixture, no privacy route or test fixture, and no runtime marker in
-// any emitted file. Do not regenerate the fixture to make this pass; a
-// difference means the flag-off build changed. #1233 replaces this check when
-// it commits the flag on.
+// #1233 committed the flag on, so the check that used to prove a flag-off
+// build unchanged now proves the opposite about a production-mode build: the
+// gate script, notice, controls, footer link, and /privacy/ route are present
+// on every page; analytics load only through the gated path; and the test
+// fixture page, its canaries, and the fake tokens exist nowhere in it. The
+// build under test is made in mode `production` (the mode the deploy build
+// runs in) with fixed fake tokens, so the analytics blocks render. A second
+// group checks the real `dist/` that `npm test` just built, which carries
+// whatever tokens the environment has.
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -26,17 +27,19 @@ import {
 } from '../src/lib/privacy-flag.ts';
 import { execFileSync } from 'node:child_process';
 import {
-  FLAG_OFF_ENV,
+  ANALYTICS_HOSTS,
+  PRIVACY_TEST_TOKENS,
+  PRODUCTION_CHECK_ENV,
+  RUNTIME_MARKERS,
+  analyticsGateFindings,
   analyticsRegion,
-  buildFlagOff,
+  buildProductionCheck,
+  findInFiles,
   findRuntimeMarkers,
   readTextFiles,
 } from '../scripts/lib/analytics-region.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
-const fixture = JSON.parse(
-  readFileSync(join(ROOT, 'tests/fixtures/privacy/flag-off-analytics-region.json'), 'utf8'),
-);
 const flagSrc = readFileSync(join(ROOT, 'src/lib/privacy-flag.ts'), 'utf8');
 const fixturePageSrc = readFileSync(
   join(ROOT, 'src/pages/test-fixtures/privacy/[...index].astro'),
@@ -44,24 +47,28 @@ const fixturePageSrc = readFileSync(
 );
 const baseLayoutSrc = readFileSync(join(ROOT, 'src/layouts/BaseLayout.astro'), 'utf8');
 
+// Strings that exist only on the test fixture page (spec § Test Fixture).
+const FIXTURE_CANARY = 'NP-CANARY';
+
 describe('privacy flag', () => {
-  it('is committed off until #1233', () => {
-    expect(PRIVACY_CONTROLS_COMMITTED).toBe(false);
+  it('is committed on (#1233)', () => {
+    expect(PRIVACY_CONTROLS_COMMITTED).toBe(true);
+    expect(flagSrc).toMatch(/^export const PRIVACY_CONTROLS_COMMITTED = true;$/m);
   });
 
-  it('is enabled by the privacy-test mode and by nothing else', () => {
+  it('enables the controls in every mode, and the fixture page in privacy-test only', () => {
     expect(PRIVACY_TEST_MODE).toBe('privacy-test');
     expect(flagStateForMode('privacy-test')).toEqual({ enabled: true, testBuild: true });
     for (const mode of ['production', 'development', 'test', '', 'privacy-test ', 'PRIVACY-TEST']) {
-      expect(flagStateForMode(mode)).toEqual({ enabled: false, testBuild: false });
+      expect(flagStateForMode(mode)).toEqual({ enabled: true, testBuild: false });
     }
   });
 
   it('exposes parameterless gates bound to the actual Astro mode', () => {
-    // Vitest runs in mode `test`, so both gates read false here.
+    // Vitest runs in mode `test`: the controls are on, the fixture page is not.
     expect(privacyControlsEnabled.length).toBe(0);
     expect(isPrivacyTestBuild.length).toBe(0);
-    expect(privacyControlsEnabled()).toBe(false);
+    expect(privacyControlsEnabled()).toBe(true);
     expect(isPrivacyTestBuild()).toBe(false);
   });
 
@@ -91,7 +98,7 @@ describe('privacy flag', () => {
     expect(flagSrc).not.toMatch(/process\.env|location|localStorage|readFile/);
   });
 
-  it('builds the test fixture page only in the privacy-test mode', () => {
+  it('builds the test fixture page only in the privacy-test mode, flag on or not', () => {
     expect(fixturePageSrc).toMatch(/isPrivacyTestBuild\(\)\s*\?/);
     expect(fixturePageSrc).not.toMatch(/privacyControlsEnabled/);
   });
@@ -105,23 +112,83 @@ describe('privacy flag', () => {
   });
 });
 
-describe('flag-off build is unchanged (PRIV-15)', () => {
+/** Presence of the privacy surfaces in one production-mode build directory. */
+function describeBuild(label, getDir, getFiles) {
+  describe(label, () => {
+    it('has the gate, notice, and footer link on every page', () => {
+      const pages = getFiles().filter((f) => f.path.endsWith('.html'));
+      expect(pages.length).toBeGreaterThan(10);
+      const missing = [];
+      for (const p of pages) {
+        const regionStart = p.text.indexOf('<!-- PostHog -->');
+        if (regionStart < 0) missing.push(`${p.path}: no analytics region`);
+        const head = p.text.slice(0, Math.max(regionStart, 0));
+        if (!head.includes('globalPrivacyControl'))
+          missing.push(`${p.path}: no gate before region`);
+        if (!p.text.includes('id="np-privacy-notice"')) missing.push(`${p.path}: no notice`);
+        if (!p.text.includes('data-np-privacy-ui="notice"'))
+          missing.push(`${p.path}: no notice hook`);
+        if (!p.text.includes('data-np-privacy-ui="footer-link"')) {
+          missing.push(`${p.path}: no footer link`);
+        }
+      }
+      expect(missing).toEqual([]);
+    });
+
+    it('emits the /privacy/ route with the controls', () => {
+      const dir = getDir();
+      expect(existsSync(join(dir, 'privacy/index.html'))).toBe(true);
+      const page = getFiles().find((f) => f.path === 'privacy/index.html').text;
+      expect(page).toContain('id="np-privacy-controls"');
+      expect(page).toContain('data-np-privacy-ui="controls"');
+      expect(page).toContain('data-np-privacy-ui="status"');
+      expect(page).toContain('data-np-privacy-action="deny"');
+      expect(page).toContain('data-np-privacy-action="grant"');
+    });
+
+    it('emits no test fixture page, canary, or link to one', async () => {
+      const dir = getDir();
+      expect(existsSync(join(dir, 'test-fixtures'))).toBe(false);
+      const linked = getFiles()
+        .filter((f) => /href="\/test-fixtures\//.test(f.text))
+        .map((f) => f.path);
+      expect(linked).toEqual([]);
+      expect(await findInFiles(dir, [FIXTURE_CANARY, 'test-fixtures/privacy'])).toEqual([]);
+    });
+
+    it('carries no privacy-test fake token', async () => {
+      expect(await findInFiles(getDir(), PRIVACY_TEST_TOKENS)).toEqual([]);
+    });
+
+    it('carries the runtime markers in the inline gate of every page and in no other file', async () => {
+      const dir = getDir();
+      const hits = await findRuntimeMarkers(dir);
+      const pages = getFiles()
+        .filter((f) => f.path.endsWith('.html'))
+        .map((f) => f.path);
+      const expected = pages.flatMap((p) => RUNTIME_MARKERS.map((m) => `${p}: ${m}`));
+      expect(hits.slice().sort()).toEqual(expected.slice().sort());
+    });
+  });
+}
+
+describe('production-mode build carries the privacy controls (PRIV-15 replacement)', () => {
   let outDir;
   let files;
-
-  // `npm test` builds dist-flag-off/ before the main build and passes it in
-  // NP_FLAG_OFF_DIST, so no build runs while other suites read `.astro/`.
-  // Run on its own (vitest run tests/analytics-privacy.test.js), the suite
-  // builds a fresh copy into a temp directory instead of trusting a stale one.
   let ownBuild = false;
 
+  // `npm test` builds dist-production-check/ before the main build and passes
+  // it in NP_PRODUCTION_CHECK_DIST, so no build runs while other suites read
+  // `.astro/`. Run on its own (vitest run tests/analytics-privacy.test.js),
+  // the suite builds a fresh copy into a temp directory instead of trusting a
+  // stale one.
   beforeAll(async () => {
-    if (process.env.NP_FLAG_OFF_DIST) {
-      outDir = resolve(ROOT, process.env.NP_FLAG_OFF_DIST);
+    if (process.env.NP_PRODUCTION_CHECK_DIST) {
+      outDir = resolve(ROOT, process.env.NP_PRODUCTION_CHECK_DIST);
     } else {
-      outDir = await mkdtemp(join(tmpdir(), 'np-flag-off-'));
+      outDir = await mkdtemp(join(tmpdir(), 'np-production-check-'));
       ownBuild = true;
-      await buildFlagOff(outDir, ROOT);
+      await buildProductionCheck(outDir, ROOT);
     }
     files = await readTextFiles(outDir);
   }, 600_000);
@@ -130,35 +197,328 @@ describe('flag-off build is unchanged (PRIV-15)', () => {
     if (ownBuild) await rm(outDir, { recursive: true, force: true });
   });
 
-  it('compares against an intact fixture captured with the same tokens', () => {
-    expect(createHash('sha256').update(fixture.region).digest('hex')).toBe(fixture.sha256);
-    expect(fixture.tokens).toEqual({
-      PUBLIC_POSTHOG_PROJECT_TOKEN: FLAG_OFF_ENV.PUBLIC_POSTHOG_PROJECT_TOKEN,
-      PUBLIC_GA_MEASUREMENT_ID: FLAG_OFF_ENV.PUBLIC_GA_MEASUREMENT_ID,
-    });
-    expect(fixture.region).toContain(FLAG_OFF_ENV.PUBLIC_POSTHOG_PROJECT_TOKEN);
-    expect(fixture.region).toContain(FLAG_OFF_ENV.PUBLIC_GA_MEASUREMENT_ID);
-  });
+  describeBuild(
+    'surfaces',
+    () => outDir,
+    () => files,
+  );
 
-  it('keeps every page analytics region byte-identical to the base commit', () => {
+  it('loads PostHog and GA4 only through the gate on every page', () => {
     const pages = files.filter((f) => f.path.endsWith('.html'));
     expect(pages.length).toBeGreaterThan(10);
-    const mismatched = pages
-      .filter((p) => analyticsRegion(p.text) !== fixture.region)
+    const findings = pages.flatMap((p) =>
+      analyticsGateFindings(p.text).map((finding) => `${p.path}: ${finding}`),
+    );
+    expect(findings).toEqual([]);
+  });
+
+  it('renders both analytics blocks with the fixed fake tokens, so the check is not vacuous', () => {
+    const pages = files.filter((f) => f.path.endsWith('.html'));
+    const missing = pages
+      .filter((p) => {
+        const region = analyticsRegion(p.text) ?? '';
+        return !(
+          region.includes(PRODUCTION_CHECK_ENV.PUBLIC_POSTHOG_PROJECT_TOKEN) &&
+          region.includes(PRODUCTION_CHECK_ENV.PUBLIC_GA_MEASUREMENT_ID)
+        );
+      })
       .map((p) => p.path);
-    expect(mismatched).toEqual([]);
+    expect(missing).toEqual([]);
   });
 
-  it('emits no privacy route and no test fixture', () => {
-    expect(existsSync(join(outDir, 'privacy'))).toBe(false);
-    expect(existsSync(join(outDir, 'test-fixtures'))).toBe(false);
-    const linked = files
-      .filter((f) => /href="\/(privacy|test-fixtures)\//.test(f.text))
-      .map((f) => f.path);
-    expect(linked).toEqual([]);
-  });
+  describe('the page check fails when the gate is weakened (controls on a real page)', () => {
+    let page;
+    beforeAll(() => {
+      page = files.find((f) => f.path === 'index.html').text;
+    });
 
-  it('emits no privacy runtime marker in any file, of any type', async () => {
-    expect(await findRuntimeMarkers(outDir)).toEqual([]);
+    const GA4_GUARD_LINE =
+      "if (gate && gate.boot.effective === 'granted' && privacy.get().effective === 'granted') {";
+    const PH_GUARD_LINE =
+      "if (!pageIsLocal && gate && gate.boot.effective === 'granted' && privacy.get().effective === 'granted') {";
+
+    it('passes the unmodified page', () => {
+      expect(analyticsGateFindings(page)).toEqual([]);
+      expect(page).toContain(GA4_GUARD_LINE);
+      expect(page).toContain(PH_GUARD_LINE);
+    });
+
+    it('catches a missing gate script', () => {
+      const gateStart = page.lastIndexOf('<script>', page.indexOf('<!-- PostHog -->'));
+      const gateEnd = page.indexOf('</script>', gateStart) + '</script>'.length;
+      const mutated = page.slice(0, gateStart) + page.slice(gateEnd);
+      expect(analyticsGateFindings(mutated).length).toBeGreaterThan(0);
+    });
+
+    it('catches a static gtag loader', () => {
+      const mutated = page.replace(
+        '<!-- PostHog -->',
+        '<!-- PostHog --><script async src="https://www.googletagmanager.com/gtag/js?id=G-X"></script>',
+      );
+      expect(analyticsGateFindings(mutated).length).toBeGreaterThan(0);
+    });
+
+    it('catches an unguarded GA4 block', () => {
+      const mutated = page.replace(GA4_GUARD_LINE, 'if (true) {');
+      expect(analyticsGateFindings(mutated)).toContain('GA4 block has no gate guard');
+    });
+
+    it('catches an unguarded PostHog block', () => {
+      const mutated = page.replace(PH_GUARD_LINE, 'if (true) {');
+      expect(analyticsGateFindings(mutated)).toContain('PostHog block has no gate guard');
+    });
+
+    it('catches a PostHog init moved ahead of its guard', () => {
+      const guardAt = page.indexOf(PH_GUARD_LINE);
+      const mutated = page.slice(0, guardAt) + 'posthog.init(token);\n' + page.slice(guardAt);
+      expect(analyticsGateFindings(mutated).join('\n')).toContain(
+        'PostHog block runs posthog.init( before its gate guard',
+      );
+    });
+
+    it('catches an analytics host in markup', () => {
+      const mutated = page.replace(
+        '<!-- PostHog -->',
+        '<link rel="preconnect" href="https://www.googletagmanager.com"><!-- PostHog -->',
+      );
+      expect(analyticsGateFindings(mutated)).toContain(
+        'markup attribute names analytics host googletagmanager.com',
+      );
+    });
+
+    it('catches a PostHog guard that closes right after it opens', () => {
+      const mutated = page.replace(PH_GUARD_LINE, PH_GUARD_LINE + '}');
+      const findings = analyticsGateFindings(mutated);
+      expect(findings).toContain('PostHog block runs posthog.init( outside its gate guard');
+      expect(findings).toContain('PostHog block runs !function(t,e){ outside its gate guard');
+    });
+
+    it('catches a GA4 guard that closes right after it opens', () => {
+      const mutated = page.replace(GA4_GUARD_LINE, GA4_GUARD_LINE + '}');
+      const findings = analyticsGateFindings(mutated);
+      expect(findings).toContain("GA4 block runs gtag('config' outside its gate guard");
+      expect(findings).toContain('GA4 block runs loader.src =  outside its gate guard');
+    });
+
+    it('catches an analytics script src after the analytics region', () => {
+      const mutated = page.replace(
+        '<!-- Google Fonts -->',
+        '<!-- Google Fonts --><script async src="https://www.googletagmanager.com/gtag/js?id=G-X"></script>',
+      );
+      expect(analyticsGateFindings(mutated)).toContain(
+        'markup attribute names analytics host googletagmanager.com',
+      );
+    });
+
+    it('catches an analytics script src in <body>', () => {
+      const mutated = page.replace(
+        '</body>',
+        '<script src="https://d.nathanpayne.com/static/array.js"></script></body>',
+      );
+      expect(analyticsGateFindings(mutated)).toContain(
+        'markup attribute names analytics host d.nathanpayne.com',
+      );
+    });
+
+    it('catches a host spelled through composed CSS and URL decoding', () => {
+      for (const tag of [
+        // CSS turns \\2d plus space into "-", then URL parsing turns %2e into ".".
+        '<div style="background:url(https://www.google\\2d analytics%2ecom/g/collect)"></div>',
+        // The same host with the stages the other way round.
+        '<img src="https://www.google%5c2d analytics.com/g/collect">',
+      ]) {
+        const mutated = page.replace('</body>', `${tag}</body>`);
+        expect(analyticsGateFindings(mutated), tag).toContain(
+          'markup attribute names analytics host google-analytics.com',
+        );
+      }
+    });
+
+    it('catches analytics URLs in every attribute form HTML accepts', () => {
+      for (const tag of [
+        '<img src=https://stats.doubleclick.net/pixel>',
+        '<IMG SRC="https://stats.doubleclick.net/pixel">',
+        '<img/src="https://stats.doubleclick.net/pixel">',
+        "<link REL=preconnect HREF='https://www.google-analytics.com'>",
+      ]) {
+        const mutated = page.replace('</body>', `${tag}</body>`);
+        expect(
+          analyticsGateFindings(mutated).some((f) =>
+            f.startsWith('markup attribute names analytics host'),
+          ),
+          tag,
+        ).toBe(true);
+      }
+    });
+
+    describe('parsed markup (jsdom), not patterns', () => {
+      const inBody = (fragment) => page.replace('</body>', `${fragment}</body>`);
+      const hasFinding = (mutated, prefix, host) =>
+        analyticsGateFindings(mutated).includes(`${prefix} analytics host ${host}`);
+
+      it('catches an entity-encoded host in an attribute', () => {
+        const mutated = inBody('<img src="https://www.google&#45;analytics.com/g/collect">');
+        expect(hasFinding(mutated, 'markup attribute names', 'google-analytics.com')).toBe(true);
+      });
+
+      it('catches a host in a style attribute', () => {
+        const mutated = inBody(
+          '<div style="background:url(https://www.google-analytics.com/g/collect)"></div>',
+        );
+        expect(hasFinding(mutated, 'markup attribute names', 'google-analytics.com')).toBe(true);
+      });
+
+      it('catches a CSS-escaped host in a style attribute', () => {
+        const mutated = inBody(
+          '<div style="background:url(https://www.google\\2d analytics.com/g/collect)"></div>',
+        );
+        expect(hasFinding(mutated, 'markup attribute names', 'google-analytics.com')).toBe(true);
+      });
+
+      it('catches an @import in a style element', () => {
+        const mutated = inBody(
+          '<style>@import url("https://www.googletagmanager.com/x.css");</style>',
+        );
+        expect(hasFinding(mutated, 'stylesheet names', 'googletagmanager.com')).toBe(true);
+      });
+
+      it('catches a namespaced xlink:href in SVG', () => {
+        const mutated = inBody(
+          '<svg xmlns:xlink="http://www.w3.org/1999/xlink"><image xlink:href="https://stats.doubleclick.net/p"/></svg>',
+        );
+        expect(hasFinding(mutated, 'markup attribute names', 'doubleclick.net')).toBe(true);
+      });
+
+      it('catches a host in an event-handler attribute', () => {
+        const mutated = inBody(
+          `<img src="x" onerror="fetch('https://www.google-analytics.com/g/collect')">`,
+        );
+        expect(hasFinding(mutated, 'markup attribute names', 'google-analytics.com')).toBe(true);
+      });
+
+      it('catches a host inside <noscript> and <template>', () => {
+        for (const fragment of [
+          '<noscript><img src="https://stats.doubleclick.net/p"></noscript>',
+          '<template><img src="https://stats.doubleclick.net/p"></template>',
+        ]) {
+          expect(hasFinding(inBody(fragment), 'markup attribute names', 'doubleclick.net')).toBe(
+            true,
+          );
+        }
+      });
+
+      it('exempts only href on <a> and <area>', () => {
+        for (const fragment of [
+          '<a href="https://posthog.com/privacy">x</a>',
+          '<map name="m"><area href="https://posthog.com/privacy"></map>',
+        ]) {
+          expect(analyticsGateFindings(inBody(fragment))).toEqual([]);
+        }
+        for (const fragment of [
+          '<a ping="https://posthog.com/p" href="/">x</a>',
+          '<link rel="stylesheet" href="https://posthog.com/x.css">',
+          '<a href="/" style="background:url(https://posthog.com/x)">x</a>',
+        ]) {
+          expect(
+            hasFinding(inBody(fragment), 'markup attribute names', 'posthog.com'),
+            fragment,
+          ).toBe(true);
+        }
+      });
+    });
+
+    it('catches a DoubleClick pixel in <body>', () => {
+      const mutated = page.replace(
+        '</body>',
+        '<img src="https://stats.doubleclick.net/pixel"></body>',
+      );
+      expect(analyticsGateFindings(mutated)).toContain(
+        'markup attribute names analytics host doubleclick.net',
+      );
+    });
+
+    it('catches an inline fetch to an analytics host in <body>', () => {
+      const mutated = page.replace(
+        '</body>',
+        "<script>fetch('https://www.google-analytics.com/g/collect')</script></body>",
+      );
+      expect(analyticsGateFindings(mutated)).toContain(
+        'inline script names analytics host google-analytics.com',
+      );
+    });
+
+    it('catches an inline sendBeacon to an analytics host after the analytics region', () => {
+      const mutated = page.replace(
+        '<!-- Google Fonts -->',
+        "<!-- Google Fonts --><script>navigator.sendBeacon('https://d.nathanpayne.com/e/')</script>",
+      );
+      expect(analyticsGateFindings(mutated)).toContain(
+        'inline script names analytics host d.nathanpayne.com',
+      );
+    });
+
+    it('exempts the Mux Data script only as its exact source', () => {
+      const swipe = files.find((f) => f.path === 'projects/swipe-watch/index.html').text;
+      expect(analyticsGateFindings(swipe)).toEqual([]);
+      const mutated = swipe.replace(
+        '</body>',
+        "<script>/* #1264: Mux Data */ fetch('https://litix.io/x')</script></body>",
+      );
+      expect(analyticsGateFindings(mutated)).toContain(
+        'inline script names analytics host litix.io',
+      );
+    });
+
+    it('catches the pre-#1233 flag-off snippet', () => {
+      const mutated = page.replace(
+        PH_GUARD_LINE,
+        'const posthogHost = location.hostname;\n' + PH_GUARD_LINE,
+      );
+      expect(analyticsGateFindings(mutated)).toContain(
+        'PostHog block carries the ungated pre-#1233 snippet',
+      );
+    });
+  });
+});
+
+describe('the markup host list', () => {
+  it("covers every entry of the gate's own ANALYTICS_HOSTS", () => {
+    const gateSrc = readFileSync(join(ROOT, 'src/lib/privacy/gate.js'), 'utf8');
+    const literal = gateSrc.match(/var ANALYTICS_HOSTS = Object\.freeze\(\[([\s\S]*?)\]\)/);
+    expect(literal, 'ANALYTICS_HOSTS literal not found in gate.js').not.toBeNull();
+    const gateHosts = [...literal[1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
+    // Control: the extraction found the list, not an empty match.
+    expect(gateHosts.length).toBeGreaterThanOrEqual(7);
+    expect(gateHosts).toContain('doubleclick.net');
+    expect(ANALYTICS_HOSTS.filter((h) => !gateHosts.includes(h)).sort()).toEqual([]);
+    expect(gateHosts.filter((h) => !ANALYTICS_HOSTS.includes(h)).sort()).toEqual([]);
+  });
+});
+
+describe('the real dist/ build (whatever tokens the environment has)', () => {
+  const dist = join(ROOT, 'dist');
+  let files;
+
+  beforeAll(async () => {
+    // `npm test` runs `astro build` before vitest, as every suite that reads
+    // dist/ assumes; a missing build is a failure, not a skip.
+    if (!existsSync(dist)) throw new Error('dist/ is missing; run `astro build` first');
+    files = await readTextFiles(dist);
+  }, 60_000);
+
+  describeBuild(
+    'surfaces',
+    () => dist,
+    () => files,
+  );
+
+  it('carries none of the fixed fake tokens of the check builds', async () => {
+    expect(
+      await findInFiles(dist, [
+        ...PRIVACY_TEST_TOKENS,
+        PRODUCTION_CHECK_ENV.PUBLIC_POSTHOG_PROJECT_TOKEN,
+        PRODUCTION_CHECK_ENV.PUBLIC_GA_MEASUREMENT_ID,
+      ]),
+    ).toEqual([]);
   });
 });

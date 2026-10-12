@@ -43,6 +43,25 @@ available_reviewers:
   - nathanpayne-codex
 
 # ---------------------------------------------------------------------------
+# Retained Feedback Archive Identities
+# ---------------------------------------------------------------------------
+# Repo-owned enrollment for one-shot edit/deletion capture, independent of
+# current review/acknowledgment standing. Preserve an identity here as retired
+# when it leaves available_reviewers; never infer historical enrollment from
+# the current allowlist. Archival eligibility grants no review/merge authority.
+# Owner decision: nathanjohnpayne/mergepath#1437 (comment 6113059061).
+# Current/default provider identities and tracked reviewer history verified
+# against site main 2a39347ad8d175e08605305e3216012950aafee1.
+feedback_archive:
+  identities:
+    - {login: "chatgpt-codex-connector[bot]", provider: codex, status: active}
+    - {login: "coderabbitai[bot]", provider: coderabbit, status: active}
+    - {login: "github-advanced-security[bot]", provider: ghas, status: active}
+    - {login: nathanpayne-claude, provider: reviewer, status: active}
+    - {login: nathanpayne-cursor, provider: reviewer, status: active}
+    - {login: nathanpayne-codex, provider: reviewer, status: active}
+
+# ---------------------------------------------------------------------------
 # Default External Reviewer
 # ---------------------------------------------------------------------------
 # When the agent needs to suggest an external reviewer in a handoff message,

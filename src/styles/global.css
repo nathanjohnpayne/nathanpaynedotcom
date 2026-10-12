@@ -3211,6 +3211,8 @@ body.blog-page {
 }
 
 .decision-ledger__observed dd {
+  /* Keep authored evidence paragraphs while allowing normal line wrapping. */
+  white-space: pre-line;
   background: var(--paper);
   border: 1px solid var(--rule);
   padding: clamp(0.75rem, 1.6vw, 1.05rem) clamp(0.85rem, 1.8vw, 1.2rem);
