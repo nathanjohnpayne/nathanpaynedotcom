@@ -5,7 +5,7 @@ url: "https://swipewatch.web.app"
 repo: "https://github.com/nathanjohnpayne/swipewatch"
 order: 6
 claimsReviewed:
-  caseStudy: "08b05bf0213ed9b226168c21237ee554f615eaa0336efe247eadb7e5e44cd220"
+  caseStudy: "b4bbdd7be611fa620220b51910b477c8892153eb62225b81a01069fbec0f55b7"
   resume: "6b175b884a8bae962c4bde500a1d997c65fd7df40765224394cc2f39ca1323d1"
   date: "2026-10-12"
 ---

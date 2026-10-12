@@ -38,9 +38,9 @@ The installed Write Like Me skill was used through its supplied-reference route.
 
 **Before (149 characters via hero fallback; separate field absent):** Can a streaming service learn your taste before you press play? An independent swipe-based discovery prototype built on the Disney+ and Hulu catalog.
 
-**After (161 characters):** An independent Disney+ and Hulu discovery prototype. I tested the swipe, simulated the recommendation payoff, and couldn't measure whether it improved discovery.
+**After (159 characters):** An independent Disney+ and Hulu discovery prototype. I tested swiping, simulated the recommendation payoff, and couldn't measure whether it improved discovery.
 
-The 180-character hero meets the social line's cap and the rendered fit passes. The 193-character card is within the 120–200 guide. The separate search snippet is 159 characters. The page continues to use the existing social fallback; no OG template changes. Its refreshed reference is `screenshots/og/projects-swipe-watch.png`.
+The 180-character hero meets the social line's cap and the rendered fit passes. The 195-character card is within the 120–200 guide. The separate search snippet is 159 characters. The page continues to use the existing social fallback; no OG template changes. Its refreshed reference is `screenshots/og/projects-swipe-watch.png`.
 
 ## Complete proposed reader page
 
@@ -315,15 +315,16 @@ All R1–R32 rows and the page's additional opinions/closing claims are covered.
 The draft was rebased onto `ff2daa3e1f4b370a673d0f8ac75b757bdb171f72`, the verified main merge of Five Across #1299. The original factual baseline remains the before-copy authority; this newer base supplies the shared evidence-paragraph style. No authored Swipe Watch copy changed during integration.
 
 - Uncredentialed final Astro build passes: 43 pages and 21 real social cards, including this project's 180-character fallback and rendered fit.
-- Seven focused existing suites pass, 267/267: project pages, content schema, résumé claims review/body, OG fit/crop/targets. These ran before dependency integration; source and résumé stamp are unchanged afterward.
-- Full responsive suite passes on the refreshed base: 369 passed, 51 expected responsive-condition skips, two workers. Its all-file global setup verifies every served file against this checkout's dist by SHA-256. Swipe Watch's video fallback and reduced-motion checks pass.
+- Seven focused existing suites passed for the full draft, 267/267: project pages, content schema, résumé claims review/body, OG fit/crop/targets. These ran before dependency integration; authored copy did not change during that integration. The final search-wording correction and refreshed résumé stamp are covered by the focused rerun below.
+- Full responsive suite passed on the refreshed base before the final two-character search edit: 369 passed, 51 expected responsive-condition skips, two workers. The reader body, hero, cards and decision fields are unchanged by that edit. Its all-file global setup verifies every served file against this checkout's dist by SHA-256. Swipe Watch's video fallback and reduced-motion checks pass.
 - Desktop 1440×900 and phone 375×667 render every field in all three decisions; no page errors or horizontal overflow. Evidence now computes to `white-space: pre-line` on both.
 - Lint passes, including the complete packet; typecheck reports zero errors/warnings. Sentence-case headings intentionally keep the nonblocking CMOS title-case suggestions.
 - Manual visual inspection covers the social card, desktop payoff decision and phone economy decision; full pages, hero viewports and each decision are captured under `/tmp/project-voice-batch-2026-10-12/swipe-watch/`.
 - An initial attempt requested port 4464, but Astro chose 4465 because 4464 belonged to another draft. The all-file fingerprint and decoded-field check both rejected the wrong preview before any suite result or draft-render pass was recorded. The corrected run uses verified `http://127.0.0.1:4465`; the final source-page served hash matches its built file, and the complete suite passes on that address.
+- Final metadata correction: “I tested the swipe” becomes “I tested swiping” without changing its meaning. Decoded YAML and the built search meta description are exactly 159 characters; both WebPage and SoftwareApplication descriptions match. The unchanged hero is 180 characters and card is 195. The uncredentialed rebuild passes, and the focused project/schema/résumé-stamp rerun passes 159/159 in three files. The private canonical résumé entry still matches verbatim; its body hash is unchanged.
 - `git diff --check` passes. Only five assigned source/support/reference/packet files differ from the refreshed main. No PR, push, merge or deployment occurred in this draft worktree.
 
-The captured baseline SHA-256 is `d1037795e1dd0d25eaa6e288a180ed0398d9071323762ba219822032c26d5cf8`; draft SHA-256 is `08b05bf0213ed9b226168c21237ee554f615eaa0336efe247eadb7e5e44cd220`. The complete baseline is losslessly available with `git show 467d26110ae1b3850f03b88296300b4f23262909:src/content/projects/swipe-watch.mdx`; the complete draft source lives beside this packet.
+The captured baseline SHA-256 is `d1037795e1dd0d25eaa6e288a180ed0398d9071323762ba219822032c26d5cf8`; draft SHA-256 is `b4bbdd7be611fa620220b51910b477c8892153eb62225b81a01069fbec0f55b7`. The complete baseline is losslessly available with `git show 467d26110ae1b3850f03b88296300b4f23262909:src/content/projects/swipe-watch.mdx`; the complete draft source lives beside this packet.
 
 The protected-token checker preserves all eight numeral occurrences, the hosting date, both live/repository URLs and image destinations, code/table blocks and other pinned fields. It has one deliberate failure: the new `seoDescription` field replaces the hero fallback as required for the separate search rendition. Project tests derive the value rather than pinning the old description. The description-change and spelled-out-number advisories are manually reviewed; the removed “one” occurrences were rhetorical setup, while one-question scope, one coin per swipe, three gestures/decisions and ten-card examples remain. No checker is weakened.
 
