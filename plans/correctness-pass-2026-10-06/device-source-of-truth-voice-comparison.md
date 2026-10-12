@@ -1,6 +1,6 @@
 # Device Source of Truth—voice approval packet
 
-Draft date: 2026-10-12. Status: complete draft awaiting direct owner approval for PR and merge. No PR, push, merge or deployment is authorized by this packet.
+Draft date: 2026-10-12. Status: the owner approved a PR and merge once three small changes were applied. All three are applied below, along with the optional original aliases-cost sentence. Root readback is pending before opening the PR. Deployment is outside this approval.
 
 Factual baseline: `467d26110ae1b3850f03b88296300b4f23262909`, current `origin/main` when this pass began. Source: `src/content/projects/device-source-of-truth.mdx`. Dated facts ledger: `plans/correctness-pass-2026-10-06/device-source-of-truth-ledger.md`. Worktree: `/Users/nathanpayne/.codex/worktrees/device-source-of-truth-voice/nathanpaynedotcom`, branch `codex/device-source-of-truth-voice`.
 
@@ -10,7 +10,7 @@ The complete page is rewritten, including the hero, both project-card surfaces, 
 
 All five body sections, all four decision titles and lenses, four pending statuses, constraint values, component slices and placements, four screenshots including the hero, every caption, and the complete Mermaid block remain in place. Long body paragraphs are split into shorter paragraphs. No learning component is added; this page's learning copy remains its closing prose.
 
-The authored reader copy is **2416 → 2122 words**, a **12.2% cut**. This reproducible count uses whitespace-separated words in the title, hero, kicker, status, format/focus/stack, live label, constraints, all decision fields, related labels, body headings/prose/captions and visible diagram node labels. It excludes generated component labels, MDX markup/imports, Mermaid source syntax/hidden accessibility metadata, URLs and the separate card/search renditions. The brevity checker's body-only result is recorded separately below.
+The authored reader copy is **2416 → 2134 words**, a **11.7% cut**. This reproducible count uses whitespace-separated words in the title, hero, kicker, status, format/focus/stack, live label, constraints, all decision fields, related labels, body headings/prose/captions and visible diagram node labels. It excludes generated component labels, MDX markup/imports, Mermaid source syntax/hidden accessibility metadata, URLs and the separate card/search renditions. The brevity checker's body-only result is recorded separately below.
 
 The main factual qualification is explicit: shipped workflows and demo captures do not establish present operation behind the restricted login or team adoption. The supporting R11 summary and detailed row now say that in place. Three existing ledger precisions become explicit: confidence belongs to each extracted field, telemetry identifies partners by key, and only the partner-key CSV auto-creates an unmatched partner. These narrow the mechanism without changing a decision, count or status.
 
@@ -40,9 +40,9 @@ The hero continues to supply the social-card line through the existing fallback.
 
 **Before (175 characters):** An enterprise workflow case study: five ingestion feeds behind one admin-gated commit path, and AI extraction that proposes while a human signs—demonstrated on synthetic data.
 
-**After (152 characters):** Five feeds into one device registry. I let AI extract the questionnaire, then required human sign-off. The Disney system is shown here on invented data.
+**After (158 characters):** Five feeds into one device registry. I let AI extract the questionnaire, then required human sign-off. A fork of the Disney system runs here on invented data.
 
-The 163-character hero is below the social line's 180-character cap; the rendered card fit passes in the build. The 158-character card is within the 120–200 guide. The search snippet is 152 characters. The rendered reference is `screenshots/og/projects-device-source-of-truth.png`.
+The 163-character hero is below the social line's 180-character cap; the rendered card fit passes in the build. The 158-character card is within the 120–200 guide. The search snippet is 158 characters. The rendered reference is `screenshots/og/projects-device-source-of-truth.png`.
 
 ## Complete proposed reader page
 
@@ -76,7 +76,7 @@ They were in Airtable, Datadog, partner-submitted Excel questionnaires, and spre
 
 I saw support tickets that should have been lookups, launch timelines slip while teams reconciled records, and partner conversations without a shared set of facts. That is my account of the cost. The repository does not document those outcomes.
 
-I built Device Source of Truth inside Disney to import those sources into one shared schema: a record I could query and audit. It came from the partner-engineering work I spent a decade doing there. I wanted this tool before I sat down to build it.
+I built Device Source of Truth inside Disney to import those sources into one shared schema: a record I could query and audit. It came from the partner-engineering work I spent a decade doing there. It was the tool I'd wished existed before I sat down to build it.
 
 **What is on this page is a fork of that system, running on data I invented for it.** It is the same codebase with the real records replaced, rather than a reimplementation from memory or the production instance.
 
@@ -241,7 +241,7 @@ The next export will send the variant names again. Merging the records would onl
 
 **Cost**
 
-The ambiguity needs ongoing maintenance. Every feed carrying a partner name uses the resolver; an admin maintains the alias rules by hand. Telemetry resolves by partner key. A flat partner list still needs that machinery in front of it. I do not yet know whether the alias registry absorbs real upstream drift or becomes permanent admin toil.
+The ambiguity is managed forever instead of eliminated once. Every feed carrying a partner name uses the resolver; an admin maintains the alias rules by hand. Telemetry resolves by partner key. A flat partner list still needs that machinery in front of it. I do not yet know whether the alias registry absorbs real upstream drift or becomes permanent admin toil.
 
 ## Nothing real is on display
 
@@ -257,7 +257,7 @@ The screenshots are what I can make inspectable: real workflows, invented data.
 
 ## What I learned
 
-A source of truth is not a database with all the data in it. Building DST made me answer three questions: what can become authoritative, what requires a human, and what happens when two sources disagree.
+A source of truth is not a database with all the data in it. It's a system that decides three things and says them out loud: what can become authoritative, what requires a human, and what happens when two sources disagree.
 
 DST did not eliminate ambiguity. It gave ambiguity somewhere to live. Stale records keep their age visible. Aliases stay at ingestion because the next export will send those names again. Unknown devices become work items with a remedy attached. AI extraction stays a proposal until someone signs it.
 
@@ -293,7 +293,7 @@ They were in Airtable, Datadog, partner-submitted Excel questionnaires, and spre
 
 I saw support tickets that should have been lookups, launch timelines slip while teams reconciled records, and partner conversations without a shared set of facts. That is my account of the cost. The repository does not document those outcomes.
 
-I built Device Source of Truth inside Disney to import those sources into one shared schema: a record I could query and audit. It came from the partner-engineering work I spent a decade doing there. I wanted this tool before I sat down to build it.
+I built Device Source of Truth inside Disney to import those sources into one shared schema: a record I could query and audit. It came from the partner-engineering work I spent a decade doing there. It was the tool I'd wished existed before I sat down to build it.
 
 **What is on this page is a fork of that system, running on data I invented for it.** It is the same codebase with the real records replaced, rather than a reimplementation from memory or the production instance.
 
@@ -353,14 +353,14 @@ Every ledger row and each uncatalogued thesis/cost is accounted for. “Retained
 | R27: explicit-review spec boundary; wrong DRM/codec field matters more than one mislabeled CSV row | First rationale | Exact spec excerpt preserved and attributed to the spec; it is not used as its own evidence for server enforcement. |
 | R28, R43: four-step wizard; every device review; three pending partners; 44 fields; match verdict | First cost; unchanged sign-off caption | Retained; wizard labels/capture values unchanged. AI saves drafting; one reviewer's attention still limits intake. |
 | R31, R44: 48-hour/seven-day display thresholds; browser computation, no persistence/consumer; nine-day badge and 28-day window | Freshness decision; unchanged freshness caption | Retained; 28-day coverage is separate from age thresholds. No alert, export filter or workflow block added. Capture-time age is not a claim about today's badge. Incident vs planning judgment remains with reader. |
-| R32, R33: different upstream identifiers; exact→alias→fuzzy at 0.90; context matters; unmatched CSV creates partner | Alias context/chosen/cost | Precision repairs: telemetry key, name-based resolver on other feeds, auto-create only on partner-key CSV. Raw names recur; merging would recreate duplicates; human alias maintenance and unresolved admin-toil question retained. |
+| R32, R33: different upstream identifiers; exact→alias→fuzzy at 0.90; context matters; unmatched CSV creates partner | Alias context/chosen/cost | Precision repairs: telemetry key, name-based resolver on other feeds, auto-create only on partner-key CSV. Raw names recur; merging would recreate duplicates; the restored sentence explicitly says ambiguity is managed forever instead of eliminated once. Human alias maintenance and the unresolved admin-toil question remain. |
 | R34: blog, Mergepath, Swipe Watch links | Related links | Destinations and labels unchanged. No live governance or current-consumer relationship added. |
 | R39: fire-and-forget replaced by idempotent per-device retry queue/stale-job recovery | Five-feeds prose | Chronology and mechanism retained; no date or latency invented. |
 | R42: fifteen telemetry alerts, two emitted types, controls, closed reason and actor | Unchanged alerts caption | Retained verbatim with asset and placement. |
 | R45, R46: August 2026 scrub; synthetic operators/group/doc marker/header quote; ADK→SEK display; specs/history retain identities | Synthetic section | Retained; schema field names staying fixed makes display-only rename concrete. Exact dataset quotation preserved. Restricted demo and private repo explained separately. |
 | Older-snapshot judgment: good file can silently regress; cache with better branding; recorded intentional override | Older-snapshot rationale/rejected | Owner's judgment and the danger of plausible defaults retained. Unsupported generalization about “nearly every importer” is replaced with the concrete last-write-wins default. |
 | Freshness judgment: reader alone knows stakes; unread badge changes nothing | Freshness rationale/cost | Retained without claiming enforcement success. “Can be” makes the incident/planning example a decision context rather than a universal mandate. |
-| Closing thesis: source of truth answers authority/human/conflict; ambiguity has a home | Closing lessons | Both thesis lines and all four illustrations retained. |
+| Closing thesis: source of truth answers authority/human/conflict; ambiguity has a home | Closing lessons | The negative definition is followed by the restored positive thesis: the system decides three things and states them. All three authority/human/conflict questions and all four illustrations are retained. |
 | Closing costs: optional badge, maintained aliases, worked queue, attended intake | Closing lessons | All four costs retained; “registry that never asserts more than it can defend” remains the owner's design judgment, not a measured correctness guarantee. |
 
 ## Supporting changes and structural choices
@@ -376,19 +376,27 @@ Every ledger row and each uncatalogued thesis/cost is accounted for. “Retained
 The draft was rebased onto `ff2daa3e1f4b370a673d0f8ac75b757bdb171f72`, the verified main merge of Five Across #1299. The original factual baseline and source hash above remain the before-copy authority; this newer base supplies the shared evidence-paragraph style only. No authored Device copy changed during integration.
 
 - Uncredentialed final Astro build passes: 43 pages and 21 generated social cards, including this page's 163-character line and rendered fit.
-- Eight focused existing suites pass, 273/273: project pages, content schema, résumé claims review/body, Mermaid contrast, OG fit/crop/targets. These ran before the dependency refresh; the copy and résumé stamp are unchanged afterward.
-- Full responsive suite passed before the dependency refresh: 369 passed and 51 expected responsive-condition skips with two workers. Its all-file setup proved every file served from this checkout's dist was byte-identical.
+- Eight focused existing suites pass, 273/273: project pages, content schema, résumé claims review/body, Mermaid contrast, OG fit/crop/targets. These ran before the dependency refresh and before the final owner-requested wording changes; the focused rerun below covers the updated source and stamp.
+- Full responsive suite passed before the dependency refresh and final owner-requested wording changes: 369 passed and 51 expected responsive-condition skips with two workers. Its all-file setup proved every file served from this checkout's dist was byte-identical.
 - Final all-file served-byte verification and Mermaid accessibility checks pass after the dependency refresh. Desktop 1440×900 and phone 375×667 renders show all four complete decision records, no page errors and no horizontal overflow. Evidence text now computes to `white-space: pre-line` on both.
 - Lint passes, including the complete packet; typecheck reports zero errors/warnings. Sentence-case headings intentionally retain the prose linter's nonblocking CMOS title-case suggestions.
 - All fields in each of the four decisions were compared against decoded source on both viewports. Manual visual inspection covered the social card, desktop first decision and phone second/third/fourth decisions; the full-page and individual captures are available under `/tmp/project-voice-batch-2026-10-12/device-source-of-truth/`.
+- Final owner-condition readback: the uncredentialed rebuild passes 43 pages/21 OG cards; the focused project/schema/résumé-claims suite rerun passes 159/159 in three files. The built search meta is the exact 158-character source value. All three required phrases, the optional restored aliases sentence and the softer ending are present in the served reader copy. Markdown's existing apostrophe typography is normalized only for the readback comparison; authored source stays straight.
+- The final source page's served SHA-256 equals its built file: `92753d91a6566636aae9e595373539b061c246c87bea8a33152d1032e81d766c`. Desktop and phone renders show all fields in the four decision records without page errors/overflow; the positive thesis and phone aliases cost were visually inspected. No broad suite was repeated for these scoped wording changes.
 - `git diff --check` passes. Only the five assigned source/support/reference/packet files differ from the refreshed main. No PR, push, merge or deployment occurred in this draft worktree.
 
-The source SHA-256 is `33671bc3407f589fb65a48b8dd404b4401b0719388b06079b9c2c25e4228f175`; the captured baseline source SHA-256 is `9cab56fba530c995ac427d96b18ef5984d3a0c6aec7ee68fe7f55d599fcabf63`. The baseline is available losslessly with `git show 467d26110ae1b3850f03b88296300b4f23262909:src/content/projects/device-source-of-truth.mdx`; the draft is the complete source file alongside this packet.
+The source SHA-256 is `5df48dc4c241c30d7fd5d541813bd61946597a9e832a938b92544ad2dce317d0`; the captured baseline source SHA-256 is `9cab56fba530c995ac427d96b18ef5984d3a0c6aec7ee68fe7f55d599fcabf63`. The baseline is available losslessly with `git show 467d26110ae1b3850f03b88296300b4f23262909:src/content/projects/device-source-of-truth.mdx`; the draft is the complete source file alongside this packet.
 
-The protected-field checker preserves all 55 numeral occurrences, the date, link destinations, code span, complete Mermaid block and every other protected class. It reports one deliberate failure: `seoDescription` changed as required for this full voice rewrite. Title, slug and other pinned fields are unchanged; project tests derive this project's snippet rather than pin it verbatim. Description-change and spelled-out-number advisories are reviewed: the removed “one,” “second” and “twice” occurrences were rhetorical/repeated phrasing, while the four decisions, three roles, two freshness thresholds, five feeds, sixteen sections, four-step wizard and capture quantities still have their original subjects. Added “first” and “five” clarify order/count already established. No checker is weakened. Its body-only prose count is 1,080 → 941 words (-12.9%), separate from the complete reader count above.
+The protected-field checker preserves all 55 numeral occurrences, the date, link destinations, code span, complete Mermaid block and every other protected class. It reports one deliberate failure: `seoDescription` changed as required for this full voice rewrite. Title, slug and other pinned fields are unchanged; project tests derive this project's snippet rather than pin it verbatim. Description-change and spelled-out-number advisories are reviewed: the removed “one,” “second” and “twice” occurrences were rhetorical/repeated phrasing, while the four decisions, three roles, two freshness thresholds, five feeds, sixteen sections, four-step wizard and capture quantities still have their original subjects. Added “first” and “five” clarify order/count already established. No checker is weakened. Its body-only prose count is 1,080 → 949 words (-12.1%), separate from the complete reader count above.
 
 The blog voice CLI does not support project MDX. It is not reported as passing here. Mechanical checks do not prove attribution, meaning, voice, adoption or current deployed behavior. The manual original-to-draft and ledger comparison above supplies the reviewable evidence.
 
-## One owner approval decision
+## Owner approval conditions
 
-Approve this complete Device Source of Truth draft, its supporting ledger precision/qualification repairs, résumé review stamp and social reference for a PR and merge after the repository checks and review gates pass?
+The owner approved a PR and merge once these three changes were in. All three now appear in the complete reader draft and metadata above:
+
+1. The search rendition explicitly says a fork of the Disney system runs here on invented data. It is 158 characters.
+2. The negative definition of a source of truth is followed by: “It's a system that decides three things and says them out loud: what can become authoritative, what requires a human, and what happens when two sources disagree.”
+3. The personal-stakes sentence is: “It was the tool I'd wished existed before I sat down to build it.”
+
+The optional original aliases cost is also restored: “The ambiguity is managed forever instead of eliminated once.” The closing phrase remains “the trade I wanted to make,” as requested for now. These changes restore emphasis and clarify demo identity without adding outcomes or widening a factual claim. Root will verify the applied conditions before the PR workflow begins; repository checks and exact-head review gates remain part of the authorized merge workflow.

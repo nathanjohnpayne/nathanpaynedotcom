@@ -2,7 +2,7 @@
 title: "Device Source of Truth"
 slug: "device-source-of-truth"
 description: "I built a device registry inside Disney to put hardware, DRM, codecs and readiness in one place. This demo is a fork of that system, reseeded with data I invented."
-seoDescription: "Five feeds into one device registry. I let AI extract the questionnaire, then required human sign-off. The Disney system is shown here on invented data."
+seoDescription: "Five feeds into one device registry. I let AI extract the questionnaire, then required human sign-off. A fork of the Disney system runs here on invented data."
 cardDescription: "Five feeds, one registry. I let AI draft the heaviest intake, then kept every consequential commit with a human. The demo shows the workflow on invented data."
 kicker: "AI × Enterprise × Data"
 order: 3
@@ -60,7 +60,7 @@ decisions:
     context: "The same operator arrives under different identifiers: a key in telemetry, a friendly name in the key mapping, a name in the questionnaire header. I could have picked a canonical name, merged the records, and deleted the variants."
     chosen: "I put an alias registry in front of the partner records. Names resolve by exact match, then registered alias, then fuzzy similarity at 0.90. Alias hits are tagged direct or contextual: some names need the feed's context to resolve correctly. On the partner-key CSV import, an unmatched name creates a partner instead of failing the file."
     rationale: "The next export will send the variant names again. Merging the records would only let the next import recreate the duplicate. I kept the raw names resolvable to a canonical partner so the mess stayed at ingestion."
-    cost: "The ambiguity needs ongoing maintenance. Every feed carrying a partner name uses the resolver; an admin maintains the alias rules by hand. Telemetry resolves by partner key. A flat partner list still needs that machinery in front of it. I do not yet know whether the alias registry absorbs real upstream drift or becomes permanent admin toil."
+    cost: "The ambiguity is managed forever instead of eliminated once. Every feed carrying a partner name uses the resolver; an admin maintains the alias rules by hand. Telemetry resolves by partner key. A flat partner list still needs that machinery in front of it. I do not yet know whether the alias registry absorbs real upstream drift or becomes permanent admin toil."
     status: "pending"
 related:
   - label: "Blog: Six PRs, One Bug: What AI Agents Actually Get Wrong"
@@ -84,7 +84,7 @@ They were in Airtable, Datadog, partner-submitted Excel questionnaires, and spre
 
 I saw support tickets that should have been lookups, launch timelines slip while teams reconciled records, and partner conversations without a shared set of facts. That is my account of the cost. The repository does not document those outcomes.
 
-I built Device Source of Truth inside Disney to import those sources into one shared schema: a record I could query and audit. It came from the partner-engineering work I spent a decade doing there. I wanted this tool before I sat down to build it.
+I built Device Source of Truth inside Disney to import those sources into one shared schema: a record I could query and audit. It came from the partner-engineering work I spent a decade doing there. It was the tool I'd wished existed before I sat down to build it.
 
 **What is on this page is a fork of that system, running on data I invented for it.** It is the same codebase with the real records replaced, rather than a reimplementation from memory or the production instance.
 
@@ -172,7 +172,7 @@ The screenshots are what I can make inspectable: real workflows, invented data.
 
 ## What I learned
 
-A source of truth is not a database with all the data in it. Building DST made me answer three questions: what can become authoritative, what requires a human, and what happens when two sources disagree.
+A source of truth is not a database with all the data in it. It's a system that decides three things and says them out loud: what can become authoritative, what requires a human, and what happens when two sources disagree.
 
 DST did not eliminate ambiguity. It gave ambiguity somewhere to live. Stale records keep their age visible. Aliases stay at ingestion because the next export will send those names again. Unknown devices become work items with a remedy attached. AI extraction stays a proposal until someone signs it.
 
