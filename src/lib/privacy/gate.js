@@ -410,6 +410,20 @@
     return false;
   }
 
+  /**
+   * True on a host that never sends analytics (§ Gate 4): localhost and any
+   * `*.localhost` name, 127.0.0.1, and [::1]. Dev servers, `astro preview`,
+   * the e2e suite, and build-time renders serve the site from these. The Mux
+   * Data script skips them through this (#1297). posthog.astro's two blocks
+   * keep their own copies of the same test, so the PostHog output stays as
+   * it is; tests/privacy-runtime.test.js checks that all three classify every
+   * host alike.
+   */
+  function isLocalHost(hostname) {
+    var host = String(hostname);
+    return /^(localhost|127\.0\.0\.1|\[::1\])$/.test(host) || /\.localhost$/.test(host);
+  }
+
   function isAnalyticsUrl(input) {
     var raw =
       typeof input === 'string'
@@ -1159,6 +1173,7 @@
     encodeChainValue: encodeChainValue,
     isReplayExcluded: isReplayExcluded,
     isAnalyticsUrl: isAnalyticsUrl,
+    isLocalHost: isLocalHost,
     ALLOWED_QUERY_PARAMS: ALLOWED_QUERY_PARAMS,
     DROPPED_CLICK_IDS: DROPPED_CLICK_IDS,
     REPLAY_EXCLUDED_PATHS: REPLAY_EXCLUDED_PATHS,
