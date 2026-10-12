@@ -1,14 +1,16 @@
 # Matchline—voice approval packet
 
-Draft date: 2026-10-12. Status: complete draft pending owner approval for a PR and merge. No PR, push, merge, or deployment has occurred for this draft.
+Draft date: 2026-10-12. Status: revised draft awaiting a fresh owner approval pass. The earlier approval was superseded by the owner’s requested résumé-example changes and explicit instruction to approve again before a PR. No PR, push, merge, or deployment has occurred for this draft.
 
-Factual baseline: `467d26110ae1b3850f03b88296300b4f23262909`, `origin/main` when the pass began. Final validation includes dependency merge `ff2daa3e1f4b370a673d0f8ac75b757bdb171f72` (#1299), which supplies the evidence paragraph style; the captured original remains the initial baseline. Source: `src/content/projects/matchline.mdx`. Historical facts ledger: `plans/correctness-pass-2026-10-06/matchline-ledger.md`. Product evidence retains that ledger's pinned 2026-10-06 audit; this is a voice and meaning review, not a new live-product audit.
+Factual baseline: `467d26110ae1b3850f03b88296300b4f23262909`, `origin/main` when the pass began. Final validation includes dependency merge `ff2daa3e1f4b370a673d0f8ac75b757bdb171f72` (#1299), which supplies the evidence paragraph style; the captured original remains the initial baseline. Source: `src/content/projects/matchline.mdx`. Historical facts ledger: `plans/correctness-pass-2026-10-06/matchline-ledger.md`. Product evidence retains that ledger’s pinned 2026-10-06 audit, except the public fixture and public résumé were freshly verified on 2026-10-12 at Matchline main `798df55c3caee2cf32745f1cee003647591fb4a8`. The parent’s live Rules API read remains pending credentials; no API read or production mutation occurred. R11 stays source-only.
 
 ## Approval summary
 
-The complete page is rewritten: hero, homepage/project card, search and social renditions, three constraint glosses, all four decision records, and body prose. The narrator owns the choices and admits where my reply to a reviewer was wrong. Agents remain the implementation authors and independent reviewers. The original nine main sections and subsection remain, with every component, code block, table, synthetic exhibit, diagram, caption, and anchor in the same position. Long technical paragraphs now break where the claim changes; the three review defects become a readable list. Four decision titles and their two pending/two mixed statuses are retained after the cross-page reference search.
+The complete page is rewritten: hero, homepage/project card, search and social renditions, three constraint glosses, all four decision records, and body prose. The narrator owns the choices and admits where my reply to a reviewer was wrong. Agents remain the implementation authors and independent reviewers. The original nine main sections and subsection remain, with every component, code block, table, four-field exhibit, diagram, caption, and anchor in the same position. The exhibit’s contents now quote the owner’s dated real fixture rather than the synthetic Threadline candidate, as requested. Long technical paragraphs now break where the claim changes; the three review defects become a readable list. Four decision titles and their two pending/two mixed statuses are retained after the cross-page reference search.
 
 The 48% extraction/19% match against an 80% bar remains the card's baseline. The body keeps the exact aggregate 48.4%/19.1% separate from the single-fixture series and the repaired mapping's 19.4% result. The June mapping measurement is still real; the four-pair run under it and any run after the July cache still never happened. I make the export stub and mocked detector checks explicit, without presenting them as completed user validation.
+
+The owner requested the real résumé example and a sharper card. The new exhibit quotes Unit `u_ai_pr_review` from `nathan-2026`: PR cycle time from 7.4 to 4 days, beating the 30% Q2 OKR target, plus its exact skills, domains and tools. The public file labels 22 Units on April 26, 2026. A fresh anonymous public résumé read confirms the same claim. The date and fixture link make this a historical fixture quote, not another résumé wording-sync surface or evidence of a successful product run. The artifact now identifies that same résumé, pairs its real PR-cycle result with the fabricated 40% SAP HANA claim, and uses the owner’s direct testimony, “I’ve never worked on SAP HANA.”
 
 Two supporting repairs are visible. R11 no longer treats an anonymous client bundle and checked source rules as verification that another account is refused in production: the page names source allowlist enforcement and says deployed rules and a signed-in non-owner were not tested. R47 adds identity and CI tooling to the month-of-maintenance inventory, matching the audit's existing evidence. Both ledger summary/detail surfaces are updated in place. The pause is explicitly a launch/restart decision, not a claim that no product commits resumed.
 
@@ -16,7 +18,7 @@ The canonical résumé and site mirror still agree verbatim. Its evidence graph,
 
 ## Metadata proposed for approval
 
-The card supplies the homepage and project index. The explicit social description remains separate because the hero exceeds 180 characters. The search snippet is concise at 148 characters; it is not padded to fill the approximate 150–160 guide. No template or orphaned copy is added.
+The card supplies the homepage and project index. The explicit social description remains separate because the hero exceeds 180 characters. The search snippet is concise at 148 characters. The card is 125 characters and fits the existing 120–200 band and grid-volume ratio. The parent corrected the initial 109-character proposal after its hard test failure: “Paused before launch with” preserves the same facts and the owner’s preferred exact ending. The shared tests remain unchanged. No template or orphaned copy is added.
 
 ### Hero
 
@@ -28,7 +30,7 @@ The card supplies the homepage and project index. The explicit social descriptio
 
 **Before (144 characters):** Paused with better instruments and the same 48% extraction and 19% match against an 80% bar: the final session fixed the ruler, not the product.
 
-**After (155 characters):** Paused at 48% extraction and 19% match against an 80% bar. My final session made evaluation cheaper. I stopped before running the product through it again.
+**After (125 characters):** Paused before launch with 48% extraction and 19% match against an 80% bar. My final session fixed the ruler, not the product.
 
 ### Search snippet
 
@@ -44,7 +46,7 @@ The card supplies the homepage and project index. The explicit social descriptio
 
 ## Complete proposed page
 
-This reader view expands all four decision records and the constraint strip, with the unchanged schema, diagrams and synthetic fixture exhibit retained.
+This reader view expands all four decision records and the constraint strip. The schema, diagrams and capability table remain unchanged; the dated real-résumé fixture replaces the synthetic exhibit in its existing scaffold.
 
 # Matchline
 
@@ -111,16 +113,16 @@ export const ExtractedUnitV1Schema = z
   .strict();
 ```
 
-This hand-labeled Unit comes from the repository's evaluation corpus. The candidate is synthetic; the exhibit quotes the fixture:
+This one is mine. I labeled it from my own résumé on April 26, 2026, and the exhibit quotes [the fixture](https://github.com/nathanjohnpayne/matchline/blob/798df55c3caee2cf32745f1cee003647591fb4a8/tests/fixtures/expected-units/nathan-2026.json). The same claim is on my [published résumé](https://nathanpayne.com/resume/):
 
 <dl class="unit-exhibit">
-  <div><dt>Claim</dt><dd>Led Threadline B2B pivot from D2C-brand-as-customer to factory-as-customer, ran 38 customer development calls in six weeks; ARR per logo doubled, monthly churn dropped from 4.1% to 1.8%</dd></div>
-  <div><dt>Skills</dt><dd>customer development · go-to-market strategy · pricing strategy · founder-led sales</dd></div>
-  <div><dt>Domains</dt><dd>b2b saas · founder operations</dd></div>
-  <div><dt>Tools</dt><dd>—</dd></div>
+  <div><dt>Claim</dt><dd>Introduced AI-powered PR review reducing median PR cycle time from 7.4 to 4 days, beating the 30% Q2 OKR target</dd></div>
+  <div><dt>Skills</dt><dd>engineering productivity · AI tooling adoption · OKR ownership · process change</dd></div>
+  <div><dt>Domains</dt><dd>developer tools · AI-augmented engineering</dd></div>
+  <div><dt>Tools</dt><dd>GitHub · AI code review</dd></div>
 </dl>
 
-"Led a pivot" wouldn't give the matcher much to work with. This Unit names the pivot, the calls that informed it, and the two numbers that moved. It separates those details so the matcher can ask whether this claim answers a particular requirement.
+"Improved developer productivity" wouldn't give the matcher much to work with. This Unit names the change, the before and after, and the target it beat. It separates those details so the matcher can ask whether this claim answers a particular requirement.
 
 The fixture carries four fields. The scorer compares two: the summary and the skills. A production Unit also carries metrics, seniority and scope signals, an evidence type, and a confidence score. The model produces them; the server validates them against the contract above.
 
@@ -316,9 +318,9 @@ I spent the last working session on the instrument rather than the product.
 
 ## The artifact
 
-A validator that says "looks fine" can score well if every input is honest. I needed a case that should fail. The repository has a hand-labeled fabricated paragraph attached to a real résumé. It claims a multi-year x86 and Arm CPU roadmap, a hundred-million-VM fleet, a 40% throughput gain on SAP HANA, and $400M in contracts displacing a competitor.
+A validator that says "looks fine" can score well if every input is honest. I needed a case that should fail. The repository has a hand-labeled fabricated paragraph attached to my own résumé, the one the Unit above comes from. It claims a multi-year x86 and Arm CPU roadmap, a hundred-million-VM fleet, a 40% throughput gain on SAP HANA, and $400M in contracts displacing a competitor.
 
-None of those claims traces to an Experience Unit. The fixture lists all four, explains why each fails, and expects validation to fail.
+The Unit above records PR cycle time falling from 7.4 days to 4. I've never worked on SAP HANA. A 40% throughput gain on it is a claim I couldn't defend, however plausible the sentence sounds. None of those four claims traces to an Experience Unit. The fixture lists all four, explains why each fails, and expects validation to fail.
 
 That test runs in continuous integration against the Firestore emulator. Passing means the gate blocked the Export control, whose handler is still a stub. It proves the orchestration refuses a known untraceable claim. The model checks are mocked, so it doesn't establish that the model catches a new one. The integration reaches the database, not the model API.
 
@@ -428,6 +430,22 @@ Eight weeks of product work separated that repair from the cache, which landed i
 
 **Choice:** Keeps ownership and the second pushback; no reviewer mind-reading or claim that the first reply resolved the bug.
 
+### The dated owner example and fabricated claim
+
+**Before:** The exhibit quoted a synthetic Threadline founder’s pivot, 38 calls in six weeks, doubled ARR and churn from 4.1% to 1.8%, with four founder skills, two founder domains and no tools. Its explanation began “Led a pivot.” The artifact was attached to “a real résumé,” without identifying whose.
+
+**After:** The April 26, 2026 `nathan-2026` fixture quotes “Introduced AI-powered PR review reducing median PR cycle time from 7.4 to 4 days, beating the 30% Q2 OKR target,” with its four engineering/process skills, two developer-tool domains and GitHub/AI code review tools. The published résumé link confirms the same underlying claim. “Improved developer productivity” gives way to the specific change, before/after and target. The artifact explicitly attaches to “my own résumé, the one the Unit above comes from,” and pairs the real PR-cycle result with a fabricated 40% SAP HANA gain: “I’ve never worked on SAP HANA.”
+
+**Choice:** This is an owner-requested substantive example replacement, awaiting the new approval pass. The original Threadline numbers and fields are deliberately removed; the schema and `<dl>` scaffold remain. R35 preserves the old audit chronology and records fresh public provenance. R43 records the shared `resume_fixture_id` and distinguishes direct human testimony from source verification. Mocked checks, the stub Export control, and no recorded real application still bound the example.
+
+### The requested card
+
+**Previous prepared draft (155 characters):** Paused at 48% extraction and 19% match against an 80% bar. My final session made evaluation cheaper. I stopped before running the product through it again.
+
+**Revised draft (125 characters):** Paused before launch with 48% extraction and 19% match against an 80% bar. My final session fixed the ruler, not the product.
+
+**Choice:** Restores the owner’s preferred ending with normal spaces. The initial 109-character proposal failed the global 120-character floor and would exceed the grid ratio; the parent supplied this 125-character wording, adding the already-established pre-launch fact. The capitalized “Paused” also preserves the unchanged route-test pin. All shared checks remain unchanged and the owner will see this revised wording in the fresh approval pass. The final-session claim remains instrumentation work, and the full record still says no post-cache run occurred. This does not collapse the measured June mapping repair into the July final session.
+
 ## Complete substantive-point and qualification mapping
 
 Every distinct point in the original is accounted for below. Row numbers refer to the existing historical audit. Its source pin and historical quotes are evidence context, not a new claim that current deployment or model behavior was checked.
@@ -445,8 +463,8 @@ Every distinct point in the original is accounted for below. Row numbers refer t
 | Complete capability table: three Built rows, unvalidated gate, Phase 2 export stub, measured cost and latency | Exact capability table retained byte-for-byte (R8–R9, R57). |
 | Deferred LinkedIn/long-form ingestion; never-built PRDs, decks and retros; visible correction of earlier page | What got built explicitly retains correction and distinguishes specified from built, matching existing ledger (R56). |
 | Checkable Experience Unit; strict schema, required evidence, confidence bound and exact code | Evidence model introduction rewritten; exact TypeScript code block retained, including existing comment elision (R34, R36). |
-| Synthetic Threadline fixture: 38 calls in six weeks, doubled ARR, churn 4.1% to 1.8%, skills/domains/no tools | Exact HTML exhibit retained byte-for-byte, with synthetic provenance directly above it. It is not owner work history (R35). |
-| Specific pivot, calls and two changed numbers give the matcher a checkable claim | Prose after exhibit retains specificity and mapping rationale. |
+| Synthetic Threadline fixture: 38 calls in six weeks, doubled ARR, churn 4.1% to 1.8%, skills/domains/no tools | Deliberately replaced at the owner’s request with the dated real nathan-2026 Unit: 7.4 to 4 days, 30% Q2 OKR, exact four skills/two domains/two tools. R35 records public provenance and retains the original audit as historical. Four-field HTML scaffold stays; this substantive inventory change needs the fresh approval pass. |
+| Specific pivot, calls and two changed numbers give the matcher a checkable claim | The replacement illustrates the same point with a specific PR-review change, before/after and target, rather than “Improved developer productivity.” |
 | Four fixture fields, two scored fields; production metrics/signals/evidence type/confidence; server validation | Evidence model keeps all fields/counts and provenance split (R7, R36). |
 | Extractor cannot set approval; server writes unapproved; review before matching; four consumers as of 2026-10-06 | Evidence model retains exclusion, write default, review and consumer count/date (R15, R36). |
 | Hand-typed Units pre-approved and user_confirmed; the user's own assertion | Evidence model preserves manual route and exact code identifier (R37). |
@@ -475,11 +493,11 @@ Every distinct point in the original is accounted for below. Row numbers refer t
 | Cheap instrument but inadequate accuracy; missing four-pair run; finished corpus and real application also needed | Priority cost retains every readiness condition and next-step limit (R5). |
 | Work stopped before Five Across repository creation, except final cache; next product commit a month later | Priority evidence retains event ordering and calendar-month relation (R31). |
 | Both 80% extraction and 80% matching quality bars unmet | Measurement opening preserves both bars and failures (R39). |
-| 3.3% string equality → 34% overlap → 50.3% coverage; vocabulary about 220 → 415 adds one point to 51.3% | Body and unchanged second Mermaid preserve every value, two ruler changes, one product change and unreachedtarget (R40). |
+| 3.3% string equality → 34% overlap → 50.3% coverage; vocabulary about 220 → 415 adds one point to 51.3% | Body and unchanged second Mermaid preserve every value, two ruler changes, one product change and unreached target (R40). |
 | All four figures from one pair; same-day four-pair/three-sample aggregate 48.4%/19.1% remains baseline | Measurement body preserves scope, date ordering and exact aggregate (R2, R41). |
 | Vocabulary also moved match 4.2% → 16.7%; mean 18.1%, range 12.5%–25%, eight-to-thirteen points of noise | Body retains full series and approximate noise wording (R42). |
 | Last working session repaired the instrument | Body preserves singular final-session qualification (R6). |
-| Easy-to-fake validator; fabricated real-résumé paragraph claiming CPU roadmap, hundred-million-VM fleet, 40% HANA gain and $400M contracts | Artifact retains all four fabricated claims, explicitly fabricated rather than owner accomplishments (R43). |
+| Easy-to-fake validator; fabricated real-résumé paragraph claiming CPU roadmap, hundred-million-VM fleet, 40% HANA gain and $400M contracts | Artifact retains all four fabricated claims, now identifies the owner’s résumé and pairs the real PR-cycle result with the fabricated SAP HANA gain. The personal denial is owner testimony, with fixture corroboration (R43). |
 | Four untraceable claims, individual reasons and expected failed validation | Artifact retains fixture evidence and count (R43). |
 | CI and Firestore emulator; gate blocks known claim, models mocked, database integration, export stub | Artifact keeps tested boundary and names the actual blocked control (R9, R44). |
 | Agents wrote and independent identities reviewed; seniority, schema and rejected-match defects | How it was built retains all defects and attribution, now as readable list (R45). |
@@ -490,14 +508,14 @@ Every distinct point in the original is accounted for below. Row numbers refer t
 | 2026-09-30 owner allowlist in source; anonymous shell, no corpus; deployment enforcement unverified | Same section retains checked source gates and anonymous shell, explicitly removes unverified deployed-other-account assertion (R11 repair). |
 | No earlier restart/kill criteria, but phase exit criteria; building versus deciding | Restart intro keeps admission and finding, written as criteria proposed on page (R51). |
 | Resume with labeled corpus, trustworthy measurement and one real application; Phase 2 criterion unmet | Restart list retains all three conditions. The unmet condition remains owner's testimony; repository absence alone cannot prove it (R19). |
-| Kill after poor full tuning cycle or finishing search without using it; primary tool versus spreadsheet | Kill list keeps both criteria and stated successmetric (R52). |
-| September 2026 job search resumed, providing the previously missing test situation | Where it stands keeps dated owner situation; no completed realapplication validation is implied (R23). |
+| Kill after poor full tuning cycle or finishing search without using it; primary tool versus spreadsheet | Kill list keeps both criteria and stated success metric (R52). |
+| September 2026 job search resumed, providing the previously missing test situation | Where it stands keeps dated owner situation; no completed real application validation is implied (R23). |
 | Page-writing exposed three failures: invoker/CORS, secret newlines/auth, sixty-second timeout/three calls | Where it stands preserves all failures and owner causal testimony; timestamps corroborate sequence only (R20, R53). |
-| Extraction/JD parsing ran after fixes; ontology undercoverage; jaccard zeroed 45% until 2026-09-01 fix | Same subsection retains whole chronology and residual ontologyproblem (R13, R54). |
+| Extraction/JD parsing ran after fixes; ontology undercoverage; jaccard zeroed 45% until 2026-09-01 fix | Same subsection retains whole chronology and residual ontology problem (R13, R54). |
 | Subscription CLI avoids metered Anthropic cap and roughly twelve-run limit; no new accuracy result claimed | Same subsection keeps route and budget benefit without claiming equivalent output or completed post-cache evaluation (R55). |
 | Project still paused; working infrastructure, cheap experiments and job search need a deliberate restart | Same subsection keeps status and human decision requirement. Continued commits don't count as restart. |
 | Plausible output easier than trustworthy evidence and measurement; first half got further | Closing preserves both lessons and ordering. |
-| Evidence/claim gate built, matching below bar; stopped after instrument, paused before shipping | Closing preserves capability and outcome limitations, with exportstub already explicit. |
+| Evidence/claim gate built, matching below bar; stopped after instrument, paused before shipping | Closing preserves capability and outcome limitations, with export stub already explicit. |
 | Exact thesis: an existing product may not work; a moving metric may not mean improvement | Exact concluding thesis preserved. |
 | Related Mergepath and Five Across links | Labels/destinations unchanged (R33). |
 
@@ -509,21 +527,22 @@ Every distinct point in the original is accounted for below. Row numbers refer t
 - The source keeps market premises, no-external-research testimony, reason for prioritizing the cruise, Phase 2's unmet real-application condition, and page-writing causation in their original judgment/testimony scope. Neither repository absence nor timestamps become proof of experiences or causes beyond the evidence.
 - Two gates do not prove a reliable detector. The fixture checks orchestration with mocked model calls and a stub export control. Both limits remain in the record, table and narrative.
 - The measured June mapping repair is not folded into the July final session. Its one fixture/three samples establish reduced range for that fixture, not corpus accuracy or product improvement. The four-pair aggregate remains separate from single-fixture results everywhere.
-- The exact schema code, capability table, synthetic exhibit, Mermaid code/accessibility descriptions and captions are unchanged. Original decision assertions containing “not” are retained because they carry the existing product positions, not filler contrasts.
+- R35/R43 now record fresh public-fixture identity, label date, 22-Unit count, exact fields, shared résumé identity, current public résumé confirmation, and the owner’s SAP HANA testimony. The old synthetic audit is preserved as historical. The replacement is dated evidence, not an added résumé sync contract.
+- The exact schema code, capability table, Mermaid code/accessibility descriptions and captions are unchanged. The exhibit contents and their protected numeral inventory change only for the owner-requested real example; its four-field HTML scaffold is identical. Original decision assertions containing “not” are retained because they carry the existing product positions, not filler contrasts.
 - The installed writing-style skill used supplied owner-designated model prose and approved model revisions from the batch brief. They are style references, not newly user-authored writing or new facts. No private writing was retrieved, cached, or used as style evidence; only the needed canonical résumé project section was read for factual fidelity.
 
 ## Validation and mechanical exceptions
 
-The reader-facing authored text is 2948 → 2791 words, a 5.3% cut. This counts title, hero, format/focus/stack, constraint values/glosses, all decision text/lenses/statuses, and visible body prose/headings/captions/table/exhibit; it excludes imports/components, raw HTML and Markdown structural markers, fenced schema/diagram source and hidden accessibility metadata, template labels, and separate card/search/social renditions. It uses whitespace-separated words after stripping those markers and destinations. The brevity checker separately reports whole source 3,611 → 3,458 and body-only prose 1,815 → 1,721 (−5.2%); these include/exclude different surfaces and are not the full reader count.
+The reader-facing authored text is 2948 → 2842 words, a 3.6% cut. This counts title, hero, format/focus/stack, constraint values/glosses, all decision text/lenses/statuses, and visible body prose/headings/captions/table/exhibit; it excludes imports/components, raw HTML and Markdown structural markers, fenced schema/diagram source and hidden accessibility metadata, template labels, and separate card/search/social renditions. It uses whitespace-separated words after stripping those markers and destinations. The brevity checker separately reports whole source 3,611 → 3,505 and body-only prose 1,815 → 1,772 (−2.4%); these include/exclude different surfaces and are not the full reader count.
 
-The brevity checker reports two intentional failures: the search description was deliberately rewritten, and its indented-code detector treats changed YAML decision evidence scalars as protected code. The literal scalars are authored paragraphs, not executable code. All protected URLs/link destinations, PR-reference occurrences, numeric tokens, dates, inline code spans, fenced schema/Mermaid blocks and tables remain unchanged by occurrence. The synthetic HTML exhibit is also byte-identical. The spelled-out-number advisory was manually reviewed with each claim above: twelve phrases, four fixture fields/two scored, four consumers, four core steps, one versus thousand users, three samples/one fixture, eight weeks, four-pair corpus, two repairs, three failures, two orange gates, four fabricated claims, second reviewer pushback and roughly twelve tuning runs remain. Removed occurrences are duplicate ordinals or alternative wording, not lost counts. No checker was weakened.
+The brevity checker reports six intentional failures: rewritten search description; its indented-code detector treats changed YAML decision evidence paragraphs as protected code; the two new public fixture/résumé URLs and corresponding link destinations; the new April 26, 2026 label date; and the changed numeral inventory. The owner-requested real exhibit removes the synthetic 38 calls, 4.1%/1.8% churn and six-week/doubled-ARR details, and adds the verified 7.4-to-4 result, 30% target and fixture date. Repetition of 7.4/4/40% in the artifact is deliberate pairing of real versus fabricated claims. The link’s SHA/fixture-year digits are new provenance, not changed product milestones. Existing schema/diagram/table/inline-code blocks and original non-exhibit protected dates, metrics, URLs and references remain. The four-field HTML scaffold is unchanged, while its contents are an explicit substantive proposal for approval. The spelled-out-number advisory was manually reviewed across twelve phrases, four fixture fields/two scored, four consumers, four core steps, one versus thousand users, three samples/one fixture, eight weeks, four-pair corpus, two repairs, three failures, two orange gates, four fabricated claims, second reviewer pushback and roughly twelve tuning runs. No checker was weakened.
 
 The blog voice CLI rejects project MDX with exit 2, “Supply one blog Markdown (.md) file.” It has not passed this page. Sentence-case headings, straight apostrophes, American spelling, narrator pronouns, quotation/source attribution and complete original/ledger meaning comparison were reviewed manually. Original decision assertions containing “not” are retained as substantive positions. Two exact regression-test phrases are preserved inside the rewrite: the ingestion retraction and lower-case missing Cloud Run invoker bindings; tests were not changed. No new tests were added for copy.
 
-Final uncredentialed build passed and includes #1299. The initial six focused suites had 278 passing assertions, 5 existing skips and two exact-phrase failures in project-page checks. Those source phrases were restored; only the affected project/schema/résumé-stamp subset was rerun on the final source. The final subset passed 159 tests. The completed responsive suite passed 369 tests with 51 existing skips. Lint passed (its advisory CMOS title-case suggestions are kept because the task calls for sentence-case headings); typecheck reported 0 errors and 0 warnings. Final changed-file prose lint was run after the restored phrases and packet update. The first browser setup rejected a sibling build at the requested port before any browser tests ran. Astro had selected a different port for this worktree. Final checks use the returned :4466 address, with all served bytes verified against this dist. No sibling server was adopted or stopped.
+The revised real-exhibit source passed an uncredentialed Astro build, with #1299 included. All 159 scoped project/content-schema/résumé-stamp tests pass on the final 125-character card, with no test change. The earlier 109-character proposal failed the band and the first 125-character wording failed the case-sensitive “Paused” route pin; the final parent-supplied wording satisfies both unchanged checks. Scoped desktop/phone Mermaid checks passed 17 tests with one existing skip after the final build; global setup verified every served file against this worktree’s dist. Changed-file prose lint and diff checks passed; sentence-case title warnings remain advisory. The previous complete responsive suite passed 369 tests with 51 existing skips; lint/typecheck had no errors or warnings. The copy-only exhibit revision does not require a new broad suite. Original exact regression phrases remain and no tests/checker were changed.
 
-At 1440px and 375px, every authored field in all four decision records renders exactly; there is no page error, document overflow or article-copy overflow. All three authored evidence fields compute to `white-space: pre-line`, and screenshots show their paragraph gaps. Scope retains its original omitted pending-evidence field rather than inventing an outcome. Desktop/phone heroes and decision records and the regenerated 168-character social card were inspected visually, with no clipping. Render evidence is in `/tmp/project-voice-batch-2026-10-12/matchline/` (desktop/phone top, full page and decision 1–4 captures; `visual.json`). Only this project's generated OG reference is included in the commit.
+At 1440px and 375px, every authored field in all four decision records renders exactly, all three existing evidence fields compute to `white-space: pre-line`, and there are no page errors, document overflow or article-copy overflow. Separate render checks compare all four Unit fields with the public fixture, verify the public résumé link, and compare the project-index card with the exact 125-character source. Desktop/phone Unit and card screenshots were inspected, with no clipping. The unchanged 168-character social description still fits its regenerated card. Evidence lives in `/tmp/project-voice-batch-2026-10-12/matchline/`. Only this project’s generated OG reference is included. The parent’s Rules API read is pending credentials, so no production-authorization proof or signed-in non-owner test is claimed; no retry was attempted here.
 
 ## Approval prompt
 
-Do you approve this complete Matchline rewrite, including the explicit export stub, source-versus-deployment boundary, maintenance inventory repair and hero/card/search/social renditions, for a PR and merge after the required PR checks? Deployment is handled separately by the parent workflow.
+Do you approve this revised complete Matchline page, including the dated real résumé fixture, public résumé link, personal SAP HANA testimony, 125-character card, explicit mocked-detector/export-stub limits, and the source-only rules boundary pending live verification, for a PR and merge after the required PR checks? Deployment is handled separately by the parent workflow.

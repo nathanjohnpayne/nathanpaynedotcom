@@ -3,7 +3,7 @@ title: "Matchline"
 slug: "matchline"
 description: "I built a career CRM to turn my work history into evidence I could reuse and defend. Claims have to trace to evidence I've approved. I paused before launch, after repairing the measurement system and before running it against the product again."
 seoDescription: "My career CRM traces claims to approved evidence. Paused before launch at 48% extraction and 19% match against an 80% bar, with export still a stub."
-cardDescription: "Paused at 48% extraction and 19% match against an 80% bar. My final session made evaluation cheaper. I stopped before running the product through it again."
+cardDescription: "Paused before launch with 48% extraction and 19% match against an 80% bar. My final session fixed the ruler, not the product."
 ogDescription: "I built a career CRM around evidence I could defend. Claims have to trace to evidence I've approved. I paused before launch; the export behind the gate is still a stub."
 kicker: "AI × Product × Career Tools"
 order: 4
@@ -134,16 +134,16 @@ export const ExtractedUnitV1Schema = z
   .strict();
 ```
 
-This hand-labeled Unit comes from the repository's evaluation corpus. The candidate is synthetic; the exhibit quotes the fixture:
+This one is mine. I labeled it from my own résumé on April 26, 2026, and the exhibit quotes [the fixture](https://github.com/nathanjohnpayne/matchline/blob/798df55c3caee2cf32745f1cee003647591fb4a8/tests/fixtures/expected-units/nathan-2026.json). The same claim is on my [published résumé](https://nathanpayne.com/resume/):
 
 <dl class="unit-exhibit">
-  <div><dt>Claim</dt><dd>Led Threadline B2B pivot from D2C-brand-as-customer to factory-as-customer, ran 38 customer development calls in six weeks; ARR per logo doubled, monthly churn dropped from 4.1% to 1.8%</dd></div>
-  <div><dt>Skills</dt><dd>customer development · go-to-market strategy · pricing strategy · founder-led sales</dd></div>
-  <div><dt>Domains</dt><dd>b2b saas · founder operations</dd></div>
-  <div><dt>Tools</dt><dd>—</dd></div>
+  <div><dt>Claim</dt><dd>Introduced AI-powered PR review reducing median PR cycle time from 7.4 to 4 days, beating the 30% Q2 OKR target</dd></div>
+  <div><dt>Skills</dt><dd>engineering productivity · AI tooling adoption · OKR ownership · process change</dd></div>
+  <div><dt>Domains</dt><dd>developer tools · AI-augmented engineering</dd></div>
+  <div><dt>Tools</dt><dd>GitHub · AI code review</dd></div>
 </dl>
 
-"Led a pivot" wouldn't give the matcher much to work with. This Unit names the pivot, the calls that informed it, and the two numbers that moved. It separates those details so the matcher can ask whether this claim answers a particular requirement.
+"Improved developer productivity" wouldn't give the matcher much to work with. This Unit names the change, the before and after, and the target it beat. It separates those details so the matcher can ask whether this claim answers a particular requirement.
 
 The fixture carries four fields. The scorer compares two: the summary and the skills. A production Unit also carries metrics, seniority and scope signals, an evidence type, and a confidence score. The model produces them; the server validates them against the contract above.
 
@@ -227,9 +227,9 @@ I spent the last working session on the instrument rather than the product.
 
 ## The artifact
 
-A validator that says "looks fine" can score well if every input is honest. I needed a case that should fail. The repository has a hand-labeled fabricated paragraph attached to a real résumé. It claims a multi-year x86 and Arm CPU roadmap, a hundred-million-VM fleet, a 40% throughput gain on SAP HANA, and $400M in contracts displacing a competitor.
+A validator that says "looks fine" can score well if every input is honest. I needed a case that should fail. The repository has a hand-labeled fabricated paragraph attached to my own résumé, the one the Unit above comes from. It claims a multi-year x86 and Arm CPU roadmap, a hundred-million-VM fleet, a 40% throughput gain on SAP HANA, and $400M in contracts displacing a competitor.
 
-None of those claims traces to an Experience Unit. The fixture lists all four, explains why each fails, and expects validation to fail.
+The Unit above records PR cycle time falling from 7.4 days to 4. I've never worked on SAP HANA. A 40% throughput gain on it is a claim I couldn't defend, however plausible the sentence sounds. None of those four claims traces to an Experience Unit. The fixture lists all four, explains why each fails, and expects validation to fail.
 
 That test runs in continuous integration against the Firestore emulator. Passing means the gate blocked the Export control, whose handler is still a stub. It proves the orchestration refuses a known untraceable claim. The model checks are mocked, so it doesn't establish that the model catches a new one. The integration reaches the database, not the model API.
 
