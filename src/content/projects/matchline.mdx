@@ -229,7 +229,7 @@ I spent the last working session on the instrument rather than the product.
 
 A validator that says "looks fine" can score well if every input is honest. I needed a case that should fail. The repository has a hand-labeled fabricated paragraph attached to my own résumé, the one the Unit above comes from. It claims a multi-year x86 and Arm CPU roadmap, a hundred-million-VM fleet, a 40% throughput gain on SAP HANA, and $400M in contracts displacing a competitor.
 
-The Unit above records PR cycle time falling from 7.4 days to 4. I've never worked on SAP HANA. A 40% throughput gain on it is a claim I couldn't defend, however plausible the sentence sounds. None of those four claims traces to an Experience Unit. The fixture lists all four, explains why each fails, and expects validation to fail.
+Both claims carry a number. The 7.4-to-4-day cycle time traces to the Unit above. I've never worked on SAP HANA, so a 40% throughput gain on it is a claim I couldn't defend, however plausible the sentence sounds. None of those four claims traces to an Experience Unit. The fixture lists all four, explains why each fails, and expects validation to fail.
 
 That test runs in continuous integration against the Firestore emulator. Passing means the gate blocked the Export control, whose handler is still a stub. It proves the orchestration refuses a known untraceable claim. The model checks are mocked, so it doesn't establish that the model catches a new one. The integration reaches the database, not the model API.
 
