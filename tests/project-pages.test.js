@@ -346,7 +346,7 @@ describe('Project Pages — routes', () => {
     const metaDescription = description?.getAttribute('content');
 
     expect(metaDescription).toBe(
-      'A repository standard for AI-agent development: independent review identities, fail-closed gates, and cross-repo propagation—with the failures on the record.',
+      'I built Mergepath to govern AI coding agents across repositories, with separate review accounts, merge gates, shared rules, and the failures kept on the record.',
     );
     expect(webPage.description).toBe(metaDescription);
     expect(webPage.keywords).toBe('Infrastructure, AI Tooling, GitHub Actions, Bash');
