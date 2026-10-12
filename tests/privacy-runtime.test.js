@@ -128,7 +128,7 @@ describe('gate source', () => {
     expect(GATE_SRC).not.toMatch(/<\/?script|<!--/i);
   });
 
-  it('carries every runtime marker the flag-off check looks for', () => {
+  it('carries every runtime marker the production-build check looks for', () => {
     for (const marker of ['npPrivacy', 'np:privacy-change', 'data-np-privacy', 'np-privacy']) {
       expect(GATE_SRC).toContain(marker);
     }
@@ -2051,7 +2051,7 @@ describe('Mux Data under the gate (#1264)', () => {
       /\bfetch\(|sendBeacon\(|new XMLHttpRequest|importScripts|\bimport\(|\.src\s*=/,
     );
     expect(MUX_DATA_SRC).not.toMatch(/<\/?script|<!--/i);
-    // A runtime marker, so the flag-off check fails if it is ever rendered there.
+    // A runtime marker, so the production-build check expects it in the inline page only.
     expect(MUX_DATA_SRC).toContain('npPrivacy');
   });
 
@@ -2105,6 +2105,33 @@ describe('Mux Data under the gate (#1264)', () => {
     expect(video.mux).toBeUndefined();
   });
 
+  // #1297: dev servers, `astro preview`, and the e2e suite serve the site
+  // from a local host; Mux Data skips them as PostHog does.
+  it.each([
+    'http://localhost:4321/projects/swipe-watch/',
+    'http://127.0.0.1:4321/projects/swipe-watch/',
+    'http://[::1]:4321/projects/swipe-watch/',
+    'http://preview.localhost/projects/swipe-watch/',
+  ])('never starts a monitor on the local host %s', (url) => {
+    const { w, embed, video, loaded, privacy } = runMuxPage({ url });
+    // Analytics are allowed here; only the host stops Mux Data.
+    expect(privacy.get().effective).toBe('granted');
+    expect(loaded).toBe(true);
+    expect(w.mux).toBeUndefined();
+    expect(embed.calls).toEqual([]);
+    expect(video.mux).toBeUndefined();
+  });
+
+  it.each([
+    'https://nathanpayne.test/projects/swipe-watch/',
+    'https://nathanpayne.com/projects/swipe-watch/',
+    'https://localhost.nathanpayne.com/projects/swipe-watch/',
+  ])('still monitors on %s, which is not a local host', (url) => {
+    const { embed, video } = runMuxPage({ url });
+    expect(embed.calls).toHaveLength(1);
+    expect(embed.calls[0].target).toBe(video);
+  });
+
   it('stops on withdrawal: monitors destroyed, the global gone, and litix.io refused', async () => {
     const { w, embed, video, privacy, sent } = runMuxPage();
     expect(embed.calls).toHaveLength(1);
@@ -2129,5 +2156,74 @@ describe('Mux Data under the gate (#1264)', () => {
     expect(w.mux).toBeUndefined();
     expect(embed.calls).toEqual([]);
     expect(video.mux).toBeUndefined();
+  });
+});
+
+describe('local hosts (§ Gate 4, #1297)', () => {
+  it.each([
+    ['localhost', true],
+    ['127.0.0.1', true],
+    ['[::1]', true],
+    ['preview.localhost', true],
+    ['a.b.localhost', true],
+    ['nathanpayne.test', false],
+    ['nathanpayne.com', false],
+    ['localhost.nathanpayne.com', false],
+    ['notlocalhost', false],
+    ['127.0.0.2', false],
+    ['', false],
+  ])('classifies %j as local: %s', (host, expected) => {
+    expect(boot().gate.isLocalHost(host)).toBe(expected);
+  });
+
+  /**
+   * The local-host test a PostHog block makes, run from its own source: the
+   * expression assigned to `variable`, evaluated with `host` bound to the
+   * hostname it reads (`pageHost` in the flag-on block, `posthogHost` in the
+   * flag-off one).
+   */
+  function postHogLocalTest(block, variable, host) {
+    const match = new RegExp(`const ${variable} =([^;]+);`).exec(block);
+    expect(match, `${variable} in posthog.astro`).not.toBeNull();
+    return new Function(host, `return (${match[1]});`);
+  }
+
+  it("classifies every host exactly as both PostHog blocks' own tests do, so the copies cannot drift", () => {
+    const { gate } = boot();
+    const flagOn = postHogLocalTest(POSTHOG_ON, 'pageIsLocal', 'pageHost');
+    const flagOff = postHogLocalTest(
+      scriptBody(POSTHOG_SRC, '<script is:inline define:vars={{ token }}>', 0),
+      'posthogIsLocal',
+      'posthogHost',
+    );
+    const hosts = [
+      'localhost',
+      '127.0.0.1',
+      '[::1]',
+      'preview.localhost',
+      'a.b.localhost',
+      '.localhost',
+      'localhost.',
+      'nathanpayne.test',
+      'nathanpayne.com',
+      'localhost.nathanpayne.com',
+      'notlocalhost',
+      'mylocalhost',
+      '127.0.0.2',
+      '127.0.0.1.example',
+      '0.0.0.0',
+      '::1',
+      'LOCALHOST',
+      '',
+    ];
+    for (const host of hosts) {
+      const expected = gate.isLocalHost(host);
+      expect(flagOn(host), `flag-on PostHog on ${JSON.stringify(host)}`).toBe(expected);
+      expect(flagOff(host), `flag-off PostHog on ${JSON.stringify(host)}`).toBe(expected);
+    }
+    // The table holds both answers, so agreement is not agreement on one.
+    expect(new Set(hosts.map((h) => gate.isLocalHost(h)))).toEqual(new Set([true, false]));
+    // The Mux Data script uses the gate's.
+    expect(MUX_DATA_SRC).toContain('gate.isLocalHost(w.location.hostname)');
   });
 });

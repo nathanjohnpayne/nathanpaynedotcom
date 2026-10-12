@@ -296,11 +296,15 @@ describe('Homepage Builds grid mirrors the projects collection (#892)', () => {
     // grammar reserves for actions. PostHog says this is not an action: over
     // 90 days /projects/ took 1 of its 82 views from this page. It is
     // wayfinding, so it now carries the eyebrow-scale treatment the other two
-    // panel exits use, and no button renders on the home grid at all.
+    // panel exits use, and no button renders on the home grid at all. The
+    // privacy notice (#1079, on since #1233) is not part of the grid: it is an
+    // aside with its own two buttons, mounted outside the page content.
     expect(exit.classList.contains('nav-button'), 'the exit should not be a button').toBe(false);
     expect(
-      document.querySelectorAll('.nav-button').length,
-      'no .nav-button should render on the home page',
+      [...document.querySelectorAll('.nav-button')].filter(
+        (el) => !el.closest('#np-privacy-notice'),
+      ).length,
+      'no .nav-button should render on the home grid',
     ).toBe(0);
   });
 });

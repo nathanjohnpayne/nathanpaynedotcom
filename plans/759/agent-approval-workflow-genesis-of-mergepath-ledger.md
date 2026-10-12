@@ -282,6 +282,12 @@ Corrected value: the tracking issues closed within eighteen seconds of one anoth
 
 **UNPROVABLE.** There is no comparison population, no outcome measure, and no ledger. Nothing in the repository records a same-conversation-review arm to compare against, and no defect-detection rate is computed either way. The post itself concedes "I do not have a mechanistic explanation"—the missing thing is not the mechanism, it is the measurement. Defensible form: a repeated observation across Claude Code, Cursor, and Codex, stated as such. Drop "measurably", which promises a denominator the post does not have. #739's acceptance criteria allow exactly this recasting. Source: absence. No A/B record, no review-quality ledger for April 2026 in `mergepath`.
 
+### G2—Rule recitation and the selective-memory pullquote: owner testimony
+
+> Current article body at line 52: "All of them could quote it back."; body at line 76: "An agent could quote the rule back to me and still skip review."; pullquote at line 21 and its body counterpart at line 74: "Like humans, they'd selectively remember the rules based on what was easiest, or what they thought they could get away with."
+
+**UNPROVABLE independently; owner-attested as a first-person recollection on 2026-10-12.** On 2026-10-12, in parent chat `01a1135d-d82d-7790-9c5e-8c5198d03dd0`, the owner was asked "Do you remember all three agents quoting the no-direct-push rule back to you, as Genesis says?" and answered "Yes, I remember that". This supports the author's recollection of Claude Code, Cursor, and Codex quoting the rule, not independent corroboration. No contemporaneous transcript of the agent recitations or independent proof was supplied. It does not establish the agents' internal motives or measure how often they skipped the rule. The second pullquote remains the author's interpretation, not a finding about model intent. These two body recitation occurrences and the related pullquote are recorded together so a future pass does not mistake the post's self-quotation for additional evidence. Defensible form: retain the first-person account as owner-attested and identify its evidence boundary. Source: the direct owner question/answer in the named parent chat, reported by its coordinating agent; see the later correctness ledger U6 for the same attestation. The article is unchanged by this records-only follow-up.
+
 ---
 
 ## H. Claims that stand as written

@@ -29,6 +29,7 @@ import {
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import {
+  LOCAL_SITE_HOST,
   SITE_HOST,
   egressArgs,
   installDefaultDenyRoute,
@@ -45,6 +46,12 @@ const SITE = `http://${SITE_HOST}`;
 const PAGE = `${SITE}/projects/swipe-watch/`;
 const SENSITIVE_PAGE = `${PAGE}?email=NP-CANARY-QUERY%40example.test&utm_source=fixture#NP-CANARY-FRAGMENT`;
 const SCRUBBED_PAGE = `${PAGE}?utm_source=fixture`;
+/**
+ * The same build, served on a local host (#1297). The proxy serves it itself,
+ * like the test host, and forwards nothing.
+ */
+const LOCAL_SITE = `http://${LOCAL_SITE_HOST}`;
+const SITE_HOSTS = [SITE_HOST, LOCAL_SITE_HOST];
 /** mux-embed's first batch leaves 10 s after the first event; wait past it. */
 const PAST_FIRST_BATCH = 13_000;
 
@@ -104,7 +111,7 @@ test.beforeAll(async () => {
     missing.push('NP_GTAG_JS: a local copy of gtag.js');
   }
   expect(missing, `missing prerequisites:\n${missing.join('\n')}`).toEqual([]);
-  proxy = await startEgressProxy(DIST);
+  proxy = await startEgressProxy(DIST, { siteHosts: SITE_HOSTS });
   browser = await chromium.launch({ args: egressArgs(proxy.port) });
 });
 
@@ -120,7 +127,7 @@ async function open(
     serviceWorkers: 'block',
     viewport: { width: 1280, height: 900 },
   });
-  const sink = await installDefaultDenyRoute(context, vendor);
+  const sink = await installDefaultDenyRoute(context, vendor, { siteHosts: SITE_HOSTS });
   for (const content of initScripts) await context.addInitScript({ content });
   const page = await context.newPage();
   return { context, page, sink };
@@ -263,6 +270,32 @@ for (const [label, scripts, reason] of [
     await context.close();
   });
 }
+
+// #1297. Dev servers, `astro preview`, and the e2e suite serve the site from
+// a local host, where Mux Data would otherwise report real views. Analytics
+// are granted here, so only the host stops it; the granted test above is the
+// positive control that the same build sends on the test host.
+test('on a local host Mux Data never monitors or sends, and the video still loads (#1297)', async () => {
+  const { context, page, sink } = await open();
+  const since = Date.now();
+  await page.goto(`${LOCAL_SITE}/projects/swipe-watch/?utm_source=fixture`);
+  expect(await page.evaluate(() => location.hostname)).toBe('localhost');
+  // Soft, so a page that does monitor still reaches the network check below.
+  expect.soft(await heroSettled(page)).toMatchObject({
+    effective: 'granted',
+    globalMux: 'undefined',
+    monitored: false,
+  });
+  expect(streamRequested(sink)).toBe(true);
+  await page.evaluate(PLAYBACK_EVENTS);
+  await pause(PAST_FIRST_BATCH);
+  expect.soft(await muxCookies(context, page)).toEqual([]);
+  // Leaving the page is when mux-embed would flush.
+  await page.goto(`${LOCAL_SITE}/`);
+  await pause(2_000);
+  expect(muxAttempts(sink, since)).toEqual([]);
+  await context.close();
+});
 
 test('Do Not Track: Mux Data monitors but sends nothing and sets no cookie', async () => {
   const { context, page, sink } = await open([DNT_ON]);
