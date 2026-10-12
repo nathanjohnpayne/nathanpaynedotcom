@@ -190,7 +190,9 @@ describe('notice (PRIV-14, PRIV-6)', () => {
     });
     expect(privacy.notice.shouldShow()).toBe(false);
     expect(d.getElementById('np-privacy-notice').hidden).toBe(true);
-    expect(d.getElementById('np-privacy-notice-status').textContent).toContain('Analytics stay on.');
+    expect(d.getElementById('np-privacy-notice-status').textContent).toContain(
+      'Analytics stay on.',
+    );
   });
 
   it('says a dismissal applies only to this page when it could not be saved', () => {

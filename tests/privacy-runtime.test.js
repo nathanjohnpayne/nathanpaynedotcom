@@ -2057,7 +2057,10 @@ describe('Mux Data under the gate (#1264)', () => {
       for (const name of readdirSync(dir)) {
         const path = join(dir, name);
         if (statSync(path).isDirectory()) walk(path);
-        else if (/\.(astro|mdx?|[jt]sx?|html)$/.test(name) && VIDEO.test(readFileSync(path, 'utf8')))
+        else if (
+          /\.(astro|mdx?|[jt]sx?|html)$/.test(name) &&
+          VIDEO.test(readFileSync(path, 'utf8'))
+        )
           offenders.push(path.slice(ROOT.length + 1));
       }
     };
