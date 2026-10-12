@@ -130,9 +130,17 @@ async function expectFocusIndicator(page: Page, selector: string, label: string)
           : '';
       const shadowColor = /rgba?\([^)]*\)/.exec(style.boxShadow)?.[0] ?? '';
       const shadow = style.boxShadow !== 'none' && opaque(shadowColor) ? style.boxShadow : '';
+      // The fill counts only when fully opaque: a faint translucent fill would
+      // report a high contrast against its own color that is not what renders.
+      const solid = (color: string): boolean => {
+        const m = /rgba?\(([^)]+)\)/.exec(color);
+        if (!m) return false;
+        const parts = m[1]!.split(/[ ,/]+/).filter(Boolean);
+        return parts.length < 4 || parseFloat(parts[3]!) === 1;
+      };
       return {
         ring: `${outline}|${shadow}`,
-        background: opaque(style.backgroundColor) ? style.backgroundColor : '',
+        background: solid(style.backgroundColor) ? style.backgroundColor : '',
       };
     }, selector);
   const focused = await paint();
