@@ -1133,6 +1133,15 @@ const homepageJsonLd = {
       } else {
         measureContentHeights();
       }
+      // fonts.ready can resolve while the page is still parsing, before the
+      // styles at the end of <body> exist: the Connect panel's privacy row
+      // takes its top margin from PrivacyNotice's inline style there. A pass
+      // that early sizes Connect one margin short and clips its last line
+      // (7px at 1440x840 in CI, where the page streams slowly). Measure again
+      // once everything has loaded.
+      if (document.readyState !== 'complete') {
+        window.addEventListener('load', measureContentHeights, { once: true });
+      }
       let resizeTimer = null;
       window.addEventListener('resize', () => {
         clearTimeout(resizeTimer);

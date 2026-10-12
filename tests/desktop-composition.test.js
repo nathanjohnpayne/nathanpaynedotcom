@@ -1431,3 +1431,54 @@ describe('the on-load pulse', () => {
     expect(await pulsedPanels({ width: 390, height: 844 })).toEqual([]);
   }, 60_000);
 });
+
+describe('a homepage that streams slowly', () => {
+  it('sizes Connect with the end-of-body styles that arrive last', async () => {
+    // fonts.ready can resolve while the page is still parsing, before the
+    // privacy notice's inline style at the end of <body>, which holds the
+    // Connect privacy row's top margin. The first measure pass then sizes
+    // Connect one margin short; index.astro measures again on `load`. In CI
+    // the page streamed slowly enough to clip Connect by 7px (#1339). Here the
+    // homepage is served in two parts, the second (from that style block on)
+    // held back, so the early pass always happens.
+    const { createServer } = await import('node:http');
+    const html = await (await fetch(`http://127.0.0.1:${port}/`)).text();
+    const style = html.indexOf('.privacy-notice {');
+    expect(style, 'the notice style block is in the homepage').toBeGreaterThan(0);
+    const cut = html.lastIndexOf('<style', style);
+    const slow = createServer(async (req, res) => {
+      if (req.url === '/' || req.url === '/index.html') {
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.write(html.slice(0, cut));
+        setTimeout(() => res.end(html.slice(cut)), 800);
+        return;
+      }
+      const upstream = await fetch(`http://127.0.0.1:${port}${req.url}`);
+      res.writeHead(upstream.status, {
+        'Content-Type': upstream.headers.get('content-type') ?? 'application/octet-stream',
+      });
+      res.end(Buffer.from(await upstream.arrayBuffer()));
+    });
+    await new Promise((done) => slow.listen(0, '127.0.0.1', done));
+    const page = await browser.newPage({ viewport: { width: 1440, height: 840 } });
+    try {
+      await page.goto(`http://127.0.0.1:${slow.address().port}/`, { waitUntil: 'load' });
+      await page.evaluate(() => document.fonts.ready);
+      await page.addStyleTag({
+        content: '*,*::before,*::after{transition:none!important;animation:none!important}',
+      });
+      expect(await hoverPanel(page, 'connect', { expectOpen: true }), 'connect did not open').toBe(
+        true,
+      );
+      const fit = await readFit(page, 'connect');
+      expect(fit.textElements, 'connect has no visible text to measure').toBeGreaterThan(0);
+      expect(fit.textPast, 'connect text is cut off after a slow load').toBeLessThanOrEqual(
+        OVERFLOW_TOLERANCE_PX,
+      );
+    } finally {
+      await page.close();
+      slow.closeAllConnections?.();
+      slow.close();
+    }
+  }, 60_000);
+});
