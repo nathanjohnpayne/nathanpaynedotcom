@@ -39,7 +39,7 @@ decisions:
     rejected: "Cloud Functions checking every mark. That's the standard multiplayer approach, and the safer choice for an audience of strangers."
     rationale: "Cheating wasn't in the threat model for this group. I trusted the friends and the feed to challenge a claim if they needed to. Server enforcement would have added work for a problem I wasn't designing this launch around. Leaving it out also let Phase 0 deploy without Cloud Functions at all."
     cost: "The standings are claims, not independently verified results. A player writes their own board, so the record can't distinguish a real mark from an invented one. Any player could demand proof, but that escape hatch was used seven times in ten days, all by one person."
-    evidence: "The frozen production Firestore holds 845 squares. Analytics recorded seven proof-demand events over ten days, all from the same player. Those are events, not seven distinct challenged squares; They can't be subtracted from the square count. The rest stood on the pledge."
+    evidence: "The frozen production Firestore holds 845 squares. Analytics recorded seven proof-demand events over ten days, all from the same player. Those are events, not seven distinct challenged squares; they can't be subtracted from the square count. The rest stood on the pledge."
     status: "validated"
   - title: "Make marking work without a connection"
     lens: "Reach"
