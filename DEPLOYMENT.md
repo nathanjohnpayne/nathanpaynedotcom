@@ -196,7 +196,7 @@ Code CLI headlessly as a CI-side reviewer; this was the wrong flow
 duplicate work) and was removed. Phase 2 now lives entirely inside
 the authoring agent's session.
 
-**This repository today (read 2026-10-12).** The list above is the template's. This repository also carries `AUTHOR_MERGE_TOKEN` (used by `auto-clear-blocking-labels.yml`, `merge-queue-authorization.yml`, and `dependabot-auto-merge.yml`) and `CI_ACTOR_TOKEN` (used by `auto-clear-blocking-labels.yml`, `agent-review.yml`, and `pr-review-policy.yml`), so `REVIEWER_ASSIGNMENT_TOKEN` is not the only secret workflows read. The five names this section forbids also exist as repository secrets, but no workflow references them. Deleting them is a settings change for the owner and was not made by the documentation audit.
+**This repository today (read 2026-10-12).** The list above is the template's. This repository also carries `AUTHOR_MERGE_TOKEN` (used by `auto-clear-blocking-labels.yml`, `dependabot-auto-merge.yml`, `merge-queue-authorization.yml`, and `merge-queue-final-audit.yml`) and `CI_ACTOR_TOKEN` (used by `auto-clear-blocking-labels.yml`, `agent-review.yml`, and `pr-review-policy.yml`), so `REVIEWER_ASSIGNMENT_TOKEN` is not the only secret workflows read. The five names this section forbids also exist as repository secrets, but no workflow references them. Deleting them is a settings change for the owner and was not made by the documentation audit.
 
 ### 4. Configure branch protection
 
