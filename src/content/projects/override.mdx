@@ -1,7 +1,7 @@
 ---
 title: "Override"
 slug: "override"
-description: "I built Override to see what AI coding tools could do with a real problem: a Broadway deal whose capitalization, waterfall, scenarios, and investor returns I could change and inspect."
+description: "I built Override to see what AI coding tools could do with a real problem. It connects a Broadway deal's capitalization, waterfall, scenarios, and investor returns in one model."
 seoDescription: "I built a Broadway financial model with capitalization, waterfall, scenarios, and a read-only investor deal room. It has not yet run a real capitalization."
 ogDescription: "I built a Broadway deal model to learn the domain and test AI coding tools. It connects terms to investor outcomes, but has not yet run a real capitalization."
 cardDescription: "I turned Broadway deal documents into an interactive model to learn the domain and test AI coding tools. It still hasn't run a real capitalization."
@@ -30,7 +30,7 @@ decisions:
     lens: "Method"
     context: "I wanted to know what AI coding tools could do. The tutorials and toy apps I could find had removed the hard parts: unfamiliar domain rules, ambiguity, changing requirements. There was nothing left to get wrong."
     chosen: "I picked a real problem I did not fully understand, in a domain I wanted to learn. Domain research would happen as I built it."
-    rationale: "A demo could exercise code generation. Learning a domain forced me through the harder work: choosing abstractions, discovering I had encoded a rule wrongly, and changing my mind about the product halfway through."
+    rationale: "A demo would only exercise code generation. Learning a domain forced me through the harder work: choosing abstractions, discovering I had encoded a rule wrongly, and changing my mind about the product halfway through."
     cost: "I was learning the domain and the tooling at the same time. Some of what shipped reflects my early understanding of Broadway finance. The engine had not been revisited since the product window closed, as of 2026-10-06."
     evidence: "The research became part of the development loop. The agent brief and the application arrived in the same commit, with Broadway benchmarks and their industry sources in the instructions from the application's first day."
     status: "validated"
@@ -55,7 +55,7 @@ decisions:
   - title: "Build a product, not a SaaS business"
     lens: "Scope"
     context: "I could have built billing, onboarding, a CRM, account administration, and an acquisition funnel. None would answer the question that brought me here."
-    chosen: "I spent the work on the product problem and the domain. I left billing, team accounts, and a lead pipeline unbuilt. The investor-facing surface deliberately has no accounts at all."
+    chosen: "I put my time into the product problem and learning the domain. I left billing, team accounts, and a lead pipeline unbuilt. The investor-facing surface deliberately has no accounts at all."
     rationale: "I wanted to know whether I could learn a specialized domain well enough to build credible software for it. Building a subscription funnel would have used the time that work needed and answered a question I had not asked."
     cost: "I have no distribution and no feedback loop. This build cannot tell me whether producers would pay, adopt it, or finish onboarding. The lead CRM and signing workflow stayed on the roadmap, unbuilt, though both would matter to a business."
     evidence: "I cannot validate this choice from the build alone. I need a producer to run a real capitalization in it. That is also the test that would tell me whether I got the domain modeling right."
@@ -118,13 +118,13 @@ I did not arrive with these decisions worked out. They emerged as I learned enou
 
 ## Building for financial trust
 
-Financial software needs a higher standard than "the tests pass." The strongest check on the arithmetic here is a calibration. The engine's documentation uses Hadestown's published economics: 947 seats, 93% occupancy, a $155 average ticket, a $530K weekly nut, and 14% royalties, along with the results the model should return.
+Financial software needs a higher standard than "the tests pass." The arithmetic here rests on a calibration. The engine's documentation uses Hadestown's published economics: 947 seats, 93% occupancy, a $155 average ticket, a $530K weekly nut, and 14% royalties, along with the results the model should return.
 
 When I wrote the August 2026 version of this page, I re-ran that check against the shipped engine, six months after it had been written. Nothing in CI held it in place. It reproduced exactly: $1,046,283 weekly gross, 57.0% breakeven, recoupment in week 37.
 
 The green test result is less reassuring. As of 2026-10-06, a hundred and nine tests passed, up from eighty-six in August. Only eight touched the engine, all through the same file. The weekly pipeline, phase function, and ownership rollup had no direct test. Two assertions checked money against the inputs, both pool percentages. The assertions that looked like proof checked the engine against its own output.
 
-A real flaw survived that arrangement. The producer's screen shows which phase the waterfall is in. The obvious source is the profit-sharing toggle the producer just clicked, but the phase function reads the deal's post-recoup investor split instead. The badge reports an economic condition rather than an independently set flag. That was the right instinct, incompletely applied.
+The gap helps explain how a real flaw survived. The producer's screen shows which phase the waterfall is in. The obvious source is the profit-sharing toggle the producer just clicked, but the phase function reads the deal's post-recoup investor split instead. The badge reports an economic condition rather than an independently set flag. That was the right instinct, incompletely applied.
 
 The distribution math one file over still reads the toggle. Turn it off without changing the split, and the badge reads "Profit Sharing Active" while the engine pays investors nothing. The deal room shows a prospective backer a 50% investor pool for that same deal. The repository records the inconsistency and says to preserve the behavior. Two sources of truth for one economic question is exactly the failure a financial tool cannot afford.
 
