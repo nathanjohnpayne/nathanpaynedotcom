@@ -19,6 +19,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { CACHE_DIR, CHROME_UA, FAKE_GA_ID } from './constants';
+import { productionGaId } from './ga4-measurement-id.js';
 
 export interface ManifestFile {
   tarballPath: string;
@@ -304,7 +305,7 @@ async function prepareGtag(manifest: Manifest, gtagPath: string): Promise<GtagSt
         signal: AbortSignal.timeout(OPTIONAL_DOWNLOAD_MS),
       });
       const html = await res.text();
-      id = /googletagmanager\.com\/gtag\/js\?id=(G-[A-Z0-9]+)/.exec(html)?.[1];
+      id = productionGaId(html);
       idSource = 'production-html';
     }
     if (!id) {
