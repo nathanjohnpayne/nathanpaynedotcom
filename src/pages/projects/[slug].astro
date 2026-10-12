@@ -87,6 +87,7 @@ const jsonLd = {
 <ProjectLayout
   title={`${data.title} | Nathan Payne`}
   description={seoDescription}
+  ogDescription={data.ogDescription ?? data.description}
   ogImage={`https://nathanpayne.com/og/projects/${data.slug}.png`}
   ogImageAlt={`${data.title} open graph image`}
   kicker={data.kicker}
