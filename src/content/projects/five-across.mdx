@@ -1,9 +1,9 @@
 ---
 title: "Five Across"
 slug: "five-across"
-description: "A live multiplayer bingo platform that turns a group trip into a shared game—born on a nine-night Mediterranean cruise, generalizing into a multi-event platform."
-seoDescription: "A live multiplayer bingo platform for group trips—daily themed cards, offline-first marking, live proofs, and a choreographed finale, built and run at sea."
-cardDescription: "A multiplayer bingo game built in eight days for a nine-night cruise, then operated live at sea—where real players exposed what the architecture could and couldn't prove."
+description: "I built a live bingo game for a nine-night Mediterranean cruise. It ran at sea, then became the engine for other events. Getting people to play was a separate problem."
+seoDescription: "Eight days to build multiplayer bingo for a cruise, then ten days running it at sea. What I chose, what players used, and what the records couldn't prove."
+cardDescription: "I built multiplayer bingo in eight days, then ran it for ten days at sea. The standings held, but the social mechanics barely caught on. A second event showed that reusing the engine wasn't enough."
 kicker: "Consumer × Social × Live Ops"
 order: 0
 screenshotAspect: "narrow"
@@ -32,61 +32,61 @@ constraints:
   - value: "16 players"
     label: "friend group"
 decisions:
-  - title: "Trust the group, not the server"
+  - title: "Let friends mark their own boards"
     lens: "Scope"
-    context: "Eight days to launch a multiplayer game for an adult friend group. The default multiplayer architecture is server authority: validate every claim before it counts, so nobody can cheat."
-    chosen: "Honor-system marking with no server validation. Each player writes their own board, the leaderboard is a client-side sort, and verification stays an event-level knob—pledge, proof-to-mark, or admin-confirmed—defaulting to a one-tap Cross My Heart."
-    rejected: "Server-authoritative marks—Cloud Functions checking every claim—the standard answer, and the safe one for any audience of strangers."
-    rationale: "No cheater is in the threat model of a friend-group game; the feed and the group are the verification, so server authority is complexity spent against a problem the product does not have. Dropping enforcement also let Phase 0 deploy without Cloud Functions at all."
-    cost: "The standings cannot be verified, only trusted. Because each player writes their own board, nothing in the record could tell a real mark from an invented one, and the escape hatch that would have caught it was pulled seven times in ten days, all by one player. The number at the top of the leaderboard is a claim rather than a proof."
-    evidence: "The frozen production Firestore holds 845 squares. Over ten days the escape hatch—any player can demand proof—was used seven times, all by the same player; the analytics record seven demand events rather than seven distinct challenged squares, so the two figures do not subtract. Everything else stood on the pledge."
+    context: "I had eight days to build a multiplayer game for an adult friend group. A server-authoritative game would check every claim before it counted, so players couldn't cheat."
+    chosen: "I chose honor-system marking, with no server validation. Players write their own boards, and the client sorts the leaderboard. Each event can require a pledge, proof-to-mark, or admin confirmation. The default is a one-tap Cross My Heart."
+    rejected: "Cloud Functions checking every mark. That's the standard multiplayer approach, and the safer choice for an audience of strangers."
+    rationale: "Cheating wasn't in the threat model for this group. I trusted the friends and the feed to challenge a claim if they needed to. Server enforcement would have added work for a problem I wasn't designing this launch around. Leaving it out also let Phase 0 deploy without Cloud Functions at all."
+    cost: "The standings are claims, not independently verified results. A player writes their own board, so the record can't distinguish a real mark from an invented one. Any player could demand proof, but that escape hatch was used seven times in ten days, all by one person."
+    evidence: "The frozen production Firestore holds 845 squares. Analytics recorded seven proof-demand events over ten days, all from the same player. Those are events, not seven distinct challenged squares; They can't be subtracted from the square count. The rest stood on the pledge."
     status: "validated"
-  - title: "Assume the connection is already gone"
+  - title: "Make marking work without a connection"
     lens: "Reach"
-    context: "The venue was a ship: flaky, expensive Wi-Fi and dead zones at sea. A game that needs the network at tap time dies exactly when the group is together."
-    chosen: "An installable PWA over an offline-first Firestore cache. Marks queue locally through dead zones and sync on reconnect, and cold boot works without waiting on the network."
-    rejected: "A plain online web app—the fastest thing to build in eight days, fine on land, and the default shape of a quick launch."
-    rationale: "A game that needs the network at tap time fails whenever coverage drops, and at sea coverage drops without warning. Offline-first makes a mark land wherever the player is, and cold boot never waits on a signal."
-    cost: "Offline-first buys reach and costs certainty. Two records of the same game now exist and cannot be reconciled, and the event's own history says which half was expensive: the sailing's commits skew to authentication and the PWA update path, so the update mechanism was one of the two things that actually caught fire while people were playing."
-    evidence: "Restricted to the same window—embarkation to the freeze, which is what the standings count—the two records disagree by 62 marks: 845 squares in the frozen Firestore against 783 the analytics logged. The raw totals are not comparable, because the analytics also carry a pre-embarkation day and 30 marks made after the freeze on the ceremonial card, neither of which the standings include. The gap is consistent with offline queueing, but ordinary analytics loss could produce it too. It does not establish that marks were made out of coverage and synced later. The original rationale assumed that the moments worth capturing happened furthest from a signal. The marking data challenges the picture of immediate capture: 288 of 703 main-day marks, 41%, came after the next day's card unlocked, and 32% of all marks landed between 19:00 and 20:59 ship time. Players' debrief accounts describe recalling previous days together at dinner. Neither those timestamps nor the analytics gap establishes whether they had connectivity while marking. A September 26 PostHog query found fifteen cruise-era exception events containing auth/network-request-failed, across five recorded sessions for one recorded user on July 18–19. Those sessions contained no recorded marks. Request failures occurred, but their cause and offline support's effect on participation remain unmeasured."
+    context: "Ship Wi-Fi was flaky and expensive, with dead zones at sea. Requiring a connection every time someone tapped a square would make the game unavailable when the group was together without coverage."
+    chosen: "I chose an installable PWA with an offline-first Firestore cache. Marks queue on the device and sync when the connection returns. A cold boot doesn't wait for the network."
+    rejected: "A plain online web app. It would have been the fastest thing to build in eight days and a reasonable choice for a launch on land."
+    rationale: "Coverage could disappear without warning. I wanted a player to be able to mark a square wherever they were, without finding a signal first."
+    cost: "I took on the PWA cache and update path. It became one of the two operational problems during the sailing, alongside authentication; the commits skew toward both. The surviving database and analytics records don't let me reconcile the two."
+    evidence: "Over the scoring window, from embarkation to the freeze, Firestore holds 845 squares and analytics logged 783 marks: a gap of 62. The raw analytics total also includes a pre-embarkation day and 30 marks after the freeze on the ceremonial card. Neither belongs in the standings comparison. Offline queueing could explain the gap. Ordinary analytics loss could too. It doesn't establish that players marked without coverage and synced later.\n\nI'd assumed the moments worth capturing would happen furthest from a signal. The marking data challenges immediate capture: 288 of 703 main-day marks, 41%, came after the next day's card unlocked, and 32% of all marks landed between 19:00 and 20:59 ship time. Players' debrief accounts describe recalling previous days together at dinner. Those timestamps still don't tell me whether they had a connection while marking.\n\nA September 26 PostHog query found fifteen cruise-era exception events containing auth/network-request-failed, across five recorded sessions for one recorded user on July 18–19. Those sessions had no recorded marks. Requests failed. Their cause, and whether offline support helped people participate, remain unmeasured."
     status: "mixed"
-  - title: "Hearts never touch the score"
+  - title: "Keep hearts out of the score"
     lens: "Incentives"
-    context: "The feed needed a reaction, and every engagement playbook says to reward it—points for hearts, hearts as a tie-break. The product principle ran the other way: connection and shared memories outrank score."
-    chosen: "Hearts touch no stats, no leaderboard and no win logic. The only thing they ever produce is a Most-Loved Photo award at the freeze—an award, not a point."
-    rejected: "Letting recognition feed rank, which a reasonable social game does to drive engagement, and which turns every reaction into strategy."
-    rationale: "A heart should be free to give precisely because it buys nothing. The moment recognition affects standing it stops being recognition and becomes a move."
-    cost: "Removing the incentive removed the reason to use it. A heart that buys nothing is a heart nobody has to give, and the design kept no second lever—if the group did not spontaneously want to react, there was nothing in the product to make them."
-    evidence: "The principle held and the mechanic collapsed: across ten days and sixteen players, every heart came from one person—nineteen of them—so hearts as a social engine failed with this group. Because they never carried score, their collapse cost the standings nothing."
+    context: "The feed needed a reaction. Points for hearts, or hearts as a tie-break, would give players a reason to use it. My product principle put connection and shared memories ahead of score."
+    chosen: "I kept hearts out of stats, standings and win logic. They produce only the Most-Loved Photo award at the freeze. That award carries no points."
+    rejected: "Letting reactions affect rank. That's a reasonable engagement mechanic for a social game, but it gives each reaction a strategic use."
+    rationale: "A heart should be free to give because it buys nothing. Once recognition affects the standings, it's also a move in the game."
+    cost: "A heart that buys nothing is one nobody has to give. I'd removed the score incentive and left no other lever if the group didn't want to react on its own."
+    evidence: "Across ten days and sixteen players, one person gave all nineteen hearts. The principle held, but hearts failed as a social mechanic with this group. Their weak use didn't affect the standings because they never carried score."
     status: "mixed"
-  - title: "Freeze the deal so luck is equal"
+  - title: "Deal each card once"
     lens: "Fairness"
-    context: "Standings only mean anything if every card is equal luck, and a card you can trade away is a card you can shop for."
-    chosen: "Cards dealt frozen from a seeded shuffle, with no rerolls."
-    rejected: "Mulligans or rerolls on demand—letting players trade out a card they do not like, the forgiving default for a casual game."
-    rationale: "A frozen deal is the fairness argument in one line: nobody's board is negotiable, so nobody's score is either."
-    cost: "A player dealt a card that will not land has nothing to do about it, and no way to tell whether the problem is the card or the trip. That cost arrived on schedule—two days into main-pool play, no main card had produced a bingo—and it is what forced the rule to be reformulated while the event was still running."
-    evidence: "Two days into main-pool play, no main card had produced a bingo—the two cards after the embark tutorial would finish the cruise with one apiece, both claimed on the final day. The principle did not survive intact; it was reformulated. The line moved from the deal is final to the deal is final once you act on it: a card with zero marks can be traded for a fresh one, three times per player, and a card you have started cannot. That is a real relaxation—for anyone who uses it the first deal was negotiable after all—bounded so it cannot be used to hunt a better board mid-play. The repository keeps the distinction in its own vocabulary, naming the feature a reshuffle and explicitly not a mulligan. It shipped on the sole sea day of the itinerary, alongside easy embark-pool squares blended into main cards. Seven reshuffles were spent, by three of sixteen players, all inside the sailing."
+    context: "I wanted luck to be equal across the standings. If a player could keep trading cards, they could shop for a better board."
+    chosen: "I started with frozen cards from a seeded shuffle, with no rerolls."
+    rejected: "Mulligans or rerolls whenever a player disliked their card. That would be a forgiving choice for a casual game."
+    rationale: "A fixed deal made the fairness rule clear: nobody could negotiate their board or the score it produced."
+    cost: "A player whose card didn't fit the trip was stuck with it, with no way to tell whether the problem was the card or the trip. Two days into main-pool play, no main card had produced a bingo. I had to revisit the rule while the event was running."
+    evidence: "The two cards after the embark tutorial finished the cruise with one bingo apiece, both claimed on the last full day. I changed the rule from a final deal to a deal that becomes final when the player acts on it. A card with zero marks can be traded for a fresh one, three times per player. Once a player has marked it, they can't trade it.\n\nThat made the first deal negotiable for anyone who used the feature. The limit prevents shopping for a better board mid-play; it doesn't preserve the original rule intact. The repository calls it a reshuffle and explicitly avoids mulligan. It shipped on the itinerary's sole sea day, alongside easy embark-pool squares blended into main cards. Three of sixteen players used seven reshuffles, all during the sailing."
     status: "revised"
-  - title: "The cutover is a decision, not a deploy"
+  - title: "Hold the cutover"
     lens: "Platform"
-    context: "Five Across is generalizing into a platform: one codebase, a wildcard event router built for the edge, centralized authentication with a single-use handoff. The next shape is unrelated groups sharing a backend—and tenant isolation for that shape has not shipped."
-    chosen: "Hold the cutover. Separate events run on separate Firebase projects until the isolation workstream lands, and attaching the routes stays a deliberate human step."
-    rejected: "Attaching the routes now. The worker is deployable and tested, the route config is written, and as of 2026-10-06 cutover would be two uncommented blocks, one per zone."
-    rationale: "Path-scoped security rules are not tenant isolation, and the repository's own specs say so. Uncommenting a route block is exactly the kind of change that looks like a deploy and is actually a decision about other people's data."
-    cost: "Every new event for an unrelated group needs its own Firebase project, provisioned by hand. The platform work sits built and parked, so the price of not cutting over is paid again at each event—and it grows the longer the isolation workstream waits."
-    evidence: "Not yet validated. The router fronts no production traffic, and the auth handoff, provisioned by 2026-09-10 and live in the client as of 2026-10-06, has carried no demonstrated sign-in, because registered hosts still sign in direct; there is no behavioral evidence either way. What resolves it: the tenant-isolation rules workstream and the deliberate act of attaching the routes."
+    context: "Five Across is becoming a platform: one codebase, a wildcard event router for the edge, and centralized authentication with a single-use handoff. The next step is unrelated groups sharing a backend. Tenant isolation for that hasn't shipped."
+    chosen: "I held the cutover. Separate events run on separate Firebase projects until the isolation workstream lands. Attaching the routes remains a deliberate human step."
+    rejected: "Attach the routes now. The worker is deployable and tested, and the route config is written. As of 2026-10-06, cutover would mean uncommenting two blocks, one per zone."
+    rationale: "The repository's specs distinguish path-scoped rules from tenant isolation. Uncommenting a route block looks like a deployment step, but it makes a decision about other people's data. I wasn't treating it as routine."
+    cost: "Each new event for an unrelated group needs a Firebase project provisioned by hand. The platform code is built and waiting. Until the isolation work lands, I pay that setup cost again for each event."
+    evidence: "This decision isn't validated yet. The router carries no production traffic. The auth handoff was provisioned by 2026-09-10 and was live in the client as of 2026-10-06, but no sign-in through it has been demonstrated: registered hosts still sign in directly. There is no behavioral evidence either way. The remaining steps are the tenant-isolation rules workstream and the deliberate act of attaching the routes."
     status: "pending"
 learnings:
-  - expected: "Daily novelty would keep the group marking all cruise—the fresh themed card was the draw, and marking was the core loop."
-    observed: "384 of 499 sessions—77%—contained no mark at all, and the two cards after the embark tutorial produced one bingo apiece, both claimed on the final day. The event log records the absence, not the motive."
-    response: "On the morning the ship docked, the work went to the standings rather than the cards: a final-standings share card, committed at 10:47. It was not the last feature of the day—three more landed by evening—but it is the one built for the record rather than for play."
-  - expected: "Two independent records of the same game would agree on what happened."
-    observed: "They disagree on volume: 845 squares in the frozen Firestore against 783 marks the analytics logged over the same window. They agree on bingos: Firestore's player rows show ten players with an event-wide bingo, seven of them earned on the embark card, and PostHog independently counts ten."
-    response: "Both figures stay on the page, named as a disagreement rather than reconciled: each number is attributed to the system that owns it, and compared only across windows that mean the same thing."
-  - expected: "The launch risk worth pre-building for was content: a moderation stack—server-side auto-hide, an admin roster, a flag-gated Vision check—was finished six days before embarkation."
-    observed: "The fires were authentication and the PWA update path—the sailing's commits skew to exactly that—while the moderation stack stayed quiet in every record the repository keeps."
-    response: "After the cruise, authentication is where the platform work went: a centralized auth origin with a single-use handoff, implemented, provisioned by 2026-09-10, and live in the client as of 2026-10-06."
+  - expected: "I expected a fresh themed card each day to keep the group marking throughout the cruise. Marking was the core loop."
+    observed: "384 of 499 sessions, 77%, contained no mark. The two cards after the embark tutorial produced one bingo apiece, both claimed on the last full day. The event log records the absence of marks, not why people opened the app."
+    response: "On the morning the ship docked, I put the work into a final-standings share card, committed at 10:47. Three more features landed by evening, so it wasn't the day's last feature. It was the one built to keep the record rather than extend play."
+  - expected: "I expected the game's two independent records to agree."
+    observed: "Firestore holds 845 squares; analytics logged 783 marks over the same window. The bingo counts agree: Firestore's player rows show ten players with an event-wide bingo, seven of them with an embark bingo. PostHog independently counts ten. Embark bingos count toward the event total."
+    response: "I kept both square counts on the page. Each stays attributed to the system that recorded it, and I compare only matching windows. The records don't let me reconcile the disagreement."
+  - expected: "I treated content as a launch risk worth preparing for. Server-side report auto-hide, an admin roster and a flag-gated Vision check were finished six days before embarkation."
+    observed: "The operational problems were authentication and the PWA update path. The sailing's commits skew toward both. The repository keeps no record of the moderation stack being used during the sailing."
+    response: "After the cruise, the platform work went into authentication: a centralized auth origin with a single-use handoff, implemented, provisioned by 2026-09-10, and live in the client as of 2026-10-06."
 related:
   - label: "Project: Swipe Watch"
     href: "/projects/swipe-watch/"
@@ -100,31 +100,37 @@ import LearningLedger from '../../components/projects/LearningLedger.astro';
 
 ## The problem
 
-Every group trip has a printed bingo card somewhere—a sheet of inside jokes and dares that is funny for a day and then forgotten. The card is static: no shared state, no way to see who else got a square, no proof, no record of who won. The game wants to be live, and paper cannot be.
+Five Across started as Gay Cruise Bingo, a phone-first game for a nine-night Mediterranean cruise from Trieste to Barcelona. I had eight days to build it.
 
-Five Across began as Gay Cruise Bingo, a phone-first multiplayer game built for a nine-night Mediterranean cruise from Trieste to Barcelona. Every player gets a frozen, randomized 5×5 card dealt from a community-editable prompt pool; tap a square when the thing happens and see who else already has it. A fresh themed card unlocks at 8:00 a.m. local time each morning after the first, matched to that day's port and party, with tutorial cards bookending the trip. A live feed carries proofs, milestone moments, doubts ("pics or it didn't happen"), and hearts. The bet was that shared state would stop the card being a novelty and make it the running bit of the trip.
+A printed card could carry the inside jokes and dares. I wanted shared marks, proofs and standings, so the game could keep running through the trip instead of being a novelty for a day.
 
-These are the conditions the bet was placed under.
+Each player got a frozen, randomized 5×5 card from a community-editable prompt pool. They could tap a square when something happened and see who else had already marked it. A fresh themed card unlocked at 8:00 a.m. local time each morning after the first, matched to the day's port and party. Tutorial cards bookended the trip. The live feed carried proofs, milestones, doubts ("pics or it didn't happen"), and hearts.
 
 <ConstraintStrip constraints={props.constraints} />
 
 ## The decisions
 
-Eight days is not enough time to build what a multiplayer game usually has, so most of the launch decisions were about what not to build—and every one of them had a defensible opposite. Server authority is the textbook answer to cheating. The fastest thing to ship is an app that assumes a connection. Engagement playbooks feed reactions into score. A live competition's rules are supposed to be immutable. A platform wants its cutover automated. This project went the other way each time, for reasons it could state at the time, and one of the calls below was revised at sea while the event was live.
+The deadline made scope choices necessary. Each had a reasonable alternative: server checks for marks, an online-only launch, score incentives for reactions, an unchangeable deal, an automated platform cutover. I chose differently for this launch. One of those choices needed revising while the game was live at sea.
 
-One decision needs stating without a ledger row, because its record is silence. Moderation was sized to the actual risk—a private adult friend group, not an imaginary public—and was in place before the ship left port: server-authoritative report auto-hide, an admin roster, and a Cloud Vision gate shipped deliberately off by default. No record the repository keeps shows any of it being exercised during the sailing.
+I also sized moderation for a private adult friend group. Before departure, the app had server-authoritative report auto-hide, an admin roster and a Cloud Vision gate deliberately off by default. The repository has no record of those controls being used during the sailing. That silence doesn't tell me whether they were used.
 
 <DecisionLedger decisions={props.decisions} />
 
 ## What happened
 
-The standings survived—frozen in the production Firestore at 08:00 on disembarkation morning, with the app's own final share card intact—so the bet can be scored against ten days of live play, as recorded in the sailing's own data read.
+The production Firestore preserved the standings, frozen at 08:00 on disembarkation morning. The app's final share card survived too. Those records let me look back at ten days of live play.
 
-The card traced a novelty arc. Firestore's day buckets credit the embark tutorial with 27 bingos from seven players, none of them landing on embark day itself—the easy card kept paying out for days—while the next two cards managed one bingo apiece all cruise, both claimed on the final day. The same database's player rows count ten players holding an event-wide bingo, and PostHog independently counts ten. An embark bingo counts toward a player's event-wide total, the scoring tests assert it explicitly, and seven on one card sits inside ten across the whole event.
+Firestore's day buckets credit the embark tutorial with 27 bingos from seven players. None landed on embark day itself; the easy card kept paying out for days. The next two cards produced one bingo apiece over the whole cruise, both claimed on the last full day.
 
-What the group adopted was the scoreboard. Of 499 sessions across the ten days, 384—77%—contained no mark at all. The event log does not say what those sessions did instead; the natural reading, opening the app to check the standings and read the feed, is a reading rather than a measurement. The social mechanics built for exactly this audience collapsed outright: every heart traced to one player, nineteen of them, and every proof demand to one player, seven times, across ten days. Three of sixteen players ever spent a reshuffle—seven uses against a ceiling of 48, which is the roster times the per-player cap of three rather than a number anything recorded. The core loop still held broad: fourteen of sixteen players marked at least one square by the frozen Firestore's count, and PostHog, which logs fewer marks than the database holds and sees twelve markers, has nine of those twelve marking on five or more days. The frozen event totals 845 squares and 61 bingos, with zero blackouts.
+The player rows show ten people with an event-wide bingo, and PostHog independently counts ten. The scoring tests explicitly include embark bingos in the event total. Seven people with an embark bingo fits inside ten across the event.
 
-Zacaria Arab took the title on 16 bingos across 124 squares. Logan Murdock out-marked him, 129 squares to 124, and finished second, because the board sorts bingos first. The rule, not volume, crowned the champion.
+My read is that the group adopted the scoreboard. Of 499 sessions across the ten days, 384, or 77%, contained no mark. Checking standings and reading the feed would explain those sessions, but the event log doesn't measure what people did instead.
+
+The social mechanics had little use. One player gave all nineteen hearts. One player made all seven proof demands. Three of sixteen players used seven reshuffles. The possible ceiling of 48 is arithmetic, sixteen players times a cap of three; it isn't a recorded total.
+
+Marking reached most of the group. Fourteen of sixteen players marked at least one square in the frozen Firestore. PostHog sees fewer marks and twelve markers, nine of whom marked on five or more days. The frozen event totals 845 squares and 61 bingos, with zero blackouts.
+
+Zacaria Arab won with 16 bingos across 124 squares. Logan Murdock marked more squares, 129 to 124, and finished second. The leaderboard sorts bingos first. Marking the most squares didn't make him the winner.
 
 ![The app's own final-standings share card for Day 10, Barcelona, with champion Zacaria Arab at 16 bingos and 124 squares, Turntilla's cruise-wide First to BINGO, and the ten daily honors spread from Trieste to Barcelona.](/images/projects/five-across-final-standings.png)
 
@@ -132,18 +138,38 @@ Zacaria Arab took the title on 16 bingos across 124 squares. Logan Murdock out-m
 
 ## Running it at sea
 
-Ninety-six changes landed on main between embarkation and disembarkation, counting first-parent commits between the Rome midnights that bound the sailing. The log proves they landed, not that each one reached a phone mid-ocean—no deploy log survives in the repository, though Firebase Hosting's release history records 41 deploys between those same midnights, and an incident note records one mid-sailing rules deploy and its two days of stale-shell fallout—but the reshuffle settles the question for the drops that matter: the feature did not exist until the sea day, and all seven uses sit inside the sailing, so that build demonstrably reached players while the game was live. Nothing partitions those ninety-six into fixes and features, so calling most of them firefighting would be a guess; what the log does show is a skew toward auth and the PWA update path.
+Ninety-six changes landed on main between embarkation and disembarkation. That's the first-parent commit count between the Rome midnights that bound the sailing.
 
-The build ran on agents against a fixed date, and the division of labor is in the tree rather than in this paragraph's claims about it. Specs pin behavior down to the finale's exact instants; ADRs record the calls that were hard to reverse—on-device share rendering, offline persistence, a second Firebase project as the interim tenant boundary; the test suites are acceptance criteria that execute, from contrast computed out of the shipped CSS across every theme to a launch-checklist test that pins embarkation day. The mid-cruise drops landed as reviewed pull requests. Agents expanded build, test, and review capacity under the eight-day fuse and then at sea; the product calls this page records—the trust model, the sea-day drops, the held cutover—were the part that could not be delegated.
+Those commits don't prove that every change reached a phone at sea. No deploy log survives in the repository. Firebase Hosting's release history records 41 deploys between the same midnights, and an incident note records one mid-sailing rules deploy and two days of stale-shell fallout.
+
+The reshuffle gives me evidence that a feature drop reached players. It didn't exist until the sea day, and all seven uses were recorded during the sailing. That build reached people while the game was live. I don't have a breakdown of the ninety-six changes into fixes and features, so calling most of them firefighting would be a guess. The log does show a skew toward authentication and the PWA update path.
+
+Agents expanded my build, test and review capacity against the eight-day deadline, then while I ran the game at sea. The specs pin the choreographed finale's exact instants. ADRs record the decisions that were hard to reverse: on-device share rendering, offline persistence, and a second Firebase project as the interim tenant boundary. Tests turn acceptance criteria into checks, including contrast computed from the shipped CSS across every theme and a launch checklist that pins embarkation day. The mid-cruise drops went through reviewed pull requests.
+
+I owned the product calls: the trust model, the sea-day changes and the held cutover. Those were the part I couldn't delegate.
 
 ## From one event to a platform
 
-The engine generalized. Gay Cruise Bingo is preserved as the original and still runs as a live edition, the default one, on its own domain against its own Firebase project; Vacay Bingo is the travel edition; Five Across is the platform under both. The repository states the relationship itself, in a comment on that edition's brand record: "It is an ENDORSEMENT, not a rename: the wordmark, the cruise vocabulary, the adult posture, gaycruisebingo.com and the legacy Firebase project are all unchanged—GCB is simply one Edition of Five Across now, on the same engine as Vacay…" The first non-cruise event, a Sonoma Coast weekend in August 2026 run by a different host, has since run on that build, live enough that unlock-copy fixes landed on its opening day. That demonstrated reuse, but participation stalled: four people marked 27 squares, nobody got a bingo, and the guests' last marks came on Saturday morning. The cruise combined working software, prompts written for that sailing, a group ritual and a host promoting and tuning the game live. Moving the engine to another occasion did not reproduce that combination. The two events do not isolate which contribution mattered most. The craft layer generalized too: fifteen themes shipped for the cruise—thirteen party plus two tutorial—out of twenty-two now across the platform, every one held to WCAG AA contrast by test suites that compute contrast from the CSS itself.
+The engine did get reused. Gay Cruise Bingo remains the original and default live edition, on its own domain and Firebase project. Vacay Bingo is the travel edition. Five Across is the platform under both.
 
-What has deliberately not happened is the cutover. Two pieces sit short of use: a wildcard event router whose routes are written but not attached, one human step short, and centralized authentication with a single-use handoff, live in the client as of 2026-10-06 but untraversed, because registered hosts still sign in direct. Until tenant isolation ships, unrelated groups do not share a backend—separate events run on separate Firebase projects—and attaching the routes stays a decision, not a deploy.
+The comment on Gay Cruise Bingo's brand record is explicit: "It is an ENDORSEMENT, not a rename: the wordmark, the cruise vocabulary, the adult posture, gaycruisebingo.com and the legacy Firebase project are all unchanged—GCB is simply one Edition of Five Across now, on the same engine as Vacay…"
+
+A different host ran the first non-cruise event on the same engine: a Sonoma Coast weekend in August 2026. Unlock-copy fixes landed on opening day. The software was reused, but participation stalled. Four people marked 27 squares, nobody got a bingo, and the guests' last marks came on Saturday morning.
+
+On the cruise, the software had prompts written for that sailing, a group ritual, and a host promoting and tuning the game live. Moving the engine to another occasion didn't reproduce that combination. Two events don't isolate which contribution mattered most.
+
+The themes generalized too. Fifteen shipped for the cruise, thirteen party themes and two tutorials, out of twenty-two across the platform. Every one is held to WCAG AA contrast by tests that compute it from the CSS itself.
+
+The cutover is still held. The wildcard event router has written routes that haven't been attached; attaching them is a human step. Centralized authentication with a single-use handoff was live in the client as of 2026-10-06, but no sign-in through it has been demonstrated because registered hosts still sign in directly. Until tenant isolation ships, separate events run on separate Firebase projects and unrelated groups don't share a backend.
 
 ## What a friend-group launch proves
 
-The audience was sixteen friends, and that is a real limit. A friend group cannot validate retention, acquisition, pricing, or how strangers treat each other inside a game. Every one of those claims waits on an audience this launch did not have.
+Sixteen friends can't validate retention, acquisition, pricing or how strangers treat each other in a game. Those questions need an audience this launch didn't have.
 
-What it could test, it tested harshly. Whether social mechanics survive contact with the exact people they were designed for: hearts and doubts did not, and the failure is measured rather than felt. Whether an honor model holds without server authority: the escape hatch was pulled seven times by one player, and 845 squares stood. Whether offline-first survives real dead zones remains unresolved. Across the scoring window the database holds 62 marks the analytics never logged; offline queueing and ordinary analytics loss can both produce that gap. PostHog also captured fifteen exception events containing `auth/network-request-failed`, but those establish request failures, not successful offline marking or its effect on participation. Whether one person and a fleet of agents can operate a live product from the middle of the sea: ninety-six changes landed, and a feature drop reached phones mid-sailing. A friend group is the hardest possible audience to delight on the mechanics' own terms and the softest possible test of everything else. This page keeps the two apart.
+The launch did test the social mechanics on the people I'd designed them for. Hearts and doubts failed with this group, and I have counts for that. The honor model let the standings run: 845 squares stood, and one player demanded proof seven times. It didn't make those marks independently verifiable.
+
+Offline-first's effect remains unresolved. Over the scoring window, Firestore holds 62 more marks than analytics logged. Offline queueing and ordinary analytics loss could both explain the gap. PostHog captured fifteen exception events containing `auth/network-request-failed`. They establish request failures, not successful offline marking or an effect on participation.
+
+I also got evidence that one person and a fleet of agents could operate a live product at sea. Ninety-six changes landed, and a feature drop reached phones during the sailing.
+
+My friends were a hard audience to delight with the mechanics and a forgiving audience for everything else. I need to keep those two tests separate.
