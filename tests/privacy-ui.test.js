@@ -251,6 +251,19 @@ describe('notice confirmation: a link to /privacy/, and gone after 30 seconds (#
     clock.advance(0);
   });
 
+  it('forgets the hover when the line is cleared under the pointer', () => {
+    const { w, d, status, clock } = keepOn();
+    status.dispatchEvent(new w.MouseEvent('mouseenter'));
+    // Another tab reopens the notice: the line is cleared while hovered, and a
+    // hidden box gets no mouseleave.
+    otherTabWrites(w, { v: 1, choice: 'unset', noticeDismissed: false });
+    expect(status.textContent).toBe('');
+    click(w, d.querySelector('#np-privacy-notice [data-np-privacy-action="dismiss"]'));
+    expect(status.textContent).toContain('Analytics stay on.');
+    clock.advance(30_000);
+    expect(status.textContent).toBe('');
+  });
+
   it('moves focus from its link to the notice when another tab reopens the notice', () => {
     const { w, d, status } = keepOn();
     const link = status.querySelector('a');

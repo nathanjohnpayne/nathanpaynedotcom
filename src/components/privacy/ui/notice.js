@@ -71,11 +71,18 @@
     true,
   );
 
+  // Empties the line, which hides it (`:empty`). A hidden box gets no
+  // mouseleave, so the hover state is reset here, on every path that hides it.
+  function clearLine() {
+    hideDue = false;
+    pointerInside = false;
+    status.textContent = '';
+  }
+
   function hideIfDue() {
     if (!hideDue || pointerInside) return;
     if (keyboardInput && status.contains(d.activeElement)) return;
-    hideDue = false;
-    status.textContent = '';
+    clearLine();
   }
 
   status.addEventListener('mouseenter', function () {
@@ -104,7 +111,7 @@
     // focus was on either, keep it in a deliberate place rather than letting
     // it fall back to the document.
     var hadFocus = status.contains(d.activeElement);
-    status.textContent = '';
+    clearLine();
     if (!text) {
       if (hadFocus) {
         var first = notice.hidden ? null : notice.querySelector('[data-np-privacy-action]');
