@@ -71,11 +71,37 @@
     true,
   );
 
-  // Empties the line, which hides it (`:empty`). A hidden box gets no
-  // mouseleave, so the hover state is reset here, on every path that hides it.
+  var FOCUSABLE = 'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
+  /**
+   * Where focus goes when the line it is on disappears: the notice's first
+   * action if the notice is showing, otherwise the first focusable element
+   * after the line in document order, so tabbing resumes where the reader was.
+   */
+  function focusAfterLine() {
+    var target = notice.hidden ? null : notice.querySelector('[data-np-privacy-action]');
+    if (!target) {
+      var all = d.querySelectorAll(FOCUSABLE);
+      for (var i = 0; i < all.length; i++) {
+        var el = all[i];
+        if (status.contains(el) || notice.contains(el) || el.closest('[hidden]')) continue;
+        if (status.compareDocumentPosition(el) & 4 /* FOLLOWING */) {
+          target = el;
+          break;
+        }
+      }
+    }
+    if (target) target.focus({ preventScroll: true });
+    else if (d.activeElement && d.activeElement.blur) d.activeElement.blur();
+  }
+
+  // Empties the line, which hides it (`:empty`), on every path that hides it.
+  // A hidden box gets no mouseleave, so the hover state is reset here, and
+  // focus on the line is moved somewhere visible first.
   function clearLine() {
     hideDue = false;
     pointerInside = false;
+    if (status.contains(d.activeElement)) focusAfterLine();
     status.textContent = '';
   }
 
@@ -112,14 +138,7 @@
     // it fall back to the document.
     var hadFocus = status.contains(d.activeElement);
     clearLine();
-    if (!text) {
-      if (hadFocus) {
-        var first = notice.hidden ? null : notice.querySelector('[data-np-privacy-action]');
-        if (first) first.focus();
-        else d.body.focus();
-      }
-      return;
-    }
+    if (!text) return;
     var phrase = 'privacy page';
     var at = text.indexOf(phrase);
     if (at < 0) {

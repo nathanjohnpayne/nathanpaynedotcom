@@ -264,6 +264,19 @@ describe('notice confirmation: a link to /privacy/, and gone after 30 seconds (#
     expect(status.textContent).toBe('');
   });
 
+  it('moves focus from a timed-out line to the next thing on the page', () => {
+    const { w, d, clock } = mountNotice({ clock: true });
+    const status = d.getElementById('np-privacy-notice-status');
+    const keep = d.querySelector('#np-privacy-notice [data-np-privacy-action="dismiss"]');
+    keep.dispatchEvent(new w.Event('pointerdown', { bubbles: true }));
+    keep.focus();
+    click(w, keep);
+    expect(d.activeElement).toBe(status);
+    clock.advance(30_000);
+    expect(status.textContent).toBe('');
+    expect(d.activeElement).toBe(d.querySelector('main a'));
+  });
+
   it('moves focus from its link to the notice when another tab reopens the notice', () => {
     const { w, d, status } = keepOn();
     const link = status.querySelector('a');
