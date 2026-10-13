@@ -370,6 +370,14 @@ function scriptHosts(source, { skip = null, label = 'script', depth = 0 } = {}) 
   if (parsed.error) return { hosts: [...hosts], error: `${label} could not be parsed: ${parsed.error}` };
   for (const value of parsed.strings) for (const host of namedHosts(value)) hosts.add(host);
   const errors = [];
+  // A constant executable data: URL in code (an import(), a Worker, a script
+  // element's src) runs a body nothing here reads.
+  const dataUrls = [
+    ...new Set(parsed.strings.map((value) => executableDataUrl(value)).filter(Boolean)),
+  ];
+  if (dataUrls.length) {
+    errors.push(`${label} names an executable data: URL (${dataUrls.join(', ')})`);
+  }
   if (parsed.dynamic.length) {
     errors.push(`${label} compiles code at run time (${parsed.dynamic.join(', ')})`);
   }
@@ -385,6 +393,28 @@ function scriptHosts(source, { skip = null, label = 'script', depth = 0 } = {}) 
     inner.hosts.forEach((h) => hosts.add(h));
   }
   return errors.length ? { hosts: [...hosts], error: errors.join('; ') } : { hosts: [...hosts] };
+}
+
+/**
+ * The MIME type of an executable `data:` URL, or null. JavaScript (any type in
+ * JAVASCRIPT_MIME_TYPES), HTML, and XHTML always count. SVG and XML count where
+ * they become a document (a frame, object, or embed). On a `<script>` any
+ * `data:` URL counts, whatever type it claims. `context` is the element's
+ * local name, or null for a string in a script.
+ */
+function executableDataUrl(value, context = null) {
+  const m = /^\s*data:\s*([a-z0-9.+-]+\/[a-z0-9.+-]+)?/i.exec(value);
+  if (!m) return null;
+  const type = (m[1] ?? 'text/plain').toLowerCase();
+  if (JAVASCRIPT_MIME_TYPES.has(type) || type === 'text/html' || type === 'application/xhtml+xml')
+    return type;
+  if (
+    ['image/svg+xml', 'text/xml', 'application/xml'].includes(type) &&
+    ['iframe', 'frame', 'object', 'embed'].includes(context)
+  )
+    return type;
+  if (context === 'script') return type;
+  return null;
 }
 
 /** JSON's own string escapes decoded: every string key and value in a JSON document. */
@@ -517,17 +547,11 @@ function markupFindings(document, exempt, depth = 0) {
       while (lead < asUrl.length && asUrl.charCodeAt(lead) <= 0x20) lead++;
       asUrl = asUrl.slice(lead);
       const isScriptUrl = /^javascript:/i.test(asUrl);
-      // A `data:` URL holding a document runs in a frame of its own, outside
-      // the gate. The site embeds none, so one is a finding in itself.
-      const docType = /^data:\s*([a-z0-9.+-]+\/[a-z0-9.+-]+)/i.exec(asUrl)?.[1].toLowerCase();
-      if (
-        docType === 'text/html' ||
-        docType === 'application/xhtml+xml' ||
-        (['image/svg+xml', 'text/xml', 'application/xml'].includes(docType) &&
-          ['iframe', 'frame', 'object', 'embed'].includes(el.localName))
-      ) {
-        findings.push(`markup attribute embeds a ${docType} data: document`);
-      }
+      // An executable `data:` URL (script or document) runs outside the gate:
+      // a document in a frame of its own, a script with nothing reading its
+      // decoded body. The site uses none, so one is a finding in itself.
+      const dataKind = executableDataUrl(asUrl, el.localName);
+      if (dataKind) findings.push(`markup attribute embeds an executable data: URL (${dataKind})`);
       if (
         attr.name === 'href' &&
         (el.localName === 'a' || el.localName === 'area') &&

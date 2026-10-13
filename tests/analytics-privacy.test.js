@@ -644,23 +644,33 @@ describe('production-mode build carries the privacy controls (PRIV-15 replacemen
         );
       });
 
-      it('treats an executable data: document as a finding in itself', () => {
+      it('treats an executable data: URL as a finding in itself', () => {
         for (const fragment of [
           '<iframe src="data:text/html,%3Cp%3Ehi%3C/p%3E"></iframe>',
           '<iframe src="DATA:Text/HTML;base64,PHA+aGk8L3A+"></iframe>',
           '<object data="data:image/svg+xml,%3Csvg/%3E"></object>',
           '<embed src="data:application/xhtml+xml,%3Chtml/%3E">',
           '<a href="data:text/html,%3Cp%3Ehi%3C/p%3E">x</a>',
+          // Scripts: a JavaScript type, a legacy one, and any type at all on <script>.
+          '<script src="data:text/javascript;base64,ZmV0Y2goIngiKQ=="></script>',
+          '<script src="data:application/x-javascript,1"></script>',
+          '<script src="data:text/plain,1"></script>',
+          '<link rel="modulepreload" href="data:text/javascript,1">',
+          "<script>import('data:text/javascript,export%20default%201')</script>",
+          "<script>new Worker('data:application/javascript,1')</script>",
         ]) {
           expect(
-            analyticsGateFindings(inBody(fragment)).some((f) => f.includes('data: document')),
+            analyticsGateFindings(inBody(fragment)).some((f) => f.includes('executable data: URL')),
             fragment,
           ).toBe(true);
         }
-        // An SVG image is an image, not a document that runs script.
-        expect(
-          analyticsGateFindings(inBody('<img src="data:image/svg+xml,%3Csvg/%3E" alt="">')),
-        ).toEqual([]);
+        // Images are images, not code or documents, even an SVG one.
+        for (const fragment of [
+          '<img src="data:image/svg+xml,%3Csvg/%3E" alt="">',
+          '<img src="data:image/png;base64,iVBORw0KGgo=" alt="">',
+        ]) {
+          expect(analyticsGateFindings(inBody(fragment)), fragment).toEqual([]);
+        }
       });
 
       it('still allows the hosts the guarded blocks name inside their guards', () => {
