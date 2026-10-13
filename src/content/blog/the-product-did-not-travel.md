@@ -3,18 +3,18 @@ title: "The Product Did Not Travel"
 description: "A bingo app built for a cruise ran a second event for a different host. By Saturday afternoon, nobody was marking squares. The host's account sent me back to the cruise data, where a dinner ritual had been hiding inside the engagement totals."
 seoDescription: "A bingo app worked on a cruise and stalled at a house weekend. The second event changed what I thought had made the first one work."
 category: "Agent Systems"
-featured: true
 homepageRank: 1
+featured: true
 author: "Nathan Payne"
 date: 2026-09-24
 draft: false
 tags: ["Product", "Consumer", "Live Ops", "Platforms", "Evidence"]
 image: "/og/blog/the-product-did-not-travel.png"
 keyTakeaways:
-  - "The cruise logged 845 marks and 61 bingos. A different host's weekend logged 27 marks and no bingos. The events don't isolate causes, but my best explanation includes specific prompts, a dinner ritual, and active hosting alongside the software."
+  - "The product was never only the code. The best explanation two events support: the cruise's 845 marks came from prompts written for one sailing, a dinner ritual, and a host who kept it going. Bodega Bay got the software."
   - "On the cruise, 41% of main-day marks came after the next card unlocked, and 32% of all marks fell between 19:00 and 20:59. Players described catching up at dinner. I'd counted engagement without seeing the ritual."
   - "Ask about the experience without naming the bugs you already know. Guests stopped marking four hours and forty-one minutes before the recorded crash; the crash may still have kept the host from bringing them back."
-  - "The rough six-week commit count favored platform and tooling work over prompts and notifications. A manual card, willing host, planned session, and return check would let me test participation before building more infrastructure."
+  - "By a rough commit count, the six weeks after the debrief went to routing, sign-in, deployment, and tooling several times as often as to prompts and notifications. The cheaper participation test needed a willing host and a hand-made card, not infrastructure."
 pullquotes:
   - text: "The host was doing the work of keeping the game in the conversation. Whether the product should support that work or replace it is still an open question."
     label: "The host's role"
