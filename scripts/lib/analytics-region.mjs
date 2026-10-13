@@ -676,7 +676,10 @@ const MUX_EMBED_VERSION = JSON.parse(
 function litixStrings(strings) {
   const counts = new Map();
   for (const value of strings) {
-    if (namedHosts(value).includes('litix.io')) counts.set(value, (counts.get(value) ?? 0) + 1);
+    // Array membership on the decoded host list, not a URL substring test.
+    if (namedHosts(value).some((host) => host === 'litix.io')) {
+      counts.set(value, (counts.get(value) ?? 0) + 1);
+    }
   }
   return counts;
 }
