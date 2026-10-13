@@ -565,7 +565,10 @@ export function analyticsGateFindings(html) {
       for (const attr of el.attributes) {
         // As the URL parser reads it: leading C0 controls and spaces stripped,
         // and every ASCII tab and newline removed, before the scheme is read.
-        const asUrl = attr.value.replace(/[\t\n\r]/g, '').replace(/^[\u0000-\u0020]+/, '');
+        let asUrl = attr.value.replace(/[\t\n\r]/g, '');
+        let lead = 0;
+        while (lead < asUrl.length && asUrl.charCodeAt(lead) <= 0x20) lead++;
+        asUrl = asUrl.slice(lead);
         const isScriptUrl = /^javascript:/i.test(asUrl);
         if (
           attr.name === 'href' &&
