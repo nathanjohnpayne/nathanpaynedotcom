@@ -100,9 +100,10 @@
     if (hideTimer) w.clearTimeout(hideTimer);
     hideTimer = null;
     hideDue = false;
-    // Rewriting the line removes its link; if focus was on it, keep it in a
-    // deliberate place rather than letting it fall back to the document.
-    var hadFocus = status.contains(d.activeElement) && d.activeElement !== status;
+    // Rewriting the line removes its link, and clearing it hides the line. If
+    // focus was on either, keep it in a deliberate place rather than letting
+    // it fall back to the document.
+    var hadFocus = status.contains(d.activeElement);
     status.textContent = '';
     if (!text) {
       if (hadFocus) {

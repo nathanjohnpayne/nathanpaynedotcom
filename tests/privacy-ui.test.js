@@ -237,6 +237,20 @@ describe('notice confirmation: a link to /privacy/, and gone after 30 seconds (#
     expect(status.textContent).toBe('');
   });
 
+  it('moves focus from the line itself to the notice when another tab reopens it', () => {
+    const { w, d, clock } = mountNotice({ clock: true });
+    const status = d.getElementById('np-privacy-notice-status');
+    const keep = d.querySelector('#np-privacy-notice [data-np-privacy-action="dismiss"]');
+    d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Enter' }));
+    keep.focus();
+    click(w, keep);
+    expect(d.activeElement).toBe(status);
+    otherTabWrites(w, { v: 1, choice: 'unset', noticeDismissed: false });
+    expect(status.textContent).toBe('');
+    expect(d.activeElement).toBe(d.querySelector('#np-privacy-notice [data-np-privacy-action]'));
+    clock.advance(0);
+  });
+
   it('moves focus from its link to the notice when another tab reopens the notice', () => {
     const { w, d, status } = keepOn();
     const link = status.querySelector('a');
