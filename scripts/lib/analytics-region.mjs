@@ -13,6 +13,7 @@ import { readFileSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parse as acornParse } from 'acorn';
 import { JSDOM } from 'jsdom';
 
 export const REGION_START = '<!-- PostHog -->';
@@ -207,6 +208,131 @@ function namedHosts(value) {
   return ANALYTICS_HOSTS.filter((host) => forms.some((form) => form.includes(host)));
 }
 
+/**
+ * The value of a constant string expression, or null: a string or number
+ * literal, a template literal whose every expression is itself constant, or a
+ * `+` of two constants. That is how far the check evaluates: JavaScript's own
+ * escapes (`\x2d`, `-`, `\u{2d}`, line continuations) arrive already
+ * decoded in the parser's cooked values, and a host split across `+` or a
+ * template is put back together. Anything computed at run time
+ * (`String.fromCharCode`, `atob`, `[...].join`) is beyond a static check; the
+ * browser suites, which refuse all egress, are the enforcement for those.
+ */
+function constantString(node) {
+  if (!node) return null;
+  if (node.type === 'Literal') {
+    return typeof node.value === 'string' || typeof node.value === 'number'
+      ? String(node.value)
+      : null;
+  }
+  if (node.type === 'TemplateLiteral') {
+    let out = '';
+    for (let i = 0; i < node.quasis.length; i++) {
+      const cooked = node.quasis[i].value.cooked;
+      if (cooked == null) return null;
+      out += cooked;
+      if (i < node.expressions.length) {
+        const part = constantString(node.expressions[i]);
+        if (part == null) return null;
+        out += part;
+      }
+    }
+    return out;
+  }
+  if (node.type === 'BinaryExpression' && node.operator === '+') {
+    const left = constantString(node.left);
+    const right = left == null ? null : constantString(node.right);
+    return left == null || right == null ? null : left + right;
+  }
+  return null;
+}
+
+/**
+ * Every string a script's source spells as a constant (see constantString):
+ * each string literal, each template quasi, and each constant expression whole.
+ * `skip` is an optional half-open [start, end) source range whose nodes are
+ * not read.
+ * Returns `{ strings }`, or `{ error }` when the source parses as neither a
+ * classic script nor a module, which the caller reports rather than passes.
+ */
+export function scriptStrings(source, { skip = null } = {}) {
+  let ast = null;
+  let lastError = null;
+  for (const sourceType of ['script', 'module']) {
+    try {
+      ast = acornParse(source, {
+        ecmaVersion: 'latest',
+        sourceType,
+        allowHashBang: true,
+        allowReturnOutsideFunction: sourceType === 'script',
+      });
+      break;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  if (!ast) return { error: lastError?.message ?? 'unparseable' };
+  const strings = [];
+  const inSkip = (node) => skip && node.start >= skip[0] && node.end <= skip[1];
+  const visit = (node) => {
+    if (!node || typeof node.type !== 'string' || inSkip(node)) return;
+    if (node.type === 'TemplateLiteral') {
+      for (const q of node.quasis) if (q.value.cooked != null) strings.push(q.value.cooked);
+    }
+    const value = constantString(node);
+    if (value != null) strings.push(value);
+    for (const key of Object.keys(node)) {
+      const child = node[key];
+      if (Array.isArray(child)) child.forEach(visit);
+      else if (child && typeof child.type === 'string') visit(child);
+    }
+  };
+  visit(ast);
+  return { strings };
+}
+
+/**
+ * Analytics hosts a script names, read two ways: its raw text (comments and
+ * all, through spellings()) and its constant strings as the engine would
+ * evaluate them. `skip` excludes a source range from both readings. A script
+ * that cannot be parsed is reported by name instead of passing.
+ */
+function scriptHosts(source, { skip = null, label = 'script' } = {}) {
+  const raw = skip ? source.slice(0, skip[0]) + '\n' + source.slice(skip[1]) : source;
+  const hosts = new Set(namedHosts(raw));
+  const parsed = scriptStrings(source, { skip });
+  if (parsed.error) return { hosts: [...hosts], error: `${label} could not be parsed: ${parsed.error}` };
+  for (const value of parsed.strings) for (const host of namedHosts(value)) hosts.add(host);
+  return { hosts: [...hosts] };
+}
+
+/** JSON's own string escapes decoded: every string key and value in a JSON document. */
+function jsonStrings(text) {
+  const out = [];
+  const visit = (value) => {
+    if (typeof value === 'string') out.push(value);
+    else if (Array.isArray(value)) value.forEach(visit);
+    else if (value && typeof value === 'object') {
+      for (const [key, child] of Object.entries(value)) {
+        out.push(key);
+        visit(child);
+      }
+    }
+  };
+  try {
+    visit(JSON.parse(text));
+    return { strings: out };
+  } catch (error) {
+    return { error: error.message };
+  }
+}
+
+/** Classic and module scripts are JavaScript; every other `type` is data. */
+function isJavaScriptType(type) {
+  const t = (type ?? '').trim().toLowerCase();
+  return t === '' || t === 'module' || t === 'text/javascript' || t === 'application/javascript';
+}
+
 const REGION_START_TEXT = REGION_START.slice(4, -3);
 const REGION_END_TEXT = REGION_END.slice(4, -3);
 
@@ -285,18 +411,19 @@ export function analyticsGateFindings(html) {
 
     // Every statement that loads a tool must sit inside the block the guard
     // opens, not merely after the guard's text: `if (...) {}` followed by the
-    // bootstrap passes an offset comparison and gates nothing.
+    // bootstrap passes an offset comparison and gates nothing. Returns the
+    // guarded block as a half-open [start, end) range, or null.
     const after = (name, body, guard, needles) => {
       const match = guard.exec(body);
       if (!match) {
         findings.push(`${name} block has no gate guard`);
-        return;
+        return null;
       }
       const open = match.index + match[0].length - 1;
       const close = matchingBrace(body, open);
       if (close < 0) {
         findings.push(`${name} block: could not find the end of the gate guard's block`);
-        return;
+        return null;
       }
       for (const needle of needles) {
         const first = body.indexOf(needle);
@@ -308,24 +435,45 @@ export function analyticsGateFindings(html) {
         if (first < open) findings.push(`${name} block runs ${needle} before its gate guard`);
         else if (last > close) findings.push(`${name} block runs ${needle} outside its gate guard`);
       }
+      return [open, close + 1];
+    };
+    // A region script is exempt from the host scan only inside its guarded
+    // block. Everything around the block runs ungated, so a host named there
+    // (a stray fetch after the block closes, say) is a finding, however it is
+    // spelled. The listed needles above check only what the guard must hold.
+    const outsideGuard = (name, body, span) => {
+      if (!span) return;
+      const { hosts, error } = scriptHosts(body, { skip: span, label: `${name} block` });
+      if (error) findings.push(error);
+      for (const host of hosts) {
+        findings.push(`${name} block names analytics host ${host} outside its gate guard`);
+      }
     };
     if (posthog) {
       const body = posthog.textContent;
-      after('PostHog', body, POSTHOG_GUARD, ['!function(t,e){', 'posthog.init(']);
+      outsideGuard(
+        'PostHog',
+        body,
+        after('PostHog', body, POSTHOG_GUARD, ['!function(t,e){', 'posthog.init(']),
+      );
       if (body.includes('const posthogHost')) {
         findings.push('PostHog block carries the ungated pre-#1233 snippet');
       }
     }
     if (ga4) {
       const body = ga4.textContent;
-      after('GA4', body, GA4_GUARD, [
-        'window.dataLayer = ',
-        "gtag('js'",
-        "gtag('config'",
-        'document.createElement(',
-        'loader.src = ',
-        'appendChild(loader)',
-      ]);
+      outsideGuard(
+        'GA4',
+        body,
+        after('GA4', body, GA4_GUARD, [
+          'window.dataLayer = ',
+          "gtag('js'",
+          "gtag('config'",
+          'document.createElement(',
+          'loader.src = ',
+          'appendChild(loader)',
+        ]),
+      );
       if (!body.includes('gtag/js?id=')) findings.push('GA4 block does not create the loader');
     }
 
@@ -341,15 +489,27 @@ export function analyticsGateFindings(html) {
     //    above;
     //  - Mux Data's wrapper, exactly as MUX_DATA_SOURCE (see there).
     // JSON-LD and every other script type are scanned like any other: none of
-    // them names a host today, so they need no exemption.
+    // them names a host today, so they need no exemption. A JavaScript body is
+    // read as the engine reads it (scriptHosts: escapes decoded, constants
+    // joined), JSON with its own escapes decoded, anything else as text.
     const exempt = new Set(inRegion);
     if (gate) exempt.add(gate);
     for (const el of elements) {
       if (el.localName !== 'script') continue;
       if (exempt.has(el) || el.textContent.trim() === MUX_DATA_SOURCE) continue;
-      for (const host of namedHosts(el.textContent)) {
-        findings.push(`inline script names analytics host ${host}`);
+      const text = el.textContent;
+      const type = el.getAttribute('type');
+      const hosts = new Set(namedHosts(text));
+      if (isJavaScriptType(type)) {
+        const scanned = scriptHosts(text, { label: 'inline script' });
+        if (scanned.error) findings.push(scanned.error);
+        scanned.hosts.forEach((h) => hosts.add(h));
+      } else if (/json/i.test(type ?? '')) {
+        const parsed = jsonStrings(text);
+        if (parsed.error) findings.push(`inline ${type} script is not valid JSON: ${parsed.error}`);
+        else for (const value of parsed.strings) namedHosts(value).forEach((h) => hosts.add(h));
       }
+      for (const host of hosts) findings.push(`inline script names analytics host ${host}`);
     }
 
     // CSS: any mention of a host in a stylesheet (`url(...)`, `@import`, or
@@ -365,22 +525,79 @@ export function analyticsGateFindings(html) {
     // Attributes: every attribute of every element, whatever its name (`src`,
     // `srcset`, `data`, `poster`, `xlink:href`, `content`, `style`, `on*`
     // handlers, `srcdoc`), decoded by the parser. The one exemption is `href`
-    // on `<a>` and `<area>`: following a link is navigation the visitor starts,
-    // not a request the page makes. A `<link href>` (preconnect, prefetch,
+    // on `<a>` and `<area>` (unless it is a `javascript:` URL): following a link
+    // is navigation the visitor starts, not a request the page makes. A `<link href>` (preconnect, prefetch,
     // stylesheet) is NOT exempt. Prose may name the hosts: the /privacy/ page
     // discloses them in text.
+    // An `on*` handler and a `javascript:` URL are JavaScript, so they are also
+    // read as the engine reads them (scriptHosts); a `javascript:` href is not
+    // navigation and gets no exemption.
     for (const el of elements) {
       for (const attr of el.attributes) {
-        if (attr.name === 'href' && (el.localName === 'a' || el.localName === 'area')) continue;
-        for (const host of namedHosts(attr.value)) {
-          findings.push(`markup attribute names analytics host ${host}`);
+        const isScriptUrl = /^\s*javascript:/i.test(attr.value);
+        if (
+          attr.name === 'href' &&
+          (el.localName === 'a' || el.localName === 'area') &&
+          !isScriptUrl
+        ) {
+          continue;
         }
+        const hosts = new Set(namedHosts(attr.value));
+        if (/^on/i.test(attr.name) || isScriptUrl) {
+          const code = isScriptUrl ? attr.value.replace(/^\s*javascript:/i, '') : attr.value;
+          const scanned = scriptHosts(code, { label: `${attr.name} attribute` });
+          if (scanned.error) findings.push(scanned.error);
+          scanned.hosts.forEach((h) => hosts.add(h));
+        }
+        for (const host of hosts) findings.push(`markup attribute names analytics host ${host}`);
       }
     }
     return findings;
   } finally {
     dom.window.close();
   }
+}
+
+// The installed mux-embed version. Mux Data is the one emitted bundle allowed
+// to name an analytics host: its chunk names litix.io, where Mux sends beacons,
+// and runs only through the gate's mediation (src/lib/privacy/mux-data.js). The
+// chunk is recognized by the name and exact version mux-embed stamps into
+// itself, so the allowance follows that package and not a file name or hash.
+const MUX_EMBED_VERSION = JSON.parse(
+  readFileSync(
+    fileURLToPath(new URL('../../node_modules/mux-embed/package.json', import.meta.url)),
+    'utf8',
+  ),
+).version;
+
+/**
+ * Findings for the JavaScript a build emits (`files` as readTextFiles returns
+ * them; anything not .js or .mjs is ignored). A same-origin bundle runs on any
+ * page that loads it, so an analytics host named in one is a request the HTML
+ * check never sees. Each bundle is read as the engine reads it (scriptHosts),
+ * and one that cannot be parsed is reported. The mux-embed chunk (see
+ * MUX_EMBED_VERSION) may name litix.io and nothing else.
+ */
+export function bundleFindings(files) {
+  const findings = [];
+  for (const { path, text } of files) {
+    if (!/\.m?js$/.test(path)) continue;
+    const { hosts, error } = scriptHosts(text, { label: path });
+    if (error) findings.push(error);
+    if (!hosts.length) continue;
+    const { strings = [] } = scriptStrings(text);
+    // mux-embed's own NAME and VERSION constants, and the beacon key it
+    // reports them under (an object key, so read from the text).
+    const isMuxEmbed =
+      strings.includes('mux-embed') &&
+      strings.includes(MUX_EMBED_VERSION) &&
+      text.includes('mux_embed_version');
+    for (const host of hosts) {
+      if (isMuxEmbed && host === 'litix.io') continue;
+      findings.push(`${path}: bundle names analytics host ${host}`);
+    }
+  }
+  return findings;
 }
 
 /** Runs `astro build` in production mode with the fixed fake tokens. */
