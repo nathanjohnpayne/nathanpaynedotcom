@@ -393,6 +393,16 @@ function scriptHosts(source, { skip = null, label = 'script', depth = 0 } = {}) 
   if (dataUrls.length) {
     errors.push(`${label} names an executable data: URL (${dataUrls.join(', ')})`);
   }
+  // So does a constant javascript: URL (assigned to location, a link, a
+  // frame): the site uses none, in markup or in code. Read as the URL parser
+  // reads it: tabs and newlines removed, leading controls and spaces stripped.
+  const scriptUrl = parsed.strings.some((value) => {
+    const url = value.replace(/[\t\n\r]/g, '');
+    let lead = 0;
+    while (lead < url.length && url.charCodeAt(lead) <= 0x20) lead++;
+    return /^javascript:/i.test(url.slice(lead));
+  });
+  if (scriptUrl) errors.push(`${label} names a javascript: URL`);
   if (parsed.dynamic.length) {
     errors.push(`${label} compiles code at run time (${parsed.dynamic.join(', ')})`);
   }

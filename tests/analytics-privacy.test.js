@@ -592,6 +592,24 @@ describe('production-mode build carries the privacy controls (PRIV-15 replacemen
         ).toContain('markup attribute names analytics host google-analytics.com');
       });
 
+      it('treats a javascript: URL in code as a finding in itself', () => {
+        for (const code of [
+          'location.href = "javascript:fetch(1)"',
+          "document.querySelector('a').href = 'java\\tscript:void(0)'",
+          'const u = `JavaScript:${1}`',
+        ]) {
+          expect(
+            analyticsGateFindings(inBody(`<script>${code}</script>`)).some((f) =>
+              f.includes('names a javascript: URL'),
+            ),
+            code,
+          ).toBe(true);
+        }
+        expect(
+          bundleFindings([{ path: '_astro/x.js', text: 'location.href = "javascript:1"' }])[0],
+        ).toMatch(/names a javascript: URL/);
+      });
+
       it('reads a javascript: link the way the URL parser does', () => {
         for (const href of [
           String.raw`java&#10;script:fetch('https://www.google\x2danalytics.com/g')`,
