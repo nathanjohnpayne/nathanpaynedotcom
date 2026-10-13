@@ -11,14 +11,14 @@ Specification for the content-collection-driven project detail pages.
 
 ## Authoring a New Project
 
-To add a new project, create a Markdown file in `src/content/projects/`. The filename becomes the URL slug—`my-project.md` renders at `/projects/my-project/`. The page, index entry, and JSON-LD are all generated from this single file.
+To add a new project, create a Markdown file in `src/content/projects/`. The frontmatter `slug` becomes the URL—`slug: "my-project"` renders at `/projects/my-project/`; by convention the filename matches it. The page, index entry, share card, and JSON-LD are generated from this single file. Three things are not: the homepage Projects row (hand-authored markup in `src/pages/index.astro`), the optional résumé entry (`src/content/resume/projects/<slug>.md`), and the pinned fixtures in `tests/project-pages.test.js` (see `docs/agents/operating-rules.md` § Adding a Project). The owner's walkthrough is in the nathanpaynedotcom owner's manual in the private docs vault.
 
 The collection accepts `.md` or `.mdx`. A page only needs `.mdx` if its body places `<DecisionLedger>`, `<ConstraintStrip>`, or `<LearningLedger>` (see § Decisions, constraints, and learnings)—MDX is the mechanism that lets those components render mid-body rather than only before or after the whole body. A plain `.md` project page is still entirely valid and remains the default; converting to `.mdx` is opt-in per page, not a migration every project has to make.
 
 ### Required files
 
 1. **Markdown source**: `src/content/projects/<slug>.md` (or `<slug>.mdx`, if the body places a case-study component)
-2. **Hero image**: `public/images/projects/<slug>-hero.png` (or `.gif` for animated)
+2. **Hero image**: any path under `public/` named by `screenshotSrc`; the convention is `public/images/projects/<slug>-hero.png` (or `.gif` for animated), though current heroes include `mergepath.png`, `matchline-wordmark.svg`, and `friends-and-family-billing-hero-v2.png`
 
 ### Frontmatter template
 
@@ -59,31 +59,31 @@ draft: false
 | Field | Type | Required | Purpose |
 |-------|------|----------|---------|
 | `title` | string | yes | Page title, hero heading, JSON-LD name |
-| `slug` | string | yes | URL path segment; must match filename, and must be unique across the whole collection. `getStaticPaths` keys the route on this field, not on the file path, so two files in different directories declaring the same `slug` collide on one route—see § Slug uniqueness |
+| `slug` | string | yes | URL path segment; should match the filename by convention (nothing enforces it), and must be unique across the whole collection. `getStaticPaths` keys the route on this field, not on the file path, so two files in different directories declaring the same `slug` collide on one route—see § Slug uniqueness |
 | `description` | string | yes | Hero deck text, meta description, JSON-LD |
 | `cardDescription` | string | no | The `/projects/` index card line, and the sentence under each project on the homepage Projects panel (#1085). Falls back to `description` when absent. Exists so the index card and the detail-page hero deck can differ: one field cannot serve both a hero paragraph and a card in a seven-up grid, and sharing it meant every hero edit was also a card edit and pushed the card spread to 107–244 characters (#751). A card line gives one reason to open the page—a decision, a constraint, an outcome—not a feature list; `stack` carries the technology roster. Guarded by `tests/project-pages.test.js` (proof-point shape, length band, status consistency) |
 | `ogDescription` | string | no | The Open Graph card's line. Falls back to `description` when absent. `src/pages/og-templates/projects/[slug].astro` generates every project card from frontmatter (`title`, this line, `tags` joined with ` · `) and fails the build when the line exceeds the card's 180-character cap or, after fonts load, any block crowds the card's clipping edge or the tag line wraps (`ogFitProblems` in `src/integrations/og-images.mjs`). The field exists only for a project whose `description` is longer than the card can set. Matchline uses it (#1088) |
 | `kicker` | string | yes | Source for the metadata table's `Topics` column (e.g., "AI × Finance × Theater" → renders as `AI · Finance · Theater`). Field name kept for frontmatter back-compat |
-| `order` | non-negative integer | yes | Position on the `/projects/` index grid (lower = first). Governs `/projects/` **only**—the homepage Builds grid is hand-authored markup and ignores this field. See § Canonical project ordering |
+| `order` | non-negative integer | yes | Position on the `/projects/` index grid (lower = first). Governs the `/projects/` order and, through the accent ramp, `accent` (`tests/project-pages.test.js` asserts `accent` = `RAMP[order % 5]` and pins the published orders to `0…n−1`). The homepage Builds grid is hand-authored markup and does not sort by this field. See § Canonical project ordering |
 | `screenshotAspect` | `"wide"` \| `"narrow"` | yes | Layout variant—see below |
 | `screenshotSrc` | string | yes | Path to hero image in `public/` |
 | `screenshotSecondary` | object | no | A companion capture rendered beside `screenshotSrc`—see § Paired screenshots. All four keys are required when the field is present: `src`, `alt`, `width`, `height` |
 | `screenshotDarkSurface` | boolean | no | Opt in when the hero art itself needs a dark figure surface to be legible—see § Dark screenshot surface. A property of the artwork, not of `accent` |
 | `accent` | enum | yes | Semantic accent token for the project. One of `red`, `yellow`, `paper`, `blue`, `black`. Not a free choice—it must be `RAMP[order % 5]` per the Accent ramp below, enforced by `tests/project-pages.test.js`. CSS derives the actual palette values, text-safe color, page wash, and metadata gradient from this token |
-| `liveUrl` | non-empty string | no | URL for the live CTA, labelled "View Live Product" unless `liveLabel` overrides it. Omit on pre-launch projects (status `IN PROGRESS`)—the CTA, the index card "Live ↗" link, the homepage Builds "Live ↗" link, and the `SoftwareApplication` JSON-LD entity are all suppressed when this field is missing |
+| `liveUrl` | non-empty string | no | URL for the live CTA, labelled "View Live Product" unless `liveLabel` overrides it. Omit on pre-launch projects (status `IN PROGRESS`)—the CTA, the index card "View ↗" link, and the `SoftwareApplication` JSON-LD entity are all suppressed when this field is missing (the homepage Builds row has no live link either way) |
 | `liveLabel` | non-empty string | no | Overrides the live CTA's label. The default "View Live Product" is right when the link opens the product; it is wrong when the link opens a demonstration instead, and the mismatch is loudest beside a non-SHIPPED status. Device Source of Truth is `ARCHIVED` and its live link reaches a synthetic-data demo behind a restricted login, so it sets `View Demo`—which makes `ARCHIVED` read as what it is: development ended, an inspectable demonstration remains. The schema rejects `liveLabel` without `liveUrl`, since it would label a button nothing renders |
 | `githubUrl` | non-empty string | no | URL for "View on GitHub" CTA. **Omit when the repository is private**—a private repo returns GitHub's 404 to every reader but the owner, so the CTA is suppressed rather than published as a dead link. Same suppression mechanics as `liveUrl` above (#874). **One exception:** a project setting `heroRefresh: 'github-social'` must supply it regardless, because that refresh reads this URL's social preview; the schema rejects the pairing rather than letting the hero go silently stale. |
 | `tags` | string[] | yes | Category/technology tags |
-| `status` | enum | yes | Project lifecycle status. One of `SHIPPED`, `EXPERIMENT`, `IN PROGRESS`, `PAUSED`, `ARCHIVED`. Drives the homepage Builds row, the project-card kicker on `/projects/`, and the STATUS cell of the detail-page metadata strip—single source of truth, single short-form vocabulary, and one lifecycle mark across all three. See § Lifecycle marker, #274, #285 |
+| `status` | enum | yes | Project lifecycle status. One of `SHIPPED`, `EXPERIMENT`, `IN PROGRESS`, `PAUSED`, `ARCHIVED`. Drives the homepage Builds row, the project-card kicker on `/projects/`, the STATUS cell of the detail-page metadata strip, and the résumé Projects kicker—single source of truth, single short-form vocabulary, and one lifecycle mark across all four. See § Lifecycle marker, #274, #285 |
 | `metadata.format` | string | yes | Metadata strip: product-type label (e.g., "Internal platform tool"). The tech stack lives in the separate `stack` field—this field is for product category |
 | `metadata.focus` | string | yes | Metadata strip: focus area value |
 | `stack` | string | no | Tech stack values separated by ` · ` (e.g., `"React · TypeScript · Vite · Firebase · Vitest"`). Rendered as a figcaption below the screenshot. Optional—projects without a stack field render without the caption |
 | `related` | array | no | Related links with `label` and `href` |
 | `muxPlaybackId` | non-empty string | no | Mux public Playback ID. When set, the hero renders a `<mux-background-video>` video and `screenshotSrc` is used as the JS-disabled fallback. Schema rejects blank / whitespace-only values so a stray empty string fails build-time rather than producing a broken URL. See "Adding a Mux video" below |
-| `decisions` | array | no | Case-study decision ledger entries, rendered mid-body by `<DecisionLedger>`. Each entry is `title`, `context`, `rejected`, `rationale`, `evidence`, `status`, plus the optional `lens`, `chosen` and `cost` that switch the record to the assertion anatomy. Optional, defaults to `[]`. See § Decisions, constraints, and learnings for the field-level contract |
+| `decisions` | array | no | Case-study decision ledger entries, rendered mid-body by `<DecisionLedger>`. Each entry is `title`, `context`, `rationale`, `status`, plus optional `lens`, `chosen`, `cost`, `rejected`, and `evidence`. Tests require `cost` when `chosen` is present, `rejected` when it is absent, and `evidence` unless `status` is `pending`. Optional, defaults to `[]`. See § Decisions, constraints, and learnings for the field-level contract |
 | `constraints` | array | no | Constraint chips rendered mid-body by `<ConstraintStrip>`. Each entry pairs a headline `value` with a one-line `label` gloss. Optional, defaults to `[]` |
 | `learnings` | array | no | Learning ledger entries rendered mid-body by `<LearningLedger>`. Each entry is an `expected` / `observed` / `response` triple. Optional, defaults to `[]` |
-| `draft` | boolean | no | `true` to exclude from builds (default: `false`) |
+| `draft` | boolean | no | `true` excludes the page, index card, share card, and sitemap entry (default: `false`). Drafting a published project also requires removing its homepage row (a row naming an unpublished slug fails the build) and updating the pinned fixtures in `tests/project-pages.test.js` |
 
 ### Body content structure
 
@@ -283,7 +283,7 @@ instruction from the owner.
 
 `order` drives `/projects/`—`src/pages/projects/index.astro` sorts the collection by it. The **homepage Builds grid does not sort by it**: its rows are hand-authored anchors in a fixed sequence. `src/pages/index.astro` reads the projects collection only to look up each listed slug's lifecycle status (#892) and card line (#1085), so a status or `cardDescription` edit reaches the homepage on its own, but editing `order` alone changes `/projects/` and silently leaves the homepage on its old sequence.
 
-Nothing in the build catches that divergence, and it had already happened once before this was written. When you reorder, change both, and update the order-sensitive fixture in `tests/project-pages.test.js` (`canonicalProjectCards`, from which the homepage card-line expectation is derived) and `tests/resume.test.js`, which assert the rendered sequence on all three surfaces.
+The build does not catch that divergence, but the tests do: `tests/homepage-writing.test.js` fails a homepage row out of canonical order, and `tests/project-pages.test.js` pins the homepage list to `canonicalProjectCards`. It had already happened once before those checks existed. When you reorder, change both, and update the order-sensitive fixture in `tests/project-pages.test.js` (`canonicalProjectCards`, from which the homepage card-line expectation is derived) and `tests/resume.test.js`, which assert the rendered sequence on all three surfaces.
 
 ---
 
@@ -295,13 +295,13 @@ Every project page uses the same `.metadata-surface` container, which wraps a 4-
 
 Used for desktop web app screenshots. The figure spans the full width of the gradient surface; the image is bordered and rounded, and the stack caption (if present) sits flush left directly below it at the same width.
 
-**Projects using this**: Override, Device Source of Truth, Friends & Family Billing.
+**Projects using this**: Mergepath, Override, Device Source of Truth, Matchline, Friends & Family Billing (pinned by the `wideSlugs` list in `tests/project-pages.test.js`).
 
 ### Narrow (`screenshotAspect: "narrow"`)
 
 Used for phone/mobile screenshots. The figure's inner wrapper (`.project-screenshot__inner`) is constrained to `max-width: 320px` (280px at the tablet breakpoint) and centered horizontally within the gradient surface. The stack caption inherits the same max-width constraint via the `.project-screenshot--narrow .project-stack` selector, so it aligns to the phone screenshot's left edge rather than the content container's. The phone image is rounded on all four corners and has sufficient bottom padding so the transition to the `Overview` heading below feels intentional.
 
-**Projects using this**: Swipe Watch.
+**Projects using this**: Five Across, Swipe Watch.
 
 ### Responsive behavior
 
@@ -372,7 +372,7 @@ The player auto-sizes from the asset's video metadata. There is **no per-project
 
 ### Fallback GIF regeneration
 
-`screenshotSrc` is the JS-disabled fallback and the OG image source. For projects with `muxPlaybackId`, the GIF at that path is **regenerated from Mux on every build** by [scripts/refresh-mux-gifs.mjs](../scripts/refresh-mux-gifs.mjs), which runs as part of `prebuild`. The script fetches `https://image.mux.com/{playbackId}/animated.gif?width=320&fps=15&end=8` and writes the response directly to `public/<screenshotSrc>`.
+`screenshotSrc` is the JS-disabled fallback. (Project OG cards are text-only, generated from `title`, `ogDescription ?? description`, and `tags`; no hero image reaches them.) For projects with `muxPlaybackId`, the GIF at that path is **regenerated from Mux on every build** by [scripts/refresh-mux-gifs.mjs](../scripts/refresh-mux-gifs.mjs), which runs as part of `prebuild`. The script fetches `https://image.mux.com/{playbackId}/animated.gif?width=320&fps=15&end=8` and writes the response directly to `public/<screenshotSrc>`.
 
 Key behaviors:
 
@@ -488,7 +488,7 @@ const { Content } = await render(project);
 
 ### Index page
 
-`src/pages/projects/index.astro` queries the collection with `getCollection('projects')`, sorts by `data.order`, and renders a Mondrian-style grid. Adding a new `.md` or `.mdx` file with valid frontmatter automatically adds it to the index.
+`src/pages/projects/index.astro` queries the collection with `getCollection('projects')`, sorts by `data.order`, and renders a Mondrian-style grid. Adding a new non-draft `.md` or `.mdx` file with valid frontmatter automatically adds it to the index; `npm test` then fails until the pinned fixtures in `tests/project-pages.test.js` include it.
 
 ---
 

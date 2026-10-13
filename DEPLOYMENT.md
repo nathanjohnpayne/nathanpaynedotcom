@@ -1,5 +1,7 @@
 # Deployment
 
+This is the engineering reference for building and deploying nathanpayne.com. The owner's step-by-step manual, covering editing, previewing, publishing, deploying, and reading analytics, lives in the private docs vault: [nathanpaynedotcom owner's manual](https://github.com/nathanjohnpayne/docs/blob/9284108e3f8275c3d79e54e302199f207f1c5d41/projects/nathanpaynedotcom/owners-manual/README.md). This file stays canonical for the deploy mechanics it describes.
+
 ## New Machine Setup
 
 Run these steps on any new or temporary machine. Tell your AI agent:
@@ -40,13 +42,13 @@ gh auth login
 
 ```bash
 # Clone the template repo if not already present
-git clone https://github.com/nathanjohnpayne/mergepath.git ~/Documents/GitHub/mergepath
+git clone https://github.com/nathanjohnpayne/mergepath.git ~/GitHub/mergepath
 
 # Install canonical helper scripts
 mkdir -p ~/.local/bin
-cp ~/Documents/GitHub/mergepath/scripts/gcloud/gcloud ~/.local/bin/
-cp ~/Documents/GitHub/mergepath/scripts/firebase/op-firebase-deploy ~/.local/bin/
-cp ~/Documents/GitHub/mergepath/scripts/firebase/op-firebase-setup ~/.local/bin/
+cp ~/GitHub/mergepath/scripts/gcloud/gcloud ~/.local/bin/
+cp ~/GitHub/mergepath/scripts/firebase/op-firebase-deploy ~/.local/bin/
+cp ~/GitHub/mergepath/scripts/firebase/op-firebase-setup ~/.local/bin/
 chmod +x ~/.local/bin/gcloud ~/.local/bin/op-firebase-deploy ~/.local/bin/op-firebase-setup
 
 # Ensure PATH includes ~/.local/bin
@@ -56,7 +58,7 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
 ### 4. Clone and bootstrap all repos
 
 ```bash
-cd ~/Documents/GitHub
+cd ~/GitHub
 
 for repo in friends-and-family-billing device-platform-reporting device-source-of-truth swipewatch nathanpaynedotcom overridebroadway; do
   git clone "https://github.com/nathanjohnpayne/$repo.git" 2>/dev/null || (cd "$repo" && git pull)
@@ -71,13 +73,15 @@ The bootstrap script for each repo:
 - Runs `npm install`
 - Runs `npm run build` (if applicable)
 
+For this repository, that last step conflicts with § Build Process: `scripts/bootstrap.sh` runs `npm install` and `npm run build` in the same process that just unlocked 1Password, while #1104 keeps build and dependency code away from credentials. Until the script changes, run it only when you need `.env.local`, which local previews do not (every `PUBLIC_*` consumer degrades without it). Production never reads `.env.local`; the CI build reads repository Actions variables.
+
 ### 5. Verify
 
 ```bash
 # Quick check that each repo's local config was restored
 for repo in friends-and-family-billing device-platform-reporting device-source-of-truth overridebroadway; do
   echo "=== $repo ==="
-  ls ~/Documents/GitHub/$repo/.env* 2>/dev/null || echo "  (no env files expected)"
+  ls ~/GitHub/$repo/.env* 2>/dev/null || echo "  (no env files expected)"
 done
 ```
 
@@ -92,7 +96,7 @@ When you return from a temporary machine, tell your agent:
 ### 1. On the temporary machine (before leaving)
 
 ```bash
-cd ~/Documents/GitHub
+cd ~/GitHub
 for repo in friends-and-family-billing device-platform-reporting device-source-of-truth swipewatch nathanpaynedotcom overridebroadway; do
   cd "$repo"
   # Push any local config changes to 1Password
@@ -106,7 +110,7 @@ done
 ### 2. On the main machine (when you return)
 
 ```bash
-cd ~/Documents/GitHub
+cd ~/GitHub
 for repo in friends-and-family-billing device-platform-reporting device-source-of-truth swipewatch nathanpaynedotcom overridebroadway; do
   cd "$repo"
   git pull                          # get code changes from the temp machine
@@ -192,7 +196,11 @@ Code CLI headlessly as a CI-side reviewer; this was the wrong flow
 duplicate work) and was removed. Phase 2 now lives entirely inside
 the authoring agent's session.
 
+**This repository today (read 2026-10-12).** The list above is the template's. This repository also carries `AUTHOR_MERGE_TOKEN` (used by `auto-clear-blocking-labels.yml`, `dependabot-auto-merge.yml`, `merge-queue-authorization.yml`, and `merge-queue-final-audit.yml`) and `CI_ACTOR_TOKEN` (used by `auto-clear-blocking-labels.yml`, `agent-review.yml`, and `pr-review-policy.yml`), so `REVIEWER_ASSIGNMENT_TOKEN` is not the only secret workflows read. The five names this section forbids also exist as repository secrets, but no workflow references them. Deleting them is a settings change for the owner and was not made by the documentation audit.
+
 ### 4. Configure branch protection
+
+> **This section is the template for a new repository, not this repository's configuration.** Live protection on `main` here (read 2026-10-12) requires seven status checks (`CodeRabbit unresolved blocking findings`, `Codex P1 unresolved threads`, `Label Gate`, `Merge clearance gate`, `Self-Review Required`, `build-and-test`, `lint`), a pull request with **zero** required approvals, and `strict: false` (the branch need not be up to date with `main`). `enforce_admins` is false. There is no ruleset and no merge queue.
 
 Go to the new repo → Settings → Branches → Add branch protection rule for `main`:
 
@@ -236,7 +244,7 @@ This blocks all merges. Workarounds:
 - Fix the CI secrets so status checks report, **or**
 - Use the GitHub web UI "Merge without waiting for requirements" bypass checkbox
 
-The `--admin` flag on `gh pr merge` does **not** bypass required status checks—it only bypasses review requirements. The break-glass hook (`BREAK_GLASS_ADMIN=1`) only bypasses the Claude Code PreToolUse guard, not GitHub's branch protection API.
+In this repository `enforce_admins` is false, so the admin account (`nathanjohnpayne`) can merge with a required check red, pending, or missing (REVIEW_POLICY.md); `merge-bypass-audit.yml` then opens a `policy-violation` issue recording the bypass. The break-glass hook (`BREAK_GLASS_ADMIN=1`) only bypasses the Claude Code PreToolUse guard, not GitHub's branch protection API.
 
 ### 5. Create required labels
 
@@ -247,6 +255,7 @@ gh label create "needs-external-review" --color "D93F0B" --description "Blocks m
 gh label create "needs-human-review" --color "B60205" --description "Agent disagreement—requires human review" --repo {owner}/{repo}
 gh label create "policy-violation" --color "000000" --description "Review policy violation detected" --repo {owner}/{repo}
 gh label create "audit" --color "FBCA04" --description "Weekly PR audit report" --repo {owner}/{repo}
+gh label create "human-hold" --color "000000" --description "Hard merge freeze - human-remove-only; supersedes all gates" --repo {owner}/{repo}
 ```
 
 ### 6. Verify setup
@@ -376,7 +385,8 @@ The two refreshers never race for the same output path—`refresh-hero-images.mj
 2. Processes Markdown blog posts via Content Collections
 3. Generates the sitemap via `@astrojs/sitemap`
 4. Generates OG images via the custom Playwright integration (OG templates consume the freshly-regenerated GIFs from step 2 of prebuild, so OG images and hero images stay in sync)
-5. Outputs everything to `dist/`
+5. Prints the résumé to `dist/Nathan-Payne-Resume.pdf` from the built `/resume/` page, reusing the same Chromium (`src/integrations/resume-pdf.mjs`)
+6. Outputs everything to `dist/`
 
 Astro handles asset fingerprinting automatically—no manual cache-busting is needed.
 
@@ -419,7 +429,7 @@ The procedure:
 
 1. **Merge to `main`.** Merging deploys nothing.
 2. **Wait for the `Build Artifact` workflow** (`.github/workflows/build-artifact.yml`) to finish on that commit. It checks the client env vars with `scripts/check-deploy-env.sh`, builds `dist/` in a job with no secrets, and attests the archive.
-3. **Run credential preflight from the main checkout at that commit.** `git pull` first, then `eval "$(scripts/op-preflight.sh --agent <agent> --mode all)"`. Deploy from `~/GitHub/nathanpaynedotcom`, not a worktree: the script refuses to run when its copy differs from the copy on `origin/main`, and the main checkout is where the preflight and the 1Password sign-in live.
+3. **Run credential preflight from the main checkout at that commit.** `git switch main && git pull --ff-only` first, then `eval "$(scripts/op-preflight.sh --agent <agent> --mode all)"` (`--mode deploy` caches only the Firebase and Cloudflare credentials a deploy needs). Run the preflight `eval` and the deploy in the **same shell**: each new shell or agent tool call starts without the exported credentials. Deploy from `~/GitHub/nathanpaynedotcom` on `main`, not from a worktree, which usually holds a feature branch. The hard requirement is that the script refuses to run when its copy differs from `scripts/deploy-artifact.sh` on `origin/main`. Neither `.env.local` nor the preflight cache (per user, under `~/.cache/mergepath/`) ties a deploy to one checkout.
 4. **Get the owner's approval for a specific commit, then dry run and deploy that commit.** Agents deploy to production only when the owner asks. Start with the dry run.
 
    ```bash
@@ -525,14 +535,14 @@ Run the current copy from `origin/main` (`git pull` first). The script's own cop
 5. Verify mobile view at 375px—panels should stack vertically with content always visible
 6. Verify blog listing (`/blog/`) and at least one blog post load correctly
 7. Verify OG images render (check `/og/home.png` or use a social card preview tool)
-8. Check Firebase Console → Analytics → confirm `section_view` events fire on panel hover
+8. In a browser that allows analytics (no Global Privacy Control, analytics not turned off on `/privacy/`), check GA4 → Reports → Realtime for your visit, and confirm `section_view` arrives on the first hover of a homepage panel (desktop pointer only). The site loads GA4 with `gtag.js`, not the Firebase Analytics SDK, so the Firebase console is not the place to look. PostHog ingestion is checked below.
 
 ### Validating PostHog ingestion
 
 PostHog events are sent through the first-party reverse proxy `d.nathanpayne.com` (`api_host`), with `ui_host` set to `https://us.posthog.com` (see [`src/components/posthog.astro`](src/components/posthog.astro) and [`specs/analytics.md`](specs/analytics.md) § PostHog). To confirm ingestion is healthy after a deploy:
 
-1. Load https://nathanpayne.com with DevTools → Network open.
-2. **SDK loads via the proxy:** `GET https://d.nathanpayne.com/static/array.js` returns `200` (session replay similarly loads `/static/recorder.js`). In the console, `posthog.config.api_host === 'https://d.nathanpayne.com'` and `posthog.config.ui_host === 'https://us.posthog.com'`, and `posthog.__loaded === true` (PostHog's internal flag, set once `array.js` finishes initializing—confirms the real library loaded rather than the queue stub).
+1. Load https://nathanpayne.com with DevTools → Network open, in a browser that allows analytics. Since the #1079 privacy controls went live, PostHog and GA4 load only when analytics are on and the browser sends no Global Privacy Control, so a privacy-respecting test browser shows no PostHog traffic at all.
+2. **SDK loads via the proxy:** `GET https://d.nathanpayne.com/static/array.js` returns `200` (session replay loads the versioned recorder `/static/<version>/posthog-recorder.js`; `docs/privacy/inventory.md` § Production SDK Versions records the current one). In the console, `posthog.config.api_host === 'https://d.nathanpayne.com'` and `posthog.config.ui_host === 'https://us.posthog.com'`, and `posthog.__loaded === true` (PostHog's internal flag, set once `array.js` finishes initializing—confirms the real library loaded rather than the queue stub).
 3. **Events post via the proxy:** capturing an event issues a `POST https://d.nathanpayne.com/i/v0/e/` that returns `200`. The managed proxy forwards every PostHog path the SDK calls—assets under `/static/*`, ingest under `/i/*`, and feature-flag/config requests—so the decisive check is that the Network tab shows **only** `d.nathanpayne.com` for PostHog traffic and never a direct host such as `us.i.posthog.com` (which would mean a path bypassed the proxy).
 4. **Ingestion lands in PostHog:** open Activity → Live (project `469428`) and watch a fresh event arrive, or run a recent-events query. A pass shows `$pageview` / `$pageleave` / `$autocapture` with current timestamps.
 
@@ -568,7 +578,7 @@ It defaults to `origin/main` after `git fetch origin main`, and `--sha` must be 
 
 `op-firebase-deploy`, `firebase` and every other tool resolve from a fixed `PATH` (`/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`, helper from `~/.local/bin`). A tool that resolves inside any worktree of this repository or inside a `node_modules` directory is refused; the one exception is a global npm install's own package directory. Each child starts from `env -i`. The Firebase helper gets only its source-credential pointers (`GOOGLE_APPLICATION_CREDENTIALS`, the `OP_PREFLIGHT_*_TMPFILE` paths and the project, and the optional SA and 1Password-URI overrides). The purge gets only `CF_API_TOKEN` and the preflight mode flags, and it runs `origin/main`'s `scripts/cf-cache-purge.sh` (the trusted current version, not the target SHA's or the working-tree copy). Neither receives a GitHub token, author or reviewer PAT, or 1Password session token. Run preflight first (`--mode all`), or rely on the 1Password desktop-app CLI integration for the helper's and the purge's own `op` fallbacks. `--dry-run` prints the variable names each child would receive, never their values. `--no-purge` skips the purge.
 
-If a CI pipeline is added later, prefer Workload Identity Federation or another `external_account` credential as the source credential, then let `op-firebase-deploy` impersonate the deployer service account. Do **not** store service account keys as CI secrets.
+If deploys move into CI later (today CI builds and attests, and the deploy itself is local), prefer Workload Identity Federation or another `external_account` credential as the source credential, then let `op-firebase-deploy` impersonate the deployer service account. Do **not** store service account keys as CI secrets.
 
 ### CI/CD & Headless Deploy
 

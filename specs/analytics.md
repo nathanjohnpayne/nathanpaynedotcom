@@ -22,7 +22,7 @@ may be removed later without affecting the other.
 
 1. The `gtag` function is called with `'event', 'section_view'` when a panel is first hovered on a hover-capable device.
 2. Each panel only fires the analytics event once (tracked via a `tracked` boolean closure).
-3. The event includes `section_name` matching the panel's `data-panel` attribute.
+3. The event includes `section_name` matching the panel's `data-panel` attribute, and `event_category: 'engagement'`.
 4. The analytics call is guarded with `typeof gtag !== 'function'` to avoid errors when gtag is absent.
 5. The event only fires on hover-capable devices, gated by `canHover()` (`(hover: hover) and (pointer: fine)`). Touch/coarse-pointer devices that synthesize `mouseenter` must not record `section_view`.
 6. GA4 is loaded by `BaseLayout.astro` from the `PUBLIC_GA_MEASUREMENT_ID` env var (resolved from 1Password via `op inject`—the same pipeline as PostHog / Logo.dev), never hardcoded. If it is unset at build time, the GA tags are not rendered and `gtag` is undefined, so the `typeof gtag` guard (req. 4) keeps `section_view` from firing—graceful degradation.
@@ -141,10 +141,12 @@ It alerts when the value is **greater than 0**. It fires on the first desktop-si
 ### Error Tracking
 
 1. Exception autocapture is enabled server-side through PostHog's remote
-   config, not in `posthog.astro`. The site ships no client-side `before_send`
-   filter, so it discards nothing of its own: whenever PostHog initializes at
-   all (Initialization req. 3), an unhandled exception the browser reports is
-   eligible for ingestion.
+   config, not in `posthog.astro`. The production `before_send` chain
+   (`gate.scrubEvent`, `keepStoredStateScrubbed`; `src/lib/privacy/gate.js`)
+   scrubs URLs and text on every event, exceptions included, and drops every
+   event after the visitor withdraws consent. It does not filter exceptions by
+   type: whenever PostHog initializes at all (Initialization req. 3), an
+   unhandled exception the browser reports is eligible for ingestion.
 2. Error-tracking alerts open GitHub Issues automatically. A signature proven to
    originate outside the site is therefore set to **suppressed**, never
    "resolved"—a resolved issue reopens on the next matching event and files a
