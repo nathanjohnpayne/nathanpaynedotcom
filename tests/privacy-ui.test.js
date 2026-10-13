@@ -228,14 +228,27 @@ describe('notice confirmation: a link to /privacy/, and gone after 30 seconds (#
     const { w, d, clock } = mountNotice({ clock: true });
     const status = d.getElementById('np-privacy-notice-status');
     const keep = d.querySelector('#np-privacy-notice [data-np-privacy-action="dismiss"]');
-    // A pointer press focuses the button before its click handler runs.
-    keep.dispatchEvent(new w.Event('pointerdown', { bubbles: true }));
+    // A pointer press focuses the button before its click handler runs, and a
+    // real pointer click reports its press count in `detail`.
     keep.focus();
-    click(w, keep);
+    keep.dispatchEvent(new w.MouseEvent('click', { bubbles: true, detail: 1 }));
     expect(d.activeElement).toBe(d.body);
     clock.advance(30_000);
     expect(status.textContent).toBe('');
     expect(d.activeElement).toBe(d.body);
+  });
+
+  it('keeps focus for an assistive-technology click, which reports no pointer', () => {
+    const { w, d, clock } = mountNotice({ clock: true });
+    const status = d.getElementById('np-privacy-notice-status');
+    const keep = d.querySelector('#np-privacy-notice [data-np-privacy-action="dismiss"]');
+    // No keydown at all: a screen reader activates the focused button with a
+    // synthesized click whose detail is 0.
+    keep.focus();
+    keep.dispatchEvent(new w.MouseEvent('click', { bubbles: true, detail: 0 }));
+    expect(d.activeElement).toBe(status);
+    clock.advance(60_000);
+    expect(status.textContent).toContain('Analytics stay on.');
   });
 
   it('forgets the hover when the line is cleared under the pointer', () => {
@@ -249,18 +262,6 @@ describe('notice confirmation: a link to /privacy/, and gone after 30 seconds (#
     expect(status.textContent).toContain('Analytics stay on.');
     clock.advance(30_000);
     expect(status.textContent).toBe('');
-  });
-
-  it('releases focus, without moving it into the page, when a focused line times out', () => {
-    const { w, d, status, clock } = keepOn();
-    const link = status.querySelector('a');
-    d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Tab' }));
-    link.focus();
-    // The reader turns to the mouse without moving focus off the link.
-    d.dispatchEvent(new w.Event('pointerdown', { bubbles: true }));
-    clock.advance(30_000);
-    expect(status.textContent).toBe('');
-    expect(d.activeElement).toBe(d.body);
   });
 
   it('moves focus from its link to the notice when another tab reopens the notice', () => {

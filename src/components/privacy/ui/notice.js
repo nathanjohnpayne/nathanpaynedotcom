@@ -51,26 +51,6 @@
   var hideDue = false;
   var pointerInside = false;
 
-  // Focus holds the line only when the reader is using the keyboard. A mouse
-  // click on a notice button also focuses it, and act() hands that focus to
-  // the status line, but nobody is reading by focus then, so the line still
-  // goes at 30 seconds.
-  var keyboardInput = false;
-  d.addEventListener(
-    'keydown',
-    function () {
-      keyboardInput = true;
-    },
-    true,
-  );
-  d.addEventListener(
-    'pointerdown',
-    function () {
-      keyboardInput = false;
-    },
-    true,
-  );
-
   /**
    * Where focus goes when the line it is on disappears: the notice's first
    * action if the notice is showing again. Otherwise focus is released, not
@@ -96,7 +76,7 @@
 
   function hideIfDue() {
     if (!hideDue || pointerInside) return;
-    if (keyboardInput && status.contains(d.activeElement)) return;
+    if (status.contains(d.activeElement)) return;
     clearLine();
   }
 
@@ -152,7 +132,8 @@
   // synchronously, and that change is not one from another tab.
   var localChange = false;
 
-  function act(action) {
+  // `byPointer` is true only for a real pointer click (see the click handler).
+  function act(action, byPointer) {
     var hadFocus = notice.contains(d.activeElement);
     localChange = true;
     if (action === 'deny') {
@@ -176,11 +157,12 @@
     }
     localChange = false;
     sync();
-    // The control that had focus leaves with the notice. A keyboard reader
-    // lands on the visible announcement instead of the document. After a
-    // pointer click nobody is reading by focus, so it is released instead.
+    // The control that had focus leaves with the notice. A keyboard or
+    // assistive-technology user lands on the visible announcement instead of
+    // the document. After a real pointer click nobody is navigating by focus,
+    // so it is released, and the line is not held open by it.
     if (hadFocus && notice.hidden) {
-      if (keyboardInput) status.focus();
+      if (!byPointer) status.focus();
       else if (d.activeElement && d.activeElement.blur) d.activeElement.blur();
     }
   }
@@ -189,7 +171,10 @@
     var target = event.target;
     while (target && target !== notice) {
       if (target.getAttribute && target.hasAttribute('data-np-privacy-action')) {
-        act(target.getAttribute('data-np-privacy-action'));
+        // A pointer click reports how many presses made it (`detail` >= 1);
+        // keyboard activation and clicks synthesized by assistive technology
+        // report 0, so they keep focus management.
+        act(target.getAttribute('data-np-privacy-action'), event.detail > 0);
         return;
       }
       target = target.parentNode;
