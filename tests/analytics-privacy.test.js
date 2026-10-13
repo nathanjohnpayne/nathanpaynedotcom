@@ -260,6 +260,17 @@ describe('production-mode build carries the privacy controls (PRIV-15 replacemen
       ).toEqual(['_astro/other.js: bundle names analytics host litix.io']);
     });
 
+    it('pins the allowance to the installed mux-embed version', () => {
+      const version = JSON.parse(
+        readFileSync(join(ROOT, 'node_modules/mux-embed/package.json'), 'utf8'),
+      ).version;
+      expect(muxChunk.text).toContain(version);
+      const other = { ...muxChunk, text: muxChunk.text.split(version).join('0.0.0-not-installed') };
+      expect(bundleFindings([other])).toEqual([
+        `${muxChunk.path}: bundle names analytics host litix.io`,
+      ]);
+    });
+
     it('allows no other host in the mux-embed chunk', () => {
       const tampered = {
         ...muxChunk,
