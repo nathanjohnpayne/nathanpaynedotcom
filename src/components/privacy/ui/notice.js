@@ -42,8 +42,62 @@
     notice.hidden = !privacy.notice.shouldShow();
   }
 
+  // An announcement stays up for STATUS_MS, then hides (#1348). It never hides
+  // under the reader: while the pointer is over it or focus is inside it (the
+  // privacy-page link, or the status line itself after focus lands there from
+  // the closed notice), the hide waits until both have left.
+  var STATUS_MS = 30000;
+  var hideTimer = null;
+  var hideDue = false;
+  var pointerInside = false;
+
+  function hideIfDue() {
+    if (!hideDue || pointerInside || status.contains(d.activeElement)) return;
+    hideDue = false;
+    status.textContent = '';
+  }
+
+  status.addEventListener('mouseenter', function () {
+    pointerInside = true;
+  });
+  status.addEventListener('mouseleave', function () {
+    pointerInside = false;
+    hideIfDue();
+  });
+  // focusout fires before focus lands on its next target; read where it went
+  // once it has.
+  status.addEventListener('focusout', function () {
+    w.setTimeout(hideIfDue, 0);
+  });
+
+  /**
+   * Writes an announcement into the status line and starts its timer. The
+   * phrase "privacy page", wherever a message names it, becomes a link to
+   * /privacy/ (#1348), so the message leads where it points.
+   */
   function announce(text) {
-    status.textContent = text;
+    if (hideTimer) w.clearTimeout(hideTimer);
+    hideTimer = null;
+    hideDue = false;
+    status.textContent = '';
+    if (!text) return;
+    var phrase = 'privacy page';
+    var at = text.indexOf(phrase);
+    if (at < 0) {
+      status.textContent = text;
+    } else {
+      var link = d.createElement('a');
+      link.href = '/privacy/';
+      link.textContent = phrase;
+      status.appendChild(d.createTextNode(text.slice(0, at)));
+      status.appendChild(link);
+      status.appendChild(d.createTextNode(text.slice(at + phrase.length)));
+    }
+    hideTimer = w.setTimeout(function () {
+      hideTimer = null;
+      hideDue = true;
+      hideIfDue();
+    }, STATUS_MS);
   }
 
   // True while act() changes the state itself: the gate calls onChange
