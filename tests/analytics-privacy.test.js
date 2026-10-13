@@ -277,12 +277,14 @@ describe('production-mode build carries the privacy controls (PRIV-15 replacemen
     it("allows litix.io in the mux-embed chunk only as mux-embed's own strings", () => {
       for (const extra of [
         "fetch('https://img.litix.io/x');",
+        // Not a string at all: a regular expression's source.
+        'fetch(/https:\\/\\/img.litix.io\\/x/.source);',
         // The same string the package ships, one more time than it does.
         "fetch('https://img.litix.io');",
       ]) {
         const tampered = { ...muxChunk, text: `${muxChunk.text}\n${extra}` };
         expect(
-          bundleFindings([tampered]).some((f) => f.includes("beyond mux-embed's own code")),
+          bundleFindings([tampered]).some((f) => f.includes("mux-embed's own code")),
           extra,
         ).toBe(true);
       }
@@ -599,6 +601,8 @@ describe('production-mode build carries the privacy controls (PRIV-15 replacemen
           `new Function("return fetch('https://www.google\\x2danalytics.com/g')")`,
           `Function('a', "fetch('https://www.google\\x2danalytics.com/g')")`,
           `window.setTimeout("fetch('https://www.google\\x2danalytics.com/g')", 0)`,
+          `window['eval']("fetch('https://www.google\\x2danalytics.com/g')")`,
+          `globalThis['set' + 'Timeout']("fetch('https://www.google\\x2danalytics.com/g')")`,
           'eval(`eval("fetch(\'https://www.google\\\\x2danalytics.com/g\')")`)',
         ]) {
           expect(

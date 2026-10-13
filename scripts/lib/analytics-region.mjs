@@ -307,11 +307,14 @@ const CODE_SINKS = new Set(['eval', 'Function', 'setTimeout', 'setInterval']);
 function codePayload(node) {
   if (node.type !== 'CallExpression' && node.type !== 'NewExpression') return null;
   const callee = node.callee;
+  // `window.eval`, and `window['eval']` or any other constant computed name.
   const name =
     callee.type === 'Identifier'
       ? callee.name
-      : callee.type === 'MemberExpression' && !callee.computed
-        ? callee.property.name
+      : callee.type === 'MemberExpression'
+        ? callee.computed
+          ? constantString(callee.property)
+          : callee.property.name
         : null;
   if (!CODE_SINKS.has(name) || !node.arguments.length) return null;
   const arg = name === 'Function' ? node.arguments.at(-1) : node.arguments[0];
@@ -684,18 +687,33 @@ function litixStrings(strings) {
   return counts;
 }
 
+/**
+ * The most times `litix.io` appears in any decoded spelling of `text` (see
+ * spellings()): every occurrence, in strings, regular expressions, comments,
+ * or code, however it is spelled.
+ */
+function litixOccurrences(text) {
+  let most = 0;
+  for (const form of spellings(text)) {
+    let n = 0;
+    for (let i = form.indexOf('litix.io'); i >= 0; i = form.indexOf('litix.io', i + 1)) n++;
+    most = Math.max(most, n);
+  }
+  return most;
+}
+
 // The litix.io strings mux-embed itself ships, from the ES module entry Vite
 // bundles (`exports.import`). The mux-embed chunk may carry these and only
 // these, each at most as often as the package does, so code co-bundled into
 // that chunk cannot borrow the allowance.
-const MUX_EMBED_LITIX = litixStrings(
-  scriptStrings(
-    readFileSync(
-      fileURLToPath(new URL('../../node_modules/mux-embed/dist/mux.mjs', import.meta.url)),
-      'utf8',
-    ),
-  ).strings ?? [],
+const MUX_EMBED_SOURCE = readFileSync(
+  fileURLToPath(new URL('../../node_modules/mux-embed/dist/mux.mjs', import.meta.url)),
+  'utf8',
 );
+const MUX_EMBED_LITIX = litixStrings(scriptStrings(MUX_EMBED_SOURCE).strings ?? []);
+// And every occurrence, string or not: the chunk may not name litix.io more
+// often, in any spelling, than the package's own source does.
+const MUX_EMBED_LITIX_OCCURRENCES = litixOccurrences(MUX_EMBED_SOURCE);
 
 /**
  * Findings for the JavaScript a build emits (`files` as readTextFiles returns
@@ -722,6 +740,12 @@ export function bundleFindings(files) {
       text.includes('mux_embed_version');
     for (const host of hosts) {
       if (isMuxEmbed && host === 'litix.io') {
+        const occurrences = litixOccurrences(text);
+        if (occurrences > MUX_EMBED_LITIX_OCCURRENCES) {
+          findings.push(
+            `${path}: bundle names analytics host litix.io ${occurrences} times; mux-embed's own code does ${MUX_EMBED_LITIX_OCCURRENCES}`,
+          );
+        }
         for (const [value, count] of litixStrings(strings)) {
           if (count > (MUX_EMBED_LITIX.get(value) ?? 0)) {
             findings.push(
