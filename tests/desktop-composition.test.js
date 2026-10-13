@@ -800,18 +800,37 @@ describe('keyboard access to a capped panel', () => {
     // Measured, it does not, in Chromium, WebKit or Firefox (120 before, 120
     // after, with the pass observed to run), so no restore code was added.
     // This pins the behavior so a future change to the pass cannot regress it.
+    //
+    // The larger viewport leaves less to scroll, so the browser clamps the kept
+    // position to the new maximum; a reset reads 0. The expected value is
+    // computed from that maximum rather than fixed, so the About panel's copy
+    // can get shorter without this test reading the clamp as a reset.
     const page = await openPage({ width: 1440, height: 900 });
     try {
       expect(await hoverPanel(page, 'about', { expectOpen: true })).toBe(true);
+      const scrollState = () =>
+        page.evaluate(() => {
+          const ci = document.querySelector('[data-panel="about"] .content-inner');
+          return { top: ci.scrollTop, max: ci.scrollHeight - ci.clientHeight };
+        });
       await page.evaluate(() => {
         document.querySelector('[data-panel="about"] .content-inner').scrollTop = 120;
       });
+      const before = await scrollState();
+      // Control: the panel is capped and the scroll took before the resize.
+      expect(before.top, 'the scroll did not take at 1440x900').toBeGreaterThan(0);
       await page.setViewportSize({ width: 1500, height: 920 });
       await page.waitForTimeout(IDLE_SETTLE_MS);
-      const top = await page.evaluate(
-        () => document.querySelector('[data-panel="about"] .content-inner').scrollTop,
-      );
-      expect(top, 'the resize measure pass reset the scroll position').toBeGreaterThan(100);
+      const after = await scrollState();
+      // Control: About is still capped after the resize, so a kept position
+      // is distinguishable from a region that simply fits. If a copy edit
+      // makes About fit at 1500x920, shrink this viewport instead.
+      expect(after.max, 'About is not capped at 1500x920').toBeGreaterThan(1);
+      const kept = Math.min(before.top, after.max);
+      expect(
+        Math.abs(after.top - kept),
+        `the resize measure pass reset the scroll position (kept ${before.top}, expected ${kept}, read ${after.top})`,
+      ).toBeLessThanOrEqual(1);
     } finally {
       await page.close();
     }

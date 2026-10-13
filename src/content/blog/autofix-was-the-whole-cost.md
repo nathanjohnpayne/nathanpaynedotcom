@@ -5,7 +5,6 @@ shortTitle: "The Requirement Nobody Questioned"
 description: "I wanted this site to follow one Chicago rule. An unrequested auto-fixer drew 42 of 57 review findings; cutting it ended the rewrite-safety churn. Without an adapter, the replacement linter would've skipped post metadata and still reported green."
 seoDescription: "One style rule drew 57 review findings—42 naming the never-requested auto-fix. It was 17% of the implementation and tests. Cutting it ended the rewrite-safety churn."
 category: "Agent Systems"
-homepageRank: 4
 author: "Nathan Payne"
 date: 2026-08-24
 tags: ["Product", "Engineering", "Scope", "Decision Making", "AI"]

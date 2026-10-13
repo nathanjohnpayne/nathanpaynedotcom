@@ -21,6 +21,6 @@ export const EXPECTED_HOMEPAGE_WRITING = [
   'the-product-did-not-travel',
   'every-reviewer-was-right',
   'silence-is-not-an-approval',
-  'autofix-was-the-whole-cost',
   'html-mockups-as-spec',
+  'two-blues-one-composition',
 ];

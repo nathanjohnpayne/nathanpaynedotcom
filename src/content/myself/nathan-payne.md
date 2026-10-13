@@ -13,7 +13,7 @@ address:
   country: US
   countryName: United States
 availability:
-  long: "Open to senior product and platform roles—especially where streaming infrastructure, developer tools, or AI-augmented workflows are the center of gravity"
+  long: "Open to senior product and platform roles, especially in streaming infrastructure, developer tools, and workflows that use AI"
   short: "Open to senior product/platform roles."
 ---
 
