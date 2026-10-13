@@ -230,15 +230,18 @@ describe('production-mode build carries the privacy controls (PRIV-15 replacemen
   it('names no analytics host in any emitted bundle but the Mux Data chunk (#1320)', () => {
     const bundles = files.filter((f) => /\.m?js$/.test(f.path));
     expect(bundles.length).toBeGreaterThan(0);
-    // Not vacuous: the Mux Data chunk is in the build and does name its host.
-    expect(bundles.some((f) => f.text.includes('litix.io'))).toBe(true);
+    // Not vacuous: the Mux Data chunk (found by mux-embed's beacon key) is in
+    // the build and does name its host.
+    const mux = bundles.find((f) => f.text.includes('mux_embed_version'));
+    expect(mux, 'the mux-embed chunk').toBeTruthy();
+    expect(mux.text).toContain('litix.io');
     expect(bundleFindings(files)).toEqual([]);
   });
 
   describe('the bundle check fails on an ungated request in emitted JavaScript (#1320)', () => {
     let muxChunk;
     beforeAll(() => {
-      muxChunk = files.find((f) => /\.m?js$/.test(f.path) && f.text.includes('litix.io'));
+      muxChunk = files.find((f) => /\.m?js$/.test(f.path) && f.text.includes('mux_embed_version'));
     });
 
     it('catches a host in an ordinary bundle, plain or escaped', () => {
