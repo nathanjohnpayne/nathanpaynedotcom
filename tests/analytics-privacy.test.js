@@ -355,14 +355,15 @@ describe('production-mode build carries the privacy controls (PRIV-15 replacemen
     });
 
     it('catches a PostHog guard that closes right after it opens', () => {
-      const mutated = page.replace(PH_GUARD_LINE, PH_GUARD_LINE + '}');
+      // `}{` keeps the script valid: an empty guard, then a bare unguarded block.
+      const mutated = page.replace(PH_GUARD_LINE, PH_GUARD_LINE + '}{');
       const findings = analyticsGateFindings(mutated);
       expect(findings).toContain('PostHog block runs posthog.init( outside its gate guard');
       expect(findings).toContain('PostHog block runs !function(t,e){ outside its gate guard');
     });
 
     it('catches a GA4 guard that closes right after it opens', () => {
-      const mutated = page.replace(GA4_GUARD_LINE, GA4_GUARD_LINE + '}');
+      const mutated = page.replace(GA4_GUARD_LINE, GA4_GUARD_LINE + '}{');
       const findings = analyticsGateFindings(mutated);
       expect(findings).toContain("GA4 block runs gtag('config' outside its gate guard");
       expect(findings).toContain('GA4 block runs loader.src =  outside its gate guard');
@@ -502,6 +503,67 @@ describe('production-mode build carries the privacy controls (PRIV-15 replacemen
         expect(analyticsGateFindings(mutated)).toContain(
           'GA4 block names analytics host google-analytics.com outside its gate guard',
         );
+      });
+
+      it('reads every JavaScript MIME type as JavaScript', () => {
+        for (const type of [
+          'text/ecmascript',
+          'application/x-javascript',
+          'text/jscript',
+          'text/javascript1.5',
+          'Text/JavaScript; charset=utf-8',
+        ]) {
+          const mutated = inBody(
+            String.raw`<script type="${type}">fetch('https://www.google\x2danalytics.com/g')</script>`,
+          );
+          expect(scriptFinding(mutated, 'google-analytics.com'), type).toBe(true);
+        }
+      });
+
+      it('decodes the JSON the browser reads in importmap and speculationrules', () => {
+        for (const fragment of [
+          String.raw`<script type="importmap">{"imports":{"a":"https://d.nathanpayne.com/a.js"}}</script>`,
+          String.raw`<script type="speculationrules">{"prefetch":[{"urls":["https://www.google-analytics.com/"]}]}</script>`,
+        ]) {
+          expect(
+            analyticsGateFindings(inBody(fragment)).some((f) =>
+              f.startsWith('inline script names analytics host'),
+            ),
+            fragment,
+          ).toBe(true);
+        }
+      });
+
+      it('takes the guarded block from the parsed script, so a regex brace cannot widen it', () => {
+        const close = page.indexOf('})();', page.indexOf('posthog.init('));
+        const mutated =
+          page.slice(0, close) +
+          String.raw`fetch('https://d\x2enathanpayne.com/e'); /\}/;` +
+          page.slice(close);
+        const withOpen = mutated.replace(PH_GUARD_LINE, String.raw`${PH_GUARD_LINE} /\{/;`);
+        expect(analyticsGateFindings(withOpen)).toContain(
+          'PostHog block names analytics host d.nathanpayne.com outside its gate guard',
+        );
+      });
+
+      it('reports a region script whose guard block no longer parses', () => {
+        const mutated = page.replace(PH_GUARD_LINE, PH_GUARD_LINE + '}');
+        expect(analyticsGateFindings(mutated)).toContain(
+          "PostHog block: could not find the end of the gate guard's block",
+        );
+      });
+
+      it('reads a javascript: link the way the URL parser does', () => {
+        for (const href of [
+          String.raw`java&#10;script:fetch('https://www.google\x2danalytics.com/g')`,
+          String.raw`java&#9;script:fetch('https://www.google\x2danalytics.com/g')`,
+          String.raw`&#1;javascript:fetch('https://www.google\x2danalytics.com/g')`,
+          String.raw`JAVASCRIPT:fetch('https://www.google\x2danalytics.com/g')`,
+        ]) {
+          expect(analyticsGateFindings(inBody(`<a href="${href}">x</a>`)), href).toContain(
+            'markup attribute names analytics host google-analytics.com',
+          );
+        }
       });
 
       it('still allows the hosts the guarded blocks name inside their guards', () => {
@@ -679,5 +741,10 @@ describe('the real dist/ build (whatever tokens the environment has)', () => {
         PRODUCTION_CHECK_ENV.PUBLIC_GA_MEASUREMENT_ID,
       ]),
     ).toEqual([]);
+  });
+
+  it('names no analytics host in any emitted bundle but the Mux Data chunk (#1320)', () => {
+    expect(files.some((f) => /\.m?js$/.test(f.path))).toBe(true);
+    expect(bundleFindings(files)).toEqual([]);
   });
 });

@@ -122,35 +122,34 @@ const MUX_DATA_SOURCE = readFileSync(
 ).trim();
 
 /**
- * Index of the `}` that closes the `{` at `open` in inline JavaScript, or -1.
- * Brace matching only, for the known inline blocks: it skips line and block
- * comments and string and template literals (braces inside them do not count),
- * and does not parse regular expression literals, so a block whose regex
- * contains an unbalanced brace or quote yields -1, which the caller reports
- * as a finding rather than passing.
+ * The block an `if` statement at `at` guards, as [index of its `{`, index of
+ * its `}`], or null. Read from the parsed script, so braces inside strings,
+ * comments, templates, and regular expressions cannot move it.
  */
-function matchingBrace(src, open) {
-  let depth = 0;
-  for (let i = open; i < src.length; i++) {
-    const c = src[i];
-    const n = src[i + 1];
-    if (c === '/' && n === '/') {
-      i = src.indexOf('\n', i);
-      if (i < 0) return -1;
-    } else if (c === '/' && n === '*') {
-      i = src.indexOf('*/', i + 2);
-      if (i < 0) return -1;
-      i++;
-    } else if (c === '"' || c === "'" || c === '`') {
-      for (i++; i < src.length && src[i] !== c; i++) if (src[i] === '\\') i++;
-      if (i >= src.length) return -1;
-    } else if (c === '{') {
-      depth++;
-    } else if (c === '}' && --depth === 0) {
-      return i;
-    }
+function guardedBlock(src, at) {
+  let ast;
+  try {
+    ast = acornParse(src, { ecmaVersion: 'latest', sourceType: 'script' });
+  } catch {
+    return null;
   }
-  return -1;
+  let found = null;
+  const visit = (node) => {
+    if (found || !node || typeof node.type !== 'string') return;
+    if (node.type === 'IfStatement' && node.start === at) {
+      if (node.consequent.type === 'BlockStatement') {
+        found = [node.consequent.start, node.consequent.end - 1];
+      }
+      return;
+    }
+    for (const key of Object.keys(node)) {
+      const child = node[key];
+      if (Array.isArray(child)) child.forEach(visit);
+      else if (child && typeof child.type === 'string') visit(child);
+    }
+  };
+  visit(ast);
+  return found;
 }
 
 /** Every element under `root`, descending into `<template>` contents. */
@@ -327,10 +326,39 @@ function jsonStrings(text) {
   }
 }
 
-/** Classic and module scripts are JavaScript; every other `type` is data. */
-function isJavaScriptType(type) {
+// Every JavaScript MIME type (WHATWG MIME Sniffing § JavaScript MIME type). A
+// script whose type essence-matches one runs as a classic script.
+const JAVASCRIPT_MIME_TYPES = new Set([
+  'application/ecmascript',
+  'application/javascript',
+  'application/x-ecmascript',
+  'application/x-javascript',
+  'text/ecmascript',
+  'text/javascript',
+  'text/javascript1.0',
+  'text/javascript1.1',
+  'text/javascript1.2',
+  'text/javascript1.3',
+  'text/javascript1.4',
+  'text/javascript1.5',
+  'text/jscript',
+  'text/livescript',
+  'text/x-ecmascript',
+  'text/x-javascript',
+]);
+
+/**
+ * How the browser treats a `<script type>`: 'js' for a classic or module
+ * script, 'json' for the JSON types it reads itself (`importmap`,
+ * `speculationrules`) and any JSON data block, 'data' for anything else.
+ */
+function scriptKind(type) {
   const t = (type ?? '').trim().toLowerCase();
-  return t === '' || t === 'module' || t === 'text/javascript' || t === 'application/javascript';
+  if (t === '' || t === 'module') return 'js';
+  const essence = t.split(';')[0].trim();
+  if (JAVASCRIPT_MIME_TYPES.has(essence)) return 'js';
+  if (t === 'importmap' || t === 'speculationrules' || /json/.test(essence)) return 'json';
+  return 'data';
 }
 
 const REGION_START_TEXT = REGION_START.slice(4, -3);
@@ -419,12 +447,12 @@ export function analyticsGateFindings(html) {
         findings.push(`${name} block has no gate guard`);
         return null;
       }
-      const open = match.index + match[0].length - 1;
-      const close = matchingBrace(body, open);
-      if (close < 0) {
+      const block = guardedBlock(body, match.index + match[0].indexOf('if'));
+      if (!block) {
         findings.push(`${name} block: could not find the end of the gate guard's block`);
         return null;
       }
+      const [open, close] = block;
       for (const needle of needles) {
         const first = body.indexOf(needle);
         if (first < 0) {
@@ -500,11 +528,12 @@ export function analyticsGateFindings(html) {
       const text = el.textContent;
       const type = el.getAttribute('type');
       const hosts = new Set(namedHosts(text));
-      if (isJavaScriptType(type)) {
+      const kind = scriptKind(type);
+      if (kind === 'js') {
         const scanned = scriptHosts(text, { label: 'inline script' });
         if (scanned.error) findings.push(scanned.error);
         scanned.hosts.forEach((h) => hosts.add(h));
-      } else if (/json/i.test(type ?? '')) {
+      } else if (kind === 'json') {
         const parsed = jsonStrings(text);
         if (parsed.error) findings.push(`inline ${type} script is not valid JSON: ${parsed.error}`);
         else for (const value of parsed.strings) namedHosts(value).forEach((h) => hosts.add(h));
@@ -534,7 +563,10 @@ export function analyticsGateFindings(html) {
     // navigation and gets no exemption.
     for (const el of elements) {
       for (const attr of el.attributes) {
-        const isScriptUrl = /^\s*javascript:/i.test(attr.value);
+        // As the URL parser reads it: leading C0 controls and spaces stripped,
+        // and every ASCII tab and newline removed, before the scheme is read.
+        const asUrl = attr.value.replace(/[\t\n\r]/g, '').replace(/^[\u0000-\u0020]+/, '');
+        const isScriptUrl = /^javascript:/i.test(asUrl);
         if (
           attr.name === 'href' &&
           (el.localName === 'a' || el.localName === 'area') &&
@@ -544,7 +576,7 @@ export function analyticsGateFindings(html) {
         }
         const hosts = new Set(namedHosts(attr.value));
         if (/^on/i.test(attr.name) || isScriptUrl) {
-          const code = isScriptUrl ? attr.value.replace(/^\s*javascript:/i, '') : attr.value;
+          const code = isScriptUrl ? asUrl.replace(/^javascript:/i, '') : attr.value;
           const scanned = scriptHosts(code, { label: `${attr.name} attribute` });
           if (scanned.error) findings.push(scanned.error);
           scanned.hosts.forEach((h) => hosts.add(h));
