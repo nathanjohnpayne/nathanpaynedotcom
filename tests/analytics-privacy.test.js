@@ -575,6 +575,23 @@ describe('production-mode build carries the privacy controls (PRIV-15 replacemen
         );
       });
 
+      it('treats a javascript: URL as a finding in itself, its body percent-decoded', () => {
+        for (const href of [
+          'javascript:void(0)',
+          "javascript:fetch('https://www.google%5Cx2danalytics.com/g')",
+        ]) {
+          expect(analyticsGateFindings(inBody(`<a href="${href}">x</a>`)), href).toContain(
+            'markup attribute holds a javascript: URL',
+          );
+        }
+        // Percent-decoded first, then parsed: the escaped host is found too.
+        expect(
+          analyticsGateFindings(
+            inBody(`<a href="javascript:fetch('https://www.google%5Cx2danalytics.com/g')">x</a>`),
+          ),
+        ).toContain('markup attribute names analytics host google-analytics.com');
+      });
+
       it('reads a javascript: link the way the URL parser does', () => {
         for (const href of [
           String.raw`java&#10;script:fetch('https://www.google\x2danalytics.com/g')`,

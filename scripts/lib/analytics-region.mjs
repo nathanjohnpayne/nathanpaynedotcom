@@ -575,8 +575,14 @@ function markupFindings(document, exempt, depth = 0) {
         }
       }
       const hosts = new Set(namedHosts(attr.value));
+      // A javascript: URL runs code the site never needs (it has none), so one
+      // is a finding in itself. Its body is still read, percent-decoded as the
+      // engine runs it, so the finding also names the host it would reach.
+      if (isScriptUrl) findings.push('markup attribute holds a javascript: URL');
       if (/^on/i.test(attr.name) || isScriptUrl) {
-        const code = isScriptUrl ? asUrl.replace(/^javascript:/i, '') : attr.value;
+        const code = isScriptUrl
+          ? percentDecode(asUrl.replace(/^javascript:/i, ''))
+          : attr.value;
         const scanned = scriptHosts(code, { label: `${attr.name} attribute` });
         if (scanned.error) findings.push(scanned.error);
         scanned.hosts.forEach((h) => hosts.add(h));
