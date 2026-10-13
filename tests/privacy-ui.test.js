@@ -66,7 +66,30 @@ const PAGE_TEMPLATE = template(PAGE_ASTRO);
  * A fresh window with the gate booted, as tests/privacy-runtime.test.js does
  * it, then the component markup mounted and its script run.
  */
-function mount(html, { stored, gpc, storage = 'ok', script, runGate = true } = {}) {
+/**
+ * Replaces a JSDOM window's setTimeout/clearTimeout with a manual clock, so a
+ * test can step time (#1348). Installed after the gate, before the UI script.
+ */
+function installClock(w) {
+  let now = 0;
+  let next = 0;
+  const pending = new Map();
+  w.setTimeout = (fn, ms = 0) => {
+    pending.set(++next, { fn, at: now + ms });
+    return next;
+  };
+  w.clearTimeout = (id) => pending.delete(id);
+  return {
+    advance(ms) {
+      now += ms;
+      for (const [id, t] of [...pending].sort((a, b) => a[1].at - b[1].at)) {
+        if (t.at <= now && pending.delete(id)) t.fn();
+      }
+    },
+  };
+}
+
+function mount(html, { stored, gpc, storage = 'ok', script, runGate = true, clock = false } = {}) {
   const dom = new JSDOM(
     '<!doctype html><html><head></head><body><main><a href="/">Home</a></main></body></html>',
     {
@@ -86,8 +109,9 @@ function mount(html, { stored, gpc, storage = 'ok', script, runGate = true } = {
   }
   if (runGate) w.eval(GATE_SRC);
   w.document.body.insertAdjacentHTML('beforeend', html);
+  const timers = clock ? installClock(w) : null;
   w.eval(script);
-  return { w, d: w.document, privacy: w.npPrivacy };
+  return { w, d: w.document, privacy: w.npPrivacy, clock: timers };
 }
 
 const mountNotice = (options) => mount(NOTICE_HTML, { ...options, script: NOTICE_SRC });
@@ -133,6 +157,135 @@ describe('the UI scripts talk to window.npPrivacy and nothing else', () => {
   });
 });
 
+describe('notice confirmation: a link to /privacy/, and gone after 30 seconds (#1348)', () => {
+  const keepOn = (options) => {
+    const env = mountNotice({ clock: true, ...options });
+    const status = env.d.getElementById('np-privacy-notice-status');
+    click(env.w, env.d.querySelector('#np-privacy-notice [data-np-privacy-action="dismiss"]'));
+    return { ...env, status };
+  };
+
+  it('links "privacy page" to /privacy/ without changing the sentence', () => {
+    const { status } = keepOn();
+    expect(status.textContent).toBe(
+      'Analytics stay on. You can turn them off anytime on the privacy page.',
+    );
+    const links = status.querySelectorAll('a');
+    expect(links).toHaveLength(1);
+    expect(links[0].getAttribute('href')).toBe('/privacy/');
+    expect(links[0].textContent).toBe('privacy page');
+  });
+
+  it('links the unsaved variant too', () => {
+    const { status } = keepOn({ storage: 'write-throws' });
+    expect(status.textContent).toContain('Your browser did not save that');
+    expect(status.querySelector('a[href="/privacy/"]').textContent).toBe('privacy page');
+  });
+
+  it('stays up for 30 seconds, then hides', () => {
+    const { status, clock } = keepOn();
+    clock.advance(29_999);
+    expect(status.textContent).not.toBe('');
+    clock.advance(1);
+    expect(status.textContent).toBe('');
+  });
+
+  it('waits while the pointer is over it', () => {
+    const { w, status, clock } = keepOn();
+    status.dispatchEvent(new w.MouseEvent('mouseenter'));
+    clock.advance(60_000);
+    expect(status.textContent).not.toBe('');
+    status.dispatchEvent(new w.MouseEvent('mouseleave'));
+    expect(status.textContent).toBe('');
+  });
+
+  it('waits while keyboard focus is inside it, and hides once focus leaves', () => {
+    const { w, d, status, clock } = keepOn();
+    const link = status.querySelector('a');
+    d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Tab' }));
+    link.focus();
+    clock.advance(60_000);
+    expect(status.textContent).not.toBe('');
+    d.querySelector('main a').focus();
+    link.dispatchEvent(new w.FocusEvent('focusout', { bubbles: true }));
+    clock.advance(0);
+    expect(status.textContent).toBe('');
+  });
+
+  it('keeps focus that moved to it from the closed notice until the reader moves on', () => {
+    const { w, d, clock } = mountNotice({ clock: true });
+    const status = d.getElementById('np-privacy-notice-status');
+    const keep = d.querySelector('#np-privacy-notice [data-np-privacy-action="dismiss"]');
+    d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Enter' }));
+    keep.focus();
+    click(w, keep);
+    expect(d.activeElement).toBe(status);
+    clock.advance(60_000);
+    expect(status.textContent).toContain('Analytics stay on.');
+  });
+
+  it('does not hand focus to the line after a mouse click, and still hides at 30 seconds', () => {
+    const { w, d, clock } = mountNotice({ clock: true });
+    const status = d.getElementById('np-privacy-notice-status');
+    const keep = d.querySelector('#np-privacy-notice [data-np-privacy-action="dismiss"]');
+    // A pointer press focuses the button before its click handler runs, and a
+    // real pointer click reports its press count in `detail`.
+    keep.focus();
+    keep.dispatchEvent(new w.MouseEvent('click', { bubbles: true, detail: 1 }));
+    expect(d.activeElement).toBe(d.body);
+    clock.advance(30_000);
+    expect(status.textContent).toBe('');
+    expect(d.activeElement).toBe(d.body);
+  });
+
+  it('keeps focus for an assistive-technology click, which reports no pointer', () => {
+    const { w, d, clock } = mountNotice({ clock: true });
+    const status = d.getElementById('np-privacy-notice-status');
+    const keep = d.querySelector('#np-privacy-notice [data-np-privacy-action="dismiss"]');
+    // No keydown at all: a screen reader activates the focused button with a
+    // synthesized click whose detail is 0.
+    keep.focus();
+    keep.dispatchEvent(new w.MouseEvent('click', { bubbles: true, detail: 0 }));
+    expect(d.activeElement).toBe(status);
+    clock.advance(60_000);
+    expect(status.textContent).toContain('Analytics stay on.');
+  });
+
+  it('forgets the hover when the line is cleared under the pointer', () => {
+    const { w, d, status, clock } = keepOn();
+    status.dispatchEvent(new w.MouseEvent('mouseenter'));
+    // Another tab reopens the notice: the line is cleared while hovered, and a
+    // hidden box gets no mouseleave.
+    otherTabWrites(w, { v: 1, choice: 'unset', noticeDismissed: false });
+    expect(status.textContent).toBe('');
+    click(w, d.querySelector('#np-privacy-notice [data-np-privacy-action="dismiss"]'));
+    expect(status.textContent).toContain('Analytics stay on.');
+    clock.advance(30_000);
+    expect(status.textContent).toBe('');
+  });
+
+  it('moves focus from its link to the notice when another tab reopens the notice', () => {
+    const { w, d, status } = keepOn();
+    const link = status.querySelector('a');
+    d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Tab' }));
+    link.focus();
+    otherTabWrites(w, { v: 1, choice: 'unset', noticeDismissed: false });
+    expect(d.getElementById('np-privacy-notice').hidden).toBe(false);
+    expect(status.textContent).toBe('');
+    expect(d.activeElement).toBe(d.querySelector('#np-privacy-notice [data-np-privacy-action]'));
+  });
+
+  it('times the turn-off confirmation the same way; it names no page, so it has no link', () => {
+    const { w, d, clock } = mountNotice({ clock: true });
+    const status = d.getElementById('np-privacy-notice-status');
+    click(w, d.querySelector('#np-privacy-notice [data-np-privacy-action="deny"]'));
+    expect(status.textContent).toContain('are off');
+    expect(status.querySelector('a')).toBeNull();
+    clock.advance(30_000);
+    expect(status.textContent).toBe('');
+  });
+});
+
 describe('notice (PRIV-14, PRIV-6)', () => {
   it('shows on a first visit as a labelled, non-modal aside in flow at the top of the body', () => {
     const { d, privacy } = mountNotice();
@@ -165,6 +318,8 @@ describe('notice (PRIV-14, PRIV-6)', () => {
   it('turns analytics off in one step, saves the choice, closes, and announces', () => {
     const { w, d, privacy } = mountNotice();
     const deny = d.querySelector('[data-np-privacy-action="deny"]');
+    // From the keyboard, so focus lands on the announcement (#1348).
+    d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Enter' }));
     deny.focus();
     click(w, deny);
     expect(stored(w)).toEqual({ v: 1, choice: 'denied', noticeDismissed: false });
@@ -245,6 +400,7 @@ describe('notice (PRIV-14, PRIV-6)', () => {
       }
     }).observe(status, { childList: true, characterData: true, subtree: true });
     const deny = d.querySelector('[data-np-privacy-action="deny"]');
+    d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Enter' }));
     deny.focus();
     click(w, deny);
     await new Promise((resolve) => setTimeout(resolve, 0));

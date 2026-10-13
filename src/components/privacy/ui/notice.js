@@ -42,15 +42,98 @@
     notice.hidden = !privacy.notice.shouldShow();
   }
 
+  // An announcement stays up for STATUS_MS, then hides (#1348). It never hides
+  // under the reader: while the pointer is over it or focus is inside it (the
+  // privacy-page link, or the status line itself after focus lands there from
+  // the closed notice), the hide waits until both have left.
+  var STATUS_MS = 30000;
+  var hideTimer = null;
+  var hideDue = false;
+  var pointerInside = false;
+
+  /**
+   * Where focus goes when the line it is on disappears: the notice's first
+   * action if the notice is showing again. Otherwise focus is released, not
+   * moved: moving it into the page could set off that page's own focus
+   * behavior (on the homepage, focusing a panel opens it), and browsers keep
+   * the sequential-focus starting point where the line was.
+   */
+  function focusAfterLine() {
+    var target = notice.hidden ? null : notice.querySelector('[data-np-privacy-action]');
+    if (target) target.focus({ preventScroll: true });
+    else if (d.activeElement && d.activeElement.blur) d.activeElement.blur();
+  }
+
+  // Empties the line, which hides it (`:empty`), on every path that hides it.
+  // A hidden box gets no mouseleave, so the hover state is reset here, and
+  // focus on the line is moved somewhere visible first.
+  function clearLine() {
+    hideDue = false;
+    pointerInside = false;
+    if (status.contains(d.activeElement)) focusAfterLine();
+    status.textContent = '';
+  }
+
+  function hideIfDue() {
+    if (!hideDue || pointerInside) return;
+    if (status.contains(d.activeElement)) return;
+    clearLine();
+  }
+
+  status.addEventListener('mouseenter', function () {
+    pointerInside = true;
+  });
+  status.addEventListener('mouseleave', function () {
+    pointerInside = false;
+    hideIfDue();
+  });
+  // focusout fires before focus lands on its next target; read where it went
+  // once it has.
+  status.addEventListener('focusout', function () {
+    w.setTimeout(hideIfDue, 0);
+  });
+
+  /**
+   * Writes an announcement into the status line and starts its timer. The
+   * phrase "privacy page", wherever a message names it, becomes a link to
+   * /privacy/ (#1348), so the message leads where it points.
+   */
   function announce(text) {
-    status.textContent = text;
+    if (hideTimer) w.clearTimeout(hideTimer);
+    hideTimer = null;
+    hideDue = false;
+    // Rewriting the line removes its link, and clearing it hides the line. If
+    // focus was on either, keep it in a deliberate place rather than letting
+    // it fall back to the document.
+    var hadFocus = status.contains(d.activeElement);
+    clearLine();
+    if (!text) return;
+    var phrase = 'privacy page';
+    var at = text.indexOf(phrase);
+    if (at < 0) {
+      status.textContent = text;
+    } else {
+      var link = d.createElement('a');
+      link.href = '/privacy/';
+      link.textContent = phrase;
+      status.appendChild(d.createTextNode(text.slice(0, at)));
+      status.appendChild(link);
+      status.appendChild(d.createTextNode(text.slice(at + phrase.length)));
+    }
+    if (hadFocus) status.focus();
+    hideTimer = w.setTimeout(function () {
+      hideTimer = null;
+      hideDue = true;
+      hideIfDue();
+    }, STATUS_MS);
   }
 
   // True while act() changes the state itself: the gate calls onChange
   // synchronously, and that change is not one from another tab.
   var localChange = false;
 
-  function act(action) {
+  // `byPointer` is true only for a real pointer click (see the click handler).
+  function act(action, byPointer) {
     var hadFocus = notice.contains(d.activeElement);
     localChange = true;
     if (action === 'deny') {
@@ -74,16 +157,24 @@
     }
     localChange = false;
     sync();
-    // The control that had focus leaves with the notice. Land on the visible
-    // announcement instead of letting focus fall back to the document.
-    if (hadFocus && notice.hidden) status.focus();
+    // The control that had focus leaves with the notice. A keyboard or
+    // assistive-technology user lands on the visible announcement instead of
+    // the document. After a real pointer click nobody is navigating by focus,
+    // so it is released, and the line is not held open by it.
+    if (hadFocus && notice.hidden) {
+      if (!byPointer) status.focus();
+      else if (d.activeElement && d.activeElement.blur) d.activeElement.blur();
+    }
   }
 
   notice.addEventListener('click', function (event) {
     var target = event.target;
     while (target && target !== notice) {
       if (target.getAttribute && target.hasAttribute('data-np-privacy-action')) {
-        act(target.getAttribute('data-np-privacy-action'));
+        // A pointer click reports how many presses made it (`detail` >= 1);
+        // keyboard activation and clicks synthesized by assistive technology
+        // report 0, so they keep focus management.
+        act(target.getAttribute('data-np-privacy-action'), event.detail > 0);
         return;
       }
       target = target.parentNode;
