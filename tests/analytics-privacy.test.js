@@ -34,6 +34,7 @@ import {
   analyticsGateFindings,
   analyticsRegion,
   buildProductionCheck,
+  bundleFindings,
   findInFiles,
   findRuntimeMarkers,
   readTextFiles,
@@ -226,6 +227,95 @@ describe('production-mode build carries the privacy controls (PRIV-15 replacemen
     expect(missing).toEqual([]);
   });
 
+  it('names no analytics host in any emitted bundle but the Mux Data chunk (#1320)', () => {
+    const bundles = files.filter((f) => /\.m?js$/.test(f.path));
+    expect(bundles.length).toBeGreaterThan(0);
+    // Not vacuous: the Mux Data chunk (found by mux-embed's beacon key) is in
+    // the build and does name its host.
+    const mux = bundles.find((f) => f.text.includes('mux_embed_version'));
+    expect(mux, 'the mux-embed chunk').toBeTruthy();
+    expect(mux.text).toContain('litix.io');
+    expect(bundleFindings(files)).toEqual([]);
+  });
+
+  describe('the bundle check fails on an ungated request in emitted JavaScript (#1320)', () => {
+    let muxChunk;
+    beforeAll(() => {
+      muxChunk = files.find((f) => /\.m?js$/.test(f.path) && f.text.includes('mux_embed_version'));
+    });
+
+    it('catches a host in an ordinary bundle, plain or escaped', () => {
+      for (const text of [
+        "fetch('https://www.google-analytics.com/g/collect')",
+        String.raw`fetch('https://www.google\x2danalytics.com/g/collect')`,
+        "export const u = 'https://d.nathanpayne.' + 'com/e';",
+      ]) {
+        expect(bundleFindings([{ path: '_astro/app.js', text }]), text).toHaveLength(1);
+      }
+    });
+
+    it('allows litix.io only in the mux-embed chunk', () => {
+      expect(bundleFindings([muxChunk])).toEqual([]);
+      expect(
+        bundleFindings([
+          { path: '_astro/other.js', text: "navigator.sendBeacon('https://img.litix.io/')" },
+        ]),
+      ).toEqual(['_astro/other.js: bundle names analytics host litix.io']);
+    });
+
+    it('pins the allowance to the installed mux-embed version', () => {
+      const version = JSON.parse(
+        readFileSync(join(ROOT, 'node_modules/mux-embed/package.json'), 'utf8'),
+      ).version;
+      expect(muxChunk.text).toContain(version);
+      const other = { ...muxChunk, text: muxChunk.text.split(version).join('0.0.0-not-installed') };
+      expect(bundleFindings([other])).toEqual([
+        `${muxChunk.path}: bundle names analytics host litix.io`,
+      ]);
+    });
+
+    it("allows litix.io in the mux-embed chunk only as mux-embed's own strings", () => {
+      for (const extra of [
+        "fetch('https://img.litix.io/x');",
+        // Not a string at all: a regular expression's source.
+        'fetch(/https:\\/\\/img.litix.io\\/x/.source);',
+        // The same string the package ships, one more time than it does.
+        "fetch('https://img.litix.io');",
+      ]) {
+        const tampered = { ...muxChunk, text: `${muxChunk.text}\n${extra}` };
+        expect(
+          bundleFindings([tampered]).some((f) => f.includes("mux-embed's own code")),
+          extra,
+        ).toBe(true);
+      }
+    });
+
+    it('allows no other host in the mux-embed chunk', () => {
+      const tampered = {
+        ...muxChunk,
+        text: `${muxChunk.text}\nfetch('https://us.i.posthog.com/e');`,
+      };
+      expect(bundleFindings([tampered])).toEqual([
+        `${muxChunk.path}: bundle names analytics host posthog.com`,
+      ]);
+    });
+
+    it('reports a bundle that compiles code at run time', () => {
+      expect(bundleFindings([{ path: '_astro/x.js', text: "(0, eval)('1')" }])[0]).toMatch(
+        /^_astro\/x\.js compiles code at run time \(eval\)/,
+      );
+    });
+
+    it('reports a bundle it cannot parse, and ignores files that are not JavaScript', () => {
+      expect(bundleFindings([{ path: '_astro/broken.js', text: 'fetch((' }])[0]).toMatch(
+        /^_astro\/broken\.js could not be parsed/,
+      );
+      expect(
+        bundleFindings([{ path: 'privacy/index.html', text: 'https://posthog.com/privacy' }]),
+      ).toEqual([]);
+    });
+  });
+
   describe('the page check fails when the gate is weakened (controls on a real page)', () => {
     let page;
     beforeAll(() => {
@@ -287,14 +377,15 @@ describe('production-mode build carries the privacy controls (PRIV-15 replacemen
     });
 
     it('catches a PostHog guard that closes right after it opens', () => {
-      const mutated = page.replace(PH_GUARD_LINE, PH_GUARD_LINE + '}');
+      // `}{` keeps the script valid: an empty guard, then a bare unguarded block.
+      const mutated = page.replace(PH_GUARD_LINE, PH_GUARD_LINE + '}{');
       const findings = analyticsGateFindings(mutated);
       expect(findings).toContain('PostHog block runs posthog.init( outside its gate guard');
       expect(findings).toContain('PostHog block runs !function(t,e){ outside its gate guard');
     });
 
     it('catches a GA4 guard that closes right after it opens', () => {
-      const mutated = page.replace(GA4_GUARD_LINE, GA4_GUARD_LINE + '}');
+      const mutated = page.replace(GA4_GUARD_LINE, GA4_GUARD_LINE + '}{');
       const findings = analyticsGateFindings(mutated);
       expect(findings).toContain("GA4 block runs gtag('config' outside its gate guard");
       expect(findings).toContain('GA4 block runs loader.src =  outside its gate guard');
@@ -349,6 +440,281 @@ describe('production-mode build carries the privacy controls (PRIV-15 replacemen
           tag,
         ).toBe(true);
       }
+    });
+
+    describe('JavaScript read as the engine reads it (#1320)', () => {
+      const inBody = (fragment) => page.replace('</body>', `${fragment}</body>`);
+      const scriptFinding = (mutated, host) =>
+        analyticsGateFindings(mutated).includes(`inline script names analytics host ${host}`);
+
+      it('catches a host spelled with JavaScript string escapes', () => {
+        for (const literal of [
+          String.raw`'https://www.google\x2danalytics.com/g/collect'`,
+          String.raw`'https://www.google\u002danalytics.com/g/collect'`,
+          String.raw`'https://www.google\u{2d}analytics.com/g/collect'`,
+          String.raw`"https://www.google\x2danalytics\x2ecom/g/collect"`,
+        ]) {
+          const mutated = inBody(`<script>fetch(${literal});</script>`);
+          expect(scriptFinding(mutated, 'google-analytics.com'), literal).toBe(true);
+        }
+      });
+
+      it('catches a host split across constant concatenation and templates', () => {
+        for (const expr of [
+          "'https://www.google-' + 'analytics.com/g/collect'",
+          "'https://www.google' + '-' + 'analytics' + '.com/g/collect'",
+          '`https://www.google-${"analytics"}.com/g/collect`',
+          "`https://www.google${'\\x2d'}analytics.com/g/collect`",
+        ]) {
+          const mutated = inBody(`<script>navigator.sendBeacon(${expr});</script>`);
+          expect(scriptFinding(mutated, 'google-analytics.com'), expr).toBe(true);
+        }
+      });
+
+      it('catches an escaped host in a module script and in JSON-LD', () => {
+        const mutated = inBody(
+          String.raw`<script type="module">fetch('https://d\x2enathanpayne.com/e')</script>`,
+        );
+        expect(scriptFinding(mutated, 'd.nathanpayne.com')).toBe(true);
+        const ld = inBody(
+          String.raw`<script type="application/ld+json">{"url":"https://www.google\u002danalytics.com/"}</script>`,
+        );
+        expect(scriptFinding(ld, 'google-analytics.com')).toBe(true);
+      });
+
+      it('catches an escaped host in an event handler and in a javascript: link', () => {
+        for (const fragment of [
+          String.raw`<img src="x" onerror="fetch('https://www.google\x2danalytics.com/g')">`,
+          String.raw`<a href="javascript:fetch('https://www.google\x2danalytics.com/g')">x</a>`,
+        ]) {
+          expect(analyticsGateFindings(inBody(fragment)), fragment).toContain(
+            'markup attribute names analytics host google-analytics.com',
+          );
+        }
+      });
+
+      it('reports an inline script it cannot parse instead of passing it', () => {
+        const mutated = inBody('<script>fetch((</script>');
+        expect(
+          analyticsGateFindings(mutated).some((f) =>
+            f.startsWith('inline script could not be parsed'),
+          ),
+        ).toBe(true);
+      });
+
+      it('catches a request after the PostHog guard closes', () => {
+        const at = page.indexOf('posthog.init(');
+        const close = page.indexOf('})();', at);
+        expect(close).toBeGreaterThan(at);
+        for (const call of [
+          "fetch('https://d.nathanpayne.com/e');",
+          String.raw`fetch('https://d\x2enathanpayne.com/e');`,
+        ]) {
+          const mutated = page.slice(0, close) + call + page.slice(close);
+          expect(analyticsGateFindings(mutated), call).toContain(
+            'PostHog block names analytics host d.nathanpayne.com outside its gate guard',
+          );
+        }
+      });
+
+      it('catches a request before the GA4 guard opens', () => {
+        const mutated = page.replace(
+          GA4_GUARD_LINE,
+          `navigator.sendBeacon('https://www.google' + '-analytics.com/g/collect');\n${GA4_GUARD_LINE}`,
+        );
+        expect(analyticsGateFindings(mutated)).toContain(
+          'GA4 block names analytics host google-analytics.com outside its gate guard',
+        );
+      });
+
+      it('reads every JavaScript MIME type as JavaScript', () => {
+        for (const type of [
+          'text/ecmascript',
+          'application/x-javascript',
+          'text/jscript',
+          'text/javascript1.5',
+          'Text/JavaScript; charset=utf-8',
+        ]) {
+          const mutated = inBody(
+            String.raw`<script type="${type}">fetch('https://www.google\x2danalytics.com/g')</script>`,
+          );
+          expect(scriptFinding(mutated, 'google-analytics.com'), type).toBe(true);
+        }
+      });
+
+      it('decodes the JSON the browser reads in importmap and speculationrules', () => {
+        for (const fragment of [
+          String.raw`<script type="importmap">{"imports":{"a":"https://d.nathanpayne\u002ecom/a.js"}}</script>`,
+          String.raw`<script type="speculationrules">{"prefetch":[{"urls":["https://www.google\u002danalytics.com/"]}]}</script>`,
+        ]) {
+          expect(
+            analyticsGateFindings(inBody(fragment)).some((f) =>
+              f.startsWith('inline script names analytics host'),
+            ),
+            fragment,
+          ).toBe(true);
+        }
+      });
+
+      it('takes the guarded block from the parsed script, so a regex brace cannot widen it', () => {
+        const close = page.indexOf('})();', page.indexOf('posthog.init('));
+        const mutated =
+          page.slice(0, close) +
+          String.raw`fetch('https://d\x2enathanpayne.com/e'); /\}/;` +
+          page.slice(close);
+        const withOpen = mutated.replace(PH_GUARD_LINE, String.raw`${PH_GUARD_LINE} /\{/;`);
+        expect(analyticsGateFindings(withOpen)).toContain(
+          'PostHog block names analytics host d.nathanpayne.com outside its gate guard',
+        );
+      });
+
+      it('reports a region script whose guard block no longer parses', () => {
+        const mutated = page.replace(PH_GUARD_LINE, PH_GUARD_LINE + '}');
+        expect(analyticsGateFindings(mutated)).toContain(
+          "PostHog block: could not find the end of the gate guard's block",
+        );
+      });
+
+      it('treats a javascript: URL as a finding in itself, its body percent-decoded', () => {
+        for (const href of [
+          'javascript:void(0)',
+          "javascript:fetch('https://www.google%5Cx2danalytics.com/g')",
+        ]) {
+          expect(analyticsGateFindings(inBody(`<a href="${href}">x</a>`)), href).toContain(
+            'markup attribute holds a javascript: URL',
+          );
+        }
+        // Percent-decoded first, then parsed: the escaped host is found too.
+        expect(
+          analyticsGateFindings(
+            inBody(`<a href="javascript:fetch('https://www.google%5Cx2danalytics.com/g')">x</a>`),
+          ),
+        ).toContain('markup attribute names analytics host google-analytics.com');
+      });
+
+      it('treats a javascript: URL in code as a finding in itself', () => {
+        for (const code of [
+          'location.href = "javascript:fetch(1)"',
+          "document.querySelector('a').href = 'java\\tscript:void(0)'",
+          'const u = `JavaScript:${1}`',
+        ]) {
+          expect(
+            analyticsGateFindings(inBody(`<script>${code}</script>`)).some((f) =>
+              f.includes('names a javascript: URL'),
+            ),
+            code,
+          ).toBe(true);
+        }
+        expect(
+          bundleFindings([{ path: '_astro/x.js', text: 'location.href = "javascript:1"' }])[0],
+        ).toMatch(/names a javascript: URL/);
+      });
+
+      it('reads a javascript: link the way the URL parser does', () => {
+        for (const href of [
+          String.raw`java&#10;script:fetch('https://www.google\x2danalytics.com/g')`,
+          String.raw`java&#9;script:fetch('https://www.google\x2danalytics.com/g')`,
+          String.raw`&#1;javascript:fetch('https://www.google\x2danalytics.com/g')`,
+          String.raw`JAVASCRIPT:fetch('https://www.google\x2danalytics.com/g')`,
+        ]) {
+          expect(analyticsGateFindings(inBody(`<a href="${href}">x</a>`)), href).toContain(
+            'markup attribute names analytics host google-analytics.com',
+          );
+        }
+      });
+
+      it('checks a srcdoc document like the page, nested ones too', () => {
+        for (const fragment of [
+          `<iframe srcdoc="&lt;script>fetch('https://www.google\x2danalytics.com/g')&lt;/script>"></iframe>`,
+          `<iframe srcdoc="&lt;img src=&quot;https://stats.doubleclick.net/p&quot;>"></iframe>`,
+          `<iframe srcdoc="&lt;iframe srcdoc=&quot;&amp;lt;script>fetch('https://d\x2enathanpayne.com/e')&amp;lt;/script>&quot;>&lt;/iframe>"></iframe>`,
+        ]) {
+          expect(
+            analyticsGateFindings(inBody(fragment)).some((f) => f.startsWith('srcdoc: ')),
+            fragment,
+          ).toBe(true);
+        }
+      });
+
+      it('parses constant code handed to eval and its kin again', () => {
+        // Each payload's host is escaped twice in the page's script (a backslash,
+        // then x2d), so the outer string decodes only to an x2d escape and only
+        // a second parse of the payload yields the host.
+        for (const call of [
+          `eval("fetch('https://www.google\\\\x2danalytics.com/g')")`,
+          `new Function("return fetch('https://www.google\\\\x2danalytics.com/g')")`,
+          `Function('a', "fetch('https://www.google\\\\x2danalytics.com/g')")`,
+          `window.setTimeout("fetch('https://www.google\\\\x2danalytics.com/g')", 0)`,
+          `window['eval']("fetch('https://www.google\\\\x2danalytics.com/g')")`,
+          `globalThis['set' + 'Timeout']("fetch('https://www.google\\\\x2danalytics.com/g')")`,
+          'eval(`eval("fetch(\'https://www.google\\\\x2danalytics.com/g\')")`)',
+        ]) {
+          expect(
+            scriptFinding(inBody(`<script>${call}</script>`), 'google-analytics.com'),
+            call,
+          ).toBe(true);
+        }
+      });
+
+      it('treats compiling code at run time as a finding in itself, whatever the payload', () => {
+        for (const code of [
+          "(0, eval)('1')",
+          'eval(window.name)',
+          "window['ev' + 'al']('1')",
+          "new Function('return 1')",
+          "Function('return 1')()",
+          "setTimeout('1', 0)",
+          "globalThis['setInterval']('1' + '', 10)",
+          "const run = globalThis['eval']; run('1')",
+          'const F = window.Function; new F("return 1")',
+        ]) {
+          expect(
+            analyticsGateFindings(inBody(`<script>${code}</script>`)).some((f) =>
+              f.includes('compiles code at run time'),
+            ),
+            code,
+          ).toBe(true);
+        }
+        // A function passed to a timer is not compiled code.
+        expect(analyticsGateFindings(inBody('<script>setTimeout(() => {}, 0)</script>'))).toEqual(
+          [],
+        );
+      });
+
+      it('treats an executable data: URL as a finding in itself', () => {
+        for (const fragment of [
+          '<iframe src="data:text/html,%3Cp%3Ehi%3C/p%3E"></iframe>',
+          '<iframe src="DATA:Text/HTML;base64,PHA+aGk8L3A+"></iframe>',
+          '<object data="data:image/svg+xml,%3Csvg/%3E"></object>',
+          '<embed src="data:application/xhtml+xml,%3Chtml/%3E">',
+          '<a href="data:text/html,%3Cp%3Ehi%3C/p%3E">x</a>',
+          // Scripts: a JavaScript type, a legacy one, and any type at all on <script>.
+          '<script src="data:text/javascript;base64,ZmV0Y2goIngiKQ=="></script>',
+          '<script src="data:application/x-javascript,1"></script>',
+          '<script src="data:text/plain,1"></script>',
+          '<link rel="modulepreload" href="data:text/javascript,1">',
+          "<script>import('data:text/javascript,export%20default%201')</script>",
+          "<script>new Worker('data:application/javascript,1')</script>",
+          '<script type="importmap">{"imports":{"x":"data:text/javascript;base64,ZmV0Y2goIngiKQ=="}}</script>',
+        ]) {
+          expect(
+            analyticsGateFindings(inBody(fragment)).some((f) => f.includes('executable data: URL')),
+            fragment,
+          ).toBe(true);
+        }
+        // Images are images, not code or documents, even an SVG one.
+        for (const fragment of [
+          '<img src="data:image/svg+xml,%3Csvg/%3E" alt="">',
+          '<img src="data:image/png;base64,iVBORw0KGgo=" alt="">',
+        ]) {
+          expect(analyticsGateFindings(inBody(fragment)), fragment).toEqual([]);
+        }
+      });
+
+      it('still allows the hosts the guarded blocks name inside their guards', () => {
+        expect(page).toContain('googletagmanager.com/gtag/js');
+        expect(analyticsGateFindings(page)).toEqual([]);
+      });
     });
 
     describe('parsed markup (jsdom), not patterns', () => {
@@ -520,5 +886,10 @@ describe('the real dist/ build (whatever tokens the environment has)', () => {
         PRODUCTION_CHECK_ENV.PUBLIC_GA_MEASUREMENT_ID,
       ]),
     ).toEqual([]);
+  });
+
+  it('names no analytics host in any emitted bundle but the Mux Data chunk (#1320)', () => {
+    expect(files.some((f) => /\.m?js$/.test(f.path))).toBe(true);
+    expect(bundleFindings(files)).toEqual([]);
   });
 });
