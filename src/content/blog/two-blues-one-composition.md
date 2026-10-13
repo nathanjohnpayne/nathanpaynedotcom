@@ -5,6 +5,7 @@ shortTitle: "Two Blues, One Composition"
 description: "Claude found two blues in my Mondrian-inspired projects page. I could defend both sources; the page still looked wrong. Sampling two painting reproductions helped me choose a palette rule, and showed which of the model's numbers had no source."
 seoDescription: "A design critique became a forensics exercise: pixel sampling, painting reproductions, and the palette rule behind this site's Mondrian-inspired pages."
 category: "Building This Site"
+homepageRank: 5
 author: "Nathan Payne"
 date: 2026-06-11
 tags: ["AI", "Design", "Systems", "Engineering"]
