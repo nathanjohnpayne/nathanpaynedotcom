@@ -2,8 +2,11 @@ import { defineConfig } from '@playwright/test';
 
 /**
  * #1228 privacy runtime browser check. Not part of `npm run test:e2e`, whose
- * config (`playwright.config.ts`) is untouched; #1230 owns the acceptance
- * suite and its CI wiring. Run it by hand against the flag-on test build:
+ * config (`playwright.config.ts`) is untouched. CI runs it in build-and-test
+ * since #1291, after the acceptance suite has fetched the vendor bundles into
+ * node_modules/.cache/np-privacy-acceptance/ (the step reads that run's
+ * state.json and skips when gtag.js was unavailable). To run it locally against
+ * the flag-on test build:
  *
  *   npm run build:privacy-test
  *   NP_POSTHOG_JS_DIST=<posthog-js@1.438.3>/package/dist NP_GTAG_JS=<gtag.js> \
