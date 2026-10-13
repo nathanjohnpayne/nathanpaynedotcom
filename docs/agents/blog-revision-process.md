@@ -44,7 +44,7 @@ It also reports numbers written as words as an **advisory note**. That cannot ga
 
 **Quantifier scope creep.** A true claim stated one quantifier too wide --- *every* prompt, *every* piece of HTML, *every* time. Three of five findings in one round were exactly this. Flag any universal that cannot be verified exhaustively.
 
-**Mental states asserted where only behaviour is recorded.** "Nobody saw the invariant" claims something about two reviewers' minds; the record shows two approvals and no inline comments. State what the record shows.
+**Mental states asserted where only behaviour is recorded.** "Nobody saw the invariant" claims something about two reviewers' minds; the record shows two approvals and no inline comments. State what the record shows. The same boundary applies to first-person qualifications: no recorded artifact is evidence about the available record, not proof that the author never made or retained one. A rewrite cannot supply new testimony for the author.
 
 **Diagrams drifting from the prose they illustrate.** Twice a narrowed claim left the adjacent Mermaid diagram asserting the retracted version --- including in its `description=` attribute, which is the accessible text screen-reader users receive. When a claim changes, grep diagram titles, descriptions, captions, and node labels too.
 
@@ -96,6 +96,8 @@ Recount immediately before merge. Review rounds add words about as often as they
 ## Voice check and complete meaning review
 
 For a human or agent-independent walkthrough, use [Blog drafting and voice review](../blog-writing-workflow.md). Codex is not required for the checker or supplied-reference route.
+
+Apply that workflow's [editorial checkpoints before approval](../blog-writing-workflow.md#editorial-checkpoints-before-approval) to the full voice draft and after the separate brevity pass, then complete its [final reader edit](../blog-writing-workflow.md#the-final-reader-edit). Record passage-specific keep/fix decisions, chosen wording and its four final-source records: repetition, qualification placement, author judgments, and closing/causal consistency. Keep current warning dispositions distinct from superseded draft notes. Structure, semantic repetition, sentence order, intended versus delivered rule coverage, metadata precision and natural author language remain manual decisions even when mechanical checks pass.
 
 For future drafting and editorial review, use Codex's **Write Like Me** workflow. Use sufficient supplied references directly; retrieve relevant writing through that capability when needed and available. If the feature is unavailable, explicitly use the supplied references and direct feedback as the fallback, and do not claim the feature was used. Label **user-authored references** separately from **owner-approved model revisions**. The final October 6 batch is the latter, refined through direct owner feedback; it is not a corpus of newly user-authored writing. Do not commit retrieved private writing, a personal style profile or a retrieval cache.
 
