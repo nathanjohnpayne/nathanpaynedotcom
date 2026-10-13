@@ -272,14 +272,19 @@ export function scriptStrings(source, { skip = null } = {}) {
   }
   if (!ast) return { error: lastError?.message ?? 'unparseable' };
   const strings = [];
+  const code = [];
   const inSkip = (node) => skip && node.start >= skip[0] && node.end <= skip[1];
   const visit = (node) => {
     if (!node || typeof node.type !== 'string' || inSkip(node)) return;
     if (node.type === 'TemplateLiteral') {
       for (const q of node.quasis) if (q.value.cooked != null) strings.push(q.value.cooked);
     }
-    const value = constantString(node);
+    // A template with no expressions is its one quasi, already recorded.
+    const value =
+      node.type === 'TemplateLiteral' && !node.expressions.length ? null : constantString(node);
     if (value != null) strings.push(value);
+    const payload = codePayload(node);
+    if (payload != null) code.push(payload);
     for (const key of Object.keys(node)) {
       const child = node[key];
       if (Array.isArray(child)) child.forEach(visit);
@@ -287,7 +292,34 @@ export function scriptStrings(source, { skip = null } = {}) {
     }
   };
   visit(ast);
-  return { strings };
+  return { strings, code };
+}
+
+const CODE_SINKS = new Set(['eval', 'Function', 'setTimeout', 'setInterval']);
+
+/**
+ * The constant source a call hands the engine to compile, or null:
+ * `eval(src)`, `Function(..., body)` / `new Function(..., body)`, and
+ * `setTimeout(src, ...)` / `setInterval(src, ...)` with a string, called
+ * directly or as a member (`window.eval`). That string runs as code, so its own
+ * escapes are decoded only by a second parse.
+ */
+function codePayload(node) {
+  if (node.type !== 'CallExpression' && node.type !== 'NewExpression') return null;
+  const callee = node.callee;
+  const name =
+    callee.type === 'Identifier'
+      ? callee.name
+      : callee.type === 'MemberExpression' && !callee.computed
+        ? callee.property.name
+        : null;
+  if (!CODE_SINKS.has(name) || !node.arguments.length) return null;
+  const arg = name === 'Function' ? node.arguments.at(-1) : node.arguments[0];
+  if (name === 'setTimeout' || name === 'setInterval') {
+    if (arg.type !== 'Literal' && arg.type !== 'TemplateLiteral' && arg.type !== 'BinaryExpression')
+      return null;
+  }
+  return constantString(arg);
 }
 
 /**
@@ -296,12 +328,20 @@ export function scriptStrings(source, { skip = null } = {}) {
  * evaluate them. `skip` excludes a source range from both readings. A script
  * that cannot be parsed is reported by name instead of passing.
  */
-function scriptHosts(source, { skip = null, label = 'script' } = {}) {
+function scriptHosts(source, { skip = null, label = 'script', depth = 0 } = {}) {
   const raw = skip ? source.slice(0, skip[0]) + '\n' + source.slice(skip[1]) : source;
   const hosts = new Set(namedHosts(raw));
   const parsed = scriptStrings(source, { skip });
   if (parsed.error) return { hosts: [...hosts], error: `${label} could not be parsed: ${parsed.error}` };
   for (const value of parsed.strings) for (const host of namedHosts(value)) hosts.add(host);
+  // Constant code handed to eval and its kin is parsed and read again, to a
+  // bounded depth; nesting past it is reported rather than trusted.
+  for (const payload of parsed.code) {
+    if (depth >= 4) return { hosts: [...hosts], error: `${label}: code nested past depth 4` };
+    const inner = scriptHosts(payload, { label: `${label} (eval payload)`, depth: depth + 1 });
+    if (inner.error) return { hosts: [...hosts, ...inner.hosts], error: inner.error };
+    inner.hosts.forEach((h) => hosts.add(h));
+  }
   return { hosts: [...hosts] };
 }
 
@@ -363,6 +403,112 @@ function scriptKind(type) {
 
 const REGION_START_TEXT = REGION_START.slice(4, -3);
 const REGION_END_TEXT = REGION_END.slice(4, -3);
+
+/**
+ * Host findings in a parsed document's markup: inline scripts (except the
+ * `exempt` elements and Mux Data's exact wrapper), stylesheets, and every
+ * attribute. Shared by the page check and, recursively, by each `srcdoc`
+ * document a page carries.
+ */
+function markupFindings(document, exempt, depth = 0) {
+  const findings = [];
+  const elements = [...allElements(document)];
+
+  // Inline script bodies outside the ones that legitimately name an
+  // analytics host: a stray fetch() or sendBeacon() to one would be a request
+  // the gate does not guard. The explicit exemptions, by identity and not by
+  // content:
+  //  - the gate script, found above as the script just before the region (its
+  //    ANALYTICS_HOSTS list drives the transport guard);
+  //  - the two region scripts, PostHog's and GA4's, whose guards are verified
+  //    above;
+  //  - Mux Data's wrapper, exactly as MUX_DATA_SOURCE (see there).
+  // JSON-LD and every other script type are scanned like any other: none of
+  // them names a host today, so they need no exemption. A JavaScript body is
+  // read as the engine reads it (scriptHosts: escapes decoded, constants
+  // joined), JSON with its own escapes decoded, anything else as text.
+  for (const el of elements) {
+    if (el.localName !== 'script') continue;
+    if (exempt.has(el) || el.textContent.trim() === MUX_DATA_SOURCE) continue;
+    const text = el.textContent;
+    const type = el.getAttribute('type');
+    const hosts = new Set(namedHosts(text));
+    const kind = scriptKind(type);
+    if (kind === 'js') {
+      const scanned = scriptHosts(text, { label: 'inline script' });
+      if (scanned.error) findings.push(scanned.error);
+      scanned.hosts.forEach((h) => hosts.add(h));
+    } else if (kind === 'json') {
+      const parsed = jsonStrings(text);
+      if (parsed.error) findings.push(`inline ${type} script is not valid JSON: ${parsed.error}`);
+      else for (const value of parsed.strings) namedHosts(value).forEach((h) => hosts.add(h));
+    }
+    for (const host of hosts) findings.push(`inline script names analytics host ${host}`);
+  }
+
+  // CSS: any mention of a host in a stylesheet (`url(...)`, `@import`, or
+  // anything else) is a request the gate cannot stop. `style` attributes are
+  // covered by the attribute scan below.
+  for (const el of elements) {
+    if (el.localName !== 'style') continue;
+    for (const host of namedHosts(el.textContent)) {
+      findings.push(`stylesheet names analytics host ${host}`);
+    }
+  }
+
+  // Attributes: every attribute of every element, whatever its name (`src`,
+  // `srcset`, `data`, `poster`, `xlink:href`, `content`, `style`, `on*`
+  // handlers, `srcdoc`), decoded by the parser. The one exemption is `href`
+  // on `<a>` and `<area>` (unless it is a `javascript:` URL): following a link
+  // is navigation the visitor starts, not a request the page makes. A `<link href>` (preconnect, prefetch,
+  // stylesheet) is NOT exempt. Prose may name the hosts: the /privacy/ page
+  // discloses them in text.
+  // An `on*` handler and a `javascript:` URL are JavaScript, so they are also
+  // read as the engine reads them (scriptHosts); a `javascript:` href is not
+  // navigation and gets no exemption.
+  for (const el of elements) {
+    for (const attr of el.attributes) {
+      // As the URL parser reads it: leading C0 controls and spaces stripped,
+      // and every ASCII tab and newline removed, before the scheme is read.
+      let asUrl = attr.value.replace(/[\t\n\r]/g, '');
+      let lead = 0;
+      while (lead < asUrl.length && asUrl.charCodeAt(lead) <= 0x20) lead++;
+      asUrl = asUrl.slice(lead);
+      const isScriptUrl = /^javascript:/i.test(asUrl);
+      if (
+        attr.name === 'href' &&
+        (el.localName === 'a' || el.localName === 'area') &&
+        !isScriptUrl
+      ) {
+        continue;
+      }
+      // `srcdoc` is a whole document the browser parses and runs in the
+      // frame, so it gets every check here, recursively (to a bounded depth).
+      if (attr.name === 'srcdoc') {
+        if (depth >= 4) {
+          findings.push('srcdoc nested past depth 4');
+          continue;
+        }
+        const nested = new JSDOM(attr.value);
+        try {
+          const inner = markupFindings(nested.window.document, new Set(), depth + 1);
+          for (const finding of inner) findings.push(`srcdoc: ${finding}`);
+        } finally {
+          nested.window.close();
+        }
+      }
+      const hosts = new Set(namedHosts(attr.value));
+      if (/^on/i.test(attr.name) || isScriptUrl) {
+        const code = isScriptUrl ? asUrl.replace(/^javascript:/i, '') : attr.value;
+        const scanned = scriptHosts(code, { label: `${attr.name} attribute` });
+        if (scanned.error) findings.push(scanned.error);
+        scanned.hosts.forEach((h) => hosts.add(h));
+      }
+      for (const host of hosts) findings.push(`markup attribute names analytics host ${host}`);
+    }
+  }
+  return findings;
+}
 
 /**
  * Structural findings for one production-mode page built with both tokens set
@@ -505,88 +651,9 @@ export function analyticsGateFindings(html) {
       if (!body.includes('gtag/js?id=')) findings.push('GA4 block does not create the loader');
     }
 
-    const elements = [...allElements(document)];
-
-    // Inline script bodies outside the ones that legitimately name an
-    // analytics host: a stray fetch() or sendBeacon() to one would be a request
-    // the gate does not guard. The explicit exemptions, by identity and not by
-    // content:
-    //  - the gate script, found above as the script just before the region (its
-    //    ANALYTICS_HOSTS list drives the transport guard);
-    //  - the two region scripts, PostHog's and GA4's, whose guards are verified
-    //    above;
-    //  - Mux Data's wrapper, exactly as MUX_DATA_SOURCE (see there).
-    // JSON-LD and every other script type are scanned like any other: none of
-    // them names a host today, so they need no exemption. A JavaScript body is
-    // read as the engine reads it (scriptHosts: escapes decoded, constants
-    // joined), JSON with its own escapes decoded, anything else as text.
     const exempt = new Set(inRegion);
     if (gate) exempt.add(gate);
-    for (const el of elements) {
-      if (el.localName !== 'script') continue;
-      if (exempt.has(el) || el.textContent.trim() === MUX_DATA_SOURCE) continue;
-      const text = el.textContent;
-      const type = el.getAttribute('type');
-      const hosts = new Set(namedHosts(text));
-      const kind = scriptKind(type);
-      if (kind === 'js') {
-        const scanned = scriptHosts(text, { label: 'inline script' });
-        if (scanned.error) findings.push(scanned.error);
-        scanned.hosts.forEach((h) => hosts.add(h));
-      } else if (kind === 'json') {
-        const parsed = jsonStrings(text);
-        if (parsed.error) findings.push(`inline ${type} script is not valid JSON: ${parsed.error}`);
-        else for (const value of parsed.strings) namedHosts(value).forEach((h) => hosts.add(h));
-      }
-      for (const host of hosts) findings.push(`inline script names analytics host ${host}`);
-    }
-
-    // CSS: any mention of a host in a stylesheet (`url(...)`, `@import`, or
-    // anything else) is a request the gate cannot stop. `style` attributes are
-    // covered by the attribute scan below.
-    for (const el of elements) {
-      if (el.localName !== 'style') continue;
-      for (const host of namedHosts(el.textContent)) {
-        findings.push(`stylesheet names analytics host ${host}`);
-      }
-    }
-
-    // Attributes: every attribute of every element, whatever its name (`src`,
-    // `srcset`, `data`, `poster`, `xlink:href`, `content`, `style`, `on*`
-    // handlers, `srcdoc`), decoded by the parser. The one exemption is `href`
-    // on `<a>` and `<area>` (unless it is a `javascript:` URL): following a link
-    // is navigation the visitor starts, not a request the page makes. A `<link href>` (preconnect, prefetch,
-    // stylesheet) is NOT exempt. Prose may name the hosts: the /privacy/ page
-    // discloses them in text.
-    // An `on*` handler and a `javascript:` URL are JavaScript, so they are also
-    // read as the engine reads them (scriptHosts); a `javascript:` href is not
-    // navigation and gets no exemption.
-    for (const el of elements) {
-      for (const attr of el.attributes) {
-        // As the URL parser reads it: leading C0 controls and spaces stripped,
-        // and every ASCII tab and newline removed, before the scheme is read.
-        let asUrl = attr.value.replace(/[\t\n\r]/g, '');
-        let lead = 0;
-        while (lead < asUrl.length && asUrl.charCodeAt(lead) <= 0x20) lead++;
-        asUrl = asUrl.slice(lead);
-        const isScriptUrl = /^javascript:/i.test(asUrl);
-        if (
-          attr.name === 'href' &&
-          (el.localName === 'a' || el.localName === 'area') &&
-          !isScriptUrl
-        ) {
-          continue;
-        }
-        const hosts = new Set(namedHosts(attr.value));
-        if (/^on/i.test(attr.name) || isScriptUrl) {
-          const code = isScriptUrl ? asUrl.replace(/^javascript:/i, '') : attr.value;
-          const scanned = scriptHosts(code, { label: `${attr.name} attribute` });
-          if (scanned.error) findings.push(scanned.error);
-          scanned.hosts.forEach((h) => hosts.add(h));
-        }
-        for (const host of hosts) findings.push(`markup attribute names analytics host ${host}`);
-      }
-    }
+    findings.push(...markupFindings(document, exempt));
     return findings;
   } finally {
     dom.window.close();
@@ -605,13 +672,36 @@ const MUX_EMBED_VERSION = JSON.parse(
   ),
 ).version;
 
+/** Counts of each string in `strings` that names litix.io. */
+function litixStrings(strings) {
+  const counts = new Map();
+  for (const value of strings) {
+    if (namedHosts(value).includes('litix.io')) counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+  return counts;
+}
+
+// The litix.io strings mux-embed itself ships, from the ES module entry Vite
+// bundles (`exports.import`). The mux-embed chunk may carry these and only
+// these, each at most as often as the package does, so code co-bundled into
+// that chunk cannot borrow the allowance.
+const MUX_EMBED_LITIX = litixStrings(
+  scriptStrings(
+    readFileSync(
+      fileURLToPath(new URL('../../node_modules/mux-embed/dist/mux.mjs', import.meta.url)),
+      'utf8',
+    ),
+  ).strings ?? [],
+);
+
 /**
  * Findings for the JavaScript a build emits (`files` as readTextFiles returns
  * them; anything not .js or .mjs is ignored). A same-origin bundle runs on any
  * page that loads it, so an analytics host named in one is a request the HTML
  * check never sees. Each bundle is read as the engine reads it (scriptHosts),
  * and one that cannot be parsed is reported. The mux-embed chunk (see
- * MUX_EMBED_VERSION) may name litix.io and nothing else.
+ * MUX_EMBED_VERSION) may name litix.io and nothing else, and only in the
+ * strings mux-embed ships (MUX_EMBED_LITIX).
  */
 export function bundleFindings(files) {
   const findings = [];
@@ -628,7 +718,16 @@ export function bundleFindings(files) {
       strings.includes(MUX_EMBED_VERSION) &&
       text.includes('mux_embed_version');
     for (const host of hosts) {
-      if (isMuxEmbed && host === 'litix.io') continue;
+      if (isMuxEmbed && host === 'litix.io') {
+        for (const [value, count] of litixStrings(strings)) {
+          if (count > (MUX_EMBED_LITIX.get(value) ?? 0)) {
+            findings.push(
+              `${path}: bundle names analytics host litix.io beyond mux-embed's own code (${value})`,
+            );
+          }
+        }
+        continue;
+      }
       findings.push(`${path}: bundle names analytics host ${host}`);
     }
   }

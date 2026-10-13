@@ -274,6 +274,20 @@ describe('production-mode build carries the privacy controls (PRIV-15 replacemen
       ]);
     });
 
+    it("allows litix.io in the mux-embed chunk only as mux-embed's own strings", () => {
+      for (const extra of [
+        "fetch('https://img.litix.io/x');",
+        // The same string the package ships, one more time than it does.
+        "fetch('https://img.litix.io');",
+      ]) {
+        const tampered = { ...muxChunk, text: `${muxChunk.text}\n${extra}` };
+        expect(
+          bundleFindings([tampered]).some((f) => f.includes("beyond mux-embed's own code")),
+          extra,
+        ).toBe(true);
+      }
+    });
+
     it('allows no other host in the mux-embed chunk', () => {
       const tampered = {
         ...muxChunk,
@@ -563,6 +577,34 @@ describe('production-mode build carries the privacy controls (PRIV-15 replacemen
           expect(analyticsGateFindings(inBody(`<a href="${href}">x</a>`)), href).toContain(
             'markup attribute names analytics host google-analytics.com',
           );
+        }
+      });
+
+      it('checks a srcdoc document like the page, nested ones too', () => {
+        for (const fragment of [
+          `<iframe srcdoc="&lt;script>fetch('https://www.google\x2danalytics.com/g')&lt;/script>"></iframe>`,
+          `<iframe srcdoc="&lt;img src=&quot;https://stats.doubleclick.net/p&quot;>"></iframe>`,
+          `<iframe srcdoc="&lt;iframe srcdoc=&quot;&amp;lt;script>fetch('https://d\x2enathanpayne.com/e')&amp;lt;/script>&quot;>&lt;/iframe>"></iframe>`,
+        ]) {
+          expect(
+            analyticsGateFindings(inBody(fragment)).some((f) => f.startsWith('srcdoc: ')),
+            fragment,
+          ).toBe(true);
+        }
+      });
+
+      it('parses constant code handed to eval and its kin again', () => {
+        for (const call of [
+          `eval("fetch('https://www.google\\x2danalytics.com/g')")`,
+          `new Function("return fetch('https://www.google\\x2danalytics.com/g')")`,
+          `Function('a', "fetch('https://www.google\\x2danalytics.com/g')")`,
+          `window.setTimeout("fetch('https://www.google\\x2danalytics.com/g')", 0)`,
+          'eval(`eval("fetch(\'https://www.google\\\\x2danalytics.com/g\')")`)',
+        ]) {
+          expect(
+            scriptFinding(inBody(`<script>${call}</script>`), 'google-analytics.com'),
+            call,
+          ).toBe(true);
         }
       });
 
