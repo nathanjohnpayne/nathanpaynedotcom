@@ -596,13 +596,16 @@ describe('production-mode build carries the privacy controls (PRIV-15 replacemen
       });
 
       it('parses constant code handed to eval and its kin again', () => {
+        // Each payload's host is escaped twice in the page's script (a backslash,
+        // then x2d), so the outer string decodes only to an x2d escape and only
+        // a second parse of the payload yields the host.
         for (const call of [
-          `eval("fetch('https://www.google\\x2danalytics.com/g')")`,
-          `new Function("return fetch('https://www.google\\x2danalytics.com/g')")`,
-          `Function('a', "fetch('https://www.google\\x2danalytics.com/g')")`,
-          `window.setTimeout("fetch('https://www.google\\x2danalytics.com/g')", 0)`,
-          `window['eval']("fetch('https://www.google\\x2danalytics.com/g')")`,
-          `globalThis['set' + 'Timeout']("fetch('https://www.google\\x2danalytics.com/g')")`,
+          `eval("fetch('https://www.google\\\\x2danalytics.com/g')")`,
+          `new Function("return fetch('https://www.google\\\\x2danalytics.com/g')")`,
+          `Function('a', "fetch('https://www.google\\\\x2danalytics.com/g')")`,
+          `window.setTimeout("fetch('https://www.google\\\\x2danalytics.com/g')", 0)`,
+          `window['eval']("fetch('https://www.google\\\\x2danalytics.com/g')")`,
+          `globalThis['set' + 'Timeout']("fetch('https://www.google\\\\x2danalytics.com/g')")`,
           'eval(`eval("fetch(\'https://www.google\\\\x2danalytics.com/g\')")`)',
         ]) {
           expect(
