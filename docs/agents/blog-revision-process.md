@@ -44,7 +44,7 @@ It also reports numbers written as words as an **advisory note**. That cannot ga
 
 **Quantifier scope creep.** A true claim stated one quantifier too wide --- *every* prompt, *every* piece of HTML, *every* time. Three of five findings in one round were exactly this. Flag any universal that cannot be verified exhaustively.
 
-**Mental states asserted where only behaviour is recorded.** "Nobody saw the invariant" claims something about two reviewers' minds; the record shows two approvals and no inline comments. State what the record shows.
+**Mental states asserted where only behaviour is recorded.** "Nobody saw the invariant" claims something about two reviewers' minds; the record shows two approvals and no inline comments. State what the record shows. The same boundary applies to first-person qualifications: no recorded artifact is evidence about the available record, not proof that the author never made or retained one. A rewrite cannot supply new testimony for the author.
 
 **Diagrams drifting from the prose they illustrate.** Twice a narrowed claim left the adjacent Mermaid diagram asserting the retracted version --- including in its `description=` attribute, which is the accessible text screen-reader users receive. When a claim changes, grep diagram titles, descriptions, captions, and node labels too.
 
