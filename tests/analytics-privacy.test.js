@@ -522,8 +522,8 @@ describe('production-mode build carries the privacy controls (PRIV-15 replacemen
 
       it('decodes the JSON the browser reads in importmap and speculationrules', () => {
         for (const fragment of [
-          String.raw`<script type="importmap">{"imports":{"a":"https://d.nathanpayne.com/a.js"}}</script>`,
-          String.raw`<script type="speculationrules">{"prefetch":[{"urls":["https://www.google-analytics.com/"]}]}</script>`,
+          String.raw`<script type="importmap">{"imports":{"a":"https://d.nathanpayne\u002ecom/a.js"}}</script>`,
+          String.raw`<script type="speculationrules">{"prefetch":[{"urls":["https://www.google\u002danalytics.com/"]}]}</script>`,
         ]) {
           expect(
             analyticsGateFindings(inBody(fragment)).some((f) =>
