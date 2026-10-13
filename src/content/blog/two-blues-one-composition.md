@@ -5,7 +5,6 @@ shortTitle: "Two Blues, One Composition"
 description: "Claude found two blues in my Mondrian-inspired projects page. I could defend both sources; the page still looked wrong. Sampling two painting reproductions helped me choose a palette rule, and showed which of the model's numbers had no source."
 seoDescription: "A design critique became a forensics exercise: pixel sampling, painting reproductions, and the palette rule behind this site's Mondrian-inspired pages."
 category: "Building This Site"
-homepageRank: 5
 author: "Nathan Payne"
 date: 2026-06-11
 tags: ["AI", "Design", "Systems", "Engineering"]
@@ -13,7 +12,7 @@ image: "/og/blog/two-blues-one-composition.png"
 keyTakeaways:
   - "A source can explain why I chose a color without making the page coherent. I gave the homepage and interior pages separate palettes, with one register per page."
   - "The model's remembered hexes matched neither reproduction. The samples describe files, not paint; I used them as hue anchors and kept two deliberate exceptions."
-  - "Check source and built CSS. A hex search misses rgba() plane colors in source; minification exposes them but merges duplicate rules and changes counts."
+  - "Provenance is invisible at render time. A deliberate color with a citation can look as wrong in the browser as an accident; coherence is the only thing that survives to the screen."
   - "Refactor before changing values. Zero rendered changes and explicit search criteria let the agent verify the plumbing while I made the design decisions."
 pullquotes:
   - text: "Provenance is invisible at render time. Coherence is the only thing that survives to the screen."

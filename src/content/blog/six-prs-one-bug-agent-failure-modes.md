@@ -10,7 +10,7 @@ date: 2026-04-04
 tags: ["AI", "Engineering", "Product", "Systems", "Debugging"]
 image: "/og/blog/six-prs-one-bug-agent-failure-modes.png"
 keyTakeaways:
-  - "A billing app has to show you what it will send. The editor, preview, and email can look different, but they have to preserve the same meaning. Review needs a way to check that."
+  - "Across six pull requests of competent local work, I reported the same symptom, louder each time, and expected a structural diagnosis. Each PR was right inside the frame it was given, and the frame kept the architecture that lost the formatting."
   - "The spec described the right output model from the start. It also required compatibility with a named function. The implementation satisfied that requirement through a bridge that lost formatting; reviewers couldn't open the private spec to check the larger intention."
   - "After two failed fixes, I now require an audit before more code. The brief for this fix named the previous attempts and banned the approaches they had already tried."
   - "When content changes format, review asks three questions: does it survive the round-trip, do all consumers produce equivalent output, and does the intermediate format need to exist?"

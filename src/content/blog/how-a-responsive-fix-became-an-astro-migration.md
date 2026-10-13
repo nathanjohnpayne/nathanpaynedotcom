@@ -10,7 +10,7 @@ date: 2026-05-09
 tags: ["Engineering", "Product", "Architecture", "Astro", "Web Performance"]
 image: "/og/blog/how-a-responsive-fix-became-an-astro-migration.png"
 keyTakeaways:
-  - "The responsive fix solved the visible bug. Forty-three minutes later, I filed a separate ticket for a drifted generator. Both lived in seven HTML pages with pasted chrome."
+  - "Fix the reported bug and stop, unless the bug is a symptom of a structural ceiling. The responsive patch had merged by mid-morning; it also made the ceiling impossible to unsee."
   - "I chose an SSG while the architecture was still in my head. Agents made trying the structural option that same afternoon affordable; the manual alternative remains my estimate, not a measured comparison."
   - "Publishing now gets schema checks, generated OG cards, RSS, and a sitemap. The price is a dependency chain and maintenance work. That trade serves the cadence I wanted."
   - "Ten of eleven phases shipped through eight reviewed PRs, three of which Codex blocked before approval. All phases closed that day; the repository doesn't date the production cutover."

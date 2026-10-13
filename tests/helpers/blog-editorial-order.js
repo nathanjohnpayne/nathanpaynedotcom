@@ -20,7 +20,7 @@ export const EXPECTED_BLOG_EDITORIAL_ORDER = [
 export const EXPECTED_HOMEPAGE_WRITING = [
   'the-product-did-not-travel',
   'every-reviewer-was-right',
-  'silence-is-not-an-approval',
+  'perfect-score-wrong-axis',
+  'agent-approval-workflow-genesis-of-mergepath',
   'html-mockups-as-spec',
-  'two-blues-one-composition',
 ];

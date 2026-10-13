@@ -11,9 +11,9 @@ date: 2026-09-06
 tags: ["AI", "Product", "Decision Rights", "Code Review", "Systems"]
 image: "/og/blog/every-reviewer-was-right.png"
 keyTakeaways:
-  - "Round count and repeated findings didn't separate the closed pull requests from the merged controls. Each merged control removed machinery during review, after Codex rounds 7, 10 and 13. The two closed pull requests kept it, or removed it at the wrong layer."
+  - "The question I was asked was rigged: there is a real bug, should we fix it? The question I needed was whether the machinery containing the bug still belonged in the product. Thirty-five lines became 2,136 for a requirement that shipped in 377."
   - "I answered five prompts, asked for another round, and ordered a merge. The prompts reported rounds and findings. None showed the added guarantees, the diff's size, or an option to remove machinery. I had authorization to give and too little information to decide the scope."
-  - "Freezing a contract gives the agent a basis for accepting or rejecting a finding. It doesn't stop reviewers finding defects. After external approval, Codex still found two real false greens inside the five guarantees."
+  - "Two questions settle it without reading code: does this mechanism exist because the issue requires it, and what does leaving the residual unfixed cost? The merged controls removed the machinery; the closed pull requests kept it, or removed it at the wrong layer."
   - "I don't need to adjudicate a P1 about an ABA race to decide whether the mechanism containing it belongs in the product. I need named guarantees, where each came from, and the cost of leaving the defect unfixed. Turning that history into a score would repeat the measurement error."
 pullquotes:
   - text: "That question is rigged. Of course I say yes. The question I needed was whether the machinery containing the bug still belonged in the product I had asked for."

@@ -6,13 +6,13 @@ resumeTitle: "The HTML Mock-up Is the Spec"
 description: "Claude kept giving me layouts that didn't match what I had in mind. I asked it for standalone HTML mock-ups, picked a target, then handed it back beside the live page: make this look like that. I still had to keep the decision and check what shipped."
 seoDescription: "How standalone HTML mockups turned vague visual direction into a concrete spec Claude Code could diff against and implement on the live site."
 category: "Agent Systems"
-homepageRank: 4
+homepageRank: 5
 author: "Nathan Payne"
 date: 2026-05-19
 tags: ["AI", "Product", "Design", "Engineering", "Workflow"]
 image: "/og/blog/html-mockups-as-spec.png"
 keyTakeaways:
-  - "Give the agent a small example in the same medium as its output. Claude can read and diff an HTML file; it has to interpret a screenshot."
+  - "Give the agent a small example in the same medium as its output: an HTML file it can diff, a CLI transcript, a JSON response, an approved paragraph. A screenshot asks it to do art criticism."
   - "A mock-up holds the design steady only while it exists and stays the target. Write the decision into the issue and attach the file."
   - "Check the shipped page for accessibility, responsive behavior, real content, interactions, and performance. Matching the mock-up doesn't cover those checks."
   - "Prototype outside the production build. Claude can work on the layout first, then deal with the real page's schema, tests, and routing."

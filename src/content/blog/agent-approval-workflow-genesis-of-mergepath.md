@@ -5,12 +5,13 @@ shortTitle: "Agent Approval Workflow"
 description: "The agents knew the review rule and still pushed straight to main. I added branch rules, reviewer identities, and automated outside review to make the process harder to skip. Three weeks of failures became the system behind Mergepath, with each control's limits spelled out."
 seoDescription: "How AI coding agents skip review, and the layered enforcement behind Mergepath: branch rules, reviewer identities, and automated Codex review."
 category: "Agent Systems"
+homepageRank: 4
 author: "Nathan Payne"
 date: 2026-04-16
 tags: ["AI", "Engineering", "Product", "Systems", "Code Review"]
 image: "/og/blog/agent-approval-workflow-genesis-of-mergepath.png"
 keyTakeaways:
-  - "An instruction file couldn't enforce the rule. I needed checks before a push, PR creation, or merge, and I needed to know whom each check could stop. Local hooks and GitHub rules have different limits."
+  - "Agents could quote the no-direct-push rule back to me and still skip it. None of this was really about AI; human teams stopped relying on handbooks long ago. I put refusals where the writes happen and named whom each one binds."
   - "Switching to a reviewer identity consistently improved the reviews I saw across three agent platforms. I did not measure that in a controlled comparison. It costs one GitHub account per agent."
   - "The template's own reviews had cleared code that gave up seventeen bugs downstream. I treat propagation as another review, with fresh eyes and a fresh context."
   - "Changing the system was the part I could control. The agent that skipped review and the one that shipped clean code used the same tools; this record does not isolate capability from the review process."

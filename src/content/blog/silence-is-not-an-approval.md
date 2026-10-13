@@ -5,17 +5,16 @@ shortTitle: "Silence Is Not an Approval"
 description: "My review pipeline kept counting a reviewer that hadn't answered as one that had. Local fixes helped, but each path still decided what silence could prove. I set a rule for one kind of silence and accepted the extra waiting. The broader contract isn't finished."
 seoDescription: "An AI code review pipeline that read a reviewer's silence as approval, why case-by-case fixes did not retire the cause, and the product decision that set a rule for making progress when evidence is missing."
 category: "Agent Systems"
-homepageRank: 3
 author: "Nathan Payne"
 date: 2026-10-01
 draft: false
 tags: ["AI", "Code Review", "Systems", "Product", "Failure Modes"]
 image: "/og/blog/silence-is-not-an-approval.png"
 keyTakeaways:
-  - "The dangerous failure in an automated review pipeline is not a wrong finding. It is a pipeline that cannot tell \"the review ran\" from \"the review found nothing.\" In #940, the guard correctly rejected `Review rate limited`. Polling still cleared on an old walkthrough whose timestamp the push had refreshed. The required gate wasn't bypassed; the commit lost a review and its Codex failover."
-  - "The wave audit in #1186 had a word for no answer, but used a transient state for an over-budget diff. Each unaudited range fed the next one. Thirty-eight days passed between the last approval and the issue reporting the backlog."
-  - "Blocking has a cost too. #962 describes a correct hold shown as a red failure that trains a break-glass reflex; making it `neutral` would release the merge. #1130 describes a spent token budget stopping every open PR."
-  - "On September 24, I decided that a completion status alone couldn't clear a current CodeRabbit pause or rate-limit refusal. It can't substitute for a review with a body pinned to the current commit. #1323 shipped the rule on September 25; #878's broader contract remains open."
+  - "A reviewer that is wrong is a cost you can price. A reviewer that is absent and counted as present will eventually pass something nobody checked, and report that as a clean record."
+  - "Is reviewer availability a product requirement with an owner and a contract, or an implementation detail discovered one incident at a time? Through August and most of September I treated it as the second, and each local fix taught another code path a new form of silence."
+  - "Blocking has a cost too. A hold on a routine provider outage trains the break-glass reflex, and recoloring the alarm to neutral releases the merge. Each kind of silence needs a chosen response, not whichever code path hit the case first."
+  - "The rule I set: while the provider's current comment is a refusal, a completion status alone cannot clear the commit. It is slower, some waits land on commits with nothing wrong in them, and it covers one kind of silence so far."
 pullquotes:
   - text: "A reviewer that is wrong is a cost you can price. A reviewer that is absent and counted as present is a system that will eventually pass something nobody checked, and will report that as a clean record."
     label: "The asymmetry"

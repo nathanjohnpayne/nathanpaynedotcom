@@ -5,15 +5,16 @@ shortTitle: "Perfect Score, Wrong Axis"
 description: "An eleven-PR batch recorded 122 dispositions; no finding was rejected as factually wrong. A P1 shipped; its post-merge finding joined the tally. The rule it broke had been raised on a sibling PR twelve hours earlier, then fixed and validated there before this PR merged."
 seoDescription: "An AI review batch recorded 122 finding dispositions with zero findings rejected as factually wrong and still shipped a P1. The reviews were scoped to one diff. The second implementation still broke a rule already corrected on its sibling."
 category: "Agent Systems"
+homepageRank: 3
 author: "Nathan Payne"
 date: 2026-07-30
 tags: ["AI", "Engineering", "Systems", "Code Review", "Debugging"]
 image: "/og/blog/perfect-score-wrong-axis.png"
 keyTakeaways:
   - "A perfect disposition record measures closure: how completely findings were closed. It doesn't measure coverage: the defects nobody raised."
-  - "This batch recorded 122 dispositions and zero findings rejected as factually wrong. The finding for the escaped P1 received a deferred disposition 75 seconds after it was posted. The rule it broke had been derived from the spec and named in a blocking external review on a sibling PR twelve hours earlier. The implementation was then fixed and validated."
-  - "Where a component implements an external specification, derive at least one review pass from the spec. When two implementations use the same external spec, I need the spec-derived review questions applied to both. A review scoped to one diff doesn't require it to carry what its sibling learned."
-  - "Per-PR counts of passes, rounds and approvals miss evidence held on another PR. Eighteen passes preceded this escape while the relevant rule sat next door, already stated, fixed and validated."
+  - "The rule the escaped defect broke had been named in a blocking review on a sibling PR twelve hours earlier, then fixed and validated there. Eighteen passes went deep into one diff. No review lane was responsible for carrying the sibling's finding across."
+  - "Cases derived alongside an implementation share its assumptions. In a natural experiment, the author's 168-pair matrix passed a broken matcher and the spec-derived expansion failed it within one round. Derive one review pass from the external spec and apply it to every implementation."
+  - "Passes, rounds, findings, and approvals are all counted per PR, and the evidence for the escaped defect sat on a neighboring one. I know how to count passes. I do not yet know how to count what a pass should have carried in with it."
 pullquotes:
   - text: "A perfect disposition record measures how completely you closed the findings raised. It says nothing about the defects nobody raised."
     label: "The reframe"
