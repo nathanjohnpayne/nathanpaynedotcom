@@ -300,6 +300,12 @@ describe('production-mode build carries the privacy controls (PRIV-15 replacemen
       ]);
     });
 
+    it('reports a bundle that compiles code at run time', () => {
+      expect(bundleFindings([{ path: '_astro/x.js', text: "(0, eval)('1')" }])[0]).toMatch(
+        /^_astro\/x\.js compiles code at run time \(eval\)/,
+      );
+    });
+
     it('reports a bundle it cannot parse, and ignores files that are not JavaScript', () => {
       expect(bundleFindings([{ path: '_astro/broken.js', text: 'fetch((' }])[0]).toMatch(
         /^_astro\/broken\.js could not be parsed/,
@@ -613,6 +619,48 @@ describe('production-mode build carries the privacy controls (PRIV-15 replacemen
             call,
           ).toBe(true);
         }
+      });
+
+      it('treats compiling code at run time as a finding in itself, whatever the payload', () => {
+        for (const code of [
+          "(0, eval)('1')",
+          'eval(window.name)',
+          "window['ev' + 'al']('1')",
+          "new Function('return 1')",
+          "Function('return 1')()",
+          "setTimeout('1', 0)",
+          "globalThis['setInterval']('1' + '', 10)",
+        ]) {
+          expect(
+            analyticsGateFindings(inBody(`<script>${code}</script>`)).some((f) =>
+              f.includes('compiles code at run time'),
+            ),
+            code,
+          ).toBe(true);
+        }
+        // A function passed to a timer is not compiled code.
+        expect(analyticsGateFindings(inBody('<script>setTimeout(() => {}, 0)</script>'))).toEqual(
+          [],
+        );
+      });
+
+      it('treats an executable data: document as a finding in itself', () => {
+        for (const fragment of [
+          '<iframe src="data:text/html,%3Cp%3Ehi%3C/p%3E"></iframe>',
+          '<iframe src="DATA:Text/HTML;base64,PHA+aGk8L3A+"></iframe>',
+          '<object data="data:image/svg+xml,%3Csvg/%3E"></object>',
+          '<embed src="data:application/xhtml+xml,%3Chtml/%3E">',
+          '<a href="data:text/html,%3Cp%3Ehi%3C/p%3E">x</a>',
+        ]) {
+          expect(
+            analyticsGateFindings(inBody(fragment)).some((f) => f.includes('data: document')),
+            fragment,
+          ).toBe(true);
+        }
+        // An SVG image is an image, not a document that runs script.
+        expect(
+          analyticsGateFindings(inBody('<img src="data:image/svg+xml,%3Csvg/%3E" alt="">')),
+        ).toEqual([]);
       });
 
       it('still allows the hosts the guarded blocks name inside their guards', () => {

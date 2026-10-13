@@ -273,6 +273,7 @@ export function scriptStrings(source, { skip = null } = {}) {
   if (!ast) return { error: lastError?.message ?? 'unparseable' };
   const strings = [];
   const code = [];
+  const dynamic = new Set();
   const inSkip = (node) => skip && node.start >= skip[0] && node.end <= skip[1];
   const visit = (node) => {
     if (!node || typeof node.type !== 'string' || inSkip(node)) return;
@@ -285,6 +286,8 @@ export function scriptStrings(source, { skip = null } = {}) {
     if (value != null) strings.push(value);
     const payload = codePayload(node);
     if (payload != null) code.push(payload);
+    const compiles = compilesCode(node);
+    if (compiles) dynamic.add(compiles);
     for (const key of Object.keys(node)) {
       const child = node[key];
       if (Array.isArray(child)) child.forEach(visit);
@@ -292,7 +295,36 @@ export function scriptStrings(source, { skip = null } = {}) {
     }
   };
   visit(ast);
-  return { strings, code };
+  return { strings, code, dynamic: [...dynamic] };
+}
+
+/**
+ * The name of the run-time code compiler a node uses, or null. Any reference
+ * to `eval` (direct, indirect as `(0, eval)`, or as a member), `Function`
+ * called or constructed, a string `setTimeout`/`setInterval`, and a constant
+ * computed name resolving to one of them. The site's own code compiles no code
+ * at run time, so using one is a finding in itself, whatever the payload: no
+ * static reading of a compiled string can be complete.
+ */
+function compilesCode(node) {
+  if (node.type === 'Identifier' && node.name === 'eval') return 'eval';
+  if (node.type !== 'CallExpression' && node.type !== 'NewExpression') return null;
+  const callee = node.callee;
+  const name =
+    callee.type === 'Identifier'
+      ? callee.name
+      : callee.type === 'MemberExpression'
+        ? callee.computed
+          ? constantString(callee.property)
+          : callee.property.name
+        : null;
+  if (name === 'eval' || name === 'Function') return name;
+  if ((name === 'setTimeout' || name === 'setInterval') && node.arguments.length) {
+    const arg = node.arguments[0];
+    if (arg.type === 'Literal' || arg.type === 'TemplateLiteral' || arg.type === 'BinaryExpression')
+      return `${name} with a string`;
+  }
+  return null;
 }
 
 const CODE_SINKS = new Set(['eval', 'Function', 'setTimeout', 'setInterval']);
@@ -337,15 +369,22 @@ function scriptHosts(source, { skip = null, label = 'script', depth = 0 } = {}) 
   const parsed = scriptStrings(source, { skip });
   if (parsed.error) return { hosts: [...hosts], error: `${label} could not be parsed: ${parsed.error}` };
   for (const value of parsed.strings) for (const host of namedHosts(value)) hosts.add(host);
-  // Constant code handed to eval and its kin is parsed and read again, to a
-  // bounded depth; nesting past it is reported rather than trusted.
+  const errors = [];
+  if (parsed.dynamic.length) {
+    errors.push(`${label} compiles code at run time (${parsed.dynamic.join(', ')})`);
+  }
+  // Constant code handed to eval and its kin is still parsed and read again,
+  // to a bounded depth, so a finding also names the host it would reach.
   for (const payload of parsed.code) {
-    if (depth >= 4) return { hosts: [...hosts], error: `${label}: code nested past depth 4` };
+    if (depth >= 4) {
+      errors.push(`${label}: code nested past depth 4`);
+      break;
+    }
     const inner = scriptHosts(payload, { label: `${label} (eval payload)`, depth: depth + 1 });
-    if (inner.error) return { hosts: [...hosts, ...inner.hosts], error: inner.error };
+    if (inner.error) errors.push(inner.error);
     inner.hosts.forEach((h) => hosts.add(h));
   }
-  return { hosts: [...hosts] };
+  return errors.length ? { hosts: [...hosts], error: errors.join('; ') } : { hosts: [...hosts] };
 }
 
 /** JSON's own string escapes decoded: every string key and value in a JSON document. */
@@ -478,6 +517,17 @@ function markupFindings(document, exempt, depth = 0) {
       while (lead < asUrl.length && asUrl.charCodeAt(lead) <= 0x20) lead++;
       asUrl = asUrl.slice(lead);
       const isScriptUrl = /^javascript:/i.test(asUrl);
+      // A `data:` URL holding a document runs in a frame of its own, outside
+      // the gate. The site embeds none, so one is a finding in itself.
+      const docType = /^data:\s*([a-z0-9.+-]+\/[a-z0-9.+-]+)/i.exec(asUrl)?.[1].toLowerCase();
+      if (
+        docType === 'text/html' ||
+        docType === 'application/xhtml+xml' ||
+        (['image/svg+xml', 'text/xml', 'application/xml'].includes(docType) &&
+          ['iframe', 'frame', 'object', 'embed'].includes(el.localName))
+      ) {
+        findings.push(`markup attribute embeds a ${docType} data: document`);
+      }
       if (
         attr.name === 'href' &&
         (el.localName === 'a' || el.localName === 'area') &&
