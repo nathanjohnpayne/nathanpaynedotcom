@@ -647,6 +647,8 @@ describe('production-mode build carries the privacy controls (PRIV-15 replacemen
           "Function('return 1')()",
           "setTimeout('1', 0)",
           "globalThis['setInterval']('1' + '', 10)",
+          "const run = globalThis['eval']; run('1')",
+          'const F = window.Function; new F("return 1")',
         ]) {
           expect(
             analyticsGateFindings(inBody(`<script>${code}</script>`)).some((f) =>
@@ -675,6 +677,7 @@ describe('production-mode build carries the privacy controls (PRIV-15 replacemen
           '<link rel="modulepreload" href="data:text/javascript,1">',
           "<script>import('data:text/javascript,export%20default%201')</script>",
           "<script>new Worker('data:application/javascript,1')</script>",
+          '<script type="importmap">{"imports":{"x":"data:text/javascript;base64,ZmV0Y2goIngiKQ=="}}</script>',
         ]) {
           expect(
             analyticsGateFindings(inBody(fragment)).some((f) => f.includes('executable data: URL')),

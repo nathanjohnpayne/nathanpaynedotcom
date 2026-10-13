@@ -308,6 +308,12 @@ export function scriptStrings(source, { skip = null } = {}) {
  */
 function compilesCode(node) {
   if (node.type === 'Identifier' && node.name === 'eval') return 'eval';
+  // A reference, not only a call: `globalThis['eval']` or `window.Function`
+  // taken into an alias still compiles code when the alias is called.
+  if (node.type === 'MemberExpression') {
+    const prop = node.computed ? constantString(node.property) : node.property.name;
+    if (prop === 'eval' || prop === 'Function') return prop;
+  }
   if (node.type !== 'CallExpression' && node.type !== 'NewExpression') return null;
   const callee = node.callee;
   const name =
@@ -513,7 +519,17 @@ function markupFindings(document, exempt, depth = 0) {
     } else if (kind === 'json') {
       const parsed = jsonStrings(text);
       if (parsed.error) findings.push(`inline ${type} script is not valid JSON: ${parsed.error}`);
-      else for (const value of parsed.strings) namedHosts(value).forEach((h) => hosts.add(h));
+      else {
+        for (const value of parsed.strings) namedHosts(value).forEach((h) => hosts.add(h));
+        // An import map or speculation rule can point at an executable data:
+        // URL, which the browser then loads and runs.
+        const dataUrls = [
+          ...new Set(parsed.strings.map((v) => executableDataUrl(v)).filter(Boolean)),
+        ];
+        if (dataUrls.length) {
+          findings.push(`inline ${type} script names an executable data: URL (${dataUrls.join(', ')})`);
+        }
+      }
     }
     for (const host of hosts) findings.push(`inline script names analytics host ${host}`);
   }
