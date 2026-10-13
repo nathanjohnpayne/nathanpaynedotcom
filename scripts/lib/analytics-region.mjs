@@ -7,6 +7,15 @@
 // `<!-- Google Fonts -->`. The privacy gate (PrivacyHead) is emitted just
 // before it. Through #1233 the region was compared byte for byte with the
 // flag-off base commit; with the flag on it is checked structurally instead.
+//
+// Threat model (specs/analytics-privacy.md § Feature Flag item 5, owner
+// decision 2026-10-12): these checks catch *accidental* ungated requests in the
+// site's own code. They do not try to defeat deliberate obfuscation by someone
+// with commit access (aliasing, reflection, stacked encodings); no static
+// reading can. The egress-refusing browser suites are the enforcement. What
+// the site never does (run-time code compilation, executable data: and
+// javascript: URLs) is flagged outright, so that whole classes need no
+// spelling-by-spelling coverage.
 
 import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
