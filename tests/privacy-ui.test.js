@@ -224,7 +224,7 @@ describe('notice confirmation: a link to /privacy/, and gone after 30 seconds (#
     expect(status.textContent).toContain('Analytics stay on.');
   });
 
-  it('still hides at 30 seconds after a mouse click, though the click moved focus to it', () => {
+  it('does not hand focus to the line after a mouse click, and still hides at 30 seconds', () => {
     const { w, d, clock } = mountNotice({ clock: true });
     const status = d.getElementById('np-privacy-notice-status');
     const keep = d.querySelector('#np-privacy-notice [data-np-privacy-action="dismiss"]');
@@ -232,23 +232,10 @@ describe('notice confirmation: a link to /privacy/, and gone after 30 seconds (#
     keep.dispatchEvent(new w.Event('pointerdown', { bubbles: true }));
     keep.focus();
     click(w, keep);
-    expect(d.activeElement).toBe(status);
+    expect(d.activeElement).toBe(d.body);
     clock.advance(30_000);
     expect(status.textContent).toBe('');
-  });
-
-  it('moves focus from the line itself to the notice when another tab reopens it', () => {
-    const { w, d, clock } = mountNotice({ clock: true });
-    const status = d.getElementById('np-privacy-notice-status');
-    const keep = d.querySelector('#np-privacy-notice [data-np-privacy-action="dismiss"]');
-    d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Enter' }));
-    keep.focus();
-    click(w, keep);
-    expect(d.activeElement).toBe(status);
-    otherTabWrites(w, { v: 1, choice: 'unset', noticeDismissed: false });
-    expect(status.textContent).toBe('');
-    expect(d.activeElement).toBe(d.querySelector('#np-privacy-notice [data-np-privacy-action]'));
-    clock.advance(0);
+    expect(d.activeElement).toBe(d.body);
   });
 
   it('forgets the hover when the line is cleared under the pointer', () => {
@@ -264,17 +251,16 @@ describe('notice confirmation: a link to /privacy/, and gone after 30 seconds (#
     expect(status.textContent).toBe('');
   });
 
-  it('moves focus from a timed-out line to the next thing on the page', () => {
-    const { w, d, clock } = mountNotice({ clock: true });
-    const status = d.getElementById('np-privacy-notice-status');
-    const keep = d.querySelector('#np-privacy-notice [data-np-privacy-action="dismiss"]');
-    keep.dispatchEvent(new w.Event('pointerdown', { bubbles: true }));
-    keep.focus();
-    click(w, keep);
-    expect(d.activeElement).toBe(status);
+  it('releases focus, without moving it into the page, when a focused line times out', () => {
+    const { w, d, status, clock } = keepOn();
+    const link = status.querySelector('a');
+    d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Tab' }));
+    link.focus();
+    // The reader turns to the mouse without moving focus off the link.
+    d.dispatchEvent(new w.Event('pointerdown', { bubbles: true }));
     clock.advance(30_000);
     expect(status.textContent).toBe('');
-    expect(d.activeElement).toBe(d.querySelector('main a'));
+    expect(d.activeElement).toBe(d.body);
   });
 
   it('moves focus from its link to the notice when another tab reopens the notice', () => {
@@ -331,6 +317,8 @@ describe('notice (PRIV-14, PRIV-6)', () => {
   it('turns analytics off in one step, saves the choice, closes, and announces', () => {
     const { w, d, privacy } = mountNotice();
     const deny = d.querySelector('[data-np-privacy-action="deny"]');
+    // From the keyboard, so focus lands on the announcement (#1348).
+    d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Enter' }));
     deny.focus();
     click(w, deny);
     expect(stored(w)).toEqual({ v: 1, choice: 'denied', noticeDismissed: false });
@@ -411,6 +399,7 @@ describe('notice (PRIV-14, PRIV-6)', () => {
       }
     }).observe(status, { childList: true, characterData: true, subtree: true });
     const deny = d.querySelector('[data-np-privacy-action="deny"]');
+    d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Enter' }));
     deny.focus();
     click(w, deny);
     await new Promise((resolve) => setTimeout(resolve, 0));

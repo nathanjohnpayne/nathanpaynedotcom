@@ -71,26 +71,15 @@
     true,
   );
 
-  var FOCUSABLE = 'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])';
-
   /**
    * Where focus goes when the line it is on disappears: the notice's first
-   * action if the notice is showing, otherwise the first focusable element
-   * after the line in document order, so tabbing resumes where the reader was.
+   * action if the notice is showing again. Otherwise focus is released, not
+   * moved: moving it into the page could set off that page's own focus
+   * behavior (on the homepage, focusing a panel opens it), and browsers keep
+   * the sequential-focus starting point where the line was.
    */
   function focusAfterLine() {
     var target = notice.hidden ? null : notice.querySelector('[data-np-privacy-action]');
-    if (!target) {
-      var all = d.querySelectorAll(FOCUSABLE);
-      for (var i = 0; i < all.length; i++) {
-        var el = all[i];
-        if (status.contains(el) || notice.contains(el) || el.closest('[hidden]')) continue;
-        if (status.compareDocumentPosition(el) & 4 /* FOLLOWING */) {
-          target = el;
-          break;
-        }
-      }
-    }
     if (target) target.focus({ preventScroll: true });
     else if (d.activeElement && d.activeElement.blur) d.activeElement.blur();
   }
@@ -187,9 +176,13 @@
     }
     localChange = false;
     sync();
-    // The control that had focus leaves with the notice. Land on the visible
-    // announcement instead of letting focus fall back to the document.
-    if (hadFocus && notice.hidden) status.focus();
+    // The control that had focus leaves with the notice. A keyboard reader
+    // lands on the visible announcement instead of the document. After a
+    // pointer click nobody is reading by focus, so it is released instead.
+    if (hadFocus && notice.hidden) {
+      if (keyboardInput) status.focus();
+      else if (d.activeElement && d.activeElement.blur) d.activeElement.blur();
+    }
   }
 
   notice.addEventListener('click', function (event) {
