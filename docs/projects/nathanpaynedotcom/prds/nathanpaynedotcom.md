@@ -1,15 +1,3 @@
-<!--
-generated_by: scripts/project-doc-sync.sh
-do_not_edit: true
-source_repo: nathanjohnpayne/docs
-source_path: projects/nathanpaynedotcom/prds/nathanpaynedotcom.md
-source_ref: 16c3802
-project: nathanpaynedotcom
-document_class: prd
-document_slug: nathanpaynedotcom
-sync_direction: central-to-repo
--->
-
 ---
 tags:
   - nathanpaynedotcom
@@ -18,6 +6,18 @@ tags:
   - astro
   - static-site
 ---
+<!--
+generated_by: scripts/project-doc-sync.sh
+do_not_edit: true
+source_repo: nathanjohnpayne/docs
+source_path: projects/nathanpaynedotcom/prds/nathanpaynedotcom.md
+source_ref: 785ca72
+project: nathanpaynedotcom
+document_class: prd
+document_slug: nathanpaynedotcom
+sync_direction: central-to-repo
+-->
+
 # Product Requirements Document: nathanpayne.com
 
 **Author:** Nathan Payne

@@ -1,5 +1,7 @@
 # Contributing
 
+The site owner's step-by-step publishing guide (posts, projects, homepage, résumé, deploy, analytics) is the nathanpaynedotcom owner's manual in the private docs vault: [owner's manual](https://github.com/nathanjohnpayne/docs/blob/9284108e3f8275c3d79e54e302199f207f1c5d41/projects/nathanpaynedotcom/owners-manual/README.md).
+
 ## Overview
 
 nathanpayne.com is a personal portfolio and blog site built with Astro. Contributions should honor the design philosophy: clean Mondrian grid layout, strict motion system, and minimal complexity. Changes should be precise—this is not a site that benefits from added abstractions.
@@ -32,18 +34,20 @@ For larger changes, add a body explaining why, not what.
 4. Open a PR against `main` with a clear title and description
 5. At least one human review required before merge
 
+> **Open decision (2026-10-12):** this rule and § Agent Contributions below disagree with the enforced process. Branch protection on `main` requires seven status checks and **zero** approvals, and `AGENTS.md` / `REVIEW_POLICY.md` direct agents to merge as `nathanjohnpayne` once the review gates pass, with the human as tiebreaker. Which one is the intended policy is an owner decision; until it is made, the enforced gates are what actually control merges.
+
 ## Code Style
 
 - **Astro pages:** Semantic elements, ARIA attributes on panels (`role="region"`, `aria-label`), `aria-hidden="true"` on decorative blocks, `target="_blank" rel="noopener"` on external links, inline SVG for icons
 - **CSS:** All durations and easing via motion tokens only (no hard-coded `ms` or bare `ease`). Design tokens in `:root` of `src/styles/global.css`. `clamp()` for fluid sizing.
-- **Markdown:** Blog posts in `src/content/blog/` must include valid frontmatter matching the Zod schema in `src/content.config.ts`.
+- **Markdown:** Every content collection (`src/content/**`: blog posts, projects, site copy, the NOW paragraph, résumé entries) must include valid frontmatter matching the Zod schema in `src/content.config.ts`. Publishing a post or project also means updating pinned order fixtures; see `docs/agents/operating-rules.md` § Content Updates.
 - ESLint is configured via `eslint.config.js`. Follow the patterns in the existing files exactly.
 
 ## Testing
 
 Vitest and Playwright tests cover metadata, layout, interactions, and routes.
 
-Readers never need Mermaid support in their browsers: Astro uses Playwright Chromium to convert Mermaid source to static inline SVG while building Markdown, including during `npm run dev`. Install that build-time browser after installing packages:
+Readers never need Mermaid support in their browsers: Astro uses Playwright Chromium to convert Mermaid source to static inline SVG while building Markdown, including during `npm run dev`. The same browser renders the OG share cards and prints the résumé PDF during `npm run build`. Install that build-time browser after installing packages:
 
 ```bash
 npx playwright install chromium
@@ -53,9 +57,11 @@ On Linux, `npx playwright install --with-deps chromium` also installs required s
 
 ```bash
 npm run lint
-npm run test          # astro build && vitest run
+npm run test          # production-check build, astro build, vitest run (several minutes)
 npm run test:e2e      # playwright test
 ```
+
+`npm run lint` includes the Vale prose lint (`scripts/lint-prose.mjs`). Locally it warns and **skips** when Vale is missing; CI installs the version pinned in `.vale-version` and fails on errors. Install that exact version to make a local pass meaningful. The résumé PDF tests in `npm test` need Poppler and MuPDF (`brew install poppler mupdf-tools`; see `docs/agents/testing-requirements.md`).
 
 Before submitting a PR, also manually verify:
 

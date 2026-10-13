@@ -151,14 +151,15 @@ describe('notice (PRIV-14, PRIV-6)', () => {
     expect(d.querySelector('main').previousElementSibling).toBe(notice.nextElementSibling);
     // Nothing took focus.
     expect(d.activeElement).toBe(d.body);
-    // The hooks the contract names, and the plain-language vendor names.
+    // The hooks the contract names, and what the notice says is collected.
+    // Since 2026-10-12 it names no vendor; /privacy/, one link away, names them.
     expect(notice.querySelector('[data-np-privacy-action="deny"]').type).toBe('button');
     expect(notice.querySelector('[data-np-privacy-action="dismiss"]').type).toBe('button');
     expect(notice.querySelector('a[href="/privacy/"]')).not.toBeNull();
     const text = notice.textContent.replace(/\s+/g, ' ');
-    expect(text).toContain('PostHog');
     expect(text).toContain('session replay');
-    expect(text).toContain('Google Analytics');
+    expect(text).toContain('video playback data');
+    expect(text).toContain('turn them off anytime');
   });
 
   it('turns analytics off in one step, saves the choice, closes, and announces', () => {
@@ -189,7 +190,9 @@ describe('notice (PRIV-14, PRIV-6)', () => {
     });
     expect(privacy.notice.shouldShow()).toBe(false);
     expect(d.getElementById('np-privacy-notice').hidden).toBe(true);
-    expect(d.getElementById('np-privacy-notice-status').textContent).toContain('Notice dismissed');
+    expect(d.getElementById('np-privacy-notice-status').textContent).toContain(
+      'Analytics stay on.',
+    );
   });
 
   it('says a dismissal applies only to this page when it could not be saved', () => {
@@ -197,7 +200,7 @@ describe('notice (PRIV-14, PRIV-6)', () => {
     click(w, d.querySelector('[data-np-privacy-action="dismiss"]'));
     expect(privacy.get()).toMatchObject({ saved: 'unset', persisted: false });
     expect(d.getElementById('np-privacy-notice-status').textContent).toContain(
-      'Your browser did not save that, so it may appear again on the next page.',
+      'Your browser did not save that, so this notice may appear again on the next page.',
     );
   });
 
@@ -271,7 +274,7 @@ describe('notice (PRIV-14, PRIV-6)', () => {
     const status = d.getElementById('np-privacy-notice-status');
     click(w, notice.querySelector('[data-np-privacy-action="dismiss"]'));
     expect(notice.hidden).toBe(true);
-    expect(status.textContent).toContain('Notice dismissed');
+    expect(status.textContent).toContain('Analytics stay on.');
     // Another tab clears the saved setting: the notice shows again.
     w.localStorage.removeItem('np-privacy');
     w.dispatchEvent(new w.StorageEvent('storage', { key: 'np-privacy' }));
@@ -286,7 +289,7 @@ describe('notice (PRIV-14, PRIV-6)', () => {
     click(w, notice.querySelector('[data-np-privacy-action="dismiss"]'));
     w.dispatchEvent(new w.PageTransitionEvent('pageshow', { persisted: true }));
     expect(notice.hidden).toBe(true);
-    expect(status.textContent).toContain('Notice dismissed for this page');
+    expect(status.textContent).toContain('Analytics stay on. Your browser did not save that');
   });
 
   it('B5: an unsaved opt-out from the notice survives a back/forward restore (#1258)', () => {
@@ -603,7 +606,7 @@ describe('/privacy/ page and footer link (PRIV-11, PRIV-15)', () => {
     );
     // Every surface that names what the setting stops names Mux Data too (decision 12).
     expect(CONTROLS_HTML).toContain('Google Analytics 4, and Mux Data');
-    expect(NOTICE_HTML).toContain("Mux's playback analytics");
+    expect(NOTICE_HTML).toContain('video playback data');
   });
 
   it("names exactly the gate's URL allowlist as what an address keeps (decision 11, #1294)", () => {

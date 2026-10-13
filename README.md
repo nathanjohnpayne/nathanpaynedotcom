@@ -4,6 +4,8 @@ Personal portfolio, project, and blog site for Nathan Payne—a static site buil
 
 **Live:** [nathanpayne.com](https://nathanpayne.com)
 
+**Owner's manual:** step-by-step guides for editing posts, projects, the homepage, and the résumé, plus previewing, publishing, deploying, and reading analytics, live in the private docs vault: [nathanpaynedotcom owner's manual](https://github.com/nathanjohnpayne/docs/blob/9284108e3f8275c3d79e54e302199f207f1c5d41/projects/nathanpaynedotcom/owners-manual/README.md). This README stays the technical overview.
+
 ---
 
 ## Design
@@ -71,10 +73,11 @@ The default 1921 register lives in `:root`; the homepage opts into a higher-chro
 │   │   ├── ProjectLayout.astro     # Project page layout
 │   │   └── OgCard.astro            # OG image card template
 │   ├── content/
-│   │   ├── blog/*.md               # Markdown blog posts with frontmatter
+│   │   ├── blog/**/*.md            # Markdown blog posts with frontmatter (nested folders become URL segments)
 │   │   ├── projects/**/*.{md,mdx}  # Project content collection
 │   │   ├── {bio,myself,experience,education,skills,certifications,resume}/
 │   │   │                           # Active resume and homepage content collections
+│   │   ├── site-copy/*.md          # Shared page/publication descriptions (home, blog, projects, resume, privacy)
 │   │   └── awards/                 # Dormant scaffold; restore collection wiring with first entry
 │   ├── content.config.ts           # Content Collections schema (Zod)
 │   ├── styles/
@@ -82,9 +85,11 @@ The default 1921 register lives in `:root`; the homepage opts into a higher-chro
 │   ├── plugins/
 │   │   ├── remark-mermaid.mjs      # Mermaid metadata contract
 │   │   ├── rehype-mermaid-accessibility.mjs # Accessible rendering adapter
-│   │   └── rehype-figure-captions.mjs  # Auto-numbered figure captions
+│   │   ├── rehype-figure-captions.mjs  # Wraps standalone images in <figure> with a caption from alt text
+│   │   └── rehype-figure-numbers.mjs   # Numbers images and Mermaid diagrams in one sequence
 │   └── integrations/
-│       ├── og-images.mjs           # Build-time OG image generation (Playwright)
+│       ├── og-images.mjs           # Build-time OG image generation (Playwright); also prints the résumé PDF
+│       ├── resume-pdf.mjs          # Résumé PDF generator, called from og-images.mjs
 │       └── robots-sitemap.mjs      # Auto-sync robots.txt Sitemap: URL with dist/ output
 ├── public/
 │   ├── favicon.svg                 # The NP mark (copy of images/brand/np-mark.svg); served, not linked
@@ -95,7 +100,7 @@ The default 1921 register lives in `:root`; the homepage opts into a higher-chro
 ├── dist/                           # Build output (gitignored)
 ├── tests/                          # Vitest + Playwright tests
 ├── specs/                          # Feature specifications
-├── screenshots/og/                  # Checked-in OG image screenshot references
+├── screenshots/og/                  # Human-reference copies of the OG cards (npm run og:refresh); not a build input or test fixture
 ├── .github/screenshots/             # PR, issue, and generated audit evidence
 ├── AGENTS.md                       # AI agent instructions
 ├── REVIEW_POLICY.md                # Multi-identity review workflow
@@ -118,7 +123,7 @@ When a panel is focused, JavaScript sets `data-focus="<panel-name>"` on the grid
 - **Keyboard and click:** `Enter`/`Space` opens a panel; `Escape` closes it. Focus and click paths bypass hover guards so explicit user intent works even mid-transition.
 - **Stack mode (≤ 1023px wide or ≤ 839px tall):** All interaction handlers exit early. Panels are always expanded.
 - **Scroll guard:** A debounced scroll listener adds `.is-scrolling` to `<body>` during active scroll. CSS suspends hover transitions while this class is present.
-- **Analytics:** First hover on each panel fires a one-time `section_view` event to Google Analytics via `gtag` on hover-capable pointers.
+- **Analytics:** When the visitor's privacy choice allows analytics, the first hover on each panel fires a one-time `section_view` event to Google Analytics via `gtag` on hover-capable pointers, and opening a panel fires PostHog's `homepage_panel_opened`.
 
 ### Blog
 
@@ -146,7 +151,7 @@ This pipeline was built in response to #163, where a hand-authored `Sitemap: htt
 
 ### Project Pages
 
-Each project has a dedicated detail page under `src/pages/projects/` with project-specific meta, canonicals, Open Graph tags, and JSON-LD.
+One dynamic route, `src/pages/projects/[slug].astro`, renders every non-draft entry in `src/content/projects/` as its own page with project-specific meta, canonicals, Open Graph tags, and JSON-LD. The URL comes from the frontmatter `slug`. The homepage Projects rows and the résumé's project entries are maintained separately; see `docs/agents/operating-rules.md` § Adding a Project.
 
 ### Motion System
 
@@ -182,14 +187,15 @@ At `max-width: 1023px` or `max-height: 839px` (the composition's width and heigh
 ## Development
 
 ```bash
-# Install dependencies
-npm install
+# Install dependencies (lockfile-exact; use npm install only when changing dependencies)
+npm ci
 
-# Install the build-time Chromium used to render static Mermaid SVGs and OG images
+# Install the build-time Chromium used to render static Mermaid SVGs, OG images, and the résumé PDF
 npx playwright install chromium
 
-# Optional local public-client env vars
-cp .env.example .env.local
+# Optional: real public-client env vars (Logo.dev logos on /resume/) come from 1Password via
+# scripts/bootstrap.sh. Leave .env.local absent for a clean degraded preview; .env.example
+# holds placeholder strings, not blanks, so copying it switches components onto fake values.
 
 # Start Astro dev server (with HMR)
 npm run dev
@@ -204,12 +210,12 @@ npm run preview
 npm run lint
 npm run typecheck     # astro check
 npm run format        # prettier --write (CSS/JS/TS); format:check to verify only
-npm run test          # astro build && vitest run            (~19s)
+npm run test          # production-check build, astro build, vitest run (~5 min, 2026-10-12)
 npm run test:e2e      # playwright test                      (~49s)
-npm run test:all      # both, in order                       (~68s)
+npm run test:all      # both, in order
 ```
 
-`npm run test:all` is the one to run before pushing. `npm test` is left fast on purpose—it is the loop you run constantly, and a loop that gets slow is a loop that gets skipped—so the browser suite rides once per push instead. A `pre-push` hook is available and opt-in:
+`npm run test:all` is the one to run before pushing. The browser suite stays out of `npm test` on purpose, so it rides once per push instead. `npm test` itself now runs two builds and the full Vitest suite, so expect minutes, not seconds. A `pre-push` hook is available and opt-in:
 
 ```bash
 git config core.hooksPath .githooks   # once per clone
@@ -258,12 +264,12 @@ Defined in `firebase.json`:
 
 - **Open Graph + Twitter Card** meta tags with build-time generated OG images per page. Every built page's `og:image` / `twitter:image` URL is verified to resolve to a real file in `dist/` at `npm test` time by `tests/og-image-targets.test.js`.
 - **Canonical URLs** on all pages
-- **JSON-LD** structured data (homepage profile, project pages)
+- **JSON-LD** structured data (homepage and résumé Person/ProfilePage, project pages, blog posts and `/blog/`, `/projects/`)
 - **Sitemap** auto-generated by `@astrojs/sitemap` at `/sitemap-index.xml`
 - **`robots.txt`** source in `public/`; the `Sitemap:` line is rewritten at build time by `src/integrations/robots-sitemap.mjs` to match the real sitemap filename. Covered by `tests/robots-sitemap.test.js` and `tests/robots-sitemap-integration.test.js`. See the [robots.txt and Sitemap](#robotstxt-and-sitemap) section for full context.
 - **RSS feed** at `/rss.xml` (via `@astrojs/rss`)
-- **Google Analytics 4** via `gtag.js` (property env-injected via `PUBLIC_GA_MEASUREMENT_ID`, never hardcoded)
-- **PostHog** via `src/components/posthog.astro` (public ingest token env-injected via `PUBLIC_POSTHOG_PROJECT_TOKEN`, never hardcoded)
+- **Google Analytics 4** via `gtag.js` (property env-injected via `PUBLIC_GA_MEASUREMENT_ID`, never hardcoded), loaded only when the visitor's privacy choice allows analytics (see `/privacy/` and `specs/analytics-privacy.md`)
+- **PostHog** via `src/components/posthog.astro` (public ingest token env-injected via `PUBLIC_POSTHOG_PROJECT_TOKEN`, never hardcoded), behind the same privacy gate; events are listed in `specs/analytics.md`
 
 ---
 
