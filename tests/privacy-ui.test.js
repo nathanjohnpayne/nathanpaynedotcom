@@ -199,9 +199,10 @@ describe('notice confirmation: a link to /privacy/, and gone after 30 seconds (#
     expect(status.textContent).toBe('');
   });
 
-  it('waits while focus is inside it, and hides once focus leaves', () => {
+  it('waits while keyboard focus is inside it, and hides once focus leaves', () => {
     const { w, d, status, clock } = keepOn();
     const link = status.querySelector('a');
+    d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Tab' }));
     link.focus();
     clock.advance(60_000);
     expect(status.textContent).not.toBe('');
@@ -215,11 +216,36 @@ describe('notice confirmation: a link to /privacy/, and gone after 30 seconds (#
     const { w, d, clock } = mountNotice({ clock: true });
     const status = d.getElementById('np-privacy-notice-status');
     const keep = d.querySelector('#np-privacy-notice [data-np-privacy-action="dismiss"]');
+    d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Enter' }));
     keep.focus();
     click(w, keep);
     expect(d.activeElement).toBe(status);
     clock.advance(60_000);
     expect(status.textContent).toContain('Analytics stay on.');
+  });
+
+  it('still hides at 30 seconds after a mouse click, though the click moved focus to it', () => {
+    const { w, d, clock } = mountNotice({ clock: true });
+    const status = d.getElementById('np-privacy-notice-status');
+    const keep = d.querySelector('#np-privacy-notice [data-np-privacy-action="dismiss"]');
+    // A pointer press focuses the button before its click handler runs.
+    keep.dispatchEvent(new w.Event('pointerdown', { bubbles: true }));
+    keep.focus();
+    click(w, keep);
+    expect(d.activeElement).toBe(status);
+    clock.advance(30_000);
+    expect(status.textContent).toBe('');
+  });
+
+  it('moves focus from its link to the notice when another tab reopens the notice', () => {
+    const { w, d, status } = keepOn();
+    const link = status.querySelector('a');
+    d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Tab' }));
+    link.focus();
+    otherTabWrites(w, { v: 1, choice: 'unset', noticeDismissed: false });
+    expect(d.getElementById('np-privacy-notice').hidden).toBe(false);
+    expect(status.textContent).toBe('');
+    expect(d.activeElement).toBe(d.querySelector('#np-privacy-notice [data-np-privacy-action]'));
   });
 
   it('times the turn-off confirmation the same way; it names no page, so it has no link', () => {

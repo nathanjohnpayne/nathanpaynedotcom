@@ -51,8 +51,29 @@
   var hideDue = false;
   var pointerInside = false;
 
+  // Focus holds the line only when the reader is using the keyboard. A mouse
+  // click on a notice button also focuses it, and act() hands that focus to
+  // the status line, but nobody is reading by focus then, so the line still
+  // goes at 30 seconds.
+  var keyboardInput = false;
+  d.addEventListener(
+    'keydown',
+    function () {
+      keyboardInput = true;
+    },
+    true,
+  );
+  d.addEventListener(
+    'pointerdown',
+    function () {
+      keyboardInput = false;
+    },
+    true,
+  );
+
   function hideIfDue() {
-    if (!hideDue || pointerInside || status.contains(d.activeElement)) return;
+    if (!hideDue || pointerInside) return;
+    if (keyboardInput && status.contains(d.activeElement)) return;
     hideDue = false;
     status.textContent = '';
   }
@@ -79,8 +100,18 @@
     if (hideTimer) w.clearTimeout(hideTimer);
     hideTimer = null;
     hideDue = false;
+    // Rewriting the line removes its link; if focus was on it, keep it in a
+    // deliberate place rather than letting it fall back to the document.
+    var hadFocus = status.contains(d.activeElement) && d.activeElement !== status;
     status.textContent = '';
-    if (!text) return;
+    if (!text) {
+      if (hadFocus) {
+        var first = notice.hidden ? null : notice.querySelector('[data-np-privacy-action]');
+        if (first) first.focus();
+        else d.body.focus();
+      }
+      return;
+    }
     var phrase = 'privacy page';
     var at = text.indexOf(phrase);
     if (at < 0) {
@@ -93,6 +124,7 @@
       status.appendChild(link);
       status.appendChild(d.createTextNode(text.slice(at + phrase.length)));
     }
+    if (hadFocus) status.focus();
     hideTimer = w.setTimeout(function () {
       hideTimer = null;
       hideDue = true;
