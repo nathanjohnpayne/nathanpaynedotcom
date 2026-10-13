@@ -102,14 +102,32 @@ const noticeAction = (page: Page, name: string) =>
 const controlAction = (page: Page, name: string) =>
   page.locator(`#np-privacy-controls [data-np-privacy-action="${name}"]`);
 
+/**
+ * Settle the notice's slide-in (#1339) before a reference shot. A shot taken the
+ * moment the notice is visible otherwise catches it transparent and above the
+ * viewport. Waits for the notice's own animations to finish, then captures with
+ * `animations: 'disabled'` as a second guard for anything else on the page.
+ */
+async function settleNotice(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const notice = document.getElementById('np-privacy-notice');
+    if (!notice || notice.hidden) return;
+    await Promise.all(notice.getAnimations().map((a) => a.finished.catch(() => undefined)));
+  });
+}
+
 async function shot(page: Page, name: string, options: { fullPage?: boolean } = {}) {
   if (!WRITE_SHOTS) return;
-  await page.screenshot({ path: join(SHOTS, `${name}.png`), ...options });
+  await settleNotice(page);
+  await page.screenshot({ path: join(SHOTS, `${name}.png`), animations: 'disabled', ...options });
 }
 
 async function elementShot(page: Page, selector: string, name: string) {
   if (!WRITE_SHOTS) return;
-  await page.locator(selector).screenshot({ path: join(SHOTS, `${name}.png`) });
+  await settleNotice(page);
+  await page
+    .locator(selector)
+    .screenshot({ path: join(SHOTS, `${name}.png`), animations: 'disabled' });
 }
 
 /**
