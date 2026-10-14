@@ -204,7 +204,7 @@ describe('Blog end-of-post block (#622)', () => {
       ).not.toContain('Open to senior product/platform roles');
       expect(cta.querySelector('a[href="/resume/"][data-cta="resume"]')).not.toBeNull();
       expect(
-        cta.querySelector('a[href="https://cal.com/nathanpayne"][data-cta="schedule"]'),
+        cta.querySelector('a[href="/book/"][data-cta="schedule"]:not([target])'),
       ).not.toBeNull();
       expect(cta.querySelector('#blog-cta-mailto[data-cta="email"]')).not.toBeNull();
 

@@ -1,17 +1,19 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { readBuiltPage, writeSanitizedDOM } from './helpers/dom.js';
+import { BOOK_PAGE_PATH } from '../src/lib/booking';
 
 /**
- * Cal.com scheduling link in the Connect panel (#620).
+ * Scheduling link in the Connect panel (#620).
  *
  * The point of the link is that it works without JavaScript: unlike the
  * mailto beside it — assembled client-side from base64 so the address never
  * appears in the static HTML — a booking URL has nothing to harvest, so it
- * ships as a plain href. These assertions read the BUILT HTML, which is what
- * a JS-disabled reader gets.
+ * ships as a plain href. It opens the site's own /book/ page
+ * (specs/book-page.md), which hands off to Cal.com. These assertions read the
+ * BUILT HTML, which is what a JS-disabled reader gets.
  */
 
-const BOOKING_URL = 'https://cal.com/nathanpayne';
+const BOOKING_URL = BOOK_PAGE_PATH;
 
 let link;
 
@@ -36,9 +38,9 @@ describe('Connect panel scheduling link (#620)', () => {
     expect(link.getAttribute('href')).toBe(BOOKING_URL);
   });
 
-  it('opens in a new tab with rel="noopener", like the other external links', () => {
-    expect(link.getAttribute('target')).toBe('_blank');
-    expect(link.getAttribute('rel') || '').toContain('noopener');
+  it('opens /book/ in the same tab, like the other on-site links', () => {
+    expect(BOOKING_URL).toBe('/book/');
+    expect(link.hasAttribute('target'), 'an on-site link should not open a new tab').toBe(false);
   });
 
   it('is styled as a peer of "Get in touch" and "Résumé"', () => {

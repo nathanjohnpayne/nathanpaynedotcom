@@ -4,6 +4,7 @@ import { getCollection, getEntry, render } from 'astro:content';
 import { selectHomepageWriting } from '../lib/blog-order';
 import { stateMarkerClass } from '../lib/lifecycle-marker';
 import { getSiteCopy } from '../lib/site-copy';
+import { BOOK_PAGE_PATH } from '../lib/booking';
 import { alumniOf, longLocation } from '../lib/person-json-ld';
 // #1079: the homepage has no shared footer, so the Connect panel carries the
 // /privacy/ link. The row and the link both render only while the privacy
@@ -439,15 +440,15 @@ const homepageJsonLd = {
               {/* Scheduling link (#620). Unlike the mailto beside it this is a
                   plain href in the static HTML — there is no address to
                   harvest, so the base64 assembly would buy nothing and would
-                  cost the JS-disabled case. Booking is spam-hardened on the
-                  Cal.com side (booker email verification, guest invites
-                  disabled, rolling window, daily/weekly caps, required
-                  screening question) — see the audit on #620. */}
+                  cost the JS-disabled case. It opens /book/ (specs/book-page.md),
+                  which lists the event types and hands off to Cal.com. Booking
+                  is spam-hardened on the Cal.com side (booker email
+                  verification, guest invites disabled, rolling window,
+                  daily/weekly caps, required screening question) — see the
+                  audit on #620. */}
               <a
                 class="availability-booking p-link"
-                href="https://cal.com/nathanpayne"
-                target="_blank"
-                rel="noopener"
+                href={BOOK_PAGE_PATH}
               >Book time<span class="link-arrow" aria-hidden="true">→</span></a>
               {' · '}
               <a class="availability-resume p-link" href="/resume/">Résumé<span class="link-arrow" aria-hidden="true">→</span></a>

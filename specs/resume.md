@@ -58,7 +58,8 @@ The `resumeProjects` collection must remain separate from the existing
     file). Three `.resume-action` affordances, in order: **Download PDF**
     (`.resume-download`, the build-generated PDF—see *Downloadable PDF*
     below), **Get in touch** (`mailto:`), and **Book a time**
-    (`https://cal.com/nathanpayne`, `target="_blank" rel="noopener"`)—#703.
+    (`/book/`, the site's booking page, which hands off to Cal.com—#703;
+    specs/book-page.md).
     Both new links are plain hrefs in the static HTML, deliberately unlike the
     base64-assembled mailto on the homepage and in blog posts: the contact
     line above already ships the address as visible text (a CV contact block
@@ -508,8 +509,7 @@ All seven entries were first stamped on 2026-10-07. The stamps record the state 
 8. The header renders a screen-only `.resume-download` link to
    `/Nathan-Payne-Resume.pdf`, that path resolves to a real letter-size PDF in
    `dist/`, and the file is absent from the sitemap.
-8b. `.resume-actions` holds exactly three `.resume-action` affordances—Download PDF, Get in touch (`mailto:`), Book a time (`cal.com/nathanpayne`,
-    `target="_blank" rel="noopener"`)—each carrying a Lucide glyph, and the
+8b. `.resume-actions` holds exactly three `.resume-action` affordances—Download PDF, Get in touch (`mailto:`), Book a time (`/book/`, same tab)—each carrying a Lucide glyph, and the
     `download` glyph matches upstream Lucide path data byte for byte.
 8c. `.resume-cta` closes the content column with exactly two links (Get in
     touch, Book a time) and **no** self-link back to `/resume/`.

@@ -7,6 +7,7 @@ import { getIndexGridRow } from '../../lib/index-grid';
 import { stateMarkerClass } from '../../lib/lifecycle-marker';
 import { PROJECTS_HEADING } from '../../lib/section-propositions';
 import { fillProjectCount, getSiteCopy } from '../../lib/site-copy';
+import { BOOK_PAGE_PATH } from '../../lib/booking';
 
 const PROJECTS_TITLE = 'Projects';
 const PROJECTS_PAGE_TITLE = `${PROJECTS_TITLE} | Nathan Payne`;
@@ -142,7 +143,7 @@ const jsonLd = {
         variant="grid"
         links={[
           { href: "/resume/", label: "Résumé →" },
-          { href: "https://cal.com/nathanpayne", label: "Book time →", external: true },
+          { href: BOOK_PAGE_PATH, label: "Book time →" },
           { href: "/", label: "← Back to Homepage" },
         ]}
       />

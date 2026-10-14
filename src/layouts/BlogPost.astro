@@ -22,6 +22,7 @@
 import BaseLayout from './BaseLayout.astro';
 import Footer from '../components/Footer.astro';
 import Breadcrumbs from '../components/Breadcrumbs.astro';
+import { BOOK_PAGE_PATH } from '../lib/booking';
 import { renderSidebarMermaid } from '../lib/render-sidebar-mermaid.mjs';
 import {
   effectiveModified,
@@ -353,9 +354,7 @@ const jsonLd = {
               <span class="blog-cta__sep" aria-hidden="true">·</span>
               <a
                 class="blog-cta__link"
-                href="https://cal.com/nathanpayne"
-                rel="noopener"
-                target="_blank"
+                href={BOOK_PAGE_PATH}
                 data-cta="schedule"
                 >Book a time<span class="link-arrow" aria-hidden="true">→</span></a
               >

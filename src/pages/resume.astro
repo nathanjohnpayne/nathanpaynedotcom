@@ -26,6 +26,7 @@ import WritingSection from '../components/resume/WritingSection.astro';
 // that isn't produced (#616).
 import { RESUME_PDF_PATH } from '../integrations/resume-pdf.mjs';
 import { getSiteCopy } from '../lib/site-copy';
+import { BOOK_PAGE_PATH } from '../lib/booking';
 import { alumniOf, shortLocation } from '../lib/person-json-ld';
 
 const myself = await getEntry('myself', 'nathan-payne');
@@ -62,9 +63,10 @@ const profileLinks = [
 // restoring them with JavaScript. Issue #710 accepts that no-JS tradeoff to
 // keep zone-wide email obfuscation enabled; the PDF and JSON-LD still carry
 // the address. Booking carries no address to harvest and is spam-hardened on
-// the Cal.com side (see the audit on #620).
+// the Cal.com side (see the audit on #620); both booking links open /book/
+// (specs/book-page.md), which hands off to Cal.com.
 const contactMailto = `mailto:${m.email}?subject=${encodeURIComponent('From nathanpayne.com/resume')}`;
-const bookingUrl = 'https://cal.com/nathanpayne';
+const bookingUrl = BOOK_PAGE_PATH;
 
 // Sidebar "In this resume" ToC. The page is component-composed (no single
 // markdown body), so there are no render() headings to derive from — the ToC
@@ -217,8 +219,6 @@ const jsonLd = {
           <a
             class="resume-action"
             href={bookingUrl}
-            target="_blank"
-            rel="noopener"
             data-resume-action="schedule"
           >
             <ContactIcon name="calendar" />Book a time
@@ -275,8 +275,6 @@ const jsonLd = {
             <a
               class="resume-cta__link"
               href={bookingUrl}
-              target="_blank"
-              rel="noopener"
               data-resume-cta="schedule"
               >Book a time<span class="link-arrow" aria-hidden="true">→</span></a
             >
