@@ -86,7 +86,7 @@ may be removed later without affecting the other.
 | `booking_event_type_clicked` | Click on a `.booking-event-type` link on `/book/`: an event type's title or its "Pick a time" tag, both of which open that event type's Cal.com booking page (specs/book-page.md) | `event_type` (the Cal.com event slug) |
 | `resume_viewed` | The resume page loads | — |
 | `resume_pdf_downloaded` | Click on the `/resume` header `.resume-download` button | — |
-| `resume_action_clicked` | Click on the `/resume` header row's Get in touch or Book a time button | `action` |
+| `resume_action_clicked` | Click on the `/resume` header row's Get in touch or Book time button | `action` |
 | `resume_cta_clicked` | Click on a `.resume-cta__link` in the end-of-page availability block | `cta` |
 
 ### Behavior

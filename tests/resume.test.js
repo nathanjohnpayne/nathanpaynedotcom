@@ -1648,7 +1648,7 @@ describe('Resume — contact actions', () => {
       expect(actions.map((a) => a.textContent.replace(/\s+/g, ' ').trim())).toEqual([
         'Download PDF',
         'Get in touch',
-        'Book a time',
+        'Book time',
       ]);
       const contact = header.querySelector('.resume-contact--profiles');
       expect(
@@ -1784,7 +1784,7 @@ describe('Resume — contact actions', () => {
     it('offers exactly two links and never self-links back to /resume/', () => {
       const links = Array.from(document.querySelectorAll('.resume-cta a'));
       expect(links.map((a) => a.textContent.replace(/\s+/g, ' ').replace(/→/g, '').trim())).toEqual(
-        ['Get in touch', 'Book a time'],
+        ['Get in touch', 'Book time'],
       );
       expect(links[1].getAttribute('href')).toBe(BOOK_PATH);
       // The blog's version of this block carries a Résumé link (#622). On the
