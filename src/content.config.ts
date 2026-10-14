@@ -530,6 +530,25 @@ const certifications = defineCollection({
   }),
 });
 
+// The public Cal.com event types `/book/` lists (specs/book-page.md), one
+// entry each, mirrored from the account by hand: Cal.com is the source of
+// truth and the build cannot read it. `slug` is the path under
+// https://cal.com/nathanpayne/ (src/lib/booking.ts builds the URL), and
+// `durations` is every length the event type offers, in minutes. Strict, so
+// a typo in a key fails the build rather than dropping a card's line. A
+// hidden event type is never entered here.
+const booking = defineCollection({
+  loader: glob({ pattern: '**/*.md', base: './src/content/booking' }),
+  schema: z.strictObject({
+    title: z.string().trim().min(1),
+    slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'expected a Cal.com event slug'),
+    description: z.string().trim().min(1),
+    durations: z.array(z.number().int().positive()).nonempty(),
+    where: z.string().trim().min(1),
+    order: z.number().int(),
+  }),
+});
+
 export const collections = {
   siteCopy,
   blog,
@@ -541,4 +560,5 @@ export const collections = {
   resumeProjects,
   skills,
   certifications,
+  booking,
 };

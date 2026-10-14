@@ -79,6 +79,13 @@ export const SITE_COPY_SCHEMAS = {
     /** og:description and twitter:description: the share-card line. */
     ogDescription: copy(),
   }),
+  /** `/book/` (specs/book-page.md), the site's own version of the Cal.com profile page. */
+  book: z.strictObject({
+    /** Meta description and the CollectionPage JSON-LD description. */
+    description: copy(),
+    /** og:description and twitter:description, the hero deck, and the share card's line. */
+    ogDescription: copy(),
+  }),
 } as const;
 
 export type SiteCopyId = keyof typeof SITE_COPY_SCHEMAS;
@@ -98,4 +105,5 @@ export const siteCopySchema = z.union([
   SITE_COPY_SCHEMAS.home,
   SITE_COPY_SCHEMAS.resume,
   SITE_COPY_SCHEMAS.privacy,
+  SITE_COPY_SCHEMAS.book,
 ]);

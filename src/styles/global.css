@@ -3689,6 +3689,37 @@ body.blog-page {
   min-height: 6rem;
 }
 
+/* Closing band on /book/ (specs/book-page.md): a full-width gray plane under
+   the event-type cards, the same plane the blog's RSS band uses, carrying the
+   practical notes and the Cal.com profile link. Its own row class rather than
+   .grid-row--rss so the two bands can diverge without one page editing the
+   other's. */
+.grid-row--book-note {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--line);
+  min-height: 6rem;
+}
+
+.book-note {
+  background: var(--gray-plane);
+  padding: clamp(1.2rem, 2.5vw, 2rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.book-note p {
+  max-width: 62ch;
+  font-size: clamp(0.88rem, 0.95vw, 0.98rem);
+  line-height: 1.55;
+  color: color-mix(in srgb, var(--ink) 78%, transparent);
+}
+
+.book-note p + p {
+  margin-top: var(--sp-md);
+}
+
 /* ── Post Cards ── */
 .post-card {
   /* Text-column measures (used by .post-title + .post-desc). Body is capped
@@ -5899,7 +5930,8 @@ a:focus-visible {
   .grid-row--4,
   .grid-row--overflow-a,
   .grid-row--overflow-b,
-  .grid-row--rss {
+  .grid-row--rss,
+  .grid-row--book-note {
     grid-template-columns: 1fr;
     min-height: auto;
   }

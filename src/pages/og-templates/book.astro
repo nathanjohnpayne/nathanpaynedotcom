@@ -1,0 +1,15 @@
+---
+import OgCard from '../../layouts/OgCard.astro';
+import { getSiteCopy } from '../../lib/site-copy';
+import { BOOK_TITLE } from '../../lib/booking';
+
+// The share line /book/ publishes as og:description and opens its deck with
+// (#1166), so the card and the unfurl text cannot disagree.
+const { ogDescription } = await getSiteCopy('book');
+---
+
+<OgCard
+  label="nathanpayne.com / book"
+  heading={BOOK_TITLE}
+  description={ogDescription}
+/>
