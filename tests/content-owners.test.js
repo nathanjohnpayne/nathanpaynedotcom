@@ -27,6 +27,7 @@ const copy = {
   projects: frontmatter('src/content/site-copy/projects.md'),
   home: frontmatter('src/content/site-copy/home.md'),
   resume: frontmatter('src/content/site-copy/resume.md'),
+  book: frontmatter('src/content/site-copy/book.md'),
 };
 const myself = frontmatter('src/content/myself/nathan-payne.md');
 const experience = {
@@ -230,6 +231,18 @@ describe('projects index copy owners (#1166)', () => {
   });
 });
 
+describe('book page copy owners (specs/book-page.md)', () => {
+  it('uses one description for metadata and JSON-LD, and one share line for the unfurl, deck and card', () => {
+    writeSanitizedDOM(readBuiltPage('book/index.html'));
+    expectMetaDescriptions(copy.book.description, copy.book.ogDescription);
+    expect(node('CollectionPage').description).toBe(copy.book.description);
+    expect(text(document.querySelector('.hero .deck'))).toBe(copy.book.ogDescription);
+    expect(ogCards.book.description).toBe(copy.book.ogDescription);
+    // The share line is only worth naming while it differs from the description.
+    expect(copy.book.ogDescription).not.toBe(copy.book.description);
+  });
+});
+
 describe('publication copy owners (#1166)', () => {
   it('names and describes the RSS channel from the blog entry', () => {
     const feed = new DOMParser().parseFromString(readBuiltPage('rss.xml'), 'application/xml');
@@ -321,6 +334,8 @@ describe('owned copy is not retyped in templates (#1166)', () => {
       'pages/og-templates/projects.astro': /getSiteCopy\('projects'\)/,
       'pages/og-templates/resume.astro': /getSiteCopy\('resume'\)/,
       'pages/og-templates/blog.astro': /getSiteCopy\('blog'\)/,
+      'pages/book.astro': /getSiteCopy\('book'\)/,
+      'pages/og-templates/book.astro': /getSiteCopy\('book'\)/,
     };
     for (const [consumer, reads] of Object.entries(consumers)) {
       expect(walked, `the walk never reached ${consumer}`).toContain(consumer);

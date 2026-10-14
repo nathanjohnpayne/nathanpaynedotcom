@@ -1,0 +1,192 @@
+---
+/**
+ * /book/ (specs/book-page.md): the site's own version of the Cal.com profile
+ * page at https://cal.com/nathanpayne.
+ *
+ * Cal.com's page lists every public event type and books it; this page says
+ * the same things in the site's composition and hands off to Cal.com for the
+ * booking itself. The cards come from the `booking` collection, one entry per
+ * public event type, mirrored from Cal.com by hand (the account is the source
+ * of truth). A hidden event type is never entered there, so it cannot appear
+ * here.
+ *
+ * Links only. Nothing from cal.com loads on this page: no embed script, no
+ * iframe, no prefetch. docs/privacy/inventory.md records Cal.com as a link-only
+ * recipient that receives nothing until a visitor clicks, and this page keeps
+ * that true; tests/book.test.js fails on any cal.com reference that is not a
+ * plain anchor. Every link opens in a new tab with rel="noopener", as every
+ * off-site link does (operating-rules § Coding Conventions).
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { getCollection } from 'astro:content';
+import Footer from '../components/Footer.astro';
+import Breadcrumbs from '../components/Breadcrumbs.astro';
+import { getIndexGridRow } from '../lib/index-grid';
+import { getSiteCopy } from '../lib/site-copy';
+import { BOOK_TITLE, CAL_PROFILE_URL, bookingUrl, formatDurations } from '../lib/booking';
+
+const BOOK_PAGE_TITLE = `${BOOK_TITLE} | Nathan Payne`;
+
+// Metadata and the share line are owned by src/content/site-copy/book.md
+// (#1166 convention). The deck reads the share line, so the page and its
+// unfurl open on the same sentence.
+const { description, ogDescription } = await getSiteCopy('book');
+
+const eventTypes = (await getCollection('booking')).sort((a, b) => a.data.order - b.data.order);
+
+const PAGE_URL = 'https://nathanpayne.com/book/';
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "CollectionPage",
+      "@id": `${PAGE_URL}#webpage`,
+      "url": PAGE_URL,
+      "name": BOOK_PAGE_TITLE,
+      "description": description,
+      "isPartOf": { "@id": "https://nathanpayne.com/#website" },
+      "mainEntity": { "@id": `${PAGE_URL}#itemlist` },
+    },
+    {
+      "@type": "ItemList",
+      "@id": `${PAGE_URL}#itemlist`,
+      "name": BOOK_TITLE,
+      "itemListElement": eventTypes.map((event, index) => ({
+        "@type": "ListItem",
+        "position": index + 1,
+        "item": {
+          "@type": "WebPage",
+          "@id": bookingUrl(event.data.slug),
+          "url": bookingUrl(event.data.slug),
+          "name": event.data.title,
+          "description": event.data.description,
+        },
+      })),
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": `${PAGE_URL}#breadcrumb`,
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Nathan Payne", "item": "https://nathanpayne.com/" },
+        { "@type": "ListItem", "position": 2, "name": BOOK_TITLE, "item": PAGE_URL },
+      ],
+    },
+  ],
+};
+---
+
+<BaseLayout
+  title={BOOK_PAGE_TITLE}
+  description={description}
+  ogDescription={ogDescription}
+  ogImage="https://nathanpayne.com/og/book.png"
+  ogImageAlt={`${BOOK_TITLE} with Nathan Payne open graph image`}
+  bodyClass="project-page blog-page"
+  dataAccent="red"
+  jsonLd={jsonLd}
+>
+  <main class="shell">
+    <div class="frame page-canvas">
+
+      {/* ── Hero ── */}
+      <header class="hero">
+        <Breadcrumbs items={[{ label: "Nathan Payne", href: "/" }, { label: BOOK_TITLE }]} />
+        <h1>{BOOK_TITLE}</h1>
+        <p class="deck">{ogDescription}</p>
+      </header>
+
+      {/* ── Event types ──
+           One card per public Cal.com event type, through the same six-row
+           Mondrian geometry as /projects and /blog (src/lib/index-grid.ts).
+           The kicker says how long and where; the title and the tag both
+           open the event type's booking page on Cal.com. */}
+      <div class="blog-grid book-grid">
+
+        {eventTypes.map((event, i) => {
+          const row = getIndexGridRow(i);
+          const url = bookingUrl(event.data.slug);
+          const card = (
+            <article class="post-card book-card">
+              <p class="post-meta">{formatDurations(event.data.durations)} &middot; {event.data.where}</p>
+              <h2 class="post-title">
+                <a
+                  class="booking-event-type"
+                  href={url}
+                  target="_blank"
+                  rel="noopener"
+                  data-event-type={event.data.slug}
+                >{event.data.title}</a>
+              </h2>
+              <p class="post-desc">{event.data.description}</p>
+              <div class="tag-row">
+                <a
+                  class="tag booking-event-type"
+                  href={url}
+                  target="_blank"
+                  rel="noopener"
+                  data-event-type={event.data.slug}
+                >Pick a time &nearr;</a>
+              </div>
+            </article>
+          );
+
+          return (
+            <div class={row.rowClass}>
+              {card}
+              {row.accentClasses.map((accentClass) => (
+                <div class={accentClass} aria-hidden="true"></div>
+              ))}
+            </div>
+          );
+        })}
+
+        {/* ── Closing band ──
+             The practical notes a visitor wants before picking, and the
+             profile link for anyone who would rather see Cal.com's own list.
+             Plain prose, so nothing here has to be re-mirrored when an event
+             type changes. */}
+        <div class="grid-row--book-note">
+          <div class="book-note">
+            <p>Times show in your time zone; mine is Pacific. Cal.com asks what you would like to discuss before it confirms, and the invite follows once you verify your email.</p>
+            <p>
+              <a
+                class="booking-profile p-link"
+                href={CAL_PROFILE_URL}
+                target="_blank"
+                rel="noopener"
+              >Everything on Cal.com<span class="link-arrow" aria-hidden="true">→</span></a>
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+      {/* ── Footer ── */}
+      <Footer
+        attribution="Nathan Payne"
+        variant="grid"
+        links={[
+          { href: "/resume/", label: "Résumé →" },
+          { href: "/", label: "← Back to Homepage" },
+        ]}
+      />
+    </div>
+  </main>
+
+  <script is:inline>
+    // specs/analytics.md § Events: booking_event_type_clicked carries the
+    // event type's slug, on either link of a card. Same optional-posthog
+    // contract as the blog index's rss_subscribe_clicked: the links are plain
+    // hrefs and work whether or not analytics is present. (The scheduling
+    // host is deliberately not named in this script: tests/book.test.js
+    // fails any inline script that names it, since an embed loader would.)
+    for (const link of document.querySelectorAll('.booking-event-type')) {
+      link.addEventListener('click', function () {
+        window.posthog?.capture('booking_event_type_clicked', {
+          event_type: link.dataset.eventType,
+        });
+      });
+    }
+  </script>
+</BaseLayout>

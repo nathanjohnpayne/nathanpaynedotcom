@@ -61,6 +61,7 @@ const blogPostLayoutSrc = readFileSync(
 // Resume events live in the page itself rather than a layout, so they are
 // asserted against that page's SOURCE for the same reason (#702, #703).
 const resumePageSrc = readFileSync(resolve(__dirname, '../src/pages/resume.astro'), 'utf-8');
+const bookPageSrc = readFileSync(resolve(__dirname, '../src/pages/book.astro'), 'utf-8');
 
 // Flush a macrotask so queued MutationObserver callbacks have run.
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -291,6 +292,7 @@ describe('PostHog', () => {
       18: 'eighteen',
       19: 'nineteen',
       20: 'twenty',
+      21: 'twenty-one',
     };
     const expected = words[rowCount];
     expect(expected, `no spelling on file for ${rowCount} — extend the map`).toBeDefined();
@@ -336,6 +338,13 @@ describe('PostHog', () => {
     ]) {
       expect(resumePageSrc).toContain(`capture('${evt}'`);
     }
+  });
+
+  it('wires the book page event', () => {
+    // Same registry contract: specs/analytics.md § Events has the row, and
+    // specs/book-page.md requirement 11 says what it carries.
+    expect(bookPageSrc).toContain(`capture('booking_event_type_clicked'`);
+    expect(bookPageSrc).toContain('event_type: link.dataset.eventType');
   });
 
   it('keeps the resume PDF download on its own event name', () => {
