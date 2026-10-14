@@ -509,13 +509,9 @@ All seven entries were first stamped on 2026-10-07. The stamps record the state 
 8. The header renders a screen-only `.resume-download` link to
    `/Nathan-Payne-Resume.pdf`, that path resolves to a real letter-size PDF in
    `dist/`, and the file is absent from the sitemap.
-8b. `.resume-actions` holds exactly three `.resume-action` affordances—Download PDF, Get in touch (`mailto:`), Book time (`/book/`, same tab)—each carrying a Lucide glyph, and the
-    `download` glyph matches upstream Lucide path data byte for byte.
-8c. `.resume-cta` closes the content column with exactly two links (Get in
-    touch, Book time) and **no** self-link back to `/resume/`.
-8d. The emitted CSS hides both `.resume-actions` and `.resume-cta` inside
-    `@media print`, and neither "Book time" nor "Get in touch" appears in the
-    text of the generated `Nathan-Payne-Resume.pdf`.
+8b. `.resume-actions` holds exactly three `.resume-action` affordances—Download PDF, Get in touch (`mailto:`), Book time (`/book/`, same tab)—each carrying a Lucide glyph, and the `download` glyph matches upstream Lucide path data byte for byte.
+8c. `.resume-cta` closes the content column with exactly two links (Get in touch, Book time) and **no** self-link back to `/resume/`.
+8d. The emitted CSS hides both `.resume-actions` and `.resume-cta` inside `@media print`, and neither "Book time" nor "Get in touch" appears in the text of the generated `Nathan-Payne-Resume.pdf`.
 8a. No link annotation in the generated PDF points at `127.0.0.1` or
     `localhost`, and every one carries an `http(s):` or `mailto:` scheme.
 8f. Every bullet on the page renders a **visible** marker in the PDF. Counting
