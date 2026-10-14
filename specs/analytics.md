@@ -70,7 +70,7 @@ may be removed later without affecting the other.
 | `homepage_panel_opened` | A Mondrian panel becomes focused (`data-focus` set) | `panel_name` |
 | `homepage_layout_rendered` | Once per homepage load, after fonts settle (or after 3 s if `document.fonts.ready` has not resolved by then, #1065): which layout the reader actually got, classified from the grid's rendered geometry (`composition` when `.mondrian` height/width < 1.05, otherwise `stack`), not from the media query (#1045) | `layout`, `viewport_width`, `viewport_height` |
 | `contact_email_clicked` | Click on the `#availability-mailto` "Get in touch" link | — |
-| `booking_link_clicked` | Click on the `.availability-booking` Cal.com scheduling link | — |
+| `booking_link_clicked` | Click on the `.availability-booking` scheduling link, which opens `/book/` | — |
 | `resume_link_clicked` | Click on a résumé link in the Connect/About panels | — |
 | `social_link_clicked` | Click on a `.social-row` link | `platform` |
 | `donation_link_clicked` | Click on a Community-panel `.effort-link` | `organization` |
@@ -86,7 +86,7 @@ may be removed later without affecting the other.
 | `booking_event_type_clicked` | Click on a `.booking-event-type` link on `/book/`: an event type's title or its "Pick a time" tag, both of which open that event type's Cal.com booking page (specs/book-page.md) | `event_type` (the Cal.com event slug) |
 | `resume_viewed` | The resume page loads | — |
 | `resume_pdf_downloaded` | Click on the `/resume` header `.resume-download` button | — |
-| `resume_action_clicked` | Click on the `/resume` header row's Get in touch or Book a time button | `action` |
+| `resume_action_clicked` | Click on the `/resume` header row's Get in touch or Book time button | `action` |
 | `resume_cta_clicked` | Click on a `.resume-cta__link` in the end-of-page availability block | `cta` |
 
 ### Behavior

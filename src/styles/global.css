@@ -6340,7 +6340,7 @@ body.resume-page {
 }
 
 /* ── Header action row (#616, #703) ── sits under the contact block in the
-   header: Download PDF, Get in touch, Book a time. Screen-only: the
+   header: Download PDF, Get in touch, Book time. Screen-only: the
    @media print block hides .resume-actions, so none of the three reaches the
    generated PDF, where an action button is noise. Styled as bordered planes
    rather than a third contact line so they read as actions, not addresses.

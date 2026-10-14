@@ -1428,7 +1428,7 @@ describe('Projects index — portfolio thesis (#751)', () => {
       text: a.textContent?.replace(/[→\s]+/g, ' ').trim(),
     }));
     expect(footerLinks.some((l) => l.href === '/resume/')).toBe(true);
-    expect(footerLinks.some((l) => l.href === 'https://cal.com/nathanpayne')).toBe(true);
+    expect(footerLinks.some((l) => l.href === '/book/')).toBe(true);
     expect(footerLinks.some((l) => l.href === '/')).toBe(true);
   });
 

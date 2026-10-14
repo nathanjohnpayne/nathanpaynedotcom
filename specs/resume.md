@@ -57,8 +57,9 @@ The `resumeProjects` collection must remain separate from the existing
     which is also what the PDF is rendered from, so none of it reaches the
     file). Three `.resume-action` affordances, in order: **Download PDF**
     (`.resume-download`, the build-generated PDF—see *Downloadable PDF*
-    below), **Get in touch** (`mailto:`), and **Book a time**
-    (`https://cal.com/nathanpayne`, `target="_blank" rel="noopener"`)—#703.
+    below), **Get in touch** (`mailto:`), and **Book time**
+    (`/book/`, the site's booking page, which hands off to Cal.com—#703;
+    specs/book-page.md).
     Both new links are plain hrefs in the static HTML, deliberately unlike the
     base64-assembled mailto on the homepage and in blog posts: the contact
     line above already ships the address as visible text (a CV contact block
@@ -85,7 +86,7 @@ The `resumeProjects` collection must remain separate from the existing
 - **Writing** is a compact inline section (no collection of its own) linking the blog and a few selected essays. Its proposition and introduction are the `title` and `resumeDescription` in `src/content/site-copy/blog.md`, its link text is `myself.blog`, and each essay shows its post's `title`, or the post's `resumeTitle` where the list deliberately shortens it ("The HTML Mock-up Is the Spec"). The component owns only which essays appear and in what order (#1166).
 - The content column closes with the **availability CTA** (`.resume-cta`,
   #702): a lede (`myself.availability.short`, "Open to senior product/platform roles.") followed by two
-  `·`-separated arrow links—**Get in touch** and **Book a time**. A
+  `·`-separated arrow links—**Get in touch** and **Book time**. A
   `::before` hairline rules it off from the Writing section above on the same
   rhythm as a `.resume-section` divider (2.1rem above the rule, 1.6rem below),
   flush with those dividers at both ends, so the card reads as closing the
@@ -508,14 +509,9 @@ All seven entries were first stamped on 2026-10-07. The stamps record the state 
 8. The header renders a screen-only `.resume-download` link to
    `/Nathan-Payne-Resume.pdf`, that path resolves to a real letter-size PDF in
    `dist/`, and the file is absent from the sitemap.
-8b. `.resume-actions` holds exactly three `.resume-action` affordances—Download PDF, Get in touch (`mailto:`), Book a time (`cal.com/nathanpayne`,
-    `target="_blank" rel="noopener"`)—each carrying a Lucide glyph, and the
-    `download` glyph matches upstream Lucide path data byte for byte.
-8c. `.resume-cta` closes the content column with exactly two links (Get in
-    touch, Book a time) and **no** self-link back to `/resume/`.
-8d. The emitted CSS hides both `.resume-actions` and `.resume-cta` inside
-    `@media print`, and neither "Book a time" nor "Get in touch" appears in the
-    text of the generated `Nathan-Payne-Resume.pdf`.
+8b. `.resume-actions` holds exactly three `.resume-action` affordances—Download PDF, Get in touch (`mailto:`), Book time (`/book/`, same tab)—each carrying a Lucide glyph, and the `download` glyph matches upstream Lucide path data byte for byte.
+8c. `.resume-cta` closes the content column with exactly two links (Get in touch, Book time) and **no** self-link back to `/resume/`.
+8d. The emitted CSS hides both `.resume-actions` and `.resume-cta` inside `@media print`, and neither "Book time" nor "Get in touch" appears in the text of the generated `Nathan-Payne-Resume.pdf`.
 8a. No link annotation in the generated PDF points at `127.0.0.1` or
     `localhost`, and every one carries an `http(s):` or `mailto:` scheme.
 8f. Every bullet on the page renders a **visible** marker in the PDF. Counting

@@ -14,6 +14,14 @@ export const CAL_USERNAME = 'nathanpayne';
 export const CAL_PROFILE_URL = `https://cal.com/${CAL_USERNAME}`;
 
 /**
+ * The site's own booking page. Every "Book time" link on the site (homepage
+ * Connect panel, résumé action row and closing CTA, projects footer, blog post
+ * CTA) points here rather than at Cal.com, so a visitor sees the event types
+ * in the site's composition before handing off.
+ */
+export const BOOK_PAGE_PATH = '/book/';
+
+/**
  * The page's headline: its `<h1>`, breadcrumb, `ItemList` name and share-card
  * heading. One string, so the share card cannot drift from the page the way
  * the projects card once did (#946).

@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { parseFrontmatter } from '../scripts/lib/parse-frontmatter.mjs';
 import { DIST, readBuiltPage, writeSanitizedDOM } from './helpers/dom.js';
 import {
+  BOOK_PAGE_PATH,
   BOOK_TITLE,
   CAL_PROFILE_URL,
   CAL_USERNAME,
@@ -291,5 +292,39 @@ describe('/book/ (specs/book-page.md)', () => {
     );
     expect(hrefs).toContain('/resume/');
     expect(hrefs).toContain('/');
+  });
+});
+
+describe('every "Book time" link lands on /book/ (specs/book-page.md)', () => {
+  const pages = readdirSync(DIST, { recursive: true })
+    .map(String)
+    .filter((path) => path.endsWith('.html'));
+  const calHref = /href="https?:\/\/cal\.com[/"]/;
+
+  it('links Cal.com from /book/ and from no other built page', () => {
+    // Control: the scan reads real pages and sees /book/'s own links.
+    expect(pages.length).toBeGreaterThan(10);
+    const book = readFileSync(resolve(DIST, 'book/index.html'), 'utf-8');
+    expect(calHref.test(book)).toBe(true);
+    const offenders = pages
+      .filter((path) => path !== 'book/index.html')
+      .filter((path) => calHref.test(readFileSync(resolve(DIST, path), 'utf-8')));
+    expect(offenders, 'these pages link Cal.com directly instead of /book/').toEqual([]);
+  });
+
+  it('points the homepage, résumé, projects index and blog posts at /book/', () => {
+    const sources = [
+      ['index.html', '.availability-booking'],
+      ['resume/index.html', '[data-resume-action="schedule"]'],
+      ['resume/index.html', '[data-resume-cta="schedule"]'],
+      ['projects/index.html', '.site-footer a[href="/book/"]'],
+    ];
+    for (const [page, selector] of sources) {
+      writeSanitizedDOM(readBuiltPage(page));
+      const link = document.querySelector(selector);
+      expect(link, `${page}: ${selector} missing`).not.toBeNull();
+      expect(link.getAttribute('href'), `${page}: ${selector}`).toBe(BOOK_PAGE_PATH);
+      expect(link.hasAttribute('target'), `${page}: ${selector} opens a new tab`).toBe(false);
+    }
   });
 });

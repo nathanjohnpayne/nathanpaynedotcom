@@ -7,7 +7,7 @@ title: Book Page
 
 ## Overview
 
-`/book/` is the site's own version of the Cal.com profile page at `https://cal.com/nathanpayne`. Cal.com's page lists every public event type and books it; `/book/` says the same things in the site's composition (the hero and the Mondrian card grid the `/projects/` and `/blog/` indexes use) and hands off to Cal.com for the booking itself. It is a landing page for the "Book time" links the homepage, résumé, projects index and blog posts carry, and for a link shared directly.
+`/book/` is the site's own version of the Cal.com profile page at `https://cal.com/nathanpayne`. Cal.com's page lists every public event type and books it; `/book/` says the same things in the site's composition (the hero and the Mondrian card grid the `/projects/` and `/blog/` indexes use) and hands off to Cal.com for the booking itself. It is where every "Book time" link on the site lands: the homepage Connect panel, the résumé action row and closing CTA, the projects index footer and the blog post CTA all link to `BOOK_PAGE_PATH` (`/book/`, in `src/lib/booking.ts`) in the same tab, and none of them links to Cal.com directly. It also serves a link shared directly.
 
 ## Requirements
 

@@ -1612,12 +1612,23 @@ describe('Resume — PDF reading order and markers', () => {
  * the intent.
  */
 describe('Resume — contact actions', () => {
-  const CAL_URL = 'https://cal.com/nathanpayne';
-  const BOOKING_HOST = new URL(CAL_URL).host;
+  // Both booking links open the site's own /book/ page (specs/book-page.md),
+  // which hands off to Cal.com; Cal.com's host is still checked against the
+  // PDF in case a direct link comes back.
+  const BOOK_PATH = '/book/';
+  const BOOKING_HOST = 'cal.com';
   /** Parsed host of a URL, or '' for a non-URL (mailto:, a relative path). */
   function hostOf(url) {
     try {
       return new URL(url).host;
+    } catch {
+      return '';
+    }
+  }
+  /** Parsed path of an absolute URL, or '' for a non-URL. */
+  function pathOf(url) {
+    try {
+      return new URL(url).pathname;
     } catch {
       return '';
     }
@@ -1637,7 +1648,7 @@ describe('Resume — contact actions', () => {
       expect(actions.map((a) => a.textContent.replace(/\s+/g, ' ').trim())).toEqual([
         'Download PDF',
         'Get in touch',
-        'Book a time',
+        'Book time',
       ]);
       const contact = header.querySelector('.resume-contact--profiles');
       expect(
@@ -1649,10 +1660,11 @@ describe('Resume — contact actions', () => {
     it('points the two new actions at a mailto and the booking page', () => {
       const [, email, booking] = Array.from(document.querySelectorAll('.resume-action'));
       expect(email.getAttribute('href')).toMatch(/^mailto:[^@]+@[^?]+\?subject=/);
-      expect(booking.getAttribute('href')).toBe(CAL_URL);
-      // External link convention (docs/agents/code-modification-rules.md).
-      expect(booking.getAttribute('target')).toBe('_blank');
-      expect(booking.getAttribute('rel')).toBe('noopener');
+      expect(booking.getAttribute('href')).toBe(BOOK_PATH);
+      // On-site link: same tab, no target.
+      expect(booking.hasAttribute('target'), 'the /book/ link should not open a new tab').toBe(
+        false,
+      );
     });
 
     it('gives every action a decorative icon and an accessible text name', () => {
@@ -1772,8 +1784,9 @@ describe('Resume — contact actions', () => {
     it('offers exactly two links and never self-links back to /resume/', () => {
       const links = Array.from(document.querySelectorAll('.resume-cta a'));
       expect(links.map((a) => a.textContent.replace(/\s+/g, ' ').replace(/→/g, '').trim())).toEqual(
-        ['Get in touch', 'Book a time'],
+        ['Get in touch', 'Book time'],
       );
+      expect(links[1].getAttribute('href')).toBe(BOOK_PATH);
       // The blog's version of this block carries a Résumé link (#622). On the
       // résumé itself that link is a loop, and dropping it is the whole point
       // of #702 — assert it stays dropped.
@@ -1814,8 +1827,8 @@ describe('Resume — contact actions', () => {
         // Host equality, not a substring test: `u.includes('cal.com')` also
         // matches https://cal.com.evil.example/ and https://evil.example/cal.com,
         // which CodeQL flags as js/incomplete-url-substring-sanitization.
-        uris.filter((u) => hostOf(u) === BOOKING_HOST),
-        'the booking link reached the PDF — check the @media print hide list',
+        uris.filter((u) => hostOf(u) === BOOKING_HOST || pathOf(u) === BOOK_PATH),
+        'a booking link reached the PDF — check the @media print hide list',
       ).toEqual([]);
       expect(
         uris.filter((u) => u.startsWith('mailto:') && u.includes(ACTION_SUBJECT)),
