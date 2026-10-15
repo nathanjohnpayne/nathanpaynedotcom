@@ -6,14 +6,15 @@
  * pages that place it carry no flag check of their own and the flag-off
  * build links no /privacy/ route (PRIV-15). The visual class comes from the
  * caller, because each surface has its own link vocabulary (.nav-button in
- * the footer and on the 404, .ribbon-exit in a homepage panel).
+ * the footer and on the 404, .availability-privacy .p-link at the end of the
+ * homepage Connect panel's contact line).
  */
 import { privacyControlsEnabled } from '../../../lib/privacy-flag';
 
 interface Props {
   /** Class(es) for the anchor, from the surface's own link vocabulary. */
   class?: string;
-  /** Append the site's trailing arrow (the homepage ribbon convention). */
+  /** Append the site's trailing arrow (the homepage link convention). */
   arrow?: boolean;
 }
 

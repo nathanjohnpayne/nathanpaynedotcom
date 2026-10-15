@@ -427,16 +427,21 @@ const homepageJsonLd = {
                  JS-disabled users. The inline <script is:inline> runs
                  synchronously after the element is parsed, so the window
                  between page paint and href assembly is negligible. */}
+            {/* Each link rides in an .availability-item with the separator
+                 after it. The link arrow is an inline-block, and a line may
+                 break after an inline-block whatever character follows, so a
+                 bare separator could start a wrapped line on a phone; inside a
+                 nowrap item the dot stays with the link before it. */}
             <p class="availability-signal">
-              <a
+              <span class="availability-item"><a
                 id="availability-mailto"
                 class="availability-mailto p-link"
                 href="#"
                 data-u="aGlyZQ=="
                 data-d="bmF0aGFucGF5bmUuY29t"
                 data-s="RnJvbSUyMG5hdGhhbnBheW5lLmNvbQ=="
-              >Get in touch<span class="link-arrow" aria-hidden="true">→</span></a>
-              {' · '}
+              >Get in touch<span class="link-arrow" aria-hidden="true">→</span></a>{'\u00a0·'}</span>
+              {' '}
               {/* Scheduling link (#620). Unlike the mailto beside it this is a
                   plain href in the static HTML — there is no address to
                   harvest, so the base64 assembly would buy nothing and would
@@ -446,12 +451,22 @@ const homepageJsonLd = {
                   verification, guest invites disabled, rolling window,
                   daily/weekly caps, required screening question) — see the
                   audit on #620. */}
-              <a
+              <span class="availability-item"><a
                 class="availability-booking p-link"
                 href={BOOK_PAGE_PATH}
-              >Book time<span class="link-arrow" aria-hidden="true">→</span></a>
-              {' · '}
-              <a class="availability-resume p-link" href="/resume/">Résumé<span class="link-arrow" aria-hidden="true">→</span></a>
+              >Book time<span class="link-arrow" aria-hidden="true">→</span></a>{'\u00a0·'}</span>
+              {' '}
+              {/* Privacy (#1079). The homepage has no footer, so the site's
+                  /privacy/ link rides the end of this line as a fourth peer.
+                  Résumé's separator and the link are gated together, so a
+                  flag-off build ends on Résumé exactly as before. */}
+              <span class="availability-item"><a class="availability-resume p-link" href="/resume/">Résumé<span class="link-arrow" aria-hidden="true">→</span></a>{privacyEnabled && '\u00a0·'}</span>
+              {privacyEnabled && (
+                <>
+                  {' '}
+                  <PrivacyLink class="availability-privacy p-link" arrow />
+                </>
+              )}
             </p>
             <noscript>
               <p class="availability-noscript">Email: hire [at] nathanpayne [dot] com</p>
@@ -549,18 +564,6 @@ const homepageJsonLd = {
                   <a href="/blog/" class="ribbon-exit">View all writing<span class="link-arrow" aria-hidden="true">→</span></a>
                 </div>
                 <a href={`/blog/${latestPost.id}/`} class="blog-callout-link">{latestPost.data.title}<span class="link-arrow" aria-hidden="true">→</span></a>
-              </div>
-            )}
-            {/* Privacy (#1079). The homepage has no footer, so the site's
-                /privacy/ link closes the Connect panel in the same ribbon
-                voice as the three panel exits (.ribbon-row .ribbon-exit,
-                #975); .panel--blue:not(.is-open) .ribbon-exit keeps it
-                legible on the closed plane. The row's own spacing is in
-                PrivacyNotice.astro's inline style, which every flag-on page
-                carries. */}
-            {privacyEnabled && (
-              <div class="ribbon-row privacy-ribbon">
-                <PrivacyLink class="ribbon-exit" arrow />
               </div>
             )}
           </div>
