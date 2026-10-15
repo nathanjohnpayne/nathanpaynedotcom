@@ -30,7 +30,9 @@ export function markComposition({ withText = true, fieldFill = P.cream, textFill
 
 /** B. Seal — the red plane carries the monogram; a structural strip of yellow/blue at right. */
 export function markSeal({ withText = true, mono = false } = {}) {
-  const c = mono ? monoPalette() : P;
+  // The seal's red plane is the whole field under a cream monogram, so in one color it stays ink: the
+  // composition's red tint would leave the monogram at under 3:1.
+  const c = mono ? { ...monoPalette(), red: P.ink } : P;
   const out = [];
   out.push(rect(0, 0, 64, 64, c.red));
   out.push(rect(54, 0, 10, 30, c.yellow));
