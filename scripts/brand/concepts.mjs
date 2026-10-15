@@ -192,6 +192,6 @@ export const DIRECTIONS = {
 };
 
 export function iconSvg(body, { title, desc, size = 64 }) {
-  return svg({ w: size, h: size, vb: '0 0 64 64', body, title, desc });
+  return svg({ w: size, h: size, vb: `0 0 ${size} ${size}`, body, title, desc });
 }
 export { svg };
