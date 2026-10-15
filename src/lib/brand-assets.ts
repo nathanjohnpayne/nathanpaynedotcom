@@ -84,11 +84,11 @@ export const BRAND_FAMILIES: BrandFamily[] = [
     id: 'mark-keyline',
     title: 'Keyline mark',
     description:
-      'The mark framed by a thin ink keyline, only for cream or near-cream surfaces where the field would otherwise vanish. Not for avatars: a circular crop cuts the frame.',
+      'The mark framed by an ink keyline the weight of its grid lines, only for cream or near-cream surfaces where the field would otherwise vanish. Not for avatars: a circular crop cuts the frame.',
     preview: {
       file: 'np-mark-keyline.svg',
-      width: 64,
-      height: 64,
+      width: 72,
+      height: 72,
       alt: 'The NP mark with an ink keyline',
     },
     files: [

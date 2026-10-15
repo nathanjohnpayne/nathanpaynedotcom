@@ -22,7 +22,7 @@ Three variants exist for specific jobs:
 | File | Use |
 |------|-----|
 | `np-mark-tile.svg` | Below 24px (the 16px favicon). The monogram is dropped; the composition alone carries recognition. Never show this at a size where the monogram would be legible. |
-| `np-mark-keyline.svg` | Only on cream or near-cream surfaces where the field would otherwise vanish. A 2-unit ink keyline frames the tile. Do not use it for avatars; the circle crop cuts the frame. |
+| `np-mark-keyline.svg` | Only on cream or near-cream surfaces where the field would otherwise vanish. A 4-unit ink keyline, the same weight as the mark's interior grid lines, frames the tile from outside, the way the homepage's outer frame is the same line as its gridlines; the tile inside is unchanged, so the file is 72×72 units rather than 64. Do not use it for avatars; the circle crop cuts the frame. |
 | `np-mark-mono.svg` | One-color reproduction (print, engraving, grayscale UI). The planes become tints of the ink. |
 
 ## Lockups

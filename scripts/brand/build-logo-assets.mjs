@@ -37,11 +37,14 @@ const write = (name, content) => { fs.writeFileSync(path.join(OUT, name), conten
 const markBody = D.mark({});
 const tileBody = D.small({});
 const monoBody = D.mark({ mono: true });
-const keyBody = markBody + `\n  <rect x="1" y="1" width="62" height="62" fill="none" stroke="${P.line}" stroke-width="2"/>`;
+// The keyline is the grid line itself (4 units, like the mark's interior lines), drawn outside the untouched
+// 64-unit tile on a 72-unit canvas, the way the homepage's outer frame is the same line as its gridlines.
+// Inset over the tile it would eat the edge planes and push the monogram off center.
+const keyBody = `  <g transform="translate(4 4)">\n${markBody.replace(/^/gm, '  ')}\n  </g>\n  <rect x="2" y="2" width="68" height="68" fill="none" stroke="${P.line}" stroke-width="4"/>`;
 
 write('np-mark.svg', iconSvg(markBody, { title: `${TITLE} mark`, desc: DESC_MARK }));
 write('np-mark-tile.svg', iconSvg(tileBody, { title: `${TITLE} tile`, desc: DESC_TILE }));
-write('np-mark-keyline.svg', iconSvg(keyBody, { title: `${TITLE} mark, keyline`, desc: DESC_MARK + ' A thin black keyline frames the tile.' }));
+write('np-mark-keyline.svg', iconSvg(keyBody, { title: `${TITLE} mark, keyline`, desc: DESC_MARK + ' A black keyline the weight of the grid lines frames the tile.', size: 72 }));
 write('np-mark-mono.svg', iconSvg(monoBody, { title: `${TITLE} mark, monochrome`, desc: DESC_MARK + ' One-color version: planes become tints of the ink.' }));
 
 const H = horizontal(markBody); const HD = horizontal(markBody, { dark: true }); const HM = horizontal(monoBody);
