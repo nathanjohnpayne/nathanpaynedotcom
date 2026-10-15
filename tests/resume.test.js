@@ -682,7 +682,6 @@ describe('Resume — page structure', () => {
     expect(entries.length, 'no résumé project entries found').toBeGreaterThan(0);
 
     let withLive = 0;
-    let withCaseStudy = 0;
     for (const entry of entries) {
       const name = entry.querySelector('.resume-entry__title').textContent.trim();
       const match = resumeEntries.find((r) => r.data.name === name);
@@ -709,26 +708,20 @@ describe('Resume — page structure', () => {
       // The case study leads the row, and it has to be a page the build
       // actually emitted — an href to a slug that is not in dist is a 404 on
       // the one link the section's introduction promises. A drafted project
-      // has no page, so the component omits the link and so does this
-      // expectation. `parseFrontmatter` returns `draft` as a string, never the
-      // boolean, and YAML 1.2 (what Astro's loader reads) also takes `True`
-      // and `TRUE` as true — hence a case-insensitive match on the string.
-      const published = !/^true$/i.test(String(project.draft).trim());
+      // has no such page, which is why ProjectsSection fails the build for a
+      // résumé entry naming one rather than leaving it to this check.
       const caseStudyHref = `/projects/${slug}/`;
       expect(
         existsSync(resolve(DIST, `projects/${slug}/index.html`)),
-        published
-          ? `${name} links a case study the build did not emit: ${caseStudyHref}`
-          : `${name} is drafted, yet the build emitted ${caseStudyHref}`,
-      ).toBe(published);
-      if (published) withCaseStudy += 1;
+        `${name} links a case study the build did not emit: ${caseStudyHref}`,
+      ).toBe(true);
 
       const anchors = [...entry.querySelectorAll('.resume-entry__link a')];
       expect(
         anchors.map((a) => a.getAttribute('href')),
         `${name} does not expose its case study and exactly its canonical destinations, in order — ` +
           `a canonical liveUrl or githubUrl missing from the résumé fails here`,
-      ).toEqual([...(published ? [caseStudyHref] : []), ...expected]);
+      ).toEqual([caseStudyHref, ...expected]);
 
       // And the résumé's own frontmatter must carry the same addresses, so the
       // two collections cannot drift behind an identical render.
@@ -770,26 +763,20 @@ describe('Resume — page structure', () => {
       expect(
         anchors.map((a) => a.textContent.replace(/[↗→\s]+/g, ' ').trim()),
         `${name} should label its destinations Case study / ${liveWord ?? '(none)'} / GitHub`,
-      ).toEqual([
-        ...(published ? ['Case study'] : []),
-        ...(liveHref ? [liveWord] : []),
-        ...(repoHref ? ['GitHub'] : []),
-      ]);
+      ).toEqual(['Case study', ...(liveHref ? [liveWord] : []), ...(repoHref ? ['GitHub'] : [])]);
 
       // The case study stays on the site: internal arrow, current tab. The
       // others leave it: external arrow, new tab. The arrow is what tells a
       // reader which is which before they click, so it is pinned per link.
-      const [caseStudy, ...external] = published ? anchors : [null, ...anchors];
-      if (caseStudy) {
-        expect(
-          caseStudy.getAttribute('target'),
-          `${name} case study should open in place`,
-        ).toBeNull();
-        expect(caseStudy.textContent, `${name} case study should carry the internal →`).toContain(
-          '→',
-        );
-        expect(caseStudy.textContent, `${name} case study should not carry ↗`).not.toContain('↗');
-      }
+      const [caseStudy, ...external] = anchors;
+      expect(
+        caseStudy.getAttribute('target'),
+        `${name} case study should open in place`,
+      ).toBeNull();
+      expect(caseStudy.textContent, `${name} case study should carry the internal →`).toContain(
+        '→',
+      );
+      expect(caseStudy.textContent, `${name} case study should not carry ↗`).not.toContain('↗');
       for (const a of external) {
         expect(a.getAttribute('target'), `${name} link should open in a new tab`).toBe('_blank');
         expect(a.getAttribute('rel'), `${name} link missing rel=noopener`).toBe('noopener');
@@ -811,10 +798,6 @@ describe('Resume — page structure', () => {
     expect(
       withLive,
       'no canonical project declares a liveUrl — the live-label branch never ran',
-    ).toBeGreaterThan(0);
-    expect(
-      withCaseStudy,
-      'no entry links a case study — the case-study branch never ran',
     ).toBeGreaterThan(0);
     const withAll = entries.filter((e) => e.querySelectorAll('.resume-entry__link a').length === 3);
     expect(withAll.length, 'no project renders all three destinations').toBeGreaterThan(0);

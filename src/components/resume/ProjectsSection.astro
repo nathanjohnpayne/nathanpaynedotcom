@@ -68,6 +68,22 @@ const projectStatus = Object.fromEntries(
 );
 
 const sorted = [...entries].sort((a, b) => a.data.order - b.data.order);
+
+// Every entry must name a published project. Its status kicker, live label and
+// case-study link are all read from that project, so an entry whose project is
+// drafted, renamed or missing would otherwise render a row with no status, the
+// default "Live" label and a case-study link to a page the build never emits.
+// That is a résumé quietly claiming less, or linking a 404, so it fails the
+// build instead, the same call the homepage Builds grid makes (index.astro).
+for (const entry of sorted) {
+  if (!projectMeta[entry.id]) {
+    throw new Error(
+      `Résumé project "${entry.id}" is not a published project. ` +
+        `Remove src/content/resume/projects/${entry.id}.md, or un-draft/rename the entry in src/content/projects/. ` +
+        `Published: ${Object.keys(projectMeta).sort().join(', ')}`,
+    );
+  }
+}
 const rendered = await Promise.all(
   sorted.map(async (entry) => ({ entry, Content: (await render(entry)).Content })),
 );
@@ -96,11 +112,10 @@ const rendered = await Promise.all(
     // introduction promises — the decisions, tradeoffs and evidence — and the
     // one a reader hiring a PM is there for. Before, it was reachable only by
     // going back up to the `/projects/` lead and finding the project again in
-    // the index. Every entry has one (the claims-review stamp requires it), but
-    // it is still read off the `projects` collection, so a project drafted out
-    // of the build drops its link rather than pointing at a 404. It stays on
-    // the site, so it takes the internal `→` and the current tab, where the
-    // other two take `↗` and a new one.
+    // the index. Every entry has one: the guard above fails the build for an
+    // entry whose project is not published. It stays on the site, so it takes
+    // the internal `→` and the current tab, where the other two take `↗` and a
+    // new one.
     //
     // Each row's accessible name joins the project to its destination with the
     // site's `·`, not an em dash: every `d.name` already closes on one
@@ -108,16 +123,10 @@ const rendered = await Promise.all(
     // the same string reads as a typo rather than a break. That is the call the
     // section lead already makes against the same collision (specs/resume.md
     // § Dash punctuation), and it matches the `·` the visible row shows.
-    const liveLabel = liveLinkLabel(projectMeta[entry.id]?.liveLabel);
-    const destinations: { href: string; label: string; name: string; external: boolean }[] = [];
-    if (projectMeta[entry.id]) {
-      destinations.push({
-        href: `/projects/${entry.id}/`,
-        label: 'Case study',
-        name: `${d.name} · case study`,
-        external: false,
-      });
-    }
+    const liveLabel = liveLinkLabel(projectMeta[entry.id].liveLabel);
+    const destinations: { href: string; label: string; name: string; external: boolean }[] = [
+      { href: `/projects/${entry.id}/`, label: 'Case study', name: `${d.name} · case study`, external: false },
+    ];
     if (d.url) {
       destinations.push({ href: d.url, label: liveLabel, name: `${d.name} · ${liveLabel.toLowerCase()}`, external: true });
     }
@@ -133,24 +142,22 @@ const rendered = await Promise.all(
         )}
         <h3 class="resume-entry__title">{heading.head}{heading.joint && <span class="em-dash-joint">{heading.joint}</span>}{heading.tail}</h3>
         <p class="resume-entry__tech">{d.tech.join(' · ')}</p>
-        {destinations.length > 0 && (
-          <p class="resume-entry__link">
-            {destinations.map((dest, i) => (
-              <>
-                {i > 0 && <span class="resume-entry__link-sep" aria-hidden="true"> · </span>}
-                {dest.external ? (
-                  <a href={dest.href} target="_blank" rel="noopener" aria-label={dest.name}>
-                    {dest.label} <span class="link-arrow" aria-hidden="true">&nearr;</span>
-                  </a>
-                ) : (
-                  <a href={dest.href} aria-label={dest.name}>
-                    {dest.label} <span class="link-arrow" aria-hidden="true">→</span>
-                  </a>
-                )}
-              </>
-            ))}
-          </p>
-        )}
+        <p class="resume-entry__link">
+          {destinations.map((dest, i) => (
+            <>
+              {i > 0 && <span class="resume-entry__link-sep" aria-hidden="true"> · </span>}
+              {dest.external ? (
+                <a href={dest.href} target="_blank" rel="noopener" aria-label={dest.name}>
+                  {dest.label} <span class="link-arrow" aria-hidden="true">&nearr;</span>
+                </a>
+              ) : (
+                <a href={dest.href} aria-label={dest.name}>
+                  {dest.label} <span class="link-arrow" aria-hidden="true">→</span>
+                </a>
+              )}
+            </>
+          ))}
+        </p>
         <div class="resume-prose">
           <Content />
         </div>
