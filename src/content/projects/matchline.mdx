@@ -189,9 +189,9 @@ I put requirements with no qualifying evidence in a gaps panel above the match l
 
 <DecisionLedger decisions={props.decisions} />
 
-## The measurement problem
+## The bar before the ruler
 
-I set the bar at 80% extraction accuracy and 80% match accuracy. Matchline reached neither. How the numbers moved matters more than where they stopped.
+I set the bar before there was anything to measure. The repository's first commit carried it: 80% extraction accuracy and 80% match accuracy. I hadn't yet built the ruler I would read it with. Matchline reached neither bar. How the numbers moved matters more than where they stopped.
 
 The first scorer compared generated summaries with hand-labeled ones using string equality. The model paraphrased, and the score was 3.3%. Token overlap brought it to 34%. A coverage coefficient gave full credit when a longer generated set covered the labeled set, bringing it to 50.3%. I had changed the ruler twice.
 
@@ -286,6 +286,8 @@ The eval harness can now route tuning runs through a subscription CLI. Those run
 
 Getting the model to produce something plausible wasn't the hardest part. I had to decide what evidence would make its output trustworthy, then build a measurement system I could trust to tell me whether the product was improving.
 
-I got further with the evidence than with the measurement. Matchline can structure it, ground claims, and stop an untraceable claim at the gate. Matching stayed well below the quality bar. I stopped after fixing the instrument that could finally measure it.
+I got further with the evidence than with the measurement. Matchline can structure evidence, ground claims, and stop an untraceable claim at the gate. Matching stayed well below the quality bar.
+
+Setting the bar first was right: 19% against 80% can't be argued into a pass. Reading results before I'd tested the ruler was the mistake. On extraction, two changes to the scorer moved the number 47 points; the one change to the product moved it one. Next time the ruler comes first: a labeled corpus, a scorer checked against my own judgment, and run-to-run noise smaller than the change I'm looking for. This time I never reran the four-pair baseline under the repaired mapping, so I still can't say how much of the gap to 80% was the product and how much was the instrument.
 
 That's why I paused before shipping. A product that exists is not necessarily a product that works, and a metric that moves is not necessarily evidence that anything got better.
