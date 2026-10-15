@@ -1089,6 +1089,12 @@ html[data-fonts-pending] .panel-label {
   color: rgba(25, 22, 17, 0.82);
 }
 
+/* A Connect link and the separator after it wrap as one unit, so a narrow
+   line breaks after the dot and never opens with it (src/pages/index.astro). */
+.availability-item {
+  white-space: nowrap;
+}
+
 .availability-noscript {
   display: block;
   margin: 0 0 var(--sp-sm);
@@ -1439,7 +1445,8 @@ html[data-fonts-pending] .panel-label {
    attached below it, pinned by tests/responsive/home-panel-contrast.spec.ts.
 
      prominent action  .about-resume-link, .availability-mailto,
-                       .availability-booking, .availability-resume
+                       .availability-booking, .availability-resume,
+                       .availability-privacy
      exit action       .ribbon-exit (About, Projects, Connect)
      linked entity     .p-name.p-name-link (project titles), .effort-link
                        (organizations), .blog-callout-link (Latest Post)
@@ -1467,6 +1474,7 @@ html[data-fonts-pending] .panel-label {
 .availability-mailto .link-arrow,
 .availability-booking .link-arrow,
 .availability-resume .link-arrow,
+.availability-privacy .link-arrow,
 .ribbon-exit .link-arrow,
 .p-name.p-name-link .link-arrow,
 .effort-link .link-arrow,
