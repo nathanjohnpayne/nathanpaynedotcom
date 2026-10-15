@@ -18,8 +18,8 @@
  * reads as typography; the row beneath it is where every destination lives, so
  * one line answers "where can I go from here" instead of the answer being
  * split between a heading that happens to be clickable and a row that is.
- * `.resume-projects__lead` still routes to the /projects/ index, which is how
- * a reader reaches the case studies.
+ * That row opens on the entry's case study; `.resume-projects__lead` routes
+ * to the /projects/ index as a whole.
  */
 import ResumeSection from './ResumeSection.astro';
 import { getCollection, render } from 'astro:content';
@@ -84,12 +84,23 @@ const rendered = await Promise.all(
     // Name—descriptor, closed, and split for the same reason the Experience
     // heading is: an em dash may start a line otherwise (src/lib/em-dash-joint).
     const heading = emDashJoint(d.name);
-    // Both destinations when both exist, live app first (#947). This was
-    // `d.url ?? d.repo`, which silently dropped the repo from every project
-    // that also had a live site — five of the seven, once the missing repo and
-    // app URLs were added to the collection. A résumé reader who wants the code
-    // and a reader who wants the running product are different readers, and the
-    // card had been answering only the second.
+    // Every destination the entry has: the case study first, then the live
+    // app, then the repo (#947). This was `d.url ?? d.repo`, which silently
+    // dropped the repo from every project that also had a live site — five of
+    // the seven, once the missing repo and app URLs were added to the
+    // collection. A résumé reader who wants the code and a reader who wants the
+    // running product are different readers, and the card had been answering
+    // only the second.
+    //
+    // The case study leads because it is the destination the section's own
+    // introduction promises — the decisions, tradeoffs and evidence — and the
+    // one a reader hiring a PM is there for. Before, it was reachable only by
+    // going back up to the `/projects/` lead and finding the project again in
+    // the index. Every entry has one (the claims-review stamp requires it), but
+    // it is still read off the `projects` collection, so a project drafted out
+    // of the build drops its link rather than pointing at a 404. It stays on
+    // the site, so it takes the internal `→` and the current tab, where the
+    // other two take `↗` and a new one.
     //
     // Each row's accessible name joins the project to its destination with the
     // site's `·`, not an em dash: every `d.name` already closes on one
@@ -97,6 +108,22 @@ const rendered = await Promise.all(
     // the same string reads as a typo rather than a break. That is the call the
     // section lead already makes against the same collision (specs/resume.md
     // § Dash punctuation), and it matches the `·` the visible row shows.
+    const liveLabel = liveLinkLabel(projectMeta[entry.id]?.liveLabel);
+    const destinations: { href: string; label: string; name: string; external: boolean }[] = [];
+    if (projectMeta[entry.id]) {
+      destinations.push({
+        href: `/projects/${entry.id}/`,
+        label: 'Case study',
+        name: `${d.name} · case study`,
+        external: false,
+      });
+    }
+    if (d.url) {
+      destinations.push({ href: d.url, label: liveLabel, name: `${d.name} · ${liveLabel.toLowerCase()}`, external: true });
+    }
+    if (d.repo) {
+      destinations.push({ href: d.repo, label: 'GitHub', name: `${d.name} · source on GitHub`, external: true });
+    }
     return (
       <article class="resume-entry">
         {projectStatus[entry.id] && (
@@ -106,24 +133,22 @@ const rendered = await Promise.all(
         )}
         <h3 class="resume-entry__title">{heading.head}{heading.joint && <span class="em-dash-joint">{heading.joint}</span>}{heading.tail}</h3>
         <p class="resume-entry__tech">{d.tech.join(' · ')}</p>
-        {(d.url || d.repo) && (
+        {destinations.length > 0 && (
           <p class="resume-entry__link">
-            {d.url && (
-              <a
-                href={d.url}
-                target="_blank"
-                rel="noopener"
-                aria-label={`${d.name} · ${liveLinkLabel(projectMeta[entry.id]?.liveLabel).toLowerCase()}`}
-              >
-                {liveLinkLabel(projectMeta[entry.id]?.liveLabel)} <span class="link-arrow" aria-hidden="true">&nearr;</span>
-              </a>
-            )}
-            {d.url && d.repo && <span class="resume-entry__link-sep" aria-hidden="true"> · </span>}
-            {d.repo && (
-              <a href={d.repo} target="_blank" rel="noopener" aria-label={`${d.name} · source on GitHub`}>
-                GitHub <span class="link-arrow" aria-hidden="true">&nearr;</span>
-              </a>
-            )}
+            {destinations.map((dest, i) => (
+              <>
+                {i > 0 && <span class="resume-entry__link-sep" aria-hidden="true"> · </span>}
+                {dest.external ? (
+                  <a href={dest.href} target="_blank" rel="noopener" aria-label={dest.name}>
+                    {dest.label} <span class="link-arrow" aria-hidden="true">&nearr;</span>
+                  </a>
+                ) : (
+                  <a href={dest.href} aria-label={dest.name}>
+                    {dest.label} <span class="link-arrow" aria-hidden="true">→</span>
+                  </a>
+                )}
+              </>
+            ))}
           </p>
         )}
         <div class="resume-prose">
