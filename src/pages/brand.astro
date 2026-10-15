@@ -1,0 +1,179 @@
+---
+/**
+ * /brand/ (specs/brand-page.md): the download page for the logo system.
+ *
+ * One card per family in `BRAND_FAMILIES` (src/lib/brand-assets.ts): a
+ * preview, when to use it, and a download link for every file. The files stay
+ * at /images/brand/, where the web manifest and the root favicon copies expect
+ * them; this page links them in place. tests/brand.test.js holds the list to
+ * the directory, so every file in public/images/brand/ is on this page exactly
+ * once.
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Footer from '../components/Footer.astro';
+import Breadcrumbs from '../components/Breadcrumbs.astro';
+import { getIndexGridRow } from '../lib/index-grid';
+import { getSiteCopy } from '../lib/site-copy';
+import {
+  BRAND_COLORS,
+  BRAND_FAMILIES,
+  BRAND_PAGE_PATH,
+  BRAND_TITLE,
+  brandAssetUrl,
+  formatFamilyKicker,
+} from '../lib/brand-assets';
+
+const BRAND_PAGE_TITLE = `${BRAND_TITLE} | Nathan Payne`;
+
+// Metadata and the share line are owned by src/content/site-copy/brand.md
+// (#1166 convention). The deck reads the share line, so the page and its
+// unfurl open on the same sentence.
+const { description, ogDescription } = await getSiteCopy('brand');
+
+const SITE_URL = 'https://nathanpayne.com';
+const PAGE_URL = `${SITE_URL}${BRAND_PAGE_PATH}`;
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "CollectionPage",
+      "@id": `${PAGE_URL}#webpage`,
+      "url": PAGE_URL,
+      "name": BRAND_PAGE_TITLE,
+      "description": description,
+      "isPartOf": { "@id": `${SITE_URL}/#website` },
+      "mainEntity": { "@id": `${PAGE_URL}#itemlist` },
+    },
+    {
+      "@type": "ItemList",
+      "@id": `${PAGE_URL}#itemlist`,
+      "name": BRAND_TITLE,
+      "itemListElement": BRAND_FAMILIES.map((family, index) => ({
+        "@type": "ListItem",
+        "position": index + 1,
+        "item": {
+          "@type": "ImageObject",
+          "@id": `${PAGE_URL}#${family.id}`,
+          "contentUrl": `${SITE_URL}${brandAssetUrl(family.preview.file)}`,
+          "name": family.title,
+          "description": family.description,
+        },
+      })),
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": `${PAGE_URL}#breadcrumb`,
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Nathan Payne", "item": `${SITE_URL}/` },
+        { "@type": "ListItem", "position": 2, "name": BRAND_TITLE, "item": PAGE_URL },
+      ],
+    },
+  ],
+};
+---
+
+<BaseLayout
+  title={BRAND_PAGE_TITLE}
+  description={description}
+  ogDescription={ogDescription}
+  ogImage="https://nathanpayne.com/og/brand.png"
+  ogImageAlt={`${BRAND_TITLE} from Nathan Payne open graph image`}
+  bodyClass="project-page blog-page"
+  dataAccent="red"
+  jsonLd={jsonLd}
+>
+  <main class="shell">
+    <div class="frame page-canvas">
+
+      {/* ── Hero ── */}
+      <header class="hero">
+        <Breadcrumbs items={[{ label: "Nathan Payne", href: "/" }, { label: BRAND_TITLE }]} />
+        <h1>{BRAND_TITLE}</h1>
+        <p class="deck">{ogDescription}</p>
+      </header>
+
+      {/* ── Families ──
+           One card per family, through the same six-row Mondrian geometry as
+           /projects, /blog and /book (src/lib/index-grid.ts). The preview sits
+           straight on the card with no backdrop of its own, so a transparent
+           file shows as transparent; the tag row holds one download link per
+           file. */}
+      <div class="blog-grid brand-grid">
+
+        {BRAND_FAMILIES.map((family, i) => {
+          const row = getIndexGridRow(i);
+          const card = (
+            <article class="post-card brand-card" id={family.id}>
+              <div class="brand-preview">
+                <img
+                  src={brandAssetUrl(family.preview.file)}
+                  width={family.preview.width}
+                  height={family.preview.height}
+                  alt={family.preview.alt}
+                  loading={i === 0 ? 'eager' : 'lazy'}
+                  decoding="async"
+                />
+              </div>
+              <p class="post-meta">{formatFamilyKicker(family.files)}</p>
+              <h2 class="post-title">{family.title}</h2>
+              <p class="post-desc">{family.description}</p>
+              <div class="tag-row">
+                {family.files.map(({ file, label }) => (
+                  <a
+                    class="tag brand-download"
+                    href={brandAssetUrl(file)}
+                    download
+                    aria-label={`${family.title}, ${label}`}
+                  >{label}</a>
+                ))}
+              </div>
+            </article>
+          );
+
+          return (
+            <div class={row.rowClass}>
+              {card}
+              {row.accentClasses.map((accentClass) => (
+                <div class={accentClass} aria-hidden="true"></div>
+              ))}
+            </div>
+          );
+        })}
+
+        {/* ── Closing band ──
+             The palette, the typefaces and the rules that apply to every
+             family. docs/brand-logo-usage.md is the full guide. */}
+        <div class="grid-row--brand-note">
+          <div class="brand-note">
+            <h2 class="brand-note__heading">Colors</h2>
+            <ul class="brand-swatches">
+              {BRAND_COLORS.map(({ name, hex }) => (
+                <li class="brand-swatch">
+                  <span class="brand-swatch__chip" style={`--swatch: ${hex}`} aria-hidden="true"></span>
+                  <span class="brand-swatch__name">{name}</span>
+                  <code class="brand-swatch__hex">{hex}</code>
+                </li>
+              ))}
+            </ul>
+            <h2 class="brand-note__heading">Type</h2>
+            <p>The name is set in Cormorant Garamond 600 and the domain in Inter 500 small capitals. Every SVG has its type outlined, so nothing depends on an installed font.</p>
+            <h2 class="brand-note__heading">Rules</h2>
+            <p>Keep clear space around any lockup equal to the width of the red plane, one quarter of the mark’s height. Do not recolor the planes, add gradients or shadows, rotate the mark, or set the name in another typeface.</p>
+          </div>
+        </div>
+
+      </div>
+
+      {/* ── Footer ── */}
+      <Footer
+        attribution="Nathan Payne"
+        variant="grid"
+        links={[
+          { href: "/resume/", label: "Résumé →" },
+          { href: "/", label: "← Back to Homepage" },
+        ]}
+      />
+    </div>
+  </main>
+</BaseLayout>

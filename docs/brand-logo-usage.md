@@ -2,7 +2,9 @@
 
 The logo system lives in `public/images/brand/` and is served at `https://nathanpayne.com/images/brand/<file>`. It is built from the homepage's own composition: the cream field, the 9px ink grid line, and the 1930-register planes (`--red #da2418`, `--yellow #f0c800`, `--blue #0a5c9e`, `--ink #11100d`, `--cream #f5f0e4`). The name is set in Cormorant Garamond 600 and the domain in Inter 500 small capitals, matching the site's heading and eyebrow styles. Every SVG master has its type outlined to paths, so nothing depends on an installed font.
 
-This document is the usage guide. The site itself switched to the mark in #1110:
+This document is the usage guide. The public download page is [`/brand/`](https://nathanpayne.com/brand/) (`src/pages/brand.astro`, specs/brand-page.md): it lists every file in this folder by family, with a condensed version of the notes below. When you add, rename or drop a file, update `BRAND_FAMILIES` in `src/lib/brand-assets.ts` in the same change; `tests/brand.test.js` fails until the list and the folder agree.
+
+The site itself switched to the mark in #1110:
 
 - **Favicons keep their stable root paths** because browsers, bookmarks, and feed readers have them cached. `public/favicon.svg`, `public/favicon-32x32.png`, `public/apple-touch-icon.png`, and `public/favicon.ico` are byte-for-byte copies of `np-mark.svg`, `np-mark-32.png`, `np-mark-180.png`, and `np-favicon.ico`. After regenerating the brand folder, copy them again; `tests/site-icons.test.js` fails until you do.
 - **The 16px tile rule is enforced by the ICO.** `BaseLayout.astro` links the `.ico`, the 32px PNG, and the Apple touch icon, and deliberately does not link `favicon.svg`: a browser that takes an SVG favicon would draw it, monogram included, at 16px. The SVG stays at its root path so direct fetches get the new mark.
