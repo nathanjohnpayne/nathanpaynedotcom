@@ -71,8 +71,10 @@ export function markRule({ withText = true, fieldFill = P.cream, textFill = P.in
 }
 
 function monoPalette() {
-  // One hue, tints by plane luminance: red/black → ink, blue → 72%, yellow → 26%.
-  return { red: P.ink, ink: P.ink, charcoal: '#3b3935', line: P.ink, blue: '#5b5955', yellow: '#cfcbc0', cream: P.cream };
+  // One hue: tints on the ink→cream line, so the grid lines stay pure ink and every plane is its own grey.
+  // The three color planes keep their luminance order and sit at even steps (L* yellow 82, red 60, blue 38),
+  // because mono cannot carry red's weight as saturation; red as ink merged with the grid line beside it.
+  return { red: '#939087', ink: P.ink, charcoal: '#3b3935', line: P.ink, blue: '#5b5955', yellow: '#cfcbc0', cream: P.cream };
 }
 
 // ---------- Lockups ----------
