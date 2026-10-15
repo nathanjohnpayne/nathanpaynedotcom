@@ -3720,6 +3720,101 @@ body.blog-page {
   margin-top: var(--sp-md);
 }
 
+/* /brand/ (specs/brand-page.md): each card opens on its preview, set
+   straight on the card's surface with no backdrop, so a transparent file
+   reads as transparent. The box has a fixed height and the image keeps its
+   own aspect ratio inside it, so a wide lockup and a square mark line up row
+   to row. */
+.brand-card {
+  justify-content: flex-start;
+}
+
+.brand-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: clamp(7rem, 12vw, 10rem);
+  margin-bottom: var(--sp-lg);
+}
+
+/* Scaled to fit the box, not shown at the file's own size: the SVG masters
+   are drawn on a 64-unit grid and would otherwise sit tiny. */
+.brand-preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Closing band on /brand/: palette, type and rules on the gray plane the
+   /book/ and /blog/ closing bands use. Its own row class so the bands can
+   diverge without one page editing another's. */
+.grid-row--brand-note {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--line);
+  min-height: 6rem;
+}
+
+.brand-note {
+  background: var(--gray-plane);
+  padding: clamp(1.2rem, 2.5vw, 2rem);
+}
+
+.brand-note p {
+  max-width: 62ch;
+  font-size: clamp(0.88rem, 0.95vw, 0.98rem);
+  line-height: 1.55;
+  color: color-mix(in srgb, var(--ink) 78%, transparent);
+}
+
+.brand-note__heading {
+  font-family: var(--font-body);
+  font-size: clamp(0.65rem, 0.78vw, 0.76rem);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: var(--sp-md);
+}
+
+.brand-note__heading:not(:first-child) {
+  margin-top: var(--sp-lg);
+}
+
+.brand-swatches {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-lg);
+}
+
+.brand-swatch {
+  display: grid;
+  grid-template-columns: auto auto;
+  column-gap: var(--sp-sm);
+  align-items: center;
+  font-size: clamp(0.82rem, 0.9vw, 0.92rem);
+}
+
+/* The chip spans both lines; the hex comes from the markup as --swatch
+   because it is the exported 1930 color, not a site token. */
+.brand-swatch__chip {
+  grid-row: span 2;
+  width: 2.4rem;
+  height: 2.4rem;
+  background: var(--swatch);
+  box-shadow: inset 0 0 0 1px var(--ink-18);
+}
+
+.brand-swatch__name {
+  font-weight: 600;
+}
+
+.brand-swatch__hex {
+  font-size: 0.85em;
+  color: var(--ink-62);
+}
+
 /* ── Post Cards ── */
 .post-card {
   /* Text-column measures (used by .post-title + .post-desc). Body is capped
@@ -5931,7 +6026,8 @@ a:focus-visible {
   .grid-row--overflow-a,
   .grid-row--overflow-b,
   .grid-row--rss,
-  .grid-row--book-note {
+  .grid-row--book-note,
+  .grid-row--brand-note {
     grid-template-columns: 1fr;
     min-height: auto;
   }
