@@ -814,7 +814,7 @@ describe('/privacy/ page and footer link (PRIV-11, PRIV-15)', () => {
       /Résumé<span class="link-arrow"[^>]*>→<\/span><\/a>\{privacyEnabled && '\\u00a0·'\}/,
     );
     expect(home).toMatch(
-      /\{privacyEnabled && \(\s*<>\s*\{' '\}\s*<PrivacyLink class="availability-privacy p-link"/,
+      /\{privacyEnabled && \(\s*<>\s*\{' '\}\s*<span class="availability-item"><PrivacyLink class="availability-privacy p-link"/,
     );
     // No page links /privacy/ on its own: the link exists only through the
     // component, the notice, and the #1226 test fixture.
