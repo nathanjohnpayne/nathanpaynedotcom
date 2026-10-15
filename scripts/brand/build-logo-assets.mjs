@@ -50,12 +50,20 @@ write('np-mark-mono.svg', iconSvg(monoBody, { title: `${TITLE} mark, monochrome`
 const H = horizontal(markBody); const HD = horizontal(markBody, { dark: true }); const HM = horizontal(monoBody);
 const ST = stacked(markBody); const STD = stacked(markBody, { dark: true }); const STM = stacked(monoBody);
 const W = wordmark(); const WD = wordmark({ dark: true });
+// Keyline lockups, for cream pages where the mark's field would vanish: the framed mark (72 units) is fitted
+// into the lockup's 64-unit mark slot, so each lockup keeps its size and the type aligns to the frame's outer
+// edge, which is the edge a cream page sees. The frame stays the weight of the grid lines inside it.
+const keyMark = `  <g transform="scale(${64 / 72})">\n${keyBody}\n  </g>`;
+const DESC_KEYLINE = ' A black keyline the weight of the grid lines frames the tile, for cream surfaces.';
+const HK = horizontal(keyMark); const STK = stacked(keyMark);
 write('np-lockup-horizontal.svg', svg({ ...H, title: `${TITLE} lockup`, desc: DESC_LOCKUP }));
 write('np-lockup-horizontal-dark.svg', svg({ ...HD, title: `${TITLE} lockup, for dark backgrounds`, desc: DESC_LOCKUP }));
 write('np-lockup-horizontal-mono.svg', svg({ ...HM, title: `${TITLE} lockup, monochrome`, desc: DESC_LOCKUP }));
 write('np-lockup-stacked.svg', svg({ ...ST, title: `${TITLE} stacked lockup`, desc: DESC_LOCKUP }));
 write('np-lockup-stacked-dark.svg', svg({ ...STD, title: `${TITLE} stacked lockup, for dark backgrounds`, desc: DESC_LOCKUP }));
 write('np-lockup-stacked-mono.svg', svg({ ...STM, title: `${TITLE} stacked lockup, monochrome`, desc: DESC_LOCKUP }));
+write('np-lockup-horizontal-keyline.svg', svg({ ...HK, title: `${TITLE} lockup, keyline`, desc: DESC_LOCKUP + DESC_KEYLINE }));
+write('np-lockup-stacked-keyline.svg', svg({ ...STK, title: `${TITLE} stacked lockup, keyline`, desc: DESC_LOCKUP + DESC_KEYLINE }));
 write('np-wordmark.svg', svg({ ...W, title: `${TITLE} wordmark`, desc: DESC_WORD }));
 write('np-wordmark-dark.svg', svg({ ...WD, title: `${TITLE} wordmark, for dark backgrounds`, desc: DESC_WORD }));
 
@@ -107,16 +115,19 @@ for (const w of [1600, 800]) {
   await png(hl, { w, h, pad: Math.round(w * 0.05), bg: hex(P.paper), name: `np-lockup-horizontal-light-${w}.png` });
   await png(hd, { w, h, pad: Math.round(w * 0.05), bg: hex(P.ink), name: `np-lockup-horizontal-dark-${w}.png` });
   await png(hl, { w, h, pad: Math.round(w * 0.05), name: `np-lockup-horizontal-transparent-${w}.png` });
+  await png(files['np-lockup-horizontal-keyline.svg'], { w, h, pad: Math.round(w * 0.05), name: `np-lockup-horizontal-keyline-transparent-${w}.png` });
 }
 const sl = files['np-lockup-stacked.svg'], sd = files['np-lockup-stacked-dark.svg'];
 await png(sl, { w: 1200, h: 1200, pad: 150, bg: hex(P.paper), name: 'np-lockup-stacked-light-1200.png' });
 await png(sd, { w: 1200, h: 1200, pad: 150, bg: hex(P.ink), name: 'np-lockup-stacked-dark-1200.png' });
 await png(sl, { w: 1200, h: 1200, pad: 150, name: 'np-lockup-stacked-transparent-1200.png' });
+await png(files['np-lockup-stacked-keyline.svg'], { w: 1200, h: 1200, pad: 150, name: 'np-lockup-stacked-keyline-transparent-1200.png' });
 await png(files['np-wordmark.svg'], { w: 1600, h: 400, pad: 60, name: 'np-wordmark-transparent-1600.png' });
 
 // ---------- Compact lockup (mark + name, no eyebrow) for narrow placements ----------
 const compact = horizontalPlain(markBody);
 write('np-lockup-compact.svg', svg({ ...compact, title: `${TITLE}`, desc: 'The NP monogram tile beside the name Nathan Payne.' }));
+write('np-lockup-compact-keyline.svg', svg({ ...horizontalPlain(keyMark), title: `${TITLE}, keyline`, desc: 'The NP monogram tile beside the name Nathan Payne.' + DESC_KEYLINE }));
 
 // ---------- Google Workspace organization logo: exactly 320×132, JPEG/PNG/GIF ----------
 // Google displays the whole frame, so the layout is native to 320×132: full-height mark,

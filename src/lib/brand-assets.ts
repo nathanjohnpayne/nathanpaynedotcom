@@ -84,7 +84,7 @@ export const BRAND_FAMILIES: BrandFamily[] = [
     id: 'mark-keyline',
     title: 'Keyline mark',
     description:
-      'The mark framed by an ink keyline the weight of its grid lines, only for cream or near-cream surfaces where the field would otherwise vanish. Not for avatars: a circular crop cuts the frame.',
+      'The mark framed by an ink keyline the weight of its grid lines, only for cream or near-cream surfaces where the field would otherwise vanish. Each lockup has a keyline version for the same surfaces. Not for avatars: a circular crop cuts the frame.',
     preview: {
       file: 'np-mark-keyline.svg',
       width: 72,
@@ -116,7 +116,7 @@ export const BRAND_FAMILIES: BrandFamily[] = [
     id: 'lockup-horizontal',
     title: 'Horizontal lockup',
     description:
-      'The primary lockup: the mark, the name and NATHANPAYNE.COM beneath. Use it at 320px wide or more; below that the domain line stops being readable, so use the compact lockup, then the mark alone. The dark version sets the type in cream for dark backgrounds, and the transparent PNGs suit email signatures, documents and slides.',
+      'The primary lockup: the mark, the name and NATHANPAYNE.COM beneath. Use it at 320px wide or more; below that the domain line stops being readable, so use the compact lockup, then the mark alone. The dark version sets the type in cream for dark backgrounds, and the transparent PNGs suit email signatures, documents and slides. On a cream page, where the mark’s field would vanish, use the keyline version.',
     preview: {
       file: 'np-lockup-horizontal.svg',
       width: 394,
@@ -133,13 +133,16 @@ export const BRAND_FAMILIES: BrandFamily[] = [
       { file: 'np-lockup-horizontal-dark-1600.png', label: 'PNG dark 1600' },
       { file: 'np-lockup-horizontal-transparent-800.png', label: 'PNG transparent 800' },
       { file: 'np-lockup-horizontal-transparent-1600.png', label: 'PNG transparent 1600' },
+      { file: 'np-lockup-horizontal-keyline.svg', label: 'SVG keyline' },
+      { file: 'np-lockup-horizontal-keyline-transparent-800.png', label: 'PNG keyline 800' },
+      { file: 'np-lockup-horizontal-keyline-transparent-1600.png', label: 'PNG keyline 1600' },
     ],
   },
   {
     id: 'lockup-stacked',
     title: 'Stacked lockup',
     description:
-      'The mark above the name and domain, for square and portrait placements: social posts, slide title cards and print.',
+      'The mark above the name and domain, for square and portrait placements: social posts, slide title cards and print. The keyline version is for cream pages.',
     preview: {
       file: 'np-lockup-stacked.svg',
       width: 268,
@@ -153,20 +156,25 @@ export const BRAND_FAMILIES: BrandFamily[] = [
       { file: 'np-lockup-stacked-light-1200.png', label: 'PNG 1200' },
       { file: 'np-lockup-stacked-dark-1200.png', label: 'PNG dark 1200' },
       { file: 'np-lockup-stacked-transparent-1200.png', label: 'PNG transparent 1200' },
+      { file: 'np-lockup-stacked-keyline.svg', label: 'SVG keyline' },
+      { file: 'np-lockup-stacked-keyline-transparent-1200.png', label: 'PNG keyline 1200' },
     ],
   },
   {
     id: 'lockup-compact',
     title: 'Compact lockup',
     description:
-      'The mark and the name, without the domain, for placements between about 160px and 320px wide, where the domain line would be too small to read.',
+      'The mark and the name, without the domain, for placements between about 160px and 320px wide, where the domain line would be too small to read. The keyline version is for cream pages.',
     preview: {
       file: 'np-lockup-compact.svg',
       width: 402,
       height: 70,
       alt: 'The compact lockup: the NP mark beside the name Nathan Payne',
     },
-    files: [{ file: 'np-lockup-compact.svg', label: 'SVG' }],
+    files: [
+      { file: 'np-lockup-compact.svg', label: 'SVG' },
+      { file: 'np-lockup-compact-keyline.svg', label: 'SVG keyline' },
+    ],
   },
   {
     id: 'wordmark',
