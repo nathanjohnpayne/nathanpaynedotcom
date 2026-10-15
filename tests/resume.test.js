@@ -710,9 +710,10 @@ describe('Resume — page structure', () => {
       // actually emitted — an href to a slug that is not in dist is a 404 on
       // the one link the section's introduction promises. A drafted project
       // has no page, so the component omits the link and so does this
-      // expectation. `parseFrontmatter` returns `draft` as the string 'true',
-      // never the boolean, hence the String() comparison.
-      const published = String(project.draft).trim() !== 'true';
+      // expectation. `parseFrontmatter` returns `draft` as a string, never the
+      // boolean, and YAML 1.2 (what Astro's loader reads) also takes `True`
+      // and `TRUE` as true — hence a case-insensitive match on the string.
+      const published = !/^true$/i.test(String(project.draft).trim());
       const caseStudyHref = `/projects/${slug}/`;
       expect(
         existsSync(resolve(DIST, `projects/${slug}/index.html`)),
