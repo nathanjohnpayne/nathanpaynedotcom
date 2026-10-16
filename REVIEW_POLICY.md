@@ -163,7 +163,7 @@ Before moving past Phase 2.5, confirm all of the following:
 
 #### CodeRabbit rate-limit substitution
 
-The [canonical sensing contract](https://github.com/nathanjohnpayne/mergepath/blob/main/specs/coderabbit_review_sensing.md#immediate-codex-substitution-on-rate-limit-refusal-2139) and the installed refusal, probe and failover regression suites cover this substitution.
+The [canonical sensing contract](https://github.com/nathanjohnpayne/mergepath/blob/main/specs/coderabbit_review_sensing.md#immediate-rate-limit-substitution-2139) and the installed refusal, probe and failover regression suites cover this substitution.
 
 > Canonical source: `mergepath/REVIEW_POLICY.md` ([policy](https://github.com/nathanjohnpayne/mergepath/blob/main/REVIEW_POLICY.md)), owner rule [#2139](https://github.com/nathanjohnpayne/mergepath/issues/2139).
 
