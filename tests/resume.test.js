@@ -1988,50 +1988,72 @@ describe('Resume — skim weighting', () => {
   });
 });
 
-// Every project entry is one paragraph of 190–280 characters of rendered text,
-// so each prints at three lines or fewer and the section scans as a list of
-// peers. Before the band, entries ran from 199 to 516 characters and two of
-// them took five printed lines. The canonical résumé owns the wording, so a
-// failure here is fixed by trimming the canonical entry and copying it back
-// verbatim, never by editing this mirror alone (specs/resume.md § Content
-// fidelity).
-describe('Resume — project entry length band', () => {
-  const MIN = 190;
-  const MAX = 280;
-  const dir = join(CONTENT, 'resume/projects');
-  // Rendered text: the one Markdown construct these bodies use is *emphasis*.
-  const renderedLength = (body) => body.replace(/\*/g, '').length;
-  const entries = readdirSync(dir)
-    .filter((f) => f.endsWith('.md'))
-    .map((f) => {
-      const source = readFileSync(join(dir, f), 'utf-8');
-      return { file: f, body: source.replace(/^---\n[\s\S]*?\n---\n/, '').trim() };
-    });
+// Every project entry is one paragraph of 190–280 characters of rendered text
+// (#1397). The band is a proxy for about three printed lines: a character count
+// cannot guarantee a line count in a proportional font, so the measured line
+// counts live in specs/resume.md § Print, not here. Before the band, entries ran
+// from 199 to 516 characters and two of them took five printed lines. The
+// canonical résumé owns the wording, so a failure is fixed by changing the
+// canonical entry and copying it back verbatim, never by editing the mirror
+// alone (specs/resume.md § Content fidelity).
+const PROJECT_ENTRY_BAND = { min: 190, max: 280 };
 
-  it('finds every project entry', () => {
-    expect(entries.length).toBe(countMd('resume/projects'));
-    expect(entries.length).toBeGreaterThan(0);
-  });
-
-  it('keeps each entry to one paragraph', () => {
-    for (const { file, body } of entries) {
-      expect(body, `${file} body`).not.toMatch(/\n/);
+/**
+ * Every project entry on a rendered résumé that breaks the band: anything but
+ * exactly one paragraph in its `.resume-prose`, or rendered text outside
+ * 190–280 characters. Reads the DOM, so markup (a link's URL, emphasis) never
+ * counts and a one-line list or blockquote is caught as a non-paragraph.
+ */
+function projectEntryBandViolations(doc) {
+  const { min, max } = PROJECT_ENTRY_BAND;
+  return [...doc.querySelectorAll('.resume-projects article.resume-entry')].flatMap((entry) => {
+    const title = entry.querySelector('.resume-entry__title')?.textContent?.trim() ?? '(untitled)';
+    const prose = entry.querySelector('.resume-prose');
+    const blocks = prose ? [...prose.children] : [];
+    if (blocks.length !== 1 || blocks[0].tagName !== 'P') {
+      return [
+        {
+          title,
+          problem: `expected one <p>, found ${blocks.map((b) => b.tagName).join(', ') || 'nothing'}`,
+        },
+      ];
     }
+    const length = blocks[0].textContent.trim().length;
+    return length < min || length > max ? [{ title, problem: `${length} characters` }] : [];
   });
+}
 
-  it(`holds each entry between ${MIN} and ${MAX} characters of rendered text`, () => {
-    const outside = entries
-      .map(({ file, body }) => ({ file, length: renderedLength(body) }))
-      .filter(({ length }) => length < MIN || length > MAX);
+describe('Resume — project entry length band', () => {
+  it('holds every rendered project entry to one paragraph of 190–280 characters', () => {
+    const doc = new JSDOM(readFileSync(RESUME_HTML, 'utf-8')).window.document;
+    const entries = doc.querySelectorAll('.resume-projects article.resume-entry');
+    expect(entries.length).toBe(countMd('resume/projects'));
     expect(
-      outside,
-      `outside the ${MIN}–${MAX} band: trim or extend the canonical entry first, then copy it here verbatim and restamp claimsReviewed`,
+      projectEntryBandViolations(doc),
+      `outside the ${PROJECT_ENTRY_BAND.min}–${PROJECT_ENTRY_BAND.max} band: change the canonical entry first, then copy it here verbatim and restamp claimsReviewed`,
     ).toEqual([]);
   });
 
-  it('counts rendered text, not Markdown source', () => {
-    expect(renderedLength('Informed by my investment in the revival of *Proof*.')).toBe(
-      'Informed by my investment in the revival of Proof.'.length,
-    );
+  it('measures rendered text and catches a non-paragraph entry', () => {
+    const entry = (title, prose) =>
+      `<article class="resume-entry"><h3 class="resume-entry__title">${title}</h3><div class="resume-prose">${prose}</div></article>`;
+    const pad = (n) => 'x'.repeat(n);
+    const doc = new JSDOM(
+      `<section class="resume-projects">${[
+        entry('In band', `<p>${pad(200)}</p>`),
+        entry(
+          'Link padded',
+          `<p>${pad(150)} <a href="https://example.com/${pad(80)}">site</a></p>`,
+        ),
+        entry('Too long', `<p>${pad(281)}</p>`),
+        entry('A list', `<ul><li>${pad(200)}</li></ul>`),
+        entry('Emphasis', `<p>${pad(186)} <em>Proof</em></p>`),
+      ].join('')}</section>`,
+    ).window.document;
+    expect(projectEntryBandViolations(doc).map((v) => v.title)).toEqual([
+      'Link padded',
+      'Too long',
+      'A list',
+    ]);
   });
 });
