@@ -5,7 +5,19 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
-    open-pull-requests-limit: 5
+    # Majors open one PR each (mergepath#1802) and can sit open for weeks, while
+    # the minor-and-patch group always takes one slot. At 5, five stalled majors
+    # would leave no slot for the group, the blockage this grouping removes.
+    open-pull-requests-limit: 10
+    groups:
+      # Every other minor and patch update shares one PR. Majors open as
+      # individual PRs (mergepath#1802).
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
     commit-message:
       prefix: "ci"
 
@@ -14,12 +26,32 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
-    open-pull-requests-limit: 5
+    # Majors open one PR each (mergepath#1802) and can sit open for weeks, while
+    # the minor-and-patch group always takes one slot. At 5, five stalled majors
+    # would leave no slot for the group, the blockage this grouping removes.
+    open-pull-requests-limit: 10
     groups:
-      dev-dependencies:
-        dependency-type: "development"
-      production-dependencies:
-        dependency-type: "production"
+      # Peer-coupled family (scripts/ci/dependabot-coupled-families.json,
+      # mergepath#2162). Keep it first so its members move together.
+      eslint-core:
+        patterns:
+          - "eslint"
+          - "@eslint/*"
+      # Peer-coupled family (scripts/ci/dependabot-coupled-families.json,
+      # mergepath#2162). Keep it first so its members move together.
+      typescript-toolchain:
+        patterns:
+          - "typescript"
+          - "typescript-eslint"
+          - "@typescript-eslint/*"
+      # Every other minor and patch update shares one PR. Majors open as
+      # individual PRs (mergepath#1802).
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
     commit-message:
       prefix: "deps"
     # Mirrors the machine-readable pin block in rules/repo_rules.md
