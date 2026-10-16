@@ -432,7 +432,7 @@ icon-library dependency.
   document still lands on three pages, with page 3 a little lighter. The
   three-page target itself is unchanged: #420 established that forcing two
   pages over-compresses this much content.
-- Restoring the canonical pre-2016 bodies and the two-paragraph summary added about eight printed lines and spilled the last project and the Writing lead onto a fourth page. The print-only vertical gaps took a second ~20% cut (horizontal gaps, the bullet gutter, and the type scale are unchanged), which returns the Chromium-generated PDF to three full pages (52/51/50 extracted lines). Page 3 now has no slack: the next addition to the résumé will spill again, and Safari, which fits ~11% less per page, may already print four from the browser. The type size is the next dial, and it is a readability trade rather than a spacing one.
+- Restoring the canonical pre-2016 bodies and the two-paragraph summary added about eight printed lines and spilled the last project and the Writing lead onto a fourth page. The print-only vertical gaps took a second ~20% cut (horizontal gaps, the bullet gutter, and the type scale are unchanged), which returns the Chromium-generated PDF to three full pages (52/51/50 extracted lines). Page 3 now has no slack: the next addition to the résumé will spill again, and Safari, which fits ~11% less per page, may already print four from the browser. The project-entry band (#1397, § Content fidelity) bought back four lines: page 3 extracts at 46 lines on a local Chromium build, against 50 before, with every project entry at three printed lines or fewer. The type size is the next dial, and it is a readability trade rather than a spacing one.
 
 ## Content fidelity
 
@@ -456,6 +456,7 @@ In particular:
 - The summary opens with the 20+-years platform framing and names Disney+, Hulu, and ESPN. #617 cut it to one paragraph of ~55–75 words; the canonical has since grown it to two paragraphs (~90 words), the first carrying the Disney scale and the platform method, the second opening on the AI-augmented development focus. The test holds it under 100 words in exactly two paragraphs.
 - Six experience entries span Disney NCP (2021–2026) back to CNN
   (2002–2012).
+- Each project entry is one paragraph of 190–280 characters of rendered text, so the seven read as peers at about three printed lines each (#1397). The band is a proxy: a character count cannot guarantee a line count in a proportional font, so the measured line counts are recorded under § Print rather than asserted. Before the band they ran from 199 to 516 characters, and Matchline and Five Across each took five printed lines. The canonical was normalized first (Fable's editorial pass, every claim checked against its case study, every audited qualifier kept), and every `job-search/` résumé Markdown file now carries the same seven bodies; the tailored `.docx` and `.pdf` files are the archive of what was sent. `tests/resume.test.js` holds the band on the rendered page: it measures each entry's built `.resume-prose` text, so markup never counts, and requires exactly one paragraph. Since the mirror copies the canonical verbatim, a failure means trimming the canonical entry first and copying it back.
 
 ## Claims review
 
