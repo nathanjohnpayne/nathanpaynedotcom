@@ -5,7 +5,7 @@ url: "https://overridebroadway.com"
 repo: "https://github.com/nathanjohnpayne/overridebroadway"
 order: 3
 claimsReviewed:
-  caseStudy: "698693b95fd21de8d4b2cb4deef56858d14ddda8a4864af6ce9797ceeed780fb"
+  caseStudy: "fe2432245f28a3b27c9413e2eb3a72b55761b042f2b9e8efbc7e35ffc3ab2867"
   resume: "016eeae7ed2995e47dbe035b8ab60a35624547831b343aae278ff4cfd615c317"
   date: "2026-10-15"
 ---
