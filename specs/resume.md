@@ -486,6 +486,8 @@ The entry's id is its project slug, and the case study is the file under `src/co
 
 **The remedy.** When the check fails, the failure message names the side that changed and carries this procedure, so whoever hits it does not need the issue. The order is the same whichever side changed: an edit made directly to the site entry breaks verbatim fidelity, so the remedy starts at the canonical either way.
 
+When the case study changed (or the entry has no stamp), the message first asks for the case study's summary fields to be re-read against its body, and for `/projects/` and `/` to be checked after the deploy. That step is not about the résumé: this check is simply where every case-study edit already fails, so it is the one place sure to reach whoever made the edit. It comes before the stamp because the `caseStudy` hash covers the whole file. The procedure itself is `docs/agents/operating-rules.md` § Changing a Project's Case Study (#1395).
+
 1. Re-read the canonical's entry for the project (`job-search/nathan-payne-resume.md` in `nathanjohnpayne/docs`, checked out at `~/GitHub/docs`) against the case study.
 2. If a claim no longer holds, revise the canonical first. Edit it on disk and let the auto-commit "vault backup" job commit it; a targeted commit would sweep in the owner's unrelated edits in progress. If every claim still holds, the canonical needs no edit.
 3. Copy the canonical entry verbatim into `src/content/resume/projects/<slug>.md`.
