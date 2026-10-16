@@ -5,7 +5,7 @@ tech: ["React", "TypeScript", "Vite", "Tailwind", "Firebase", "Anthropic", "Open
 repo: "https://github.com/nathanjohnpayne/matchline"
 order: 5
 claimsReviewed:
-  caseStudy: "70e46bcfe6476532edcddc8ff2794cb172bd4c05296edaa255027fe39ac2ba74"
+  caseStudy: "e7ac805d9b6cabdb6fd3789ea668be98fdc045669aff3452152650b6ca6aac94"
   resume: "587bd75543cfb9bcfa358cca8d3ff978e176faa80ca0c2105f22a843cb5c2c8e"
   date: "2026-10-15"
 ---
