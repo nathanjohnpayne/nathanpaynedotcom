@@ -163,6 +163,8 @@ Before moving past Phase 2.5, confirm all of the following:
 
 #### CodeRabbit rate-limit substitution
 
+The [canonical sensing contract](https://github.com/nathanjohnpayne/mergepath/blob/main/specs/coderabbit_review_sensing.md#immediate-codex-substitution-on-rate-limit-refusal-2139) and the installed refusal, probe and failover regression suites cover this substitution.
+
 > Canonical source: `mergepath/REVIEW_POLICY.md` ([policy](https://github.com/nathanjohnpayne/mergepath/blob/main/REVIEW_POLICY.md)), owner rule [#2139](https://github.com/nathanjohnpayne/mergepath/issues/2139).
 
 On a published CodeRabbit rate-limit refusal or trusted current-head `Review rate limited` status, request Codex immediately through `scripts/codex-review-request.sh --trigger-only` with `MERGEPATH_PHASE_4A_GATED=true`. Never sleep out the CodeRabbit window or post a CodeRabbit retry. The requester remains subject to the governing request and blocking-review budgets. Read the waiter's JSON disposition: `proceed_on_codex_clearance` confirms a request, not clearance; `human_attention_required` requires alerting the human.
