@@ -141,7 +141,7 @@ function staleClaimsReviewMessage({
   const summaryStep =
     !verdict.recorded || verdict.caseStudyChanged
       ? [
-          `  First, because the case study changed, re-read its summary fields against its body and fix any that keep a frame the body dropped: description (the page hero), cardDescription (the /projects/ card and the homepage Projects panel), seoDescription (the meta description and the /projects/ structured data) and ogDescription (the share card). After the deploy, check /projects/ and / as well as the project page. See docs/agents/operating-rules.md § Changing a Project's Case Study.`,
+          `  First, because the case study changed, re-read its summary fields against its body and fix any that keep a frame the body dropped: description (the page hero), cardDescription (the /projects/ card and the homepage Projects panel), seoDescription (the meta description and the structured data on the page and on /projects/) and ogDescription (og:description, twitter:description and the share card). After the deploy, check /projects/ and / as well as the project page. See docs/agents/operating-rules.md § Changing a Project's Case Study.`,
         ]
       : [];
   return [
