@@ -432,7 +432,7 @@ icon-library dependency.
   document still lands on three pages, with page 3 a little lighter. The
   three-page target itself is unchanged: #420 established that forcing two
   pages over-compresses this much content.
-- Restoring the canonical pre-2016 bodies and the two-paragraph summary added about eight printed lines and spilled the last project and the Writing lead onto a fourth page. The print-only vertical gaps took a second ~20% cut (horizontal gaps, the bullet gutter, and the type scale are unchanged), which returns the Chromium-generated PDF to three full pages (52/51/50 extracted lines). Page 3 now has no slack: the next addition to the résumé will spill again, and Safari, which fits ~11% less per page, may already print four from the browser. The type size is the next dial, and it is a readability trade rather than a spacing one.
+- Restoring the canonical pre-2016 bodies and the two-paragraph summary added about eight printed lines and spilled the last project and the Writing lead onto a fourth page. The print-only vertical gaps took a second ~20% cut (horizontal gaps, the bullet gutter, and the type scale are unchanged), which returns the Chromium-generated PDF to three full pages (52/51/50 extracted lines). Page 3 now has no slack: the next addition to the résumé will spill again, and Safari, which fits ~11% less per page, may already print four from the browser. The project-entry band (#1397, § Content fidelity) bought back four lines: page 3 extracts at 46 lines on a local Chromium build, against 50 before, with every project entry at three printed lines or fewer. The type size is the next dial, and it is a readability trade rather than a spacing one.
 
 ## Content fidelity
 
