@@ -132,9 +132,22 @@ function staleClaimsReviewMessage({
   const headline = verdict.recorded
     ? `${entryPath}: claims review is stale—${side} since the last review on ${stamp.date}.`
     : `${entryPath}: no claims review is recorded—this entry has no claimsReviewed stamp against ${caseStudyPath}.`;
+  // A case-study edit can reframe the project without touching a claim the
+  // résumé carries, and the page's summary fields keep the old frame unless
+  // someone re-reads them. Two of them render only on other pages, so a read
+  // of the edited page never shows them (#1395: the Matchline card kept "My
+  // final session fixed the ruler" after #1392 rewrote the lesson). Put the
+  // step before the stamp, which hashes the whole file.
+  const summaryStep =
+    !verdict.recorded || verdict.caseStudyChanged
+      ? [
+          `  First, because the case study changed, re-read its summary fields against its body and fix any that keep a frame the body dropped: description (the page hero), cardDescription (the /projects/ card and the homepage Projects panel), seoDescription (the meta description and the structured data on the page and on /projects/) and ogDescription (og:description, twitter:description and the share card). After the deploy, check /projects/ and / as well as the project page. See docs/agents/operating-rules.md § Changing a Project's Case Study.`,
+        ]
+      : [];
   return [
     headline,
     'A passing stamp means a person compared the two since either side last changed. It does not prove they agree.',
+    ...summaryStep,
     `  1. Re-read the canonical résumé's "${name}" entry (${CANONICAL}, checked out at ~/GitHub/docs) against ${caseStudyPath}. The project page is the source of truth for claims; the canonical is the source of truth for wording.`,
     '  2. If a claim no longer holds, revise the canonical first: edit it on disk in ~/GitHub/docs and let the vault backup commit it, since a targeted commit would sweep in unrelated edits in progress. If every claim still holds, the canonical needs no edit.',
     `  3. Copy the canonical entry verbatim into ${entryPath}. Never edit the site entry alone: that breaks verbatim fidelity with the canonical.`,
@@ -389,6 +402,54 @@ describe('Résumé claims review — the verdict and its message', () => {
         '  date: "2026-10-08"',
       ].join('\n'),
     );
+  });
+
+  it('asks for the summary fields only when the case study changed, before the stamp', () => {
+    // #1395: a body rewrite left the card line on the old frame, and the card
+    // renders only on /projects/ and the homepage. The step names every
+    // summary field and where it renders, and comes before the restamp because
+    // editing a summary field changes the case-study hash.
+    const summaryStep = '  First, because the case study changed, re-read its summary fields';
+    const fields = ['description', 'cardDescription', 'seoDescription', 'ogDescription'];
+    const firstStep = `  1. Re-read the canonical résumé's "Example—A Project" entry`;
+
+    for (const current of [
+      { caseStudy: 'c'.repeat(64), resume: stamp.resume },
+      { caseStudy: 'c'.repeat(64), resume: 'd'.repeat(64) },
+    ]) {
+      const message = staleClaimsReviewMessage({
+        ...base,
+        verdict: claimsReviewVerdict(stamp, current),
+        current,
+      });
+      const at = message.indexOf(summaryStep);
+      expect(at, `missing the summary-field step:\n${message}`).toBeGreaterThan(-1);
+      expect(at).toBeLessThan(message.indexOf(firstStep));
+      const step = message.slice(at, message.indexOf('\n', at));
+      for (const field of fields) expect(step).toContain(field);
+      expect(step).toContain('/projects/ and /');
+      expect(step).toContain("§ Changing a Project's Case Study");
+    }
+
+    const unstamped = { caseStudy: 'c'.repeat(64), resume: 'd'.repeat(64) };
+    expect(
+      staleClaimsReviewMessage({
+        ...base,
+        stamp: undefined,
+        verdict: claimsReviewVerdict(undefined, unstamped),
+        current: unstamped,
+      }),
+    ).toContain(summaryStep);
+
+    const resumeOnly = { caseStudy: stamp.caseStudy, resume: 'd'.repeat(64) };
+    expect(
+      staleClaimsReviewMessage({
+        ...base,
+        verdict: claimsReviewVerdict(stamp, resumeOnly),
+        current: resumeOnly,
+      }),
+      'a résumé-only edit leaves the case study untouched',
+    ).not.toContain(summaryStep);
   });
 
   it('treats a missing stamp as never reviewed', () => {
