@@ -456,6 +456,7 @@ In particular:
 - The summary opens with the 20+-years platform framing and names Disney+, Hulu, and ESPN. #617 cut it to one paragraph of ~55–75 words; the canonical has since grown it to two paragraphs (~90 words), the first carrying the Disney scale and the platform method, the second opening on the AI-augmented development focus. The test holds it under 100 words in exactly two paragraphs.
 - Six experience entries span Disney NCP (2021–2026) back to CNN
   (2002–2012).
+- Each project entry is one paragraph of 190–280 characters of rendered text, so it prints at three lines or fewer and the seven read as peers (#1397). Before the band they ran from 199 to 516 characters, and Matchline and Five Across each took five printed lines. The canonical was normalized first (Fable's editorial pass, every claim checked against its case study, every audited qualifier kept), and every `job-search/` résumé Markdown file now carries the same seven bodies; the tailored `.docx` and `.pdf` files are the archive of what was sent. `tests/resume.test.js` holds the band on the mirror. Since the mirror copies the canonical verbatim, a failure means trimming the canonical entry first and copying it back.
 
 ## Claims review
 

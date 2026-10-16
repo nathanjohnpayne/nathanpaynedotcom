@@ -1987,3 +1987,51 @@ describe('Resume — skim weighting', () => {
     expect(document.querySelector('.resume-experience').textContent).toContain('Magic Wall');
   });
 });
+
+// Every project entry is one paragraph of 190–280 characters of rendered text,
+// so each prints at three lines or fewer and the section scans as a list of
+// peers. Before the band, entries ran from 199 to 516 characters and two of
+// them took five printed lines. The canonical résumé owns the wording, so a
+// failure here is fixed by trimming the canonical entry and copying it back
+// verbatim, never by editing this mirror alone (specs/resume.md § Content
+// fidelity).
+describe('Resume — project entry length band', () => {
+  const MIN = 190;
+  const MAX = 280;
+  const dir = join(CONTENT, 'resume/projects');
+  // Rendered text: the one Markdown construct these bodies use is *emphasis*.
+  const renderedLength = (body) => body.replace(/\*/g, '').length;
+  const entries = readdirSync(dir)
+    .filter((f) => f.endsWith('.md'))
+    .map((f) => {
+      const source = readFileSync(join(dir, f), 'utf-8');
+      return { file: f, body: source.replace(/^---\n[\s\S]*?\n---\n/, '').trim() };
+    });
+
+  it('finds every project entry', () => {
+    expect(entries.length).toBe(countMd('resume/projects'));
+    expect(entries.length).toBeGreaterThan(0);
+  });
+
+  it('keeps each entry to one paragraph', () => {
+    for (const { file, body } of entries) {
+      expect(body, `${file} body`).not.toMatch(/\n/);
+    }
+  });
+
+  it(`holds each entry between ${MIN} and ${MAX} characters of rendered text`, () => {
+    const outside = entries
+      .map(({ file, body }) => ({ file, length: renderedLength(body) }))
+      .filter(({ length }) => length < MIN || length > MAX);
+    expect(
+      outside,
+      `outside the ${MIN}–${MAX} band: trim or extend the canonical entry first, then copy it here verbatim and restamp claimsReviewed`,
+    ).toEqual([]);
+  });
+
+  it('counts rendered text, not Markdown source', () => {
+    expect(renderedLength('Informed by my investment in the revival of *Proof*.')).toBe(
+      'Informed by my investment in the revival of Proof.'.length,
+    );
+  });
+});
