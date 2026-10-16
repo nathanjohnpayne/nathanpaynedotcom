@@ -1405,6 +1405,54 @@ describe('Projects index — portfolio thesis (#751)', () => {
     expect(longest / shortest, 'one card is dominating the grid by copy volume').toBeLessThan(1.6);
   });
 
+  // #1399. A card line is a teaser, but a teaser that never says what the
+  // project is cannot interest a reader who doesn't already know it: three of
+  // seven cards were all hook and no subject. Each card's first sentence must
+  // name the project with the phrase pinned here. Meaning can't be checked,
+  // but this catches the failure that shipped, a rewrite that drops the
+  // subject. Adding a project means adding its phrase (operating-rules.md
+  // § Adding a Project).
+  const cardSubjects = {
+    'five-across': 'multiplayer bingo',
+    mergepath: 'code-review standard for AI coding agents',
+    override: 'Broadway deal model',
+    'device-source-of-truth': 'device registry',
+    matchline: 'career CRM',
+    'swipe-watch': 'swipe prototype',
+    'friends-and-family-billing': 'shared billing',
+  };
+  // Up to the first sentence break; a colon stays inside the sentence.
+  const firstSentence = (line) => line.split(/(?<=[.!?])\s/)[0];
+
+  it('opens every card line by naming what the project is', () => {
+    const published = projectSourceFiles()
+      .map((file) => readProjectFrontmatter(file))
+      .filter((data) => data.draft !== true);
+    expect(
+      published.map((data) => data.slug).sort(),
+      'every published project needs a cardSubjects phrase, and no phrase may outlive its project',
+    ).toEqual(Object.keys(cardSubjects).sort());
+    for (const data of published) {
+      const opener = firstSentence(cardLine(data));
+      expect(
+        opener.toLowerCase(),
+        `${data.slug} card line must name the project before its hook`,
+      ).toContain(cardSubjects[data.slug].toLowerCase());
+    }
+  });
+
+  it('reads the subject from the first sentence only', () => {
+    expect(
+      firstSentence(
+        'A device registry I built at Disney: five feeds, one schema. AI drafted the rest.',
+      ),
+    ).toBe('A device registry I built at Disney: five feeds, one schema.');
+    // The failure #1399 fixed: the subject arrives only in the second sentence.
+    expect(firstSentence('Five feeds, one registry. I built it at Disney.')).not.toContain(
+      'device registry',
+    );
+  });
+
   it('does not let a card contradict the status it renders beside', () => {
     // AC6. Status honesty: a paused or archived project must not read as if it
     // is running. Cheap directional check — these verbs assert live operation.
