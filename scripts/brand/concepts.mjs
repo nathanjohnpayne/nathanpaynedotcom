@@ -30,7 +30,9 @@ export function markComposition({ withText = true, fieldFill = P.cream, textFill
 
 /** B. Seal — the red plane carries the monogram; a structural strip of yellow/blue at right. */
 export function markSeal({ withText = true, mono = false } = {}) {
-  const c = mono ? monoPalette() : P;
+  // The seal's red plane is the whole field under a cream monogram, so in one color it stays ink: the
+  // composition's red tint would leave the monogram at under 3:1.
+  const c = mono ? { ...monoPalette(), red: P.ink } : P;
   const out = [];
   out.push(rect(0, 0, 64, 64, c.red));
   out.push(rect(54, 0, 10, 30, c.yellow));
@@ -71,8 +73,10 @@ export function markRule({ withText = true, fieldFill = P.cream, textFill = P.in
 }
 
 function monoPalette() {
-  // One hue, tints by plane luminance: red/black → ink, blue → 72%, yellow → 26%.
-  return { red: P.ink, ink: P.ink, charcoal: '#3b3935', line: P.ink, blue: '#5b5955', yellow: '#cfcbc0', cream: P.cream };
+  // One hue: tints on the ink→cream line, so the grid lines stay pure ink and every plane is its own grey.
+  // The three color planes keep their luminance order and sit at even steps (L* yellow 82, red 60, blue 38),
+  // because mono cannot carry red's weight as saturation; red as ink merged with the grid line beside it.
+  return { red: '#939087', ink: P.ink, charcoal: '#3b3935', line: P.ink, blue: '#5b5955', yellow: '#cfcbc0', cream: P.cream };
 }
 
 // ---------- Lockups ----------
@@ -192,6 +196,6 @@ export const DIRECTIONS = {
 };
 
 export function iconSvg(body, { title, desc, size = 64 }) {
-  return svg({ w: size, h: size, vb: '0 0 64 64', body, title, desc });
+  return svg({ w: size, h: size, vb: `0 0 ${size} ${size}`, body, title, desc });
 }
 export { svg };

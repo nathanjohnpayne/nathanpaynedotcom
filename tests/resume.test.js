@@ -705,13 +705,23 @@ describe('Resume — page structure', () => {
       const liveHref = frontmatterUrl(project.liveUrl);
       const repoHref = frontmatterUrl(project.githubUrl);
       const expected = [liveHref, repoHref].filter(Boolean);
+      // The case study leads the row, and it has to be a page the build
+      // actually emitted — an href to a slug that is not in dist is a 404 on
+      // the one link the section's introduction promises. A drafted project
+      // has no such page, which is why ProjectsSection fails the build for a
+      // résumé entry naming one rather than leaving it to this check.
+      const caseStudyHref = `/projects/${slug}/`;
+      expect(
+        existsSync(resolve(DIST, `projects/${slug}/index.html`)),
+        `${name} links a case study the build did not emit: ${caseStudyHref}`,
+      ).toBe(true);
 
       const anchors = [...entry.querySelectorAll('.resume-entry__link a')];
       expect(
         anchors.map((a) => a.getAttribute('href')),
-        `${name} does not expose exactly its canonical destinations, in order — ` +
+        `${name} does not expose its case study and exactly its canonical destinations, in order — ` +
           `a canonical liveUrl or githubUrl missing from the résumé fails here`,
-      ).toEqual(expected);
+      ).toEqual([caseStudyHref, ...expected]);
 
       // And the résumé's own frontmatter must carry the same addresses, so the
       // two collections cannot drift behind an identical render.
@@ -751,15 +761,31 @@ describe('Resume — page structure', () => {
       // while href equality mapped both anchors to the live word and failed the
       // second (#948).
       expect(
-        anchors.map((a) => a.textContent.replace(/[↗\s]+/g, ' ').trim()),
-        `${name} should label its destinations ${liveWord ?? '(none)'} / GitHub`,
-      ).toEqual([...(liveHref ? [liveWord] : []), ...(repoHref ? ['GitHub'] : [])]);
+        anchors.map((a) => a.textContent.replace(/[↗→\s]+/g, ' ').trim()),
+        `${name} should label its destinations Case study / ${liveWord ?? '(none)'} / GitHub`,
+      ).toEqual(['Case study', ...(liveHref ? [liveWord] : []), ...(repoHref ? ['GitHub'] : [])]);
 
-      for (const a of anchors) {
+      // The case study stays on the site: internal arrow, current tab. The
+      // others leave it: external arrow, new tab. The arrow is what tells a
+      // reader which is which before they click, so it is pinned per link.
+      const [caseStudy, ...external] = anchors;
+      expect(
+        caseStudy.getAttribute('target'),
+        `${name} case study should open in place`,
+      ).toBeNull();
+      expect(caseStudy.textContent, `${name} case study should carry the internal →`).toContain(
+        '→',
+      );
+      expect(caseStudy.textContent, `${name} case study should not carry ↗`).not.toContain('↗');
+      for (const a of external) {
         expect(a.getAttribute('target'), `${name} link should open in a new tab`).toBe('_blank');
         expect(a.getAttribute('rel'), `${name} link missing rel=noopener`).toBe('noopener');
-        // Seven rows all read "Live · GitHub", so the label alone is not a
-        // name; the accessible name has to say which project it belongs to.
+        expect(a.textContent, `${name} external link should carry ↗`).toContain('↗');
+      }
+      for (const a of anchors) {
+        // Seven rows all read "Case study · Live · GitHub", so the label alone
+        // is not a name; the accessible name has to say which project it
+        // belongs to.
         expect(a.getAttribute('aria-label'), `${name} link missing an accessible name`).toContain(
           name,
         );
@@ -773,10 +799,8 @@ describe('Resume — page structure', () => {
       withLive,
       'no canonical project declares a liveUrl — the live-label branch never ran',
     ).toBeGreaterThan(0);
-    const withBoth = entries.filter(
-      (e) => e.querySelectorAll('.resume-entry__link a').length === 2,
-    );
-    expect(withBoth.length, 'no project renders two destinations').toBeGreaterThan(0);
+    const withAll = entries.filter((e) => e.querySelectorAll('.resume-entry__link a').length === 3);
+    expect(withAll.length, 'no project renders all three destinations').toBeGreaterThan(0);
   });
 
   it('describes NCPv3 as a proposed runtime whose goal was retiring the Rust app', () => {
@@ -1230,7 +1254,7 @@ describe('Resume — downloadable PDF', () => {
 
   it('hides the project destination row in print, and keeps the routes that survive', () => {
     // #947. A destination row is only useful where it can be followed. On
-    // paper "Live ↗ · GitHub ↗" says nothing without its URLs, and printing
+    // paper "Case study → · Live ↗ · GitHub ↗" says nothing without its URLs, and printing
     // fourteen full URLs to fix that cost ~10 lines and a fourth page — so the
     // row is hidden outright, the way the essay list already was, and every
     // project stays reachable through the section lead instead.
@@ -1961,5 +1985,75 @@ describe('Resume — skim weighting', () => {
 
   it('keeps the CNN Magic Wall on the page', () => {
     expect(document.querySelector('.resume-experience').textContent).toContain('Magic Wall');
+  });
+});
+
+// Every project entry is one paragraph of 190–280 characters of rendered text
+// (#1397). The band is a proxy for about three printed lines: a character count
+// cannot guarantee a line count in a proportional font, so the measured line
+// counts live in specs/resume.md § Print, not here. Before the band, entries ran
+// from 199 to 516 characters and two of them took five printed lines. The
+// canonical résumé owns the wording, so a failure is fixed by changing the
+// canonical entry and copying it back verbatim, never by editing the mirror
+// alone (specs/resume.md § Content fidelity).
+const PROJECT_ENTRY_BAND = { min: 190, max: 280 };
+
+/**
+ * Every project entry on a rendered résumé that breaks the band: anything but
+ * exactly one paragraph in its `.resume-prose`, or rendered text outside
+ * 190–280 characters. Reads the DOM, so markup (a link's URL, emphasis) never
+ * counts and a one-line list or blockquote is caught as a non-paragraph.
+ */
+function projectEntryBandViolations(doc) {
+  const { min, max } = PROJECT_ENTRY_BAND;
+  return [...doc.querySelectorAll('.resume-projects article.resume-entry')].flatMap((entry) => {
+    const title = entry.querySelector('.resume-entry__title')?.textContent?.trim() ?? '(untitled)';
+    const prose = entry.querySelector('.resume-prose');
+    const blocks = prose ? [...prose.children] : [];
+    if (blocks.length !== 1 || blocks[0].tagName !== 'P') {
+      return [
+        {
+          title,
+          problem: `expected one <p>, found ${blocks.map((b) => b.tagName).join(', ') || 'nothing'}`,
+        },
+      ];
+    }
+    const length = blocks[0].textContent.trim().length;
+    return length < min || length > max ? [{ title, problem: `${length} characters` }] : [];
+  });
+}
+
+describe('Resume — project entry length band', () => {
+  it('holds every rendered project entry to one paragraph of 190–280 characters', () => {
+    const doc = new JSDOM(readFileSync(RESUME_HTML, 'utf-8')).window.document;
+    const entries = doc.querySelectorAll('.resume-projects article.resume-entry');
+    expect(entries.length).toBe(countMd('resume/projects'));
+    expect(
+      projectEntryBandViolations(doc),
+      `outside the ${PROJECT_ENTRY_BAND.min}–${PROJECT_ENTRY_BAND.max} band: change the canonical entry first, then copy it here verbatim and restamp claimsReviewed`,
+    ).toEqual([]);
+  });
+
+  it('measures rendered text and catches a non-paragraph entry', () => {
+    const entry = (title, prose) =>
+      `<article class="resume-entry"><h3 class="resume-entry__title">${title}</h3><div class="resume-prose">${prose}</div></article>`;
+    const pad = (n) => 'x'.repeat(n);
+    const doc = new JSDOM(
+      `<section class="resume-projects">${[
+        entry('In band', `<p>${pad(200)}</p>`),
+        entry(
+          'Link padded',
+          `<p>${pad(150)} <a href="https://example.com/${pad(80)}">site</a></p>`,
+        ),
+        entry('Too long', `<p>${pad(281)}</p>`),
+        entry('A list', `<ul><li>${pad(200)}</li></ul>`),
+        entry('Emphasis', `<p>${pad(186)} <em>Proof</em></p>`),
+      ].join('')}</section>`,
+    ).window.document;
+    expect(projectEntryBandViolations(doc).map((v) => v.title)).toEqual([
+      'Link padded',
+      'Too long',
+      'A list',
+    ]);
   });
 });

@@ -156,15 +156,17 @@
       return;
     }
     localChange = false;
-    sync();
-    // The control that had focus leaves with the notice. A keyboard or
+    // The control that had focus leaves with the notice, so focus moves before
+    // sync() hides it: a hidden button is no longer focusable, and blur() on
+    // it does nothing (HTML unfocusing steps). A keyboard or
     // assistive-technology user lands on the visible announcement instead of
     // the document. After a real pointer click nobody is navigating by focus,
     // so it is released, and the line is not held open by it.
-    if (hadFocus && notice.hidden) {
+    if (hadFocus && !privacy.notice.shouldShow()) {
       if (!byPointer) status.focus();
       else if (d.activeElement && d.activeElement.blur) d.activeElement.blur();
     }
+    sync();
   }
 
   notice.addEventListener('click', function (event) {

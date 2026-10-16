@@ -2,7 +2,9 @@
 
 The logo system lives in `public/images/brand/` and is served at `https://nathanpayne.com/images/brand/<file>`. It is built from the homepage's own composition: the cream field, the 9px ink grid line, and the 1930-register planes (`--red #da2418`, `--yellow #f0c800`, `--blue #0a5c9e`, `--ink #11100d`, `--cream #f5f0e4`). The name is set in Cormorant Garamond 600 and the domain in Inter 500 small capitals, matching the site's heading and eyebrow styles. Every SVG master has its type outlined to paths, so nothing depends on an installed font.
 
-This document is the usage guide. The site itself switched to the mark in #1110:
+This document is the usage guide. The public download page is [`/brand/`](https://nathanpayne.com/brand/) (`src/pages/brand.astro`, specs/brand-page.md): it lists every file in this folder by family, with a condensed version of the notes below. When you add, rename or drop a file, update `BRAND_FAMILIES` in `src/lib/brand-assets.ts` in the same change; `tests/brand.test.js` fails until the list and the folder agree.
+
+The site itself switched to the mark in #1110:
 
 - **Favicons keep their stable root paths** because browsers, bookmarks, and feed readers have them cached. `public/favicon.svg`, `public/favicon-32x32.png`, `public/apple-touch-icon.png`, and `public/favicon.ico` are byte-for-byte copies of `np-mark.svg`, `np-mark-32.png`, `np-mark-180.png`, and `np-favicon.ico`. After regenerating the brand folder, copy them again; `tests/site-icons.test.js` fails until you do.
 - **The 16px tile rule is enforced by the ICO.** `BaseLayout.astro` links the `.ico`, the 32px PNG, and the Apple touch icon, and deliberately does not link `favicon.svg`: a browser that takes an SVG favicon would draw it, monogram included, at 16px. The SVG stays at its root path so direct fetches get the new mark.
@@ -20,7 +22,7 @@ Three variants exist for specific jobs:
 | File | Use |
 |------|-----|
 | `np-mark-tile.svg` | Below 24px (the 16px favicon). The monogram is dropped; the composition alone carries recognition. Never show this at a size where the monogram would be legible. |
-| `np-mark-keyline.svg` | Only on cream or near-cream surfaces where the field would otherwise vanish. A 2-unit ink keyline frames the tile. Do not use it for avatars; the circle crop cuts the frame. |
+| `np-mark-keyline.svg` | Only on cream or near-cream surfaces where the field would otherwise vanish. A 4-unit ink keyline, the same weight as the mark's interior grid lines, frames the tile from outside, the way the homepage's outer frame is the same line as its gridlines; the tile inside is unchanged, so the file is 72×72 units rather than 64. Do not use it for avatars; the circle crop cuts the frame. |
 | `np-mark-mono.svg` | One-color reproduction (print, engraving, grayscale UI). The planes become tints of the ink. |
 
 ## Lockups
@@ -33,6 +35,7 @@ Three variants exist for specific jobs:
 | `np-lockup-stacked.svg`, `-dark.svg`, `-mono.svg` | Stacked lockup for square and portrait placements (social posts, slide title cards, print). |
 | `np-wordmark.svg`, `np-wordmark-dark.svg` | Name and domain without the mark, for places where the mark already appears nearby. |
 | `np-lockup-compact.svg` | Mark and name only, name centered on the mark, for narrow placements where the eyebrow would be tiny. |
+| `np-lockup-horizontal-keyline.svg`, `np-lockup-stacked-keyline.svg`, `np-lockup-compact-keyline.svg` | Keyline versions of the three lockups, for cream or near-cream pages where the mark's field would vanish. The framed mark (`np-mark-keyline.svg`) is fitted into each lockup's mark slot, so the lockups keep their size and the type aligns to the frame's outer edge. Transparent PNGs: `np-lockup-horizontal-keyline-transparent-800.png` and `-1600.png`, `np-lockup-stacked-keyline-transparent-1200.png`. |
 | `np-google-workspace-lockup.svg` | The 320×132 Google Workspace frame itself: full-height mark on the left, the name on two lines beside it. Only for that frame. |
 
 Clear space around any lockup is the width of the red plane (one quarter of the mark's height). Do not recolor the planes, add gradients or shadows, rotate the mark, or set the name in another typeface. The one exception is the site itself: on site surfaces the mark follows the page register via the palette tokens, so it reads 1921 on interior pages; the exported files stay 1930.
@@ -48,7 +51,7 @@ Clear space around any lockup is the width of the red plane (one quarter of the 
 | Apple touch icon | `np-apple-touch-icon-180.png` | iOS rounds the corners itself; the file is square. Byte-identical to `np-mark-180.png`, which is the file the site's copy is checked against. |
 | PWA / Android icons | `np-mark-192.png`, `np-mark-512.png` | Linked in place from `public/site.webmanifest`. |
 | Account avatars (GitHub, LinkedIn, X, Bluesky, Slack, Threads) | `np-google-profile-720.png` or `np-mark-1024.png` | Square source; every platform crops to its own shape. |
-| Email signature, documents, slides | `np-lockup-horizontal-transparent-800.png` or `-1600.png` | Transparent PNG; `-light-` and `-dark-` versions have the background baked in. |
+| Email signature, documents, slides | `np-lockup-horizontal-transparent-800.png` or `-1600.png` | Transparent PNG; `-light-` and `-dark-` versions have the background baked in. On a cream page, use `np-lockup-horizontal-keyline-transparent-800.png` or `-1600.png`. |
 | Social post card | `np-social-1200x630.png` | Logo-only landscape card. This is not the site's Open Graph image; the built `/og/**` cards keep that role and carry the mark themselves. |
 | Square social image | `np-social-square-1080.png` | Stacked lockup on white. |
 

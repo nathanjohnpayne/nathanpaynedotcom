@@ -3,3 +3,4 @@ test_globs: ["tests/**/*.test.*", "tests/**/*.spec.*"]
 generated_dirs: []
 spec_test_map:
   book-page: tests/book.test.js
+  brand-page: tests/brand.test.js

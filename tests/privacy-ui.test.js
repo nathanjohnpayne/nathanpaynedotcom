@@ -803,11 +803,18 @@ describe('/privacy/ page and footer link (PRIV-11, PRIV-15)', () => {
     for (const consumer of ['components/Footer.astro', 'pages/index.astro', 'pages/404.astro']) {
       const src = read(`src/${consumer}`);
       expect(src, consumer).toContain('privacy/ui/PrivacyLink.astro');
-      expect(src, consumer).toMatch(/<PrivacyLink class="(nav-button|ribbon-exit)"/);
+      expect(src, consumer).toMatch(
+        /<PrivacyLink class="(nav-button|availability-privacy p-link)"/,
+      );
     }
-    // The homepage wraps the link in a ribbon row, which must be gated too.
-    expect(read('src/pages/index.astro')).toMatch(
-      /\{privacyEnabled && \(\s*<div class="ribbon-row privacy-ribbon">/,
+    // The homepage puts the link at the end of the Connect contact line. The
+    // separator before it closes the Résumé item and must be gated too.
+    const home = read('src/pages/index.astro');
+    expect(home).toMatch(
+      /Résumé<span class="link-arrow"[^>]*>→<\/span><\/a>\{privacyEnabled && '\\u00a0·'\}/,
+    );
+    expect(home).toMatch(
+      /\{privacyEnabled && \(\s*<>\s*\{' '\}\s*<span class="availability-item"><PrivacyLink class="availability-privacy p-link"/,
     );
     // No page links /privacy/ on its own: the link exists only through the
     // component, the notice, and the #1226 test fixture.
