@@ -5,7 +5,7 @@ url: "https://fiveacross.app"
 repo: "https://github.com/nathanjohnpayne/fiveacross"
 order: 1
 claimsReviewed:
-  caseStudy: "bd50eaf9df0a1a21994b48b7110445759266d6943af7309b348a717afb7c6e09"
+  caseStudy: "b7647dcebd6d4d5acca8b0ffe056b3d094a442f07fa994378bd1da7af807ab15"
   resume: "a3fa86e6137e65d5f8eee2329192777b32ea1c87c952bedb51164cb007cd1057"
   date: "2026-10-15"
 ---

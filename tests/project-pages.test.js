@@ -1405,6 +1405,60 @@ describe('Projects index — portfolio thesis (#751)', () => {
     expect(longest / shortest, 'one card is dominating the grid by copy volume').toBeLessThan(1.6);
   });
 
+  // #1399. A card line is a teaser, but a teaser that never says what the
+  // project is cannot interest a reader who doesn't already know it: three of
+  // seven cards were all hook and no subject. Each card must open with the
+  // phrase pinned here, after at most a leading article, so the subject comes
+  // before the hook. Meaning can't be checked, but this catches the failure
+  // that shipped, a rewrite that leads with the hook. Adding a project means
+  // adding its phrase (operating-rules.md § Adding a Project).
+  const cardSubjects = {
+    'five-across': 'multiplayer bingo',
+    mergepath: 'code-review standard for AI coding agents',
+    override: 'Broadway deal model',
+    'device-source-of-truth': 'device registry',
+    matchline: 'career CRM',
+    'swipe-watch': 'swipe prototype',
+    'friends-and-family-billing': 'shared billing',
+  };
+  const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const opensWithSubject = (line, subject) =>
+    new RegExp(`^(?:(?:a|an|the)\\s+)?${escapeRegExp(subject)}\\b`, 'i').test(line.trim());
+
+  it('opens every card line by naming what the project is', () => {
+    const published = projectSourceFiles()
+      .map((file) => readProjectFrontmatter(file))
+      .filter((data) => data.draft !== true);
+    expect(
+      published.map((data) => data.slug).sort(),
+      'every published project needs a cardSubjects phrase, and no phrase may outlive its project',
+    ).toEqual(Object.keys(cardSubjects).sort());
+    for (const data of published) {
+      expect(
+        opensWithSubject(cardLine(data), cardSubjects[data.slug]),
+        `${data.slug} card line must open with "${cardSubjects[data.slug]}" before its hook: ${cardLine(data)}`,
+      ).toBe(true);
+    }
+  });
+
+  it('accepts the subject only at the start, after at most an article', () => {
+    const subject = 'device registry';
+    expect(opensWithSubject('A device registry I built at Disney: five feeds.', subject)).toBe(
+      true,
+    );
+    expect(opensWithSubject('Device registry for partner hardware.', subject)).toBe(true);
+    // The failure #1399 fixed: the hook leads and the subject comes later,
+    // whether in the second sentence or later in the first.
+    expect(
+      opensWithSubject('Five feeds, one registry. A device registry at Disney.', subject),
+    ).toBe(false);
+    expect(opensWithSubject('At Disney, I built a device registry from five feeds.', subject)).toBe(
+      false,
+    );
+    // A longer word that merely starts with the phrase is not the phrase.
+    expect(opensWithSubject('Shared billings for nine.', 'shared billing')).toBe(false);
+  });
+
   it('does not let a card contradict the status it renders beside', () => {
     // AC6. Status honesty: a paused or archived project must not read as if it
     // is running. Cheap directional check — these verbs assert live operation.
