@@ -26,6 +26,8 @@ This repository uses a multi-identity AI agent code review system. The full poli
 
 ### Workflow Summary
 
+On a CodeRabbit rate-limit refusal, immediately apply [CodeRabbit rate-limit substitution](REVIEW_POLICY.md#coderabbit-rate-limit-substitution); do not wait or retry its hourly window. Under-threshold approval awaits exact-head Codex clearance under that rule.
+
 0. Run credential preflight at the start of every PR session:
    `eval "$(scripts/op-preflight.sh --agent {your-agent} --mode all)"`
    This triggers biometric prompts once and caches all credentials for the session.

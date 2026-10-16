@@ -132,6 +132,8 @@ If any `op` command fails mid-session (rare—only if 1Password locks or the 12-
 
 ### Phase 2.5: Automated External Review (CodeRabbit)
 
+**Rate-limit exception:** a positive refusal immediately follows [CodeRabbit rate-limit substitution](#coderabbit-rate-limit-substitution), rather than the ordinary wait below.
+
 > **Applies only to repos with `coderabbit.enabled: true` in `.github/review-policy.yml`.** Skip this phase for repos where CodeRabbit is not enabled.
 
 After internal review passes (Phase 2), CodeRabbit provides an independent automated review:
@@ -159,7 +161,19 @@ Before moving past Phase 2.5, confirm all of the following:
 - [ ] Grepped inline comments for `Potential issue` and `⚠️`—all flagged findings addressed
 - [ ] Substantive findings fixed or dismissed with reasoning
 
+#### CodeRabbit rate-limit substitution
+
+> Canonical source: `mergepath/REVIEW_POLICY.md` ([policy](https://github.com/nathanjohnpayne/mergepath/blob/main/REVIEW_POLICY.md)), owner rule [#2139](https://github.com/nathanjohnpayne/mergepath/issues/2139).
+
+On a published CodeRabbit rate-limit refusal or trusted current-head `Review rate limited` status, request Codex immediately through `scripts/codex-review-request.sh --trigger-only` with `MERGEPATH_PHASE_4A_GATED=true`. Never sleep out the CodeRabbit window or post a CodeRabbit retry. The requester remains subject to the governing request and blocking-review budgets. Read the waiter's JSON disposition: `proceed_on_codex_clearance` confirms a request, not clearance; `human_attention_required` requires alerting the human.
+
+For an under-threshold PR, await the Codex response and run the full `scripts/codex-review-check.sh --require-codex-on-head <PR#> <repo>`. Approval requires a completed exact-head review with no unaddressed required-tier findings or an affirmative exact-head verdict; stale responses, unanchored reactions, older-content carry-forward and Phase 4b-only approval cannot substitute. The manual pre-approval probe omits `CODEX_REVIEW_CHECK_REQUIRE_APPROVAL_ON_HEAD`; the automation caller combines that existing mode with `--require-codex-on-head` and requires the subsequent audited approval. The reviewer approval body records `CodeRabbit rate-limited; cleared by Codex on <full-sha>.` If refusal is discovered after an earlier approval, post a new exact-head approval with that audit body after Codex clears; the earlier approval cannot carry the substitution. The strict checker returns exit `2` with `human_attention_required` when a fresh account/connection refusal prevents current-request clearance, including after an older same-head response is superseded by the existing request-freshness check. A newer response keeps an older resolved refusal from being treated as current unavailability; automation stops immediately on a current refusal. Normal accounting, conversation, identity, hold and merge gates still apply.
+
+Phase 4a follows its normal review loop. A CodeRabbit refusal never stops the independent Phase 4b adapter path ([#2120](https://github.com/nathanjohnpayne/mergepath/issues/2120)). If Codex cannot be requested or cannot respond within its window, alert the human or use the existing policy-authorized Phase 4b fallback; only then may the human choose to wait. Auto-pause recovery remains a separate path.
+
 ### Phase 3: External Review Threshold Check
+
+Under-threshold approvals may use the [exact-head Codex substitution](#coderabbit-rate-limit-substitution) on a CodeRabbit refusal, including a new audited approval when the refusal was discovered after an earlier one.
 
 > **Note on automation timing:** CI workflows may apply the `needs-external-review` label automatically when a PR is opened or updated, as an early advisory based on line count and protected paths. The label blocks merge via the label-gate until external review clears. When the label is present, the agent's responsibility after internal review passes is to proceed to [Phase 4](#phase-4-external-review)—which routes the PR to Phase 4a (automated via the Codex GitHub App) or Phase 4b (the external review fallback) depending on whether Phase 4a is available and on how it terminates. The label itself does NOT imply immediate human mediation; Phase 4b runs its automated review first and only posts the handoff message when that automated review declines.
 

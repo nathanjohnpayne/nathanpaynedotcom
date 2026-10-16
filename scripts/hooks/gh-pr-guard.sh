@@ -1375,6 +1375,94 @@ prefix_flag_takes_value() {
 # shellcheck source=../lib/pr-body-contract.sh
 . "$GUARD_REPO_ROOT/scripts/lib/pr-body-contract.sh"
 
+# The Claude cloud proxy refuses GitHub GraphQL whatever the credential, and
+# `gh pr view` is GraphQL (#1057). graphql-ceiling.sh recognizes that refusal.
+# It is optional here: without it no refusal is recognized, and a failed read
+# blocks exactly as it did before.
+if [ -r "$GUARD_REPO_ROOT/scripts/lib/graphql-ceiling.sh" ]; then
+  # shellcheck source=../lib/graphql-ceiling.sh
+  . "$GUARD_REPO_ROOT/scripts/lib/graphql-ceiling.sh"
+fi
+
+# guard_review_gh <gh args...>: gh for the self-approve read. A cloud session
+# configured as docs/agents/cloud-environments.md describes has no gh keyring
+# and no ambient GH_TOKEN, only the provisioned OP_PREFLIGHT_REVIEWER_PAT, so
+# without it this read fails authentication before the wrapper ever runs
+# (Codex on #2178). The PAT is used for this read only, and only when gh has
+# no token of its own.
+guard_review_gh() {
+  if [ -z "${GH_TOKEN:-}" ] && [ -z "${GITHUB_TOKEN:-}" ] && [ -n "${OP_PREFLIGHT_REVIEWER_PAT:-}" ] \
+     && guard_review_reads_github_com; then
+    GH_HOST=github.com GH_TOKEN="$OP_PREFLIGHT_REVIEWER_PAT" gh "$@"
+  else
+    gh "$@"
+  fi
+}
+
+# guard_review_reads_github_com: 0 iff the self-approve read goes to
+# github.com, so lending it the reviewer PAT cannot send the PAT elsewhere.
+# gh sends GH_TOKEN to github.localhost and *.ghe.com too, and takes the host
+# from GH_HOST, from a repository value (the --repo the read is given, or
+# GH_REPO) or from a URL selector (Phase 4b on #2178). A repository value
+# must be a plain OWNER/REPO: gh also reads git@HOST:OWNER/REPO, URLs and
+# HOST/OWNER/REPO there, so screening for bad shapes misses forms. Anything
+# else keeps gh's own credentials, which fail closed.
+guard_canonical_repo() {
+  [[ "$1" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]
+}
+guard_review_reads_github_com() {
+  case "${GH_HOST:-github.com}" in github.com) ;; *) return 1 ;; esac
+  if [ -n "${GH_REPO:-}" ] && ! guard_canonical_repo "$GH_REPO"; then return 1; fi
+  if [ -n "${REVIEW_REPO:-}" ] && ! guard_canonical_repo "$REVIEW_REPO"; then return 1; fi
+  case "${REVIEW_PR_SELECTOR:-}" in
+    [Hh][Tt][Tt][Pp]://*|[Hh][Tt][Tt][Pp][Ss]://*)
+      case "$REVIEW_PR_SELECTOR" in https://github.com/*) ;; *) return 1 ;; esac
+      ;;
+  esac
+  return 0
+}
+
+guard_graphql_refused() { # <stderr file>
+  declare -F graphql_ceiling_hit >/dev/null 2>&1 || return 1
+  graphql_ceiling_hit "$(cat "$1" 2>/dev/null)"
+}
+
+# The self-approve read below over REST, for a session whose proxy refused
+# `gh pr view`. Only the canonical form the wrappers' REST transport accepts
+# is read (a PR number and --repo OWNER/REPO), so the read targets exactly
+# the PR the write will. Prints the same JSON shape as the GraphQL read.
+guard_review_pr_json_rest() { # <selector> <repo>
+  local sel="$1" repo="$2" pr pages err
+  case "$sel" in ''|*[!0-9]*|0*) sel="" ;; esac
+  case "$repo" in ''|*/*/*|/*|*/|*[!A-Za-z0-9._/-]*) repo="" ;; */*) ;; *) repo="" ;; esac
+  if [ -z "$sel" ] || [ -z "$repo" ]; then
+    echo "BLOCKED: this session's proxy does not serve GitHub GraphQL, so gh-pr-guard reads the PR for the self-approve check over REST, which needs the canonical form:" >&2
+    echo "    scripts/gh-as-reviewer.sh -- gh pr review <number> --repo OWNER/REPO --approve ..." >&2
+    return 1
+  fi
+  err=$(mktemp) || return 1
+  if ! pr=$(guard_review_gh api "repos/$repo/pulls/$sel" 2>"$err") \
+     || ! printf '%s' "$pr" | jq -e '(.number | type == "number") and (.user.login | type == "string") and (.head.ref | type == "string") and (.additions | type == "number") and (.deletions | type == "number")' >/dev/null 2>&1; then
+    echo "BLOCKED: gh-pr-guard could not read $repo#$sel over REST for the self-approve check." >&2
+    echo "  stderr: $(head -c 500 "$err")" >&2
+    rm -f "$err"
+    return 1
+  fi
+  # --slurp needs gh 2.48 or later (cli/cli#8620), as the merge path's review read does.
+  if ! pages=$(guard_review_gh api --paginate --slurp "repos/$repo/pulls/$sel/files?per_page=100" 2>"$err") \
+     || ! printf '%s' "$pages" | jq -e 'type == "array" and all(.[]; type == "array")' >/dev/null 2>&1; then
+    echo "BLOCKED: gh-pr-guard could not read the files of $repo#$sel over REST for the self-approve check." >&2
+    echo "  stderr: $(head -c 500 "$err")" >&2
+    rm -f "$err"
+    return 1
+  fi
+  rm -f "$err"
+  # Both documents reach jq on stdin: the files pages carry every patch, and a
+  # large PR's would exceed the size limit of a single argument.
+  { printf '%s\n' "$pr"; printf '%s\n' "$pages"; } | jq -cs \
+    '.[0] as $pr | .[1] as $pages | {body: ($pr.body // ""), additions: $pr.additions, deletions: $pr.deletions, files: [$pages[][] | .filename], head: $pr.head.ref, author: $pr.user.login}'
+}
+
 # Locate the governing review-policy.yml without trusting the caller's
 # cwd to BE the repo root (Codex P2 on PR #442 r21): walk upward from
 # the cwd (covers subdirectory invocations and out-of-tree fixture
@@ -2493,6 +2581,22 @@ for i in "${!TOKENS[@]}"; do
       continue
       ;;
     gh|*/gh)
+      # #2158: inspect literal argv and readable body files before the
+      # noun walk can return early for raw REST writes. Runtime wrappers
+      # inspect again after expansion and snapshot any deferred input.
+      comment_guard_argv=()
+      for ((comment_arg=i; comment_arg<${#TOKENS[@]}; comment_arg++)); do
+        case "${TOKENS[$comment_arg]}" in
+          "&&"|"||"|";"|"|"|"|&"|"&"|"("|")") break ;;
+        esac
+        comment_guard_argv+=("${TOKENS[$comment_arg]}")
+      done
+      comment_guard_result=$(python3 "$REPO_ROOT/scripts/workflow/gh-comment-trigger-guard.py" \
+        --role hook -- "${comment_guard_argv[@]}") || exit 2
+      if [ -z "$WRAPPER_KIND" ] && printf '%s' "$comment_guard_result" | jq -e '.guarded == true' >/dev/null; then
+        echo "BLOCKED: comment/review writes must use a token-verifying wrapper and its runtime body guard." >&2
+        exit 2
+      fi
       SAW_GH=1
       continue
       ;;
@@ -2656,47 +2760,6 @@ case "$PR_SUBCOMMAND" in
 esac
 [ "$IS_ISSUE_COMMENT" -eq 1 ] && cmd_label="gh issue comment"
 
-PR_COMMENT_BODY_HAS_CODEX_TRIGGER=0
-if [ "$PR_SUBCOMMAND" = "comment" ] && [ "$IS_ISSUE_COMMENT" -eq 0 ]; then
-  # Only author-wrapper pr comments that actually pass @codex review in
-  # the gh pr comment body are allowed. Looking at the whole shell
-  # command would let an earlier `echo "@codex review"` spoof this gate.
-  comment_walk_start=$((PR_SUBCOMMAND_INDEX + 1))
-  comment_skip_next=""
-  for j in "${!TOKENS[@]}"; do
-    if [ "$j" -lt "$comment_walk_start" ]; then
-      continue
-    fi
-    tok="${TOKENS[$j]}"
-    case "$tok" in
-      "&&"|"||"|";"|"|"|"|&"|"&"|"("|")") break ;;
-    esac
-    if [ -n "$comment_skip_next" ]; then
-      comment_skip_next=""
-      continue
-    fi
-    case "$tok" in
-      --body|-b)
-        next_index=$((j + 1))
-        body_value="${TOKENS[$next_index]:-}"
-        case "$body_value" in
-          *"@codex review"*) PR_COMMENT_BODY_HAS_CODEX_TRIGGER=1 ;;
-        esac
-        comment_skip_next=1
-        ;;
-      --body=*)
-        body_value="${tok#--body=}"
-        case "$body_value" in
-          *"@codex review"*) PR_COMMENT_BODY_HAS_CODEX_TRIGGER=1 ;;
-        esac
-        ;;
-      --body-file|-F)
-        comment_skip_next=1
-        ;;
-    esac
-  done
-fi
-
 if [ -z "$WRAPPER_KIND" ]; then
   echo "BLOCKED: $cmd_label is a guarded GitHub write and must use a token-verifying wrapper (#411)." >&2
   echo "" >&2
@@ -2709,7 +2772,7 @@ if [ -z "$WRAPPER_KIND" ]; then
       ;;
     comment:0)
       echo "    scripts/gh-as-reviewer.sh -- $cmd_label ..." >&2
-      echo "    scripts/gh-as-author.sh -- gh pr comment ... --body '@codex review'   # Codex trigger only" >&2
+      echo "    scripts/codex-review-request.sh <PR> <owner/repo>   # reserved review command" >&2
       ;;
     review:*)
       echo "    scripts/gh-as-reviewer.sh -- $cmd_label ..." >&2
@@ -2728,9 +2791,6 @@ REVIEWER_WRAPPER_ALLOWED=0
 case "$PR_SUBCOMMAND:$IS_ISSUE_COMMENT" in
   create:*|merge:*|edit:*) AUTHOR_WRAPPER_ALLOWED=1 ;;
   comment:0)
-    if [ "$PR_COMMENT_BODY_HAS_CODEX_TRIGGER" -eq 1 ]; then
-      AUTHOR_WRAPPER_ALLOWED=1
-    fi
     REVIEWER_WRAPPER_ALLOWED=1
     ;;
   review:*) REVIEWER_WRAPPER_ALLOWED=1 ;;
@@ -3056,11 +3116,18 @@ if [ "$PR_SUBCOMMAND" = "review" ]; then
       # below; we do this here so it works on the review-only exit
       # path too).
       trap 'rm -f "$TMP_TOKENS" "$TMP_TOKENS_ERR" "$REVIEW_GH_STDERR"' EXIT
-      if ! REVIEW_PR_JSON=$(gh "${review_gh_args[@]}" 2>"$REVIEW_GH_STDERR"); then
-        echo "BLOCKED: gh-pr-guard could not fetch PR metadata for self-approve check." >&2
-        echo "  stderr: $(cat "$REVIEW_GH_STDERR")" >&2
-        echo "  command: gh ${review_gh_args[*]}" >&2
-        exit 2
+      if ! REVIEW_PR_JSON=$(guard_review_gh "${review_gh_args[@]}" 2>"$REVIEW_GH_STDERR"); then
+        # A Claude cloud proxy refuses the GraphQL read whatever the
+        # credential (#1057); read the same fields over REST there. Any
+        # other failure blocks, as before.
+        if guard_graphql_refused "$REVIEW_GH_STDERR"; then
+          REVIEW_PR_JSON=$(guard_review_pr_json_rest "$REVIEW_PR_SELECTOR" "$REVIEW_REPO") || exit 2
+        else
+          echo "BLOCKED: gh-pr-guard could not fetch PR metadata for self-approve check." >&2
+          echo "  stderr: $(cat "$REVIEW_GH_STDERR")" >&2
+          echo "  command: gh ${review_gh_args[*]}" >&2
+          exit 2
+        fi
       fi
 
       # Propagation-lane bypass (#334). The lane criteria are:
