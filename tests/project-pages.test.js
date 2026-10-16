@@ -1407,11 +1407,11 @@ describe('Projects index — portfolio thesis (#751)', () => {
 
   // #1399. A card line is a teaser, but a teaser that never says what the
   // project is cannot interest a reader who doesn't already know it: three of
-  // seven cards were all hook and no subject. Each card's first sentence must
-  // name the project with the phrase pinned here. Meaning can't be checked,
-  // but this catches the failure that shipped, a rewrite that drops the
-  // subject. Adding a project means adding its phrase (operating-rules.md
-  // § Adding a Project).
+  // seven cards were all hook and no subject. Each card must open with the
+  // phrase pinned here, after at most a leading article, so the subject comes
+  // before the hook. Meaning can't be checked, but this catches the failure
+  // that shipped, a rewrite that leads with the hook. Adding a project means
+  // adding its phrase (operating-rules.md § Adding a Project).
   const cardSubjects = {
     'five-across': 'multiplayer bingo',
     mergepath: 'code-review standard for AI coding agents',
@@ -1421,8 +1421,9 @@ describe('Projects index — portfolio thesis (#751)', () => {
     'swipe-watch': 'swipe prototype',
     'friends-and-family-billing': 'shared billing',
   };
-  // Up to the first sentence break; a colon stays inside the sentence.
-  const firstSentence = (line) => line.split(/(?<=[.!?])\s/)[0];
+  const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const opensWithSubject = (line, subject) =>
+    new RegExp(`^(?:(?:a|an|the)\\s+)?${escapeRegExp(subject)}\\b`, 'i').test(line.trim());
 
   it('opens every card line by naming what the project is', () => {
     const published = projectSourceFiles()
@@ -1433,24 +1434,29 @@ describe('Projects index — portfolio thesis (#751)', () => {
       'every published project needs a cardSubjects phrase, and no phrase may outlive its project',
     ).toEqual(Object.keys(cardSubjects).sort());
     for (const data of published) {
-      const opener = firstSentence(cardLine(data));
       expect(
-        opener.toLowerCase(),
-        `${data.slug} card line must name the project before its hook`,
-      ).toContain(cardSubjects[data.slug].toLowerCase());
+        opensWithSubject(cardLine(data), cardSubjects[data.slug]),
+        `${data.slug} card line must open with "${cardSubjects[data.slug]}" before its hook: ${cardLine(data)}`,
+      ).toBe(true);
     }
   });
 
-  it('reads the subject from the first sentence only', () => {
-    expect(
-      firstSentence(
-        'A device registry I built at Disney: five feeds, one schema. AI drafted the rest.',
-      ),
-    ).toBe('A device registry I built at Disney: five feeds, one schema.');
-    // The failure #1399 fixed: the subject arrives only in the second sentence.
-    expect(firstSentence('Five feeds, one registry. I built it at Disney.')).not.toContain(
-      'device registry',
+  it('accepts the subject only at the start, after at most an article', () => {
+    const subject = 'device registry';
+    expect(opensWithSubject('A device registry I built at Disney: five feeds.', subject)).toBe(
+      true,
     );
+    expect(opensWithSubject('Device registry for partner hardware.', subject)).toBe(true);
+    // The failure #1399 fixed: the hook leads and the subject comes later,
+    // whether in the second sentence or later in the first.
+    expect(
+      opensWithSubject('Five feeds, one registry. A device registry at Disney.', subject),
+    ).toBe(false);
+    expect(opensWithSubject('At Disney, I built a device registry from five feeds.', subject)).toBe(
+      false,
+    );
+    // A longer word that merely starts with the phrase is not the phrase.
+    expect(opensWithSubject('Shared billings for nine.', 'shared billing')).toBe(false);
   });
 
   it('does not let a card contradict the status it renders beside', () => {
