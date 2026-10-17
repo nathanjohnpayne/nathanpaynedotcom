@@ -49,18 +49,16 @@ explicitly authorizes a break-glass override in chat.
 7. Switch back to nathanjohnpayne. Address each comment. Push fix commits.
 8. Repeat steps 5–7 until the reviewer identity approves. The
    mechanism is scope-dependent:
-   - Under-threshold PRs (lines changed < `external_review_threshold`
-     AND no file matches `external_review_paths`): the reviewer identity
-     posts `gh pr review --approve` once CodeRabbit has cleared the
-     current HEAD. This is the intended path and satisfies branch
-     protection without a Phase 4 handoff.
+   - Under-threshold PRs (lines changed < `external_review_threshold` AND no file matches `external_review_paths`): the reviewer identity approves after the normal review gates. On a CodeRabbit refusal, apply [CodeRabbit rate-limit substitution](REVIEW_POLICY.md#coderabbit-rate-limit-substitution): request Codex immediately, run the full exact-head clearance checker and record the provider substitution plus full SHA in the approval body. If an earlier approval preceded the refusal, post a new audited approval after Codex clears.
    - Above-threshold / Phase 4 PRs: the authoring agent's own reviewer
      identity posts `--comment` only. Codex or a Phase 4b external
      reviewer carries the cross-agent merge gate.
 **8.5. CodeRabbit review.** If `.github/review-policy.yml` has
 `coderabbit.enabled: true`:
 
-- **a.** Wait for CodeRabbit to post (up to 3 min; ask human if delayed).
+> Canonical source for the rate-limit rule: `mergepath/REVIEW_POLICY.md` ([policy](https://github.com/nathanjohnpayne/mergepath/blob/main/REVIEW_POLICY.md)).
+
+- **a.** Follow AGENTS.md and REVIEW_POLICY.md for the ordinary CodeRabbit invocation and wait. On a published rate-limit refusal or trusted current-head `Review rate limited` status, request Codex immediately through the canonical requester; never sleep out the window or post a CodeRabbit retry. Apply the [substitution rule](REVIEW_POLICY.md#coderabbit-rate-limit-substitution), sourced from mergepath/REVIEW_POLICY.md and owner rule [#2139](https://github.com/nathanjohnpayne/mergepath/issues/2139).
 - **b.** Read PR-level comments: `gh api repos/{owner}/{repo}/issues/{pr}/comments`
 - **c.** Read inline diff comments: `gh api repos/{owner}/{repo}/pulls/{pr}/comments`
 - **d.** Grep inline comments for `Potential issue` or `⚠️`—address each one.
