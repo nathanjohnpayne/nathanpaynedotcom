@@ -36,6 +36,17 @@ case "${1:-} ${2:-}" in
     exit 0
     ;;
   "pr view")
+    # STUB_REQUIRE_TOKEN: a session with no gh keyring, where gh needs GH_TOKEN.
+    if [ "${STUB_REQUIRE_TOKEN:-0}" = 1 ]; then
+      [ -n "${GH_TOKEN:-}" ] || { echo "To get started with GitHub CLI, please run:  gh auth login" >&2; exit 4; }
+      [ "${GH_TOKEN:-}" = "${STUB_EXPECT_TOKEN:-}" ] && echo "pr view authenticated with the expected token" >>"${STUB_API_LOG:-/dev/null}"
+    fi
+    # The Claude cloud proxy's refusal of every GraphQL call (#1057).
+    if [ "${STUB_GRAPHQL_CEILING:-0}" = 1 ]; then
+      echo "GitHub GraphQL is not available from Claude Code sessions; use the REST API instead (HTTP 403)" >&2
+      exit 1
+    fi
+    [ "${STUB_PR_VIEW_FAIL:-0}" = 0 ] || { echo "HTTP 502: Bad Gateway" >&2; exit 1; }
     if [ -n "${STUB_EXPECT_REPO:-}" ]; then
       case " $* " in *" --repo $STUB_EXPECT_REPO "*) ;; *) exit 9 ;; esac
     fi
@@ -89,6 +100,23 @@ case "${1:-} ${2:-}" in
     case "$*" in *"--paginate --slurp"*) ;; *) exit 1 ;; esac
     if [ -n "${STUB_REVIEW_PAGES:-}" ]; then printf '%s\n' "$STUB_REVIEW_PAGES"; else echo '[[]]'; fi
     ;;
+  "api repos/"*)
+    # The guard's REST read of the PR for the self-approve check (#1057).
+    [ -z "${STUB_API_LOG:-}" ] || printf '%s\n' "$*" >>"$STUB_API_LOG"
+    [ "${STUB_REST_FAIL:-0}" = 0 ] || { echo "HTTP 404: Not Found" >&2; exit 1; }
+    jq -n \
+      --arg body "${STUB_PR_BODY:-}" \
+      --argjson additions "${STUB_PR_ADDITIONS:-0}" \
+      --argjson deletions "${STUB_PR_DELETIONS:-0}" \
+      --arg head "${STUB_PR_HEAD:-feature/some-branch}" \
+      --arg author "${STUB_PR_AUTHOR-nathanjohnpayne}" \
+      '{number: 123, body: $body, additions: $additions, deletions: $deletions, head: {ref: $head}, user: {login: $author}}'
+    ;;
+  "api --paginate")
+    [ -z "${STUB_API_LOG:-}" ] || printf '%s\n' "$*" >>"$STUB_API_LOG"
+    if [ -n "${STUB_FILES_PAGES_FILE:-}" ]; then cat "$STUB_FILES_PAGES_FILE"; exit 0; fi
+    echo '[[{"filename":"scripts/x.sh"}],[{"filename":"docs/y.md"}]]'
+    ;;
   *)
     exit 0
     ;;
@@ -140,7 +168,7 @@ assert_rc_contains() {
   set -e
   if [ "$rc" -ne "$expected_rc" ]; then
     fail "$label: rc=$rc expected $expected_rc; output: $out"
-  elif [ -n "$needle" ] && ! echo "$out" | grep -qi "$needle"; then
+  elif [ -n "$needle" ] && ! echo "$out" | grep -i "$needle" >/dev/null; then
     fail "$label: missing '$needle'; output: $out"
   else
     pass "$label"
@@ -462,8 +490,35 @@ assert_rc_contains "reviewer wrapper identity mismatch blocked" 2 "not expected 
 assert_rc_contains "author wrapper normal pr comment blocked" 2 "reviewer token" \
   'scripts/gh-as-author.sh -- gh pr comment 123 --body "ping"'
 
-assert_rc_contains "author wrapper codex trigger allowed" 0 "" \
+assert_rc_contains "reserved trigger requires canonical requester" 2 "reserved review command" \
   'scripts/gh-as-author.sh -- gh pr comment 123 --body "@codex review"'
+
+TRIGGER_BODY_FILE="$WORKDIR/accidental-trigger.md"
+printf '%s\n' 'The guard missed `@codex review` in this comment.' > "$TRIGGER_BODY_FILE"
+assert_rc_contains "body-file trigger containment blocks reviewer write" 2 "Reword the comment" \
+  "scripts/gh-as-reviewer.sh -- gh pr comment 123 --body-file '$TRIGGER_BODY_FILE'"
+assert_rc_contains "review body trigger containment blocks" 2 "Reword the comment" \
+  'scripts/gh-as-reviewer.sh -- gh pr review 123 --comment --body "Do not quote @CoDeX review here."'
+assert_rc_contains "raw REST trigger containment blocks" 2 "Reword the comment" \
+  'scripts/gh-as-reviewer.sh -- gh api repos/o/r/issues/123/comments -f "body=Do not quote @codex review here."'
+assert_rc_contains "canonical requester invocation remains allowed" 0 "" \
+  'scripts/codex-review-request.sh 123 o/r'
+assert_rc_contains "comment-free issue close retains existing hook scope" 0 "" \
+  'gh issue close 123'
+assert_rc_contains "comment-free PR close retains existing hook scope" 0 "" \
+  'gh pr close 123 --delete-branch'
+assert_rc_contains "comment-free prefix reason close retains existing hook scope" 0 "" \
+  'gh -r completed issue close 123'
+assert_rc_contains "comment-free pre-verb reason close retains existing hook scope" 0 "" \
+  'gh issue -rcompleted close 123'
+assert_rc_contains "comment-free clustered delete flags retain existing hook scope" 0 "" \
+  'gh pr close 123 -dd'
+assert_rc_contains "empty closing comment retains existing hook scope" 0 "" \
+  'gh pr close 123 --comment ""'
+assert_rc_contains "issue closing comment requires the verified wrapper" 2 "token-verifying wrapper" \
+  'gh issue close 123 --comment "Done"'
+assert_rc_contains "PR closing comment requires the verified wrapper" 2 "token-verifying wrapper" \
+  'gh pr close 123 --comment "Done"'
 
 assert_rc_contains "author wrapper codex trigger echo spoof blocked" 2 "reviewer token" \
   'echo "@codex review" && scripts/gh-as-author.sh -- gh pr comment 123 --body "ping"'
@@ -524,6 +579,90 @@ assert_rc_contains "real declaration wins over a later prose mention (#927)" 2 "
 
 assert_rc_contains "indented author line is not a declaration (#927)" 2 "exactly one visible Authoring-Agent" \
   'GH_AS_REVIEWER_IDENTITY=nathanpayne-codex scripts/gh-as-reviewer.sh -- gh pr review 123 --approve --body "lgtm"' "CLEAN" "" "nathanpayne-codex" "  Authoring-Agent: claude" "5000" "0"
+
+# --- #1057 item A: in a Claude cloud session `gh pr view` is GraphQL and the
+# proxy refuses it, so the self-approve read falls back to REST, only for the
+# canonical `<number> --repo OWNER/REPO` form. Any other read failure still
+# blocks.
+API_LOG="$WORKDIR/guard-api.log"
+: >"$API_LOG"
+STUB_GRAPHQL_CEILING=1 STUB_API_LOG="$API_LOG" assert_rc_contains "GraphQL ceiling: same-agent over-threshold approve still blocked from the REST read" 2 "self-approve detected" \
+  'scripts/gh-as-reviewer.sh -- gh pr review 123 --repo example/repo --approve --body "lgtm"' "CLEAN" "" "nathanpayne-claude" "Authoring-Agent: claude" "5000" "0"
+if grep -qx 'api repos/example/repo/pulls/123' "$API_LOG" \
+   && grep -qx 'api --paginate --slurp repos/example/repo/pulls/123/files?per_page=100' "$API_LOG"; then
+  pass "GraphQL ceiling: the REST read targets the PR and repository the review names"
+else
+  fail "GraphQL ceiling REST read targets: $(cat "$API_LOG")"
+fi
+STUB_GRAPHQL_CEILING=1 assert_rc_contains "GraphQL ceiling: under-threshold approve allowed from the REST read" 0 "" \
+  'scripts/gh-as-reviewer.sh -- gh pr review 123 --repo=example/repo --approve --body "lgtm"' "CLEAN" "" "nathanpayne-claude" "Authoring-Agent: claude" "10" "0"
+STUB_GRAPHQL_CEILING=1 assert_rc_contains "GraphQL ceiling: cross-agent approve allowed from the REST read" 0 "" \
+  'GH_AS_REVIEWER_IDENTITY=nathanpayne-codex scripts/gh-as-reviewer.sh -- gh pr review 123 --repo example/repo --approve --body "lgtm"' "CLEAN" "" "nathanpayne-codex" "Authoring-Agent: claude" "5000" "0"
+STUB_GRAPHQL_CEILING=1 assert_rc_contains "GraphQL ceiling: propagation-lane bypass works from the REST read" 0 "" \
+  'scripts/gh-as-reviewer.sh -- gh pr review 123 --repo example/repo --approve --body "lgtm"' "CLEAN" "" "nathanpayne-claude" "Authoring-Agent: claude" "5000" "0" "mergepath-sync/abc" "nathanjohnpayne"
+STUB_GRAPHQL_CEILING=1 assert_rc_contains "GraphQL ceiling: approve without --repo is refused with the canonical form" 2 "gh pr review <number> --repo OWNER/REPO" \
+  'scripts/gh-as-reviewer.sh -- gh pr review 123 --approve --body "lgtm"' "CLEAN" "" "nathanpayne-claude" "Authoring-Agent: claude" "10" "0"
+STUB_GRAPHQL_CEILING=1 assert_rc_contains "GraphQL ceiling: approve by URL is refused with the canonical form" 2 "gh pr review <number> --repo OWNER/REPO" \
+  'scripts/gh-as-reviewer.sh -- gh pr review https://github.com/example/repo/pull/123 --repo example/repo --approve --body "lgtm"' "CLEAN" "" "nathanpayne-claude" "Authoring-Agent: claude" "10" "0"
+STUB_GRAPHQL_CEILING=1 STUB_REST_FAIL=1 assert_rc_contains "GraphQL ceiling: a failed REST read blocks" 2 "could not read example/repo#123 over REST" \
+  'scripts/gh-as-reviewer.sh -- gh pr review 123 --repo example/repo --approve --body "lgtm"' "CLEAN" "" "nathanpayne-claude" "Authoring-Agent: claude" "10" "0"
+BIG_FILES="$WORKDIR/big-files.json"
+# Streamed into the file: as one argument it would hit the very limit tested.
+{ printf '[[{"filename":"scripts/x.sh","patch":"'; head -c 1200000 /dev/zero | tr '\0' 'x'; printf '"}]]\n'; } >"$BIG_FILES"
+STUB_GRAPHQL_CEILING=1 STUB_FILES_PAGES_FILE="$BIG_FILES" assert_rc_contains "GraphQL ceiling: a 1.2 MB files response is read (never passed as one argument)" 0 "" \
+  'scripts/gh-as-reviewer.sh -- gh pr review 123 --repo example/repo --approve --body "lgtm"' "CLEAN" "" "nathanpayne-claude" "Authoring-Agent: claude" "10" "0"
+# Codex cloud: no keyring and no ambient GH_TOKEN, only the provisioned
+# reviewer PAT. The self-approve read must authenticate with it, or every
+# approval is blocked before the wrapper runs (Codex on #2178).
+: >"$API_LOG"
+set +e
+out=$(unset GH_TOKEN GITHUB_TOKEN; OP_PREFLIGHT_REVIEWER_PAT=fixture-reviewer-pat STUB_EXPECT_TOKEN=fixture-reviewer-pat STUB_REQUIRE_TOKEN=1 STUB_API_LOG="$API_LOG" \
+  run_hook 'scripts/gh-as-reviewer.sh -- gh pr review 123 --repo example/repo --approve --body "lgtm"' "CLEAN" "" "nathanpayne-claude" "Authoring-Agent: claude" "10" "0" 2>&1)
+rc=$?
+set -e
+if [ "$rc" -eq 0 ] && grep -q 'pr view authenticated with the expected token' "$API_LOG"; then
+  pass "self-approve read with no ambient token authenticates with the provisioned reviewer PAT"
+else
+  fail "self-approve read reviewer PAT: rc=$rc out=$out"
+fi
+set +e
+out=$(unset GH_TOKEN GITHUB_TOKEN OP_PREFLIGHT_REVIEWER_PAT; STUB_REQUIRE_TOKEN=1 \
+  run_hook 'scripts/gh-as-reviewer.sh -- gh pr review 123 --repo example/repo --approve --body "lgtm"' "CLEAN" "" "nathanpayne-claude" "Authoring-Agent: claude" "10" "0" 2>&1)
+rc=$?
+set -e
+if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep 'could not fetch PR metadata' >/dev/null; then
+  pass "self-approve read with no token at all still blocks"
+else
+  fail "self-approve read no token: rc=$rc out=$out"
+fi
+# The PAT is lent only to a read that goes to github.com: a host-qualified
+# --repo, a GH_HOST elsewhere, or a URL selector on another host keeps gh's
+# own (absent) credentials, so the read fails closed without sending the PAT
+# (Phase 4b on #2178).
+for variant in "--repo github.localhost/o/r" "GH_HOST=tenant.ghe.com" "https://github.localhost/o/r/pull/123" \
+    "--repo git@tenant.ghe.com:o/r" "--repo=git@tenant.ghe.com:o/r" "--repo=https://tenant.ghe.com/o/r" "GH_REPO=git@tenant.ghe.com:o/r"; do
+  : >"$API_LOG"
+  ghrepo=""
+  case "$variant" in
+    GH_HOST=*) cmd='scripts/gh-as-reviewer.sh -- gh pr review 123 --repo example/repo --approve --body "lgtm"'; host="${variant#GH_HOST=}" ;;
+    GH_REPO=*) cmd='scripts/gh-as-reviewer.sh -- gh pr review 123 --approve --body "lgtm"'; host=""; ghrepo="${variant#GH_REPO=}" ;;
+    https://*) cmd="scripts/gh-as-reviewer.sh -- gh pr review $variant --approve --body lgtm"; host="" ;;
+    *) cmd="scripts/gh-as-reviewer.sh -- gh pr review 123 $variant --approve --body lgtm"; host="" ;;
+  esac
+  set +e
+  out=$(unset GH_TOKEN GITHUB_TOKEN; if [ -n "$host" ]; then export GH_HOST="$host"; fi; if [ -n "$ghrepo" ]; then export GH_REPO="$ghrepo"; fi; \
+    OP_PREFLIGHT_REVIEWER_PAT=fixture-reviewer-pat STUB_EXPECT_TOKEN=fixture-reviewer-pat STUB_REQUIRE_TOKEN=1 STUB_API_LOG="$API_LOG" \
+    run_hook "$cmd" "CLEAN" "" "nathanpayne-claude" "Authoring-Agent: claude" "10" "0" 2>&1)
+  rc=$?
+  set -e
+  if [ "$rc" -eq 2 ] && ! grep -q 'authenticated with the expected token' "$API_LOG"; then
+    pass "self-approve read toward another host ($variant): the reviewer PAT is not lent, and the read fails closed"
+  else
+    fail "self-approve PAT withheld ($variant): rc=$rc out=$out"
+  fi
+done
+STUB_PR_VIEW_FAIL=1 assert_rc_contains "a read failure that is not the GraphQL ceiling still blocks, with no REST fallback" 2 "could not fetch PR metadata" \
+  'scripts/gh-as-reviewer.sh -- gh pr review 123 --repo example/repo --approve --body "lgtm"' "CLEAN" "" "nathanpayne-claude" "Authoring-Agent: claude" "10" "0"
 
 # --- #671: the self-approve sub-guard resolves the reviewer the same way
 # the wrapper will (GH_AS_REVIEWER_IDENTITY, then MERGEPATH_AGENT, then
@@ -813,7 +952,7 @@ assert_rc_contains "author wrapper inline non-author identity blocked on pr crea
 ## Self-Review
 - ok"'
 
-assert_rc_contains "author wrapper inline non-author identity blocked on codex trigger" 2 "author identity" \
+assert_rc_contains "reserved trigger blocks before wrong author identity can write" 2 "reserved review command" \
   'GH_AS_AUTHOR_IDENTITY=nathanpayne-codex scripts/gh-as-author.sh -- gh pr comment 123 --body "@codex review"'
 
 # A stale inline assignment scoped to an EARLIER command segment must
@@ -850,7 +989,7 @@ assert_rc_contains "exported-via-export-command non-reviewer identity blocked" 2
 
 # Prefix-assignment BEFORE the export command in the same segment
 # (`VAR=x export VAR`) persists AND exports (Codex P1 on PR #442 r12).
-assert_rc_contains "prefix-then-export non-author identity blocked" 2 "author identity" \
+assert_rc_contains "reserved trigger blocks after exported wrong author identity" 2 "reserved review command" \
   'GH_AS_AUTHOR_IDENTITY=nathanpayne-codex export GH_AS_AUTHOR_IDENTITY ; scripts/gh-as-author.sh -- gh pr comment 123 --body "@codex review"' "CLEAN" ""
 
 assert_rc_contains "prefix-then-export matching author identity allowed" 0 "" \
@@ -894,7 +1033,7 @@ set +e
 out=$(GH_AS_AUTHOR_IDENTITY=nathanpayne-codex run_hook 'scripts/gh-as-author.sh -- gh pr merge 123 --squash' "CLEAN" "" 2>&1)
 rc=$?
 set -e
-if [ "$rc" -eq 2 ] && echo "$out" | grep -qi "author identity"; then
+if [ "$rc" -eq 2 ] && echo "$out" | grep -i "author identity" >/dev/null; then
   pass "author wrapper exported non-author identity blocked"
 else
   fail "author wrapper exported non-author identity blocked: rc=$rc; output: $out"
@@ -927,7 +1066,7 @@ set +e
 out=$(GH_AS_AUTHOR_IDENTITY=custom-owner run_hook 'GH_AS_AUTHOR_IDENTITY= scripts/gh-as-author.sh -- gh pr merge 123 --squash' "CLEAN" "" 2>&1)
 rc=$?
 set -e
-if [ "$rc" -eq 2 ] && echo "$out" | grep -qi "author identity"; then
+if [ "$rc" -eq 2 ] && echo "$out" | grep -i "author identity" >/dev/null; then
   pass "empty inline author override fails closed in custom-author repo"
 else
   fail "empty inline author override fails closed in custom-author repo: rc=$rc; output: $out"
@@ -941,7 +1080,7 @@ set +e
 out=$(GH_AS_AUTHOR_IDENTITY=custom-owner run_hook 'env -u GH_AS_AUTHOR_IDENTITY scripts/gh-as-author.sh -- gh pr merge 123 --squash' "CLEAN" "" 2>&1)
 rc=$?
 set -e
-if [ "$rc" -eq 2 ] && echo "$out" | grep -qi "author identity"; then
+if [ "$rc" -eq 2 ] && echo "$out" | grep -i "author identity" >/dev/null; then
   pass "env -u identity unset fails closed in custom-author repo"
 else
   fail "env -u identity unset fails closed in custom-author repo: rc=$rc; output: $out"
@@ -950,7 +1089,7 @@ set +e
 out=$(GH_AS_AUTHOR_IDENTITY=custom-owner run_hook 'env --unset=GH_AS_AUTHOR_IDENTITY scripts/gh-as-author.sh -- gh pr merge 123 --squash' "CLEAN" "" 2>&1)
 rc=$?
 set -e
-if [ "$rc" -eq 2 ] && echo "$out" | grep -qi "author identity"; then
+if [ "$rc" -eq 2 ] && echo "$out" | grep -i "author identity" >/dev/null; then
   pass "env --unset= identity fails closed in custom-author repo"
 else
   fail "env --unset= identity fails closed in custom-author repo: rc=$rc; output: $out"
@@ -968,7 +1107,7 @@ set +e
 out=$(GH_AS_AUTHOR_IDENTITY=custom-owner run_hook 'env --unset GH_AS_AUTHOR_IDENTITY scripts/gh-as-author.sh -- gh pr merge 123 --squash' "CLEAN" "" 2>&1)
 rc=$?
 set -e
-if [ "$rc" -eq 2 ] && echo "$out" | grep -qi "author identity"; then
+if [ "$rc" -eq 2 ] && echo "$out" | grep -i "author identity" >/dev/null; then
   pass "env --unset NAME (space form) fails closed in custom-author repo"
 else
   fail "env --unset NAME (space form) fails closed in custom-author repo: rc=$rc; output: $out"
@@ -990,7 +1129,7 @@ set +e
 out=$(GH_AS_AUTHOR_IDENTITY=custom-owner run_hook 'env -uGH_AS_AUTHOR_IDENTITY scripts/gh-as-author.sh -- gh pr merge 123 --squash' "CLEAN" "" 2>&1)
 rc=$?
 set -e
-if [ "$rc" -eq 2 ] && echo "$out" | grep -qi "author identity"; then
+if [ "$rc" -eq 2 ] && echo "$out" | grep -i "author identity" >/dev/null; then
   pass "#451: env -uNAME (compact) author unset fails closed in custom-author repo"
 else
   fail "#451: env -uNAME (compact) author unset fails closed in custom-author repo: rc=$rc; output: $out"
@@ -1013,7 +1152,7 @@ set +e
 out=$(GH_AS_AUTHOR_IDENTITY=custom-owner run_hook 'unset GH_AS_AUTHOR_IDENTITY ; scripts/gh-as-author.sh -- gh pr merge 123 --squash' "CLEAN" "" 2>&1)
 rc=$?
 set -e
-if [ "$rc" -eq 2 ] && echo "$out" | grep -qi "author identity"; then
+if [ "$rc" -eq 2 ] && echo "$out" | grep -i "author identity" >/dev/null; then
   pass "unset builtin identity removal fails closed in custom-author repo"
 else
   fail "unset builtin identity removal fails closed in custom-author repo: rc=$rc; output: $out"
@@ -1073,7 +1212,7 @@ set +e
 out=$(GH_PR_GUARD_EXPECTED_AUTHOR=custom-owner run_hook 'scripts/gh-as-author.sh -- gh pr merge 123 --squash' "CLEAN" "" 2>&1)
 rc=$?
 set -e
-if [ "$rc" -eq 2 ] && echo "$out" | grep -qi "author identity"; then
+if [ "$rc" -eq 2 ] && echo "$out" | grep -i "author identity" >/dev/null; then
   pass "author wrapper unset identity under custom expected author fails closed"
 else
   fail "author wrapper unset identity under custom expected author fails closed: rc=$rc; output: $out"
