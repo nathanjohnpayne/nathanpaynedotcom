@@ -37,12 +37,12 @@ name: CodeRabbit Severity Gate
 #   - pull_request + pull_request_review + pull_request_review_comment
 #     for the event-driven path (push, review submit/edit/dismiss,
 #     inline comment activity).
-#   - schedule (every 15 minutes) as the safety net for the UI-resolve
+#   - schedule (every 30 minutes since #2167) as the safety net for the UI-resolve
 #     case, since no other event fires when a human clicks "Resolve
 #     conversation" on a thread.
 # The schedule job is read-only and idempotent (no-op when no open PRs
 # match — and a no-op when the gate is disabled, which is the default), so
-# the 15-min cadence is safe to run unconditionally across this repo.
+# the 30-min cadence is safe to run unconditionally across this repo.
 
 on:
   pull_request:
@@ -60,7 +60,7 @@ on:
   # blocking finding can appear, change, or disappear with no pull_request*
   # event firing at all — and so can the acknowledgement token that clears one.
   # Without this trigger a previously-green required check stays green for up
-  # to 15 minutes after CodeRabbit publishes a summary-only finding, and the
+  # to one sweep interval (30 minutes) after CodeRabbit publishes a summary-only finding, and the
   # PR is mergeable through that window; symmetrically, an ack cannot turn a
   # red check green promptly.
   #
@@ -76,10 +76,12 @@ on:
   # CodeRabbit blocking-tier thread" case. The thread-resolution webhook
   # fires but does NOT trigger Actions workflows (no Actions event for it
   # per GitHub docs), so without the schedule the required check would stay
-  # red until the next push or manual rerun. 15-min cadence mirrors
-  # codex-p1-gate.yml § scheduled-sweep.
+  # red until the next push or manual rerun. */30 since #2167 (was */15,
+  # mirroring codex-p1-gate.yml): every tick walks every open PR against the
+  # shared 1,000/hr installation-token budget; a UI-resolved thread now waits
+  # up to 30 minutes. Pinned by check_required_check_publisher.
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "*/30 * * * *"
 
 permissions:
   contents: read
@@ -193,6 +195,27 @@ jobs:
           # goes non-green, the sweep declines to publish), which is where the
           # asymmetry belongs.
           REQUIRE_REVIEW_SUMMARY: "true"
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          RUN_ID: ${{ github.run_id }}
+          CHECK_NAME: "CodeRabbit unresolved blocking findings"
+          # Fork and Dependabot pull_request* runs hold a read-only token:
+          # they cannot post the back-off red, so they are never skipped
+          # (#2286, Codex P1 on #2298).
+          IS_FORK: ${{ github.event.pull_request.head.repo.fork }}
+          PR_ACTOR: ${{ github.event.pull_request.user.login }}
+          # Budget guard knobs (#2286), read by
+          # scripts/workflow/installation-budget.sh. One evaluation costs
+          # about 4 REST requests (measured on #2249, #2265, #2292, #2232 and
+          # #2225; the review-thread GraphQL reads run only when CodeRabbit
+          # has inline findings on the head). The skip path below writes one
+          # check run and reads the head's runs once. The reserve is the
+          # publisher's own floor for one event-head evaluation (60 per PR
+          # plus its 100 reserve) plus room for the skip-path writes of the
+          # other gate workflows the same event starts.
+          BUDGET_PER_EVAL_REQUESTS: "10"
+          BUDGET_RESERVE_REQUESTS: "200"
+          BUDGET_PER_EVAL_GRAPHQL_POINTS: "5"
+          BUDGET_GRAPHQL_RESERVE_POINTS: "75"
         run: |
           set -euo pipefail
           # Bootstrap (nathanjohnpayne/mergepath#577): we run the TRUSTED copy of
@@ -213,10 +236,79 @@ jobs:
           #   1 = unresolved blocking-tier findings present (gate blocks)
           #   2 = config / usage error (CI failure, not a gate block)
           #   3 = a current-HEAD review run is awaiting its PR-level summary
+          #
+          # Budget guard (#2286). This job publishes no Checks-API run of its
+          # own, so a run that does not evaluate (the guard skipped it, or the
+          # evaluation died on the exhausted installation budget) first POSTs
+          # the publisher's back-off red under the required name on the head:
+          # never a green, and its title records the reset, so the
+          # publisher's due() leaves the PR alone until then and its first
+          # pass after the reset (an event pass on any PR, or the */30
+          # chained full pass) re-evaluates it with no manual rerun. The
+          # job-native run then concludes non-failing ONLY when
+          # scripts/gate-api-lineage-blocking.sh confirms that the
+          # Checks-API lineage blocks the head on its own, outside this
+          # run's suite (the #2247 rule); otherwise it fails as before. A
+          # native red here would sit in this run's own suite until someone
+          # reran it. An unreadable budget, or a default branch without the
+          # library, evaluates as before.
+          budget_stop() {  # <rc> <reason> <skipped|rate-limited> [gate output]
+            local reset title
+            if [ "$3" = skipped ]; then
+              reset=$(ib_short_bucket_reset)
+            else
+              reset=$(ib_exhausted_reset "${4:-}")
+            fi
+            title=$(ib_backoff_title "$CHECK_NAME" "$1" "$reset")
+            gh api -X POST "repos/$REPO/check-runs" \
+              -f name="$CHECK_NAME" -f head_sha="$HEAD_SHA" \
+              -f status=completed -f conclusion=failure \
+              -f "output[title]=$title" \
+              -f "output[summary]=Not evaluated: $2 (#2286). The publisher re-evaluates this head after ${reset:-the window resets}." \
+              >/dev/null || echo "::warning::Could not post the back-off red on $HEAD_SHA."
+            if [ -x scripts/gate-api-lineage-blocking.sh ] \
+               && scripts/gate-api-lineage-blocking.sh "$REPO" "$HEAD_SHA" "$CHECK_NAME" "$RUN_ID"; then
+              echo "::notice::$CHECK_NAME was not evaluated on $HEAD_SHA ($2). This job-native run concludes non-failing by design (#2286); the Checks-API run of the same name carries the block until the publisher re-evaluates the head."
+              exit 0
+            fi
+            echo "::error::$CHECK_NAME was not evaluated on $HEAD_SHA ($2), and the Checks-API lineage could not be confirmed to block, so the job-native run fails (#2286)."
+            exit 1
+          }
+          #
+          # A fork or Dependabot run holds a read-only token, so it could not
+          # post that red, the lineage proof would fail, and its native run
+          # would fail for nothing but the budget. It evaluates as before
+          # instead, always (#2286, Codex P1 on #2298). `[ = ]`, not a case
+          # glob: "dependabot[bot]" in a case arm is a character class.
+          budget_lib=false
+          read_only=false
+          if [ "${IS_FORK:-}" = true ] || [ "${PR_ACTOR:-}" = "dependabot[bot]" ]; then
+            read_only=true
+            echo "Read-only token (fork or Dependabot): evaluating without the budget guard (#2286)."
+          fi
+          if [ "$read_only" = false ] && [ -r scripts/workflow/installation-budget.sh ]; then
+            # shellcheck source=scripts/workflow/installation-budget.sh
+            . scripts/workflow/installation-budget.sh
+            budget_lib=true
+            ib_read "$BUDGET_PER_EVAL_REQUESTS" "$BUDGET_RESERVE_REQUESTS" \
+              "$BUDGET_PER_EVAL_GRAPHQL_POINTS" "$BUDGET_GRAPHQL_RESERVE_POINTS"
+            if ! ib_affordable 1; then
+              budget_stop 2 "the installation API budget ($rl_remaining REST request(s), ${gql_remaining:-?} GraphQL point(s)) is short of one evaluation plus the $BUDGET_RESERVE_REQUESTS-request reserve" skipped
+            fi
+          elif [ "$read_only" = false ]; then
+            echo "::notice::scripts/workflow/installation-budget.sh is not on the default branch yet; evaluating without the budget guard (#2286)."
+          fi
+          gate_out=$(mktemp)
           set +e
-          scripts/coderabbit-severity-gate.sh "$PR_NUMBER" "$REPO"
-          rc=$?
+          scripts/coderabbit-severity-gate.sh "$PR_NUMBER" "$REPO" 2>&1 | tee "$gate_out"
+          rc=${PIPESTATUS[0]}
           set -e
+          if [ "$rc" -eq 2 ] && [ "$budget_lib" = true ] \
+             && ib_rate_limited "$(cat "$gate_out")"; then
+            # The gate stops at its first failed read; nothing more is
+            # evaluated in this run (#2286).
+            budget_stop 2 "the gate failed on the exhausted installation API budget" rate-limited "$(cat "$gate_out")"
+          fi
           if [ "$rc" -eq 2 ]; then
             echo "::error::coderabbit-severity-gate.sh exited 2 (config/usage error)"
             exit 1
@@ -276,6 +368,7 @@ jobs:
           COMMENT_PR: ${{ github.event.issue.number }}
         run: |
           set -euo pipefail
+          . scripts/workflow/required-check-generation.sh
           # issue_comment path (#832): re-evaluate ONLY the PR that received
           # the comment. Sweeping all open PRs on every PR comment would turn
           # ordinary conversation into a repo-wide gate re-run.
@@ -342,8 +435,22 @@ jobs:
           # PUBLISH: the hold withholds a success, it never manufactures a red
           # this arm cannot retire.
           REQUIRE_REVIEW_SUMMARY: "true"
+          EVENT_NAME: ${{ github.event_name }}
+          # Budget guard knobs for the issue_comment path (#2286), read by
+          # scripts/workflow/installation-budget.sh. One evaluation of the
+          # commented PR costs about 18 REST requests and 2 GraphQL points:
+          # two head reads, the generation open, two four-surface
+          # fingerprints (one GraphQL page each), the gate's 4, and
+          # rcg_close's binding read, three revalidation reads and PATCH.
+          # The reserve matches the event job's. The scheduled sweep is not
+          # guarded here: it is the delivery-independent backstop (#2224).
+          BUDGET_PER_EVAL_REQUESTS: "25"
+          BUDGET_RESERVE_REQUESTS: "200"
+          BUDGET_PER_EVAL_GRAPHQL_POINTS: "5"
+          BUDGET_GRAPHQL_RESERVE_POINTS: "75"
         run: |
           set -euo pipefail
+          . scripts/workflow/required-check-generation.sh
           # Bootstrap (see the event-driven job): the trusted script is run from
           # the default-branch checkout. Until this gate merges to the default
           # branch the script is absent there, so the sweep has nothing to run —
@@ -352,20 +459,60 @@ jobs:
             echo "::notice::coderabbit-severity-gate.sh is not on the default branch yet (bootstrap); sweep is a no-op until the gate merges."
             exit 0
           fi
+          # Budget guard, issue_comment path only (#2286). A PR comment
+          # re-evaluates the one commented PR. When the installation budget
+          # cannot cover that plus the reserve, the PR's head gets the
+          # publisher's back-off red instead (two requests: the head read and
+          # the POST): never a green, and its title records the reset, so
+          # the publisher's due() leaves the PR alone until then and its
+          # first pass after the reset re-evaluates it with no manual rerun.
+          # This job's own native check is not a required context and is
+          # attached to the default branch, so the run ends green. An
+          # unreadable budget, or a default branch without the library,
+          # evaluates as before.
+          budget_lib=false
+          if [ "${EVENT_NAME:-}" = issue_comment ] && [ -r scripts/workflow/installation-budget.sh ]; then
+            # shellcheck source=scripts/workflow/installation-budget.sh
+            . scripts/workflow/installation-budget.sh
+            budget_lib=true
+            ib_read "$BUDGET_PER_EVAL_REQUESTS" "$BUDGET_RESERVE_REQUESTS" \
+              "$BUDGET_PER_EVAL_GRAPHQL_POINTS" "$BUDGET_GRAPHQL_RESERVE_POINTS"
+            if ! ib_affordable 1; then
+              reset=$(ib_short_bucket_reset)
+              title=$(ib_backoff_title "$CHECK_NAME" 2 "$reset")
+              echo "::notice::Budget guard (#2286): $rl_remaining REST request(s) and ${gql_remaining:-?} GraphQL point(s) remain, short of one evaluation plus the $BUDGET_RESERVE_REQUESTS-request reserve; posting the back-off red instead of evaluating."
+              while IFS= read -r PR; do
+                [ -n "$PR" ] || continue
+                if ! head_sha=$(gh api "repos/$REPO/pulls/$PR" --jq .head.sha) \
+                    || ! [[ "$head_sha" =~ ^[0-9a-f]{40}$ ]]; then
+                  echo "::warning::Could not read PR #$PR's head; its previous verdict stands until the publisher's next pass."
+                  continue
+                fi
+                gh api -X POST "repos/$REPO/check-runs" \
+                  -f name="$CHECK_NAME" -f head_sha="$head_sha" \
+                  -f status=completed -f conclusion=failure \
+                  -f "output[title]=$title" \
+                  -f "output[summary]=Not evaluated: the installation API budget is short (#2286). The publisher re-evaluates this head after ${reset:-the window resets}." \
+                  >/dev/null || echo "::warning::Could not post the back-off red on PR #$PR."
+              done <<<"$PRS"
+              exit 0
+            fi
+          fi
+          budget_stopped=0
           had_infra_error=0
           while IFS= read -r PR; do
             [ -z "$PR" ] && continue
             echo "::group::Sweep PR #$PR"
 
-            # Look up the PR's head SHA so the check_run lands on the
-            # branch-protection-relevant commit (NOT the schedule's
-            # default-branch HEAD).
-            head_sha=$(gh api "repos/$REPO/pulls/$PR" --jq '.head.sha')
-            if [ -z "$head_sha" ] || [ "$head_sha" = "null" ]; then
-              echo "::warning::Could not resolve head SHA for PR #$PR; skipping"
+            head_sha=$(gh api "repos/$REPO/pulls/$PR" --jq .head.sha) || { had_infra_error=1; echo "::endgroup::"; continue; }
+            if ! generation_id=$(rcg_open "$REPO" "$PR" "$head_sha" "$CHECK_NAME"); then
+              had_infra_error=1
               echo "::endgroup::"
               continue
             fi
+
+            # Keep the head bound by rcg_open. Its final live-head fence
+            # closes this same generation red if the PR moves meanwhile.
 
             # STALE-SNAPSHOT GUARD (Codex round 4 + Phase 4b P1 on #886).
             # Two comment events close together produce two concurrent sweeps,
@@ -487,11 +634,27 @@ jobs:
             pre_fp_rc=$?
             set -e
 
+            CR_EVIDENCE_REPORT=$(mktemp) || { had_infra_error=1; echo "::endgroup::"; continue; }
+            export CR_EVIDENCE_REPORT
+            CR_EVIDENCE_FAILURE=""
+            [ "$pre_fp_rc" -eq 0 ] || CR_EVIDENCE_FAILURE="fingerprint-read-failed"
+            export CR_EVIDENCE_FAILURE
             set +e
             output=$(scripts/coderabbit-severity-gate.sh "$PR" "$REPO" 2>&1)
             rc=$?
             set -e
             echo "$output"
+
+            # issue_comment path (#2286): the gate died on the exhausted
+            # installation budget. Stop here, with no further call: this
+            # PR's open generation stays in progress (blocking, and due for
+            # the publisher's first pass that can afford it).
+            if [ "$budget_lib" = true ] && [ "$rc" -eq 2 ] && ib_rate_limited "$output"; then
+              echo "::warning::PR #$PR: the gate failed on the exhausted installation API budget; leaving generation $generation_id in progress for the publisher to re-evaluate (#2286)."
+              budget_stopped=1
+              echo "::endgroup::"
+              break
+            fi
 
             set +e
             post_fp=$(cr_surface_fp "$PR")
@@ -522,37 +685,30 @@ jobs:
             esac
             if [ "$gate_infra_error" -eq 0 ] \
               && { [ "$pre_fp_rc" -ne 0 ] || [ "$post_fp_rc" -ne 0 ]; }; then
-              echo "::warning::PR #$PR comment surface could not be fingerprinted before and after the gate; skipping this publication for a fresh retry"
-              echo "::endgroup::"
-              continue
+              echo "::error::PR #$PR comment surface could not be fingerprinted; closing only this generation red."
+              if [ "$rc" -eq 0 ]; then
+                : >"$CR_EVIDENCE_REPORT"
+                set +e
+                output=$(CR_EVIDENCE_FAILURE="fingerprint-read-failed" scripts/coderabbit-severity-gate.sh "$PR" "$REPO" 2>&1)
+                rc=$?
+                set -e
+              fi
+              had_infra_error=1
             fi
             if [ "$gate_infra_error" -eq 0 ] && [ "$pre_fp" != "$post_fp" ]; then
               # Deliberately a NOTICE, not a warning or error: a superseded
               # snapshot is the guard working, not a failure. The run that
               # caused the change publishes the current verdict.
-              echo "::notice::PR #$PR comment surface changed while the gate ran; skipping this publication so the newer run's verdict stands"
-              echo "::endgroup::"
-              continue
+              echo "::notice::PR #$PR comment surface changed while the gate ran; closing this generation red for a fresh evaluation."
+              : >"$CR_EVIDENCE_REPORT"
+              rc=2
+              had_infra_error=1
             fi
 
-            if [ "$rc" -eq 3 ]; then
-              # The ONE case where declining to publish is correct. A review run
-              # is on this head and its PR-level summary has not landed, so the
-              # findings on that surface are not knowable yet — and the only
-              # verdict this sweep could compute is read off the PREVIOUS
-              # publication. Publishing success would overwrite the event-driven
-              # run's red with a stale clean read; publishing failure would let
-              # this arm pin a required check red with no ack channel and no
-              # break-glass under `enforce_admins: true`. Skipping leaves the
-              # event run's verdict standing and self-clears on the next sweep
-              # once the summary publishes (#886).
-              echo "::notice::PR #$PR has a current-HEAD CodeRabbit review awaiting its PR-level summary; skipping this publication so the review run's verdict stands"
-              echo "::endgroup::"
-              continue
-            fi
             case "$rc" in
               0) conclusion="success" ;;
               1) conclusion="failure" ;;
+              3) conclusion="failure" ;;
               *)
                 # rc 2 PUBLISHES A FAILURE, it does not skip (Codex P1 round 6
                 # on #886). Skipping left whatever check_run was already on the
@@ -584,19 +740,16 @@ jobs:
             # supersedes the stale red required-check after a UI
             # thread-resolve. If the POST fails, the sweep did not do its
             # job; that's an infra error, not a warning.
-            if ! gh api -X POST "repos/$REPO/check-runs" \
-              -f name="$CHECK_NAME" \
-              -f head_sha="$head_sha" \
-              -f status="completed" \
-              -f conclusion="$conclusion" \
-              -f "output[title]=CodeRabbit severity gate (scheduled re-evaluation)" \
-              -f "output[summary]=$summary" \
-              >/dev/null; then
+            if ! rcg_close "$REPO" "$PR" "$head_sha" "$CHECK_NAME" "$generation_id" "$conclusion" \
+              "CodeRabbit severity gate (scheduled re-evaluation)" "$summary"; then
               echo "::error::Failed to post check_run for PR #$PR — stale required check not refreshed."
               had_infra_error=1
             fi
             echo "::endgroup::"
           done <<<"$PRS"
+          if [ "$budget_stopped" -eq 1 ]; then
+            echo "::notice::Stopped at an installation API rate-limit failure (#2286); the publisher re-evaluates the commented PR once the budget allows."
+          fi
           if [ "$had_infra_error" -ne 0 ]; then
             echo "::error::Sweep finished with one or more infra errors"
             exit 1

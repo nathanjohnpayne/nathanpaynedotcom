@@ -32,6 +32,9 @@ if ! ci_check_select_mode "$@"; then
 fi
 
 SCRIPT="scripts/merge-clearance-gate.sh"
+# #2247: the event job's pending arm runs this helper from the trusted
+# checkout; without it every pending verdict keeps failing the native run.
+LINEAGE_HELPER="scripts/gate-api-lineage-blocking.sh"
 # WORKFLOW path is overridable so the test suite can point the workflow-shape
 # assertions (in particular the job-name contract below) at a fixture without
 # touching the canonical workflow on disk. Defaults to the real workflow.
@@ -41,7 +44,7 @@ TEST="tests/test_merge_clearance_gate.sh"
 FAILED=0
 
 # Existence + executability checks.
-for rel in "$SCRIPT" "$TEST"; do
+for rel in "$SCRIPT" "$LINEAGE_HELPER" "$TEST"; do
   if [ ! -f "$rel" ]; then
     echo "FAIL: Missing required file: $rel"
     FAILED=1
@@ -93,7 +96,96 @@ if [ -f "$WORKFLOW" ]; then
     END {exit (found ? 0 : 1)}
   ' "$WORKFLOW"; then
     echo "FAIL: $WORKFLOW schedule: block missing a 'cron:' entry."
-    echo "      The schedule trigger needs a cron expression (e.g. '*/15 * * * *')."
+    echo "      The schedule trigger needs a cron expression (e.g. '*/30 * * * *')."
+    FAILED=1
+  fi
+
+  # #2167: the CI-side fan-in lives in required-check-publisher.yml, which
+  # lists repo-lint as its second workflow_run parent, NOT here. A
+  # workflow_run trigger on THIS file would (a) run the event job on a run
+  # whose head_sha is main's tip (every workflow_run-triggered run is), so it
+  # exits 1 on "No PR head SHA" and leaves a failed native check on main, and
+  # (b) chain a SECOND publisher full pass per lint completion through the
+  # publisher's existing gate parent. The gate's verdict does not read `lint`
+  # (CI gate (a) is skipped to avoid the required-check self-deadlock), so
+  # the only correct place to react to lint is the single Checks-API writer.
+  # Spelling-tolerant pre-check (bare, single- or double-quoted key, optional
+  # space before the colon). The #850 parsed tier below asserts the same
+  # property by KEY VALUE over the loaded `on` mapping, which is what catches
+  # flow-style and other spellings this text scan cannot (Codex P2 on #2171).
+  if grep -qE "^[[:space:]]*[\"']?workflow_run[\"']?[[:space:]]*:" "$WORKFLOW"; then
+    echo "FAIL: [#2167 lint fan-in] $WORKFLOW declares a workflow_run trigger."
+    echo "      Lint completion is fanned in by required-check-publisher.yml (its"
+    echo "      second workflow_run parent is repo-lint). A workflow_run here runs"
+    echo "      the event job on main's tip and doubles the publisher pass per"
+    echo "      lint completion. Add CI-side parents to the publisher instead."
+    FAILED=1
+  fi
+
+  # #2167: no runner-held waiting. Every job here evaluates once and exits;
+  # a `while`/`until` loop that is not a `read` loop over enumerated PRs, or
+  # a `--watch`, is the shape that held a runner for a whole CI run (#1062
+  # finding 5: 1,200 s at 15 s intervals). Text-level, disclosed: comments
+  # are stripped (full-line and inline), the loop keyword must sit at a
+  # statement position (`^`, `;`, `&&`, `||`, `do`, `then`), and a wait
+  # respelled as a bounded `for` with a long `sleep` is a stated residual
+  # (#977's parsed-shell substrate is where that closes). The two spellings
+  # that have actually shipped in this repo cannot return silently.
+  # Comment stripping is SHELL-QUOTE AWARE for this scan (Codex P2 on #2171,
+  # round 2): a plain "strip from whitespace-#" treats the hash inside
+  # `echo "state #"; while true; ...` as a comment and hides the loop. The
+  # per-line state machine tracks single quotes, double quotes and
+  # backslash escapes; a `#` opens a comment only outside both quote kinds
+  # and after whitespace (or at line start). Quote state resets per line —
+  # a quoted string spanning lines is the stated residual (#977).
+  mcg_nowait_text=$(awk -v sqc="'" '
+    /^[[:space:]]*#/ { next }
+    {
+      line = $0; out = ""; sq = 0; dq = 0; esc = 0; prev = " "; n = length(line)
+      for (i = 1; i <= n; i++) {
+        c = substr(line, i, 1)
+        if (esc) { out = out c; esc = 0; prev = c; continue }
+        if (c == "\\" && !sq) { out = out c; esc = 1; prev = c; continue }
+        if (c == sqc && !dq) { sq = !sq }
+        else if (c == "\"" && !sq) { dq = !dq }
+        else if (c == "#" && !sq && !dq && prev ~ /[[:space:]]/) { break }
+        out = out c; prev = c
+      }
+      # A loop keyword ending a line continues on the next (Codex P2 on
+      # #2171, round 3): `while` / newline / `true; do ...` is one statement
+      # to the shell, so the two lines are joined before the scan.
+      if (pending != "") { out = pending " " out; pending = "" }
+      if (out ~ /(^|[[:space:]])(while|until)[[:space:]]*$/) { pending = out; next }
+      print out
+    }
+    END { if (pending != "") print pending }' "$WORKFLOW")
+  # Classified per OCCURRENCE, not per line (Codex P2 on #2171): a line that
+  # carries `while true; do sleep 15; done; while read -r x; ...` must still
+  # trip on its first loop. Each statement-position loop keyword is extracted
+  # with its optional `IFS=` prefix and first command word; only an
+  # occurrence whose command word is `read` is exempt.
+  mcg_poll_loops() {  # <comment-stripped text> -> "<line>: <occurrence>" per non-read loop
+    grep -nE '(^[[:space:]]*|;[[:space:]]*|&&[[:space:]]*|\|\|[[:space:]]*|(^|[[:space:]])do[[:space:]]+|(^|[[:space:]])then[[:space:]]+)(while|until)[[:space:]]' <<<"$1" \
+      | while IFS= read -r hit; do
+          n=${hit%%:*}; body=${hit#*:}
+          grep -oE '(^[[:space:]]*|;[[:space:]]*|&&[[:space:]]*|\|\|[[:space:]]*|(^|[[:space:]])do[[:space:]]+|(^|[[:space:]])then[[:space:]]+)(while|until)[[:space:]]+(IFS=[^[:space:];]*[[:space:]]+)?[^[:space:];]+' <<<"$body" \
+            | grep -vE '(^|[^[:alnum:]_])while[[:space:]]+(IFS=[^[:space:];]*[[:space:]]+)?read$' \
+            | sed "s/^[[:space:]]*/$n: /" || true
+        done || true
+  }
+  mcg_loop_hits=$(mcg_poll_loops "$mcg_nowait_text")
+  if [ -n "$mcg_loop_hits" ]; then
+    echo "FAIL: [#2167 no runner-held wait] $WORKFLOW contains a while/until loop that is not a read loop:"
+    printf '%s\n' "$mcg_loop_hits" | sed 's/^/      /' | head -5
+    echo "      The gate evaluates once and exits. A loop around a status read holds"
+    echo "      a runner for the whole CI run; lint completion must arrive as the"
+    echo "      publisher's repo-lint workflow_run delivery, never be polled for."
+    FAILED=1
+  fi
+  if grep -qE -- '--watch([[:space:]=]|$)' <<<"$mcg_nowait_text"; then
+    echo "FAIL: [#2167 no runner-held wait] $WORKFLOW passes --watch."
+    echo "      A watch holds the runner until the checks finish — the runner-held"
+    echo "      poll #2167 removed. Evaluate once; the event re-triggers you."
     FAILED=1
   fi
 
@@ -105,7 +197,7 @@ if [ -f "$WORKFLOW" ]; then
   # marker. Require that trigger AND the dispatch-recheck wiring (the dispatch
   # type + resolving the PR from github.event.client_payload.pr), so a verified
   # sync PR clears promptly instead of riding a fail-closed spurious-red until
-  # the */15 sweep. No payload trust is added: the dispatch only schedules a
+  # the scheduled sweep. No payload trust is added: the dispatch only schedules a
   # re-run; the gate re-derives clearance from the head/base-pinned
   # github-actions[bot] marker in scripts/merge-clearance-gate.sh
   # lane_verified(). Keep the `merge-clearance-recheck` type in sync with the
@@ -323,8 +415,17 @@ if [ -f "$WORKFLOW" ]; then
         FAILED=1
         continue
       fi
-      if ! mcg_has "$mcg_pblock" 'gh api -X POST "repos/$REPO/check-runs"' \
-         || ! mcg_has "$mcg_pblock" '-f name="$CHECK_NAME"'; then
+      # #906's trusted sweep/dispatch use the narrow owned-generation helper.
+      # Runtime tests execute the actual callers and the helper together; this
+      # legacy text fence recognizes its exact tuple, not an arbitrary command.
+      mcg_owned_generation=0
+      if mcg_has "$mcg_pblock" '. scripts/workflow/required-check-generation.sh' \
+          && mcg_has "$mcg_pblock" 'generation_id=$(rcg_open "$REPO" "$PR" "$head_sha" "$CHECK_NAME")' \
+          && mcg_has "$mcg_pblock" 'rcg_close "$REPO" "$PR" "$head_sha" "$CHECK_NAME" "$generation_id" "$conclusion"'; then
+        mcg_owned_generation=1
+      fi
+      if [ "$mcg_owned_generation" -ne 1 ] && { ! mcg_has "$mcg_pblock" 'gh api -X POST "repos/$REPO/check-runs"' \
+         || ! mcg_has "$mcg_pblock" '-f name="$CHECK_NAME"'; }; then
         echo "FAIL: the '$mcg_producer' job must POST a check_run under CHECK_NAME."
         echo "      A POST without the name flag, or a CHECK_NAME declaration without"
         echo "      a POST, leaves that trigger path no longer refreshing the required"
@@ -373,7 +474,7 @@ if [ -f "$WORKFLOW" ]; then
         echo "      (a gh read loop or gh pr list), not from an arbitrary assignment."
         FAILED=1
       fi
-      if ! grep -qE -- '-f head_sha="\$(HEAD_SHA|head_sha)"' <<<"$mcg_pblock"; then
+      if [ "$mcg_owned_generation" -ne 1 ] && ! grep -qE -- '-f head_sha="\$(HEAD_SHA|head_sha)"' <<<"$mcg_pblock"; then
         echo "FAIL: the '$mcg_producer' job must POST head_sha as the per-PR head it"
         echo "      resolved (a shell variable), not a workflow expression. The Checks"
         echo "      API rejects a create-check-run without head_sha at all, and a"
@@ -406,7 +507,7 @@ if [ -f "$WORKFLOW" ]; then
       # The POST must publish the MAPPED value (Codex P2 on #849). Pinning the
       # case arms proves the mapping exists; it says nothing about what the
       # POST actually sends, and -f conclusion="success" satisfied both.
-      if ! mcg_has "$mcg_pblock" '-f conclusion="$conclusion"'; then
+      if [ "$mcg_owned_generation" -ne 1 ] && ! mcg_has "$mcg_pblock" '-f conclusion="$conclusion"'; then
         echo "FAIL: the '$mcg_producer' job must POST -f conclusion=\"\$conclusion\" —"
         echo "      the value it mapped from the gate. A literal publishes a verdict"
         echo "      the mapping never produced."
@@ -853,6 +954,25 @@ if not isinstance(jobs, dict):
     print("      assertions have nothing to scope to and would pass vacuously.")
     sys.exit(1)
 
+# #2167 — no workflow_run trigger on this workflow, decided over the PARSED
+# `on` mapping so a quoted, flow-style or otherwise respelled key cannot
+# slip past the text pre-check (Codex P2 on #2171). PyYAML resolves a bare
+# `on` key to True; a quoted `"on"` stays a string, so both are read.
+triggers = doc.get("on") if "on" in doc else doc.get(True)
+trigger_keys = ()
+if isinstance(triggers, dict):
+    trigger_keys = tuple(str(k) for k in triggers)
+elif isinstance(triggers, list):
+    trigger_keys = tuple(str(k) for k in triggers)
+elif isinstance(triggers, str):
+    trigger_keys = (triggers,)
+if "workflow_run" in trigger_keys:
+    bad("FAIL: [#2167 lint fan-in] %s declares a workflow_run trigger (parsed on: mapping)." % WORKFLOW,
+        "      Lint completion is fanned in by required-check-publisher.yml (its",
+        "      second workflow_run parent is repo-lint). A workflow_run here runs",
+        "      the event job on main's tip and doubles the publisher pass per lint",
+        "      completion. Add CI-side parents to the publisher instead.")
+
 # Property 1 — phase 1 is the FIRST step, unconditional, with its own bindings.
 event_job = jobs.get("merge-clearance-gate")
 if event_job is not None and not isinstance(event_job, dict):
@@ -998,6 +1118,18 @@ STEP_IF_ALLOWED = {
         "steps.find.outputs.prs != ''",
     ("merge-clearance-gate", "Close the required check_run (#841 phase 2)"):
         "${{ !cancelled() && steps.open.outputs.id != '' }}",
+    # #2247: the lineage confirmation runs only for the script's explicit
+    # pending verdict on a run that opened its own Checks-API hold. Any other
+    # condition either skips it (fail closed: the native run stays red) or
+    # runs it where there is no hold of this run's own to rely on.
+    # #2286: and for a run that did not evaluate (the budget guard skipped
+    # it, or the script failed on the exhausted installation budget), whose
+    # phase 2 closed its own hold with the publisher's back-off red.
+    ("merge-clearance-gate", "Confirm the Checks-API lineage blocks while pending (#2247)"):
+        "${{ (steps.gate.outputs.pending == 'true' || steps.budget.outputs.skip == 'true' || steps.gate.outputs.rate_limited == 'true') && steps.open.outputs.id != '' }}",
+    # #2286: the gate step is skipped only when the budget guard said so.
+    ("merge-clearance-gate", "Run scripts/merge-clearance-gate.sh"):
+        "${{ steps.budget.outputs.skip != 'true' }}",
 }
 for key in PRODUCERS:
     job = jobs.get(key)
@@ -1121,6 +1253,106 @@ for key in PRODUCERS:
                 "      token-free, but its run body invokes gh. That exemption is only",
                 "      for steps making no authenticated call at all: drop the pin and",
                 "      bind GH_TOKEN to ${{ secrets.GITHUB_TOKEN }} (#854).")
+
+# Property 5 (#2247)—the pending arm of the native conclusion is bound to
+# the evaluation and to the lineage confirmation, never to constants. The
+# arm turns a blocked verdict into a non-failing job-native run; it is safe
+# only because the script said `pending` AND the Checks-API lineage was
+# confirmed red or in progress on this head. Rebinding either input to a
+# literal, or confirming a different context or run, makes every blocked
+# verdict non-failing while the shell text still reads correctly.
+PENDING_STEP = "Confirm the Checks-API lineage blocks while pending (#2247)"
+report_step = step_named(event_job or {}, "Report gate verdict")
+lineage_step = step_named(event_job or {}, PENDING_STEP)
+if report_step == "ambiguous" or lineage_step == "ambiguous":
+    bad("FAIL: [#2247 pending arm] more than one step in merge-clearance-gate",
+        "      carries the report or lineage-confirmation step name; a decoy",
+        "      sharing the name can shadow the real step's bindings.")
+elif report_step is None:
+    bad("FAIL: [#2247 pending arm] the merge-clearance-gate job has no",
+        "      'Report gate verdict' step, so nothing sets the native conclusion.")
+else:
+    renv = report_step.get("env") or {}
+    if renv.get("PENDING") != "${{ steps.gate.outputs.pending }}" \
+            or renv.get("API_BLOCKING") != "${{ steps.lineage.outputs.api_blocking }}":
+        bad("FAIL: [#2247 pending arm] 'Report gate verdict' must bind PENDING to",
+            "      exactly ${{ steps.gate.outputs.pending }} and API_BLOCKING to exactly",
+            "      ${{ steps.lineage.outputs.api_blocking }} (got %r / %r)." % (renv.get("PENDING"), renv.get("API_BLOCKING")),
+            "      Any other binding lets a blocked verdict conclude the required",
+            "      job-native run non-failing without the script saying pending or",
+            "      the Checks-API lineage being confirmed red on the head.")
+    if lineage_step is None:
+        bad("FAIL: [#2247 pending arm] the merge-clearance-gate job has no",
+            "      %r step, so API_BLOCKING has no producer." % PENDING_STEP)
+    else:
+        lenv = lineage_step.get("env") or {}
+        lrun = strip_comments(lineage_step.get("run") or "")
+        if lineage_step.get("id") != "lineage":
+            bad("FAIL: [#2247 pending arm] the lineage-confirmation step must carry",
+                "      id: lineage; the report step reads steps.lineage.outputs.")
+        if lenv.get("CHECK_NAME") != "Merge clearance gate" \
+                or lenv.get("RUN_ID") != "${{ github.run_id }}":
+            bad("FAIL: [#2247 pending arm] the lineage-confirmation step must bind",
+                "      CHECK_NAME to exactly 'Merge clearance gate' and RUN_ID to exactly",
+                "      ${{ github.run_id }} (got %r / %r). Confirming another context," % (lenv.get("CHECK_NAME"), lenv.get("RUN_ID")),
+                "      or another run's suite, proves nothing about this one.")
+        if "scripts/gate-api-lineage-blocking.sh" not in lrun:
+            bad("FAIL: [#2247 pending arm] the lineage-confirmation step must run",
+                "      scripts/gate-api-lineage-blocking.sh, the helper that states and",
+                "      checks each condition the pending arm relies on.")
+
+# Property 6 (#2286)—a run that did not evaluate (budget guard skip, or the
+# script failed on the exhausted installation budget) is bound to the guard's
+# own outputs, closes its hold red with the publisher's back-off title, and
+# reaches a non-failing native conclusion only through the lineage
+# confirmation. A constant, a renamed output or a success on that path would
+# let a run that evaluated nothing look green.
+budget_step = step_named(event_job or {}, "Installation budget guard (#2286)")
+if budget_step in (None, "ambiguous"):
+    bad("FAIL: [#2286 budget guard] the merge-clearance-gate job needs exactly one",
+        "      'Installation budget guard (#2286)' step.")
+else:
+    benv = budget_step.get("env") or {}
+    brun = strip_comments(budget_step.get("run") or "")
+    if budget_step.get("id") != "budget" or "if" in budget_step:
+        bad("FAIL: [#2286 budget guard] the budget step must carry id: budget and no",
+            "      step-level if:, so every evaluating run reads the budget first.")
+    for knob in ("BUDGET_PER_EVAL_REQUESTS", "BUDGET_RESERVE_REQUESTS",
+                 "BUDGET_PER_EVAL_GRAPHQL_POINTS", "BUDGET_GRAPHQL_RESERVE_POINTS"):
+        if not re.fullmatch(r"[0-9]+", str(benv.get(knob, ""))):
+            bad("FAIL: [#2286 budget guard] %s must be a quoted integer; a missing or" % knob,
+                "      malformed knob silently turns the guard off.")
+    if benv.get("OPEN_ID") != "${{ steps.open.outputs.id }}":
+        bad("FAIL: [#2286 budget guard] OPEN_ID must be exactly ${{ steps.open.outputs.id }}:",
+            "      only a run holding its own Checks-API hold may skip evaluation.")
+    if "ib_affordable 1" not in brun or 'echo "skip=true"' not in brun \
+            or "ib_backoff_title" not in brun:
+        bad("FAIL: [#2286 budget guard] the budget step must decide with ib_affordable 1",
+            "      and emit skip=true with the publisher's back-off title (ib_backoff_title).")
+if isinstance(close_step, dict):
+    cenv = close_step.get("env") or {}
+    crun = strip_comments(close_step.get("run") or "")
+    if cenv.get("BUDGET_SKIP") != "${{ steps.budget.outputs.skip }}" \
+            or cenv.get("RATE_LIMITED") != "${{ steps.gate.outputs.rate_limited }}":
+        bad("FAIL: [#2286 budget guard] phase 2 must bind BUDGET_SKIP and RATE_LIMITED to the",
+            "      budget step's and gate step's own outputs.")
+    budget_arm = re.search(r'^if \[ "\$\{BUDGET_SKIP:-\}" = true \] \|\| \[ "\$\{RATE_LIMITED:-\}" = true \]; then\n(.*?)\n^else$', crun, re.S | re.M)
+    if not budget_arm or 'conclusion="failure"' not in budget_arm.group(1) \
+            or "success" in budget_arm.group(1):
+        bad("FAIL: [#2286 budget guard] phase 2 must close a run that did not evaluate",
+            "      with conclusion failure, and never success.")
+if isinstance(report_step, dict):
+    renv = report_step.get("env") or {}
+    rrun = strip_comments(report_step.get("run") or "")
+    if renv.get("BUDGET_SKIP") != "${{ steps.budget.outputs.skip }}" \
+            or renv.get("RATE_LIMITED") != "${{ steps.gate.outputs.rate_limited }}":
+        bad("FAIL: [#2286 budget guard] 'Report gate verdict' must bind BUDGET_SKIP and",
+            "      RATE_LIMITED to the budget step's and gate step's own outputs.")
+    arm = re.search(r'^if \[ "\$\{BUDGET_SKIP:-\}" = true \] \|\| \[ "\$\{RATE_LIMITED:-\}" = true \]; then\n(.*?)\n^fi$', rrun, re.S | re.M)
+    if not arm or not re.search(r'if \[ "\$\{API_BLOCKING:-\}" = true \]; then\n[^\n]*\n\s*exit 0', arm.group(1)) \
+            or not arm.group(1).rstrip().endswith("exit 1"):
+        bad("FAIL: [#2286 budget guard] the report step's budget arm must exit 0 only when",
+            "      API_BLOCKING is true and exit 1 otherwise.")
 
 if failures:
     print("\n".join(failures))
