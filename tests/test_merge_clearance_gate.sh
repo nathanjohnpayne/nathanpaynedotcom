@@ -1128,7 +1128,7 @@ fi
 echo; echo "--- Test 13: missing GH_TOKEN"
 SCRATCH=$(make_scratch true true)
 set +e
-OUT=$(cd "$SCRATCH" && PATH="$STUB_DIR:$PATH" "$SCRIPT" 99 owner/repo 2>&1)
+OUT=$(cd "$SCRATCH" && env -u GH_TOKEN -u GITHUB_TOKEN PATH="$STUB_DIR:$PATH" "$SCRIPT" 99 owner/repo 2>&1)
 RC=$?
 set -e
 if [ "$RC" = 2 ] && echo "$OUT" | grep -q "GH_TOKEN is required"; then
@@ -1740,6 +1740,7 @@ if [ "$1" = api ]; then
     *"-X POST"*)
       [ "${GH_POST_FAIL:-0}" = 1 ] && exit 1
       printf '%s\n' "${GH_POST_ID:-42}"; exit 0 ;;
+    *"/commits/HEAD"*) printf '%s\n' bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb; exit 0 ;;
     *"-X PATCH"*)
       [ "${GH_PATCH_FAIL:-0}" = 1 ] && exit 1
       exit 0 ;;
@@ -1752,6 +1753,8 @@ if [ "$1" = pr ] && [ "$2" = view ]; then
 fi
 exit 0
 STUB
+  printf '#!/bin/sh\necho bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n' > "$T23/bin/git"
+  chmod +x "$T23/bin/git"
   # No-op sleep: the retry loops would otherwise burn ~2 minutes of real time.
   printf '#!/bin/sh\nexit 0\n' > "$T23/bin/sleep"
   chmod +x "$T23/bin/gh" "$T23/bin/sleep"
@@ -3501,8 +3504,11 @@ mkdir -p "$RCP_DIR"
 # Populated from the real .github/workflows so the controls cannot drift.
 RCP_WFDIR="$RCP_DIR/workflows"
 mkdir -p "$RCP_WFDIR"
+# auto-clear-blocking-labels.yml is the listener the A17 nomination job's
+# dispatch type is cross-checked against (#2239).
 for _f in required-check-publisher.yml merge-clearance-gate.yml pr-review-policy.yml \
-          codex-p1-gate.yml coderabbit-severity-gate.yml; do
+          codex-p1-gate.yml coderabbit-severity-gate.yml repo_lint.yml \
+          auto-clear-blocking-labels.yml; do
   cp "$ROOT/.github/workflows/$_f" "$RCP_WFDIR/$_f"
 done
 
@@ -3555,13 +3561,15 @@ else
   fail "#845 Stage B: shadow-name fixture failed for the wrong reason: $OUT"
 fi
 
-# <fixture-workflow> [workflow-dir] [parent] -> echoes rc, output to <fixture>.out
+# <fixture-workflow> [workflow-dir] [parent] [lint-parent] -> echoes rc,
+# output to <fixture>.out. The lint parent is the #2167 CI-side parent.
 rcp_run() {
   local out rc
   set +e
   out=$(REQUIRED_CHECK_PUBLISHER_WORKFLOW="$1" \
         REQUIRED_CHECK_PUBLISHER_WORKFLOW_DIR="${2:-$RCP_WFDIR}" \
         REQUIRED_CHECK_PUBLISHER_PARENT="${3:-$RCP_WFDIR/merge-clearance-gate.yml}" \
+        REQUIRED_CHECK_PUBLISHER_LINT_PARENT="${4:-$RCP_WFDIR/repo_lint.yml}" \
         "$RCP_CHECK" 2>&1)
   rc=$?
   set -e
@@ -3583,7 +3591,7 @@ rcp_case() {
     cp "$RCP_WF" "$f"
   fi
   if [ -n "$prog" ] && cmp -s "$RCP_WF" "$f"; then
-    fail "#845 rcp case $name: the mutation changed nothing — anchor drifted"
+    fail "${RCP_TAG:-#845} rcp case $name: the mutation changed nothing — anchor drifted"
     return
   fi
   rc=$(rcp_run "$f")
@@ -3594,20 +3602,20 @@ rcp_verdict() {  # <name> <rc> <expect> <want> <out-file>
   local name="$1" rc="$2" expect="$3" want="$4" outf="$5"
   if [ "$expect" = pass ]; then
     if [ "$rc" -eq 0 ]; then
-      pass "#845 rcp case $name: positive control — the canonical publisher is accepted"
+      pass "${RCP_TAG:-#845} rcp case $name: positive control — the canonical publisher is accepted"
     else
-      fail "#845 rcp case $name: expected pass, got rc=$rc"
+      fail "${RCP_TAG:-#845} rcp case $name: expected pass, got rc=$rc"
       sed 's/^/      /' "$outf" | head -4 >&2
     fi
     return
   fi
   if [ "$rc" -eq 0 ]; then
-    fail "#845 rcp case $name: expected the fence to reject this shape, got rc=0"
+    fail "${RCP_TAG:-#845} rcp case $name: expected the fence to reject this shape, got rc=0"
   elif [ -n "$want" ] && ! grep -qF -- "$want" "$outf"; then
-    fail "#845 rcp case $name: rejected, but not for its own reason (wanted: $want)"
+    fail "${RCP_TAG:-#845} rcp case $name: rejected, but not for its own reason (wanted: $want)"
     grep '^FAIL' "$outf" | sed 's/^/      /' | head -3 >&2
   else
-    pass "#845 rcp case $name: the fence rejects it, naming the right cause"
+    pass "${RCP_TAG:-#845} rcp case $name: the fence rejects it, naming the right cause"
   fi
 }
 
@@ -3746,7 +3754,7 @@ rcp_case rd-not-mapping \
 # either side orphans every event-driven publish — silently, because a
 # workflow that never fires looks identical to one that finds nothing to do.
 rcp_case parent-name \
-  's{workflows: \["Merge Clearance Gate"\]}{workflows: ["Merge Clearance Gate Renamed"]}' \
+  's{workflows: \["Merge Clearance Gate", "repo-lint"\]}{workflows: ["Merge Clearance Gate Renamed", "repo-lint"]}' \
   fail 'workflow_run.workflows is'
 
 # A rename is only HALF the shape. The parent name is read out of the
@@ -3809,14 +3817,14 @@ rcp_parent_case parent-name-blank 's{^name: Merge Clearance Gate$}{name: ""}m' \
 # The old `list(listed) == [parent_name]` comparison accepted matching nested
 # lists, even though that trigger cannot deliver the publisher at all.
 rcp_parent_pair_case parent-name-nonscalar \
-  's{workflows: \["Merge Clearance Gate"\]}{workflows: [[Merge Clearance Gate]]}' \
+  's{workflows: \["Merge Clearance Gate", "repo-lint"\]}{workflows: [[Merge Clearance Gate], "repo-lint"]}' \
   's{^name: Merge Clearance Gate$}{name: [Merge Clearance Gate]}m' \
   fail 'declares no usable top-level name:'
 # `workflows:` itself must be a list of strings. A one-character scalar name
 # was another old false clear: `list("M") == ["M"]` held even though Actions
 # treats the scalar as an invalid trigger value.
 rcp_parent_pair_case workflow-name-not-list \
-  's{workflows: \["Merge Clearance Gate"\]}{workflows: M}' \
+  's{workflows: \["Merge Clearance Gate", "repo-lint"\]}{workflows: M}' \
   's{^name: Merge Clearance Gate$}{name: M}m' \
   fail 'not a list'
 # The third outcome, and the regression guard for the round-1 fix: an
@@ -3872,16 +3880,16 @@ rcp_case head-post-quoted-arg \
   's{-f head_sha="\$HEAD_SHA" \\}{-f "head_sha=\$GITHUB_SHA" \\}' \
   fail 'a check-run POST binds head_sha='
 rcp_case head-post-typed-flag \
-  's{-f head_sha="\$hd" \\}{-F head_sha="\$GITHUB_SHA" \\}' \
+  's{-f head_sha="\$HEAD_SHA" \\}{-F head_sha="\$GITHUB_SHA" \\}' \
   fail 'a check-run POST binds head_sha='
 rcp_case head-post-long-flag \
-  's{-f head_sha="\$RUN_HEAD" \\}{--field head_sha="\$GITHUB_SHA" \\}' \
+  's{-f head_sha="\$HEAD_SHA" \\}{--field head_sha="\$GITHUB_SHA" \\}' \
   fail 'a check-run POST binds head_sha='
 # Non-vacuity in the other direction: judging the VALUE, not the spelling.
 # A respelled site that still binds an allowlisted variable is legal, and a
 # fence that reddened on it would be trading one leak for a false positive.
 rcp_case head-post-respelled-legal \
-  's{-f head_sha="\$head" \\}{-f "head_sha=\$head" \\}' \
+  's{-f head_sha="\$HEAD_SHA" \\}{-f "head_sha=\$HEAD_SHA" \\}' \
   pass
 # The count is pinned alongside the allowlist so a NEW POST cannot arrive
 # without its head binding being read — an added site binds an allowlisted
@@ -3900,18 +3908,18 @@ rcp_case head-post-count \
 # against a broken fence is not coverage.
 #
 # 1. Removal direction: commenting a binding site out must drop the count to
-#    4. Unstripped, the count would still read 5 and the fence would go
+#    0. Unstripped, the count would still read 1 and the fence would go
 #    green while the site was gone — certifying a shape it never saw.
 rcp_case head-comment-full \
-  's{^([ \t]*)(-f head_sha="\$RUN_HEAD" \\)$}{$1# $2}m' \
+  's{^([ \t]*)(-f head_sha="\$HEAD_SHA" \\)$}{$1# $2}m' \
   fail '[rcp head binding count]'
 # 2. Addition direction, INLINE (`[ \t]#` — a comment after code), and it
 #    must PASS: a commented-out off-allowlist binding is prose, not a
-#    binding. Unstripped it reads as a sixth site binding $GITHUB_SHA and
+#    binding. Unstripped it reads as an additional site binding $GITHUB_SHA and
 #    trips both the allowlist and the count — a false positive on a file
 #    whose own style is to explain each POST beside it.
 rcp_case head-comment-inline \
-  's{^([ \t]*-f head_sha="\$head" \\)$}{$1 # -f head_sha="\$GITHUB_SHA"}m' \
+  's{^([ \t]*-f head_sha="\$HEAD_SHA" \\)$}{$1 # -f head_sha="\$GITHUB_SHA"}m' \
   pass
 # 3. Addition direction, COLUMN 0 (`^[ \t]*#` — a whole-line comment). This
 #    is the case the inline regex cannot cover: it requires whitespace
@@ -3938,21 +3946,21 @@ rcp_case head-sha-case \
 #
 # 1. A literal-false condition (what the screen did catch).
 rcp_case publish-falsy \
-  's{^    if: github.event_name != .workflow_run. \|\| github.event.action == .completed.$}{    if: \$\{\{ false \}\}}m' \
+  's{^    if: >-\n      github.event_name != .workflow_run. \|\|\n(      .*\n)+?(?=    runs-on:)}{    if: \$\{\{ false \}\}\n}m' \
   fail '[rcp job eligibility]'
 # 2. A NON-literal condition Actions can never satisfy. No falsiness screen
 #    terminates against this class: an event name that never occurs is one
 #    spelling of infinitely many, which is why the condition is pinned
 #    verbatim instead of screened.
 rcp_case publish-impossible \
-  's{^    if: github.event_name != .workflow_run. \|\| github.event.action == .completed.$}{    if: github.event_name == \x27never-an-event\x27}m' \
+  's{^    if: >-\n      github.event_name != .workflow_run. \|\|\n(      .*\n)+?(?=    runs-on:)}{    if: github.event_name == \x27never-an-event\x27\n}m' \
   fail '[rcp job eligibility]'
 # 3. DELETING the `if:`. The screen was guarded on the key's presence, so a
 #    one-line deletion disarmed it — the identical defect A6 carried. The
 #    publisher would then publish on `requested` too, on a head phase 1 has
 #    not finished claiming.
 rcp_case publish-if-absent \
-  's{^    if: github.event_name != .workflow_run. \|\| github.event.action == .completed.\n}{}m' \
+  's{^    if: >-\n      github.event_name != .workflow_run. \|\|\n(      .*\n)+?(?=    runs-on:)}{}m' \
   fail '[rcp job eligibility]'
 # 4. The `open` job, which the screen never looked at AT ALL. Drifting its
 #    condition to the publish cue means no hold is ever opened: every
@@ -4433,6 +4441,808 @@ done
 nonrev_case "block-list key parses and gates normally" "$DENY" \
   "$(jq -n --arg sha "$HEAD_SHA" --arg who "$ROBOT" '
     [{user:{login:$who},state:"APPROVED",commit_id:$sha,submitted_at:"2026-08-22T04:46:19Z"}]')" block
+
+# ---------------------------------------------------------------------------
+# Test 27 (#2167): event-driven lint fan-in and no runner-held waiting.
+#
+# Three checks changed together, and each new assertion gets the mutation
+# that proves it is armed:
+#
+#   * scripts/ci/check_required_check_publisher — the publisher now lists
+#     repo-lint as its second workflow_run parent. A6 pins the parent list
+#     whole, in order, against BOTH parent files; A4a pins the two job
+#     conditions that split the deliveries (open: gate parent only; publish:
+#     a repo-lint parent only for a `pull_request` lint run — the main-SHA
+#     confounder, where a merge floods push-to-main lint completions whose
+#     head_sha is main's tip); A14 rejects a runner-held wait loop.
+#   * scripts/ci/check_merge_clearance_gate — the gate workflow must NOT grow
+#     its own workflow_run (the fan-in is the publisher's), and must carry no
+#     wait loop.
+#   * scripts/ci/check_auto_clear_workflow — the same no-wait assertion.
+#
+# Same posture as Test 25: every fixture is derived from the canonical file
+# by a mutation whose no-op guard trips when its anchor drifts, and every
+# negative case names the assertion it expects to trip.
+# ---------------------------------------------------------------------------
+if [ ! -x "$RCP_CHECK" ] || [ ! -f "$RCP_WF" ]; then
+  echo; echo "SKIP: Test 27 (#2167) — publisher or its fence absent"
+elif ! python3 -c "import yaml" >/dev/null 2>&1; then
+  echo; echo "SKIP: Test 27 (#2167) — PyYAML unavailable, the fence's tier does not run"
+elif ! command -v perl >/dev/null 2>&1; then
+  echo; echo "SKIP: Test 27 (#2167) — perl unavailable (fixtures are perl-derived)"
+else
+echo; echo "--- Test 27 (#2167): lint fan-in parent, main-SHA confounder, no runner-held wait"
+RCP_TAG='#2167'
+RCP_DIR="${RCP_DIR:-$WORKDIR/rcp}"
+mkdir -p "$RCP_DIR"
+
+# ── publisher: the parent list is pinned whole, in order ───────────────
+rcp_case lint-parent-dropped \
+  's{workflows: \["Merge Clearance Gate", "repo-lint"\]}{workflows: ["Merge Clearance Gate"]}' \
+  fail 'workflow_run.workflows is'
+rcp_case lint-parent-extra \
+  's{workflows: \["Merge Clearance Gate", "repo-lint"\]}{workflows: ["Merge Clearance Gate", "repo-lint", "PR Review Policy"]}' \
+  fail 'workflow_run.workflows is'
+rcp_case lint-parent-reordered \
+  's{workflows: \["Merge Clearance Gate", "repo-lint"\]}{workflows: ["repo-lint", "Merge Clearance Gate"]}' \
+  fail 'workflow_run.workflows is'
+
+# The lint parent's name is read out of ITS file, with the same three
+# outcomes the gate parent has (missing, renamed, unreadable).
+rcp_lint_parent_case() {  # <name> <perl-program-on-publisher-or-empty> <perl-program-on-lint-parent> <expect> [needle]
+  local name="$1" pub_prog="$2" lint_prog="$3" expect="$4" want="${5:-}" f p rc
+  f="$RCP_DIR/wf-$name.yml"
+  p="$RCP_DIR/lint-parent-$name.yml"
+  if [ -n "$pub_prog" ]; then
+    perl -0777 -pe "$pub_prog" "$RCP_WF" > "$f"
+    if cmp -s "$RCP_WF" "$f"; then
+      fail "#2167 rcp case $name: the publisher mutation changed nothing — anchor drifted"
+      return
+    fi
+  else
+    cp "$RCP_WF" "$f"
+  fi
+  perl -0777 -pe "$lint_prog" "$RCP_WFDIR/repo_lint.yml" > "$p"
+  if cmp -s "$RCP_WFDIR/repo_lint.yml" "$p"; then
+    fail "#2167 rcp case $name: the lint-parent mutation changed nothing — anchor drifted"
+    return
+  fi
+  rc=$(rcp_run "$f" "$RCP_WFDIR" "$RCP_WFDIR/merge-clearance-gate.yml" "$p")
+  rcp_verdict "$name" "$rc" "$expect" "$want" "$f.out"
+}
+rcp_lint_parent_case lint-parent-name-missing '' 's{^name: repo-lint\n}{}m' \
+  fail 'declares no usable top-level name:'
+rcp_lint_parent_case lint-parent-renamed '' 's{^name: repo-lint$}{name: repo-lint-renamed}m' \
+  fail 'workflow_run.workflows is'
+rcp_lint_parent_case lint-parent-unreadable '' 's{^name: repo-lint$}{name: [unclosed}m' \
+  fail 'could not read'
+# The one consistent rename that leaves every other assertion green: parent
+# file AND `workflows:` entry renamed together while the pinned `publish`
+# condition still filters on the old name. That arm is then dead — every
+# lint completion, push-to-main included, enters the queue as a full pass.
+rcp_lint_parent_case lint-parent-renamed-consistently \
+  's{workflows: \["Merge Clearance Gate", "repo-lint"\]}{workflows: ["Merge Clearance Gate", "repo-lint-x"]}' \
+  's{^name: repo-lint$}{name: repo-lint-x}m' \
+  fail 'the pinned `publish` condition does not filter'
+
+# ── publisher: the two delivery-splitting conditions ───────────────────
+# The main-SHA confounder: dropping the `pull_request` arm admits every
+# repo-lint completion, so a merge's push-to-main lint run (head_sha =
+# main's tip, no open PR) enters the rcp-publish queue as a full pass and
+# can cancel a queued PR-head member.
+rcp_case publish-admits-push \
+  's{^    if: >-\n      github.event_name != .workflow_run. \|\|\n(      .*\n)+?(?=    runs-on:)}{    if: github.event_name != \x27workflow_run\x27 || github.event.action == \x27completed\x27\n}m' \
+  fail '[rcp job eligibility]'
+# Dropping the gate-name arm lets a repo-lint `requested` open holds at
+# push time (duplicating the gate parent's) and on every lint rerun.
+rcp_case open-admits-lint \
+  's{^      github.event.workflow_run.name == .Merge Clearance Gate. &&\n}{}m' \
+  fail '[rcp job eligibility]'
+
+# ── publisher: no runner-held wait (A14) ────────────────────────────────
+# Injected immediately before the pass-start stamp, i.e. inside the publish
+# step's run: body. A `read` loop is the one loop shape the publisher
+# legitimately carries, and the canonical file (already accepted by the
+# positive control in Test 25) has two of them.
+rcp_case publish-until-poll \
+  's{^(          if ! PASS_START=)}{          until gh api "repos/\$REPO/commits/\$RUN_HEAD/status" --jq .state | grep -q success; do sleep 30; done\n$1}m' \
+  fail '[rcp no runner-held wait]'
+rcp_case publish-while-poll \
+  's{^(          if ! PASS_START=)}{          while true; do sleep 15; done\n$1}m' \
+  fail '[rcp no runner-held wait]'
+rcp_case publish-mid-line-poll \
+  's{^(          if ! PASS_START=)}{          true; while [ "\$(date +%s)" -lt 0 ]; do sleep 15; done\n$1}m' \
+  fail '[rcp no runner-held wait]'
+# Per-OCCURRENCE classification (Codex P2 on #2171): a poll loop sharing a
+# line with a legitimate read loop must still trip.
+rcp_case publish-mixed-loop-line \
+  's{^(          if ! PASS_START=)}{          while true; do sleep 15; done; while IFS= read -r x; do :; done <<<""\n$1}m' \
+  fail '[rcp no runner-held wait]'
+# Quote-aware stripping (Codex P2 on #2171, round 2): a quoted hash before the
+# loop must not hide it as an inline comment.
+rcp_case publish-quoted-hash-before-loop \
+  's{^(          if ! PASS_START=)}{          echo "state #"; while true; do sleep 15; done\n$1}m' \
+  fail '[rcp no runner-held wait]'
+# A loop keyword split from its condition by a newline (Codex P2 on #2171,
+# round 3) is one shell statement and must still trip.
+rcp_case publish-multiline-loop \
+  's{^(          if ! PASS_START=)}{          while\n          true; do sleep 15; done\n$1}m' \
+  fail '[rcp no runner-held wait]'
+# Round 4 (Codex P2 x2 on #2171): `until read` is an infinite wait at EOF and
+# is not exempt; a wait in a THIRD job is still a runner-held wait.
+rcp_case publish-until-read \
+  's{^(          if ! PASS_START=)}{          until read -r x </dev/null; do sleep 15; done\n$1}m' \
+  fail '[rcp no runner-held wait]'
+rcp_case extra-job-poll \
+  's{\z}{\n  extra:\n    runs-on: ubuntu-latest\n    steps:\n      - name: Extra\n        run: while true; do sleep 15; done\n}' \
+  fail "job 'extra'"
+rcp_case open-watch \
+  's{^(          if \[ -z "\$HEAD_SHA" \]; then\n            echo "::error::workflow_run.head_sha is empty)}{          gh pr checks "\$HEAD_SHA" --repo "\$REPO" --watch\n$1}m' \
+  fail 'passes `--watch`'
+# A loop keyword inside a COMMENT is prose, not a wait; stripping must keep it
+# from tripping A14 (the #689 class, in the opposite direction).
+rcp_case publish-loop-in-comment \
+  's{^(          if ! PASS_START=)}{          # while true; do sleep 15; done -- documented, not executed\n$1}m' \
+  pass
+
+# ── native sweep cadence pinned at */30 (A15) ──────────────────────────
+# Each native producer reverted to */15, a slower */60, and the schedule
+# deleted outright must all trip the pin, naming its own cause.
+rcp_dir_case cadence-gate-fast \
+  'perl -0777 -i -pe "s{cron: \"\*/30 \* \* \* \*\"}{cron: \"*/15 * * * *\"}" merge-clearance-gate.yml' \
+  fail '[rcp native sweep cadence]'
+rcp_dir_case cadence-codex-fast \
+  'perl -0777 -i -pe "s{cron: \"\*/30 \* \* \* \*\"}{cron: \"*/15 * * * *\"}" codex-p1-gate.yml' \
+  fail '[rcp native sweep cadence]'
+rcp_dir_case cadence-coderabbit-slow \
+  'perl -0777 -i -pe "s{cron: \"\*/30 \* \* \* \*\"}{cron: \"*/60 * * * *\"}" coderabbit-severity-gate.yml' \
+  fail '[rcp native sweep cadence]'
+rcp_dir_case cadence-gate-schedule-removed \
+  'perl -0777 -i -pe "s{^  schedule:\n    - cron: \"\*/30 \* \* \* \*\"\n}{}m" merge-clearance-gate.yml' \
+  fail '[rcp native sweep cadence]'
+
+# ── gate workflow: no own workflow_run, no wait loop ───────────────────
+# Tests 20-24 (and the mcg22_case harness) sit inside the re-entrancy guard:
+# when the check runs this suite as its own self-test they are skipped, so
+# these cases are guarded the same way rather than calling an undefined
+# function in the nested run.
+if [ -z "${MCG_SKIP_FIX3_SELFTEST:-}" ] && declare -f mcg22_case >/dev/null 2>&1; then
+MCG_TAG='#2167'
+mcg22_case gate-workflow-run \
+  's{^  schedule:\n}{  workflow_run:\n    workflows: ["repo-lint"]\n    types: [completed]\n  schedule:\n}m' \
+  fail '[#2167 lint fan-in]'
+mcg22_case gate-while-poll \
+  's{^(          output=\$\(scripts/merge-clearance-gate.sh "\$PR_NUMBER" "\$REPO" 2>&1\))}{          while ! gh pr view "\$PR_NUMBER" --json statusCheckRollup | grep -q lint; do sleep 15; done\n$1}m' \
+  fail '[#2167 no runner-held wait]'
+mcg22_case gate-mixed-loop-line \
+  's{^(          output=\$\(scripts/merge-clearance-gate.sh "\$PR_NUMBER" "\$REPO" 2>&1\))}{          while true; do sleep 15; done; while IFS= read -r x; do :; done <<<""\n$1}m' \
+  fail '[#2167 no runner-held wait]'
+mcg22_case gate-quoted-hash-before-loop \
+  's{^(          output=\$\(scripts/merge-clearance-gate.sh "\$PR_NUMBER" "\$REPO" 2>&1\))}{          echo "state #"; while true; do sleep 15; done\n$1}m' \
+  fail '[#2167 no runner-held wait]'
+# The trigger key respelled: double-quoted, single-quoted with a flow value,
+# and with a space before the colon. The text pre-check and the parsed tier
+# must agree; the needle is the shared tag.
+mcg22_case gate-workflow-run-dquoted \
+  's{^  schedule:\n}{  "workflow_run":\n    workflows: ["repo-lint"]\n    types: [completed]\n  schedule:\n}m' \
+  fail '[#2167 lint fan-in]'
+mcg22_case gate-workflow-run-squoted-flow \
+  's{^  schedule:\n}{  \x27workflow_run\x27: {workflows: ["repo-lint"], types: [completed]}\n  schedule:\n}m' \
+  fail '[#2167 lint fan-in]'
+mcg22_case gate-workflow-run-spaced \
+  's{^  schedule:\n}{  workflow_run :\n    workflows: ["repo-lint"]\n    types: [completed]\n  schedule:\n}m' \
+  fail '[#2167 lint fan-in]'
+mcg22_case gate-multiline-loop \
+  's{^(          output=\$\(scripts/merge-clearance-gate.sh "\$PR_NUMBER" "\$REPO" 2>&1\))}{          while\n          true; do sleep 15; done\n$1}m' \
+  fail '[#2167 no runner-held wait]'
+# Round 4 (Codex P2 x2 on #2171): `--watch=true` and `until read`.
+mcg22_case gate-watch-equals \
+  's{^(          output=\$\(scripts/merge-clearance-gate.sh "\$PR_NUMBER" "\$REPO" 2>&1\))}{          gh pr checks "\$PR_NUMBER" --repo "\$REPO" --watch=true\n$1}m' \
+  fail '[#2167 no runner-held wait]'
+mcg22_case gate-until-read \
+  's{^(          output=\$\(scripts/merge-clearance-gate.sh "\$PR_NUMBER" "\$REPO" 2>&1\))}{          until read -r x </dev/null; do sleep 15; done\n$1}m' \
+  fail '[#2167 no runner-held wait]'
+mcg22_case gate-watch \
+  's{^(          output=\$\(scripts/merge-clearance-gate.sh "\$PR_NUMBER" "\$REPO" 2>&1\))}{          gh pr checks "\$PR_NUMBER" --repo "\$REPO" --watch --required\n$1}m' \
+  fail '[#2167 no runner-held wait]'
+# The sweep's `while IFS=$'"'"'\t'"'"' read` loop is the accepted shape — the
+# canonical gate job is the positive control (Test 22 case I).
+mcg22_case gate-canonical-with-read-loop '' pass
+unset MCG_TAG
+else
+  echo "SKIP: Test 27 (#2167) gate-workflow cases — nested self-test run (re-entrancy guard)"
+fi
+
+# ── auto-clear: the same no-wait assertion ──────────────────────────────
+AC_CHECK="$ROOT/scripts/ci/check_auto_clear_workflow"
+AC_WF="$ROOT/.github/workflows/auto-clear-blocking-labels.yml"
+if [ -x "$AC_CHECK" ] && [ -f "$AC_WF" ]; then
+  ac_case() {  # <name> <perl-program-or-empty> <expect: fail|pass> [needle]
+    local name="$1" prog="$2" expect="$3" want="${4:-}" f out rc
+    f="$RCP_DIR/ac-$name.yml"
+    if [ -n "$prog" ]; then perl -0777 -pe "$prog" "$AC_WF" > "$f"; else cp "$AC_WF" "$f"; fi
+    if [ -n "$prog" ] && cmp -s "$AC_WF" "$f"; then
+      fail "#2167 auto-clear case $name: the mutation changed nothing — anchor drifted"
+      return
+    fi
+    set +e
+    out=$(AUTO_CLEAR_WORKFLOW="$f" "$AC_CHECK" --check 2>&1)
+    rc=$?
+    set -e
+    printf '%s' "$out" > "$f.out"
+    if [ "$expect" = pass ]; then
+      if [ "$rc" -eq 0 ]; then
+        pass "#2167 auto-clear case $name: positive control — the canonical workflow is accepted"
+      else
+        fail "#2167 auto-clear case $name: expected pass, got rc=$rc"
+        grep 'FAIL' "$f.out" | sed 's/^/      /' | head -3 >&2
+      fi
+    elif [ "$rc" -eq 0 ]; then
+      fail "#2167 auto-clear case $name: expected the check to reject this shape, got rc=0"
+    elif [ -n "$want" ] && ! grep -qF -- "$want" "$f.out"; then
+      fail "#2167 auto-clear case $name: rejected, but not for its own reason (wanted: $want)"
+      grep 'FAIL' "$f.out" | sed 's/^/      /' | head -3 >&2
+    else
+      pass "#2167 auto-clear case $name: the check rejects it, naming the right cause"
+    fi
+  }
+  ac_case while-poll \
+    's{^(          source scripts/lib/gh-retry-helpers.sh\n)}{$1          while ! gh pr view "\$PR" --json statusCheckRollup | grep -q lint; do sleep 15; done\n}m' \
+    fail '[#2167 no runner-held wait]'
+  ac_case mixed-loop-line \
+    's{^(          source scripts/lib/gh-retry-helpers.sh\n)}{$1          while true; do sleep 15; done; while IFS= read -r x; do :; done <<<""\n}m' \
+    fail '[#2167 no runner-held wait]'
+  ac_case quoted-hash-before-loop \
+    's{^(          source scripts/lib/gh-retry-helpers.sh\n)}{$1          echo "state #"; while true; do sleep 15; done\n}m' \
+    fail '[#2167 no runner-held wait]'
+  ac_case multiline-loop \
+    's{^(          source scripts/lib/gh-retry-helpers.sh\n)}{$1          while\n          true; do sleep 15; done\n}m' \
+    fail '[#2167 no runner-held wait]'
+  ac_case watch-equals \
+    's{^(          source scripts/lib/gh-retry-helpers.sh\n)}{$1          gh pr checks "\$PR" --repo "\$REPO" --watch=true\n}m' \
+    fail '[#2167 no runner-held wait]'
+  ac_case until-read \
+    's{^(          source scripts/lib/gh-retry-helpers.sh\n)}{$1          until read -r x </dev/null; do sleep 15; done\n}m' \
+    fail '[#2167 no runner-held wait]'
+  ac_case watch \
+    's{^(          source scripts/lib/gh-retry-helpers.sh\n)}{$1          gh pr checks "\$PR" --repo "\$REPO" --watch\n}m' \
+    fail '[#2167 no runner-held wait]'
+  ac_case canonical '' pass
+else
+  echo "SKIP: Test 27 (#2167) auto-clear cases — check_auto_clear_workflow or its workflow absent"
+fi
+unset RCP_TAG
+fi
+
+# ---------------------------------------------------------------------------
+# Test 28 (#2220): the installation-budget fences.
+#
+# One assertion in scripts/ci/check_required_check_publisher read across two
+# files, and the four budget-guard knobs:
+#
+#   * A16 — the publish step's DUE_MAX_AGE_SECONDS equals the gate parent's
+#     sweep interval. It was left at 900 when #2167 moved the sweep to */30,
+#     so every green PR fell due again after 15 minutes. Either side drifting
+#     must trip it, and a cron it cannot read must trip it too.
+#   * A16 knobs — the REST and GraphQL per-PR costs and reserves are required
+#     integers; a missing one silently turns the guard off.
+#
+# Same posture as Tests 25 and 27: fixtures are derived from the canonical
+# files, every mutation has a no-op guard, and every negative case names
+# the assertion it expects.
+# ---------------------------------------------------------------------------
+if [ ! -x "$RCP_CHECK" ] || [ ! -f "$RCP_WF" ]; then
+  echo; echo "SKIP: Test 28 (#2220) — publisher or its fence absent"
+elif ! python3 -c "import yaml" >/dev/null 2>&1; then
+  echo; echo "SKIP: Test 28 (#2220) — PyYAML unavailable, the fence's tier does not run"
+elif ! command -v perl >/dev/null 2>&1 || ! declare -f rcp_dir_case >/dev/null 2>&1; then
+  echo; echo "SKIP: Test 28 (#2220) — perl or the Test 25 harness unavailable"
+else
+echo; echo "--- Test 28 (#2220): due threshold equals the sweep interval, budget knobs"
+RCP_TAG='#2220'
+RCP_DIR="${RCP_DIR:-$WORKDIR/rcp}"
+mkdir -p "$RCP_DIR"
+
+rcp_case due-canonical '' pass
+# ── A16: the due threshold follows the sweep interval, both directions ──
+rcp_case due-stale-900 \
+  's{DUE_MAX_AGE_SECONDS: "1800"}{DUE_MAX_AGE_SECONDS: "900"}' \
+  fail '[rcp due threshold]'
+rcp_case due-missing \
+  's{^          DUE_MAX_AGE_SECONDS: "1800"\n}{}m' \
+  fail '[rcp due threshold]'
+rcp_dir_case due-cron-moved \
+  'perl -0777 -i -pe "s{cron: \"\*/30 \* \* \* \*\"}{cron: \"*/15 * * * *\"}" merge-clearance-gate.yml' \
+  fail '[rcp due threshold]'
+rcp_dir_case due-cron-unreadable \
+  'perl -0777 -i -pe "s{cron: \"\*/30 \* \* \* \*\"}{cron: \"0,30 * * * *\"}" merge-clearance-gate.yml' \
+  fail 'carries no single'
+# ── budget-guard knobs ──────────────────────────────────────────────────
+rcp_case budget-per-pr-malformed \
+  's{BUDGET_PER_PR_REQUESTS: "60"}{BUDGET_PER_PR_REQUESTS: "forty"}' \
+  fail '[rcp budget guard]'
+rcp_case budget-per-pr-zero \
+  's{BUDGET_PER_PR_REQUESTS: "60"}{BUDGET_PER_PR_REQUESTS: "0"}' \
+  fail '[rcp budget guard]'
+rcp_case budget-reserve-missing \
+  's{^          BUDGET_RESERVE_REQUESTS: "100"\n}{}m' \
+  fail '[rcp budget guard]'
+rcp_case budget-gql-per-pr-missing \
+  's{^          BUDGET_PER_PR_GRAPHQL_POINTS: "10"\n}{}m' \
+  fail '[rcp budget guard]'
+unset RCP_TAG
+fi
+
+# ---------------------------------------------------------------------------
+# Test 29 (#2239, #2205): the auto-clear nomination job (fence A17).
+#
+# The publisher dispatches `auto-clear-evaluate` from a job of its own,
+# because POST /dispatches needs `contents: write` and the publish job runs
+# the gate scripts. Every addition that keeps that job looking right while
+# widening what runs under the grant must trip the fence, and so must a
+# dispatch type that no longer matches its listener, from either side.
+# Same posture as Tests 25 and 28: derived fixtures, no-op guards, needles.
+# ---------------------------------------------------------------------------
+if [ ! -x "$RCP_CHECK" ] || [ ! -f "$RCP_WF" ]; then
+  echo; echo "SKIP: Test 29 (#2239) — publisher or its fence absent"
+elif ! python3 -c "import yaml" >/dev/null 2>&1; then
+  echo; echo "SKIP: Test 29 (#2239) — PyYAML unavailable, the fence's tier does not run"
+elif ! command -v perl >/dev/null 2>&1 || ! declare -f rcp_dir_case >/dev/null 2>&1; then
+  echo; echo "SKIP: Test 29 (#2239) — perl or the Test 25 harness unavailable"
+else
+echo; echo "--- Test 29 (#2239): the auto-clear nomination job"
+RCP_TAG='#2239'
+RCP_DIR="${RCP_DIR:-$WORKDIR/rcp}"
+mkdir -p "$RCP_DIR"
+
+rcp_case nominate-canonical '' pass
+rcp_case nominate-missing \
+  's{^  nominate-auto-clear:$}{  nominate-renamed:}m' \
+  fail "[rcp auto-clear nomination] the publisher has no 'nominate-auto-clear' job"
+rcp_case nominate-uses-step \
+  's{^(      - name: Dispatch auto-clear evaluations\n)}{      - uses: actions/checkout\@3d3c42e5aac5ba805825da76410c181273ba90b1\n$1}m' \
+  fail 'must carry exactly one step'
+rcp_case nominate-step-uses-key \
+  's{^(      - name: Dispatch auto-clear evaluations\n)}{$1        uses: ./local-action\n}m' \
+  fail 'step keys are'
+rcp_case nominate-extra-scope \
+  's{(^  nominate-auto-clear:\n.*?^      contents: write\n)}{$1      actions: write\n}ms' \
+  fail 'permissions are'
+rcp_case nominate-concurrency \
+  's{(^  nominate-auto-clear:\n.*?^    runs-on: ubuntu-latest\n)}{$1    concurrency: nominate\n}ms' \
+  fail "job 'nominate-auto-clear' keys are"
+rcp_case nominate-pat \
+  's{(Dispatch auto-clear evaluations\n.*?GH_TOKEN: )\$\{\{ secrets\.GITHUB_TOKEN \}\}}{$1\${{ secrets.CI_ACTOR_TOKEN }}}ms' \
+  fail 'step env is'
+rcp_case nominate-if-not-cancelled \
+  's|if: \$\{\{ !cancelled\(\) && needs\.publish\.outputs\.autoclear_prs|if: \${{ needs.publish.outputs.autoclear_prs|' \
+  fail 'condition is'
+rcp_case nominate-needs \
+  's{^    needs: publish$}{    needs: open}m' \
+  fail 'not the publish job'
+rcp_case nominate-type-renamed \
+  's{event_type=auto-clear-evaluate}{event_type=auto-clear-eval}' \
+  fail 'the job dispatches event_type'
+rcp_dir_case nominate-listener-renamed \
+  'perl -0777 -i -pe "s{types: \[auto-clear-evaluate\]}{types: [auto-clear-recheck]}" auto-clear-blocking-labels.yml' \
+  fail 'the job dispatches event_type'
+rcp_dir_case nominate-listener-absent \
+  'perl -0777 -i -pe "s{^  repository_dispatch:\n    types: \[auto-clear-evaluate\]\n}{}m" auto-clear-blocking-labels.yml' \
+  fail 'does not listen to exactly one'
+rcp_case publish-output-dropped \
+  's{^    outputs:\n      autoclear_prs: [^\n]*\n}{}m' \
+  fail "the publish job's outputs are"
+rcp_case publish-step-id \
+  's{^        id: publish$}{        id: evaluate}m' \
+  fail "the publish step's id is"
+unset RCP_TAG
+fi
+
+# ---------------------------------------------------------------------------
+# Test 30 (#2247): a merely-pending clearance verdict leaves the event job's
+# job-native run non-failing, while the Checks-API lineage keeps the block.
+#
+# Branch protection never retires an earlier failed job-native run of a
+# required context, so every review event during a long review used to leave
+# a failed `Merge clearance gate` run that had to be rerun after the PR
+# cleared. Four layers, each tested on its own:
+#
+#   30a the script's explicit pending verdict (MERGEPATH_GATE_VERDICT_FILE),
+#       written only from the not-yet-cleared site and never for a real
+#       block, an infra exit or a fail-closed applicability fallback;
+#   30b the extracted gate step: pending only for rc 1 + BLOCKED line + a
+#       file reading exactly `pending`, with a stale file removed first;
+#   30c scripts/gate-api-lineage-blocking.sh: established only when every
+#       current Checks-API run blocks in a suite other than this run's own;
+#   30d the extracted lineage-confirmation and report steps: the native run
+#       is non-failing only on the full conjunction, and the phase-2 PATCH
+#       still publishes failure for the same verdict.
+#   30e a review with several pending events, then clearance: no job-native
+#       failure accumulates, and the head is blocked until the Checks-API
+#       lineage turns green and clean after it, with no rerun.
+# The fence pins for the step bindings are mutation-tested at the end of the
+# file, inside the re-entrancy guard with the other mcg22 cases.
+# ---------------------------------------------------------------------------
+echo; echo "--- Test 30a (#2247): the script's explicit pending verdict"
+T30_VF="$WORKDIR/t30-verdict"
+t30_gate() {  # <scratch> ; env from caller
+  rm -f "$T30_VF"
+  set +e
+  OUT=$(MERGEPATH_GATE_VERDICT_FILE="$T30_VF" run_gate "$1" 99 owner/repo 2>&1)
+  RC=$?
+  set -e
+  VF_CONTENT=$(cat "$T30_VF" 2>/dev/null || printf '<absent>')
+}
+bad=""
+# Not yet cleared: external review applies (label) and the delegate says 1.
+SCRATCH=$(make_scratch false true)
+FIXTURE_PR=$(make_pr_fixture "$HEAD_SHA" "nathanjohnpayne" "$EXT_LABEL")
+export FIXTURE_PR
+MERGE_CLEARANCE_CODEX_CHECK_BIN="$STUB_DIR/codex-check-stub" CODEX_STUB_RC=1 t30_gate "$SCRATCH"
+[ "$RC" = 1 ] || bad="$bad pending-rc($RC)"
+[ "$VF_CONTENT" = pending ] || bad="$bad pending-file($VF_CONTENT)"
+PENDING_OUT=$(printf '%s\n' "$OUT" | grep '^Merge clearance:' || true)
+# Byte-identical stdout without the variable: no caller that does not ask can
+# see a difference.
+set +e
+PLAIN_OUT=$(MERGE_CLEARANCE_CODEX_CHECK_BIN="$STUB_DIR/codex-check-stub" CODEX_STUB_RC=1 \
+            run_gate "$SCRATCH" 99 owner/repo 2>/dev/null)
+PLAIN_RC=$?
+set -e
+[ "$PLAIN_RC" = 1 ] || bad="$bad plain-rc($PLAIN_RC)"
+[ "$(printf '%s\n' "$PLAIN_OUT" | grep '^Merge clearance:' || true)" = "$PENDING_OUT" ] \
+  || bad="$bad plain-stdout-differs"
+# Cleared: no pending.
+MERGE_CLEARANCE_CODEX_CHECK_BIN="$STUB_DIR/codex-check-stub" CODEX_STUB_RC=0 t30_gate "$SCRATCH"
+{ [ "$RC" = 0 ] && [ "$VF_CONTENT" = '<absent>' ]; } || bad="$bad cleared($RC/$VF_CONTENT)"
+# Delegate infra: rc 2, no pending.
+MERGE_CLEARANCE_CODEX_CHECK_BIN="$STUB_DIR/codex-check-stub" CODEX_STUB_RC=3 t30_gate "$SCRATCH"
+{ [ "$RC" = 2 ] && [ "$VF_CONTENT" = '<absent>' ]; } || bad="$bad delegate-infra($RC/$VF_CONTENT)"
+# Real block: a human-controlled hold, even with a delegate that would clear.
+FIXTURE_PR=$(make_pr_fixture "$HEAD_SHA" "nathanjohnpayne" '[{"name":"needs-external-review"},{"name":"human-hold"}]')
+MERGE_CLEARANCE_CODEX_CHECK_BIN="$STUB_DIR/codex-check-stub" CODEX_STUB_RC=1 t30_gate "$SCRATCH"
+{ [ "$RC" = 1 ] && [ "$VF_CONTENT" = '<absent>' ]; } || bad="$bad human-hold($RC/$VF_CONTENT)"
+# Real block: a Dependabot head without a reviewer approval.
+SCRATCH=$(make_scratch true true)
+FIXTURE_PR=$(make_pr_fixture "$HEAD_SHA" "$DEPENDABOT" "$EXT_LABEL")
+FIXTURE_REVIEWS=$(make_reviews_fixture '[]')
+FIXTURE_REVIEWS="$FIXTURE_REVIEWS" MERGE_CLEARANCE_CODEX_CHECK_BIN="$STUB_DIR/codex-check-stub" \
+  CODEX_STUB_RC=1 t30_gate "$SCRATCH"
+{ [ "$RC" = 1 ] && [ "$VF_CONTENT" = '<absent>' ] && printf '%s' "$OUT" | grep -qi dependabot; } \
+  || bad="$bad dependabot($RC/$VF_CONTENT)"
+# Fail-closed applicability: the protected-paths matcher cannot run, so the
+# gate does not know whether external review applies at all. Not cleared on
+# top of that is a plain block, never pending.
+SCRATCH=$(make_scratch false true)
+FIXTURE_PR=$(make_pr_fixture "$HEAD_SHA" "nathanjohnpayne" '[]')
+FIXTURE_FILES=$(make_files_fixture '[{"filename":"src/x.js","additions":1,"deletions":0}]')
+FIXTURE_FILES="$FIXTURE_FILES" MERGE_CLEARANCE_WORKFLOW_DIR="$WORKDIR/no-such-matcher-dir" \
+  MERGE_CLEARANCE_CODEX_CHECK_BIN="$STUB_DIR/codex-check-stub" CODEX_STUB_RC=1 t30_gate "$SCRATCH"
+{ [ "$RC" = 1 ] && [ "$VF_CONTENT" = '<absent>' ] && printf '%s' "$OUT" | grep -q 'failing closed'; } \
+  || bad="$bad fail-closed-applicability($RC/$VF_CONTENT)"
+# Pending text in delegated output is not a verdict: the file is the only
+# channel, and here the script reaches a real block.
+FIXTURE_PR=$(make_pr_fixture "$HEAD_SHA" "nathanjohnpayne" '[{"name":"needs-external-review"},{"name":"policy-violation"}]')
+CODEX_STUB_STDOUT=pending MERGE_CLEARANCE_CODEX_CHECK_BIN="$STUB_DIR/codex-check-stub" \
+  CODEX_STUB_RC=1 t30_gate "$SCRATCH"
+{ [ "$RC" = 1 ] && [ "$VF_CONTENT" = '<absent>' ]; } || bad="$bad policy-violation($RC/$VF_CONTENT)"
+unset FIXTURE_PR
+if [ -z "$bad" ]; then
+  pass "#2247: pending is written only for a not-yet-cleared head; stdout and rc are unchanged; every real block, infra exit and fail-closed fallback writes nothing"
+else
+  fail "#2247 script pending verdict wrong:$bad"
+  printf '%s\n' "$OUT" | sed 's/^/      /' | tail -5 >&2
+fi
+
+WF_2247="$ROOT/.github/workflows/merge-clearance-gate.yml"
+T30="$(mktemp -d "$WORKDIR/mcg2247.XXXXXX")"
+mkdir -p "$T30/bin" "$T30/wd/scripts"
+# Same extractor as Test 23 (that one is scoped to its own block).
+t30_step_body() {  # <workflow> <step name>
+  awk -v want="$2" '
+    index($0, "- name: " want) { instep = 1; next }
+    instep && !inrun && /^        run: \|/ { inrun = 1; next }
+    inrun {
+      if ($0 ~ /^[[:space:]]*$/) { print ""; next }
+      if ($0 !~ /^          /) exit
+      sub(/^          /, "")
+      print
+    }
+  ' "$1"
+}
+GATE_BODY="$(t30_step_body "$WF_2247" 'Run scripts/merge-clearance-gate.sh')"
+LIN_BODY="$(t30_step_body "$WF_2247" 'Confirm the Checks-API lineage blocks while pending (#2247)')"
+RV2_BODY="$(t30_step_body "$WF_2247" 'Report gate verdict')"
+P2B_BODY="$(t30_step_body "$WF_2247" 'Close the required check_run (#841 phase 2)')"
+t30_run() {  # <body> ; runs in $T30/wd with env from caller
+  ( cd "$T30/wd" && GH_LOG="$T30/gh.log" PATH="$T30/bin:$PATH" \
+      GITHUB_OUTPUT="$T30/out.txt" RUNNER_TEMP="$T30" bash -c "$1" 2>&1 )
+}
+t30_reset() { : > "$T30/gh.log"; : > "$T30/out.txt"; }
+# Never fails: an unset output is an empty answer, and the suite runs errexit.
+t30_out() { { grep "^$1=" "$T30/out.txt" || true; } | tail -1 | cut -d= -f2-; }
+
+echo; echo "--- Test 30b (#2247): the gate step reports pending only on the explicit verdict"
+# A stand-in gate script: writes T30_WRITE to the verdict file when asked,
+# prints T30_LINE, exits T30_RC.
+cat > "$T30/wd/scripts/merge-clearance-gate.sh" <<'SH'
+#!/usr/bin/env bash
+if [ -n "${T30_WRITE:-}" ] && [ -n "${MERGEPATH_GATE_VERDICT_FILE:-}" ]; then
+  printf '%s\n' "$T30_WRITE" > "$MERGEPATH_GATE_VERDICT_FILE"
+fi
+[ -z "${T30_LINE:-}" ] || printf '%s\n' "$T30_LINE"
+exit "${T30_RC:-0}"
+SH
+chmod +x "$T30/wd/scripts/merge-clearance-gate.sh"
+BLK='Merge clearance: BLOCKED — external review is NOT cleared'
+t30_gstep() {  # <rc> <line> <write> ; echoes pending output
+  t30_reset
+  T30_RC="$1" T30_LINE="$2" T30_WRITE="$3" PR_NUMBER=7 REPO=o/r t30_run "$GATE_BODY" >/dev/null
+  t30_out pending
+}
+bad=""
+[ "$(t30_gstep 1 "$BLK" pending)" = true ] || bad="$bad positive"
+[ "$(t30_gstep 1 "$BLK" '')" = false ] || bad="$bad no-file"
+[ "$(t30_gstep 1 "$BLK" blocked)" = false ] || bad="$bad other-word"
+[ "$(t30_gstep 1 "$BLK" 'pending now')" = false ] || bad="$bad not-exact"
+[ "$(t30_gstep 0 'Merge clearance: PASS — ok' pending)" = false ] || bad="$bad rc0"
+[ "$(t30_gstep 2 "$BLK" pending)" = false ] || bad="$bad rc2"
+[ "$(t30_gstep 1 'no verdict line at all' pending)" = false ] || bad="$bad no-blocked-line"
+# Pending text in the OUTPUT is not the verdict.
+[ "$(t30_gstep 1 "$BLK pending" '')" = false ] || bad="$bad output-spoof"
+# A stale file from an earlier step cannot speak for this evaluation.
+t30_reset
+printf 'pending\n' > "$T30/mcg-verdict"
+T30_RC=1 T30_LINE="$BLK" T30_WRITE='' PR_NUMBER=7 REPO=o/r t30_run "$GATE_BODY" >/dev/null
+[ "$(t30_out pending)" = false ] || bad="$bad stale-file"
+if [ -z "$bad" ]; then
+  pass "#2247: the gate step sets pending=true only for rc 1 + BLOCKED + a file reading exactly pending, and removes a stale file first"
+else
+  fail "#2247 gate step pending wrong:$bad"
+fi
+
+echo; echo "--- Test 30c (#2247): scripts/gate-api-lineage-blocking.sh"
+HELPER="$ROOT/scripts/gate-api-lineage-blocking.sh"
+mkdir -p "$T30/hbin"
+# Stub gh: records argv, answers the check-runs listing from T30_RUNS (one
+# JSON object per line, already in the helper's --jq projection).
+cat > "$T30/hbin/gh" <<'STUB'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$GH_LOG"
+[ "${T30_GH_FAIL:-0}" = 1 ] && exit 1
+printf '%s' "${T30_RUNS:-}"
+exit 0
+STUB
+chmod +x "$T30/hbin/gh"
+OWN='{"id":5,"status":"in_progress","conclusion":null,"ext":"uuid-own","suite":10,"app":"github-actions","url":"https://github.com/o/r/actions/runs/777/job/5"}'
+OTHER_NATIVE='{"id":4,"status":"completed","conclusion":"success","ext":"uuid-x","suite":11,"app":"github-actions","url":"https://github.com/o/r/actions/runs/700/job/4"}'
+api() {  # <id> <status> <conclusion|null> <suite>
+  local c=$3
+  [ "$c" = null ] || c="\"$c\""
+  printf '{"id":%s,"status":"%s","conclusion":%s,"ext":"","suite":%s,"app":"github-actions","url":"https://github.com/o/r/runs/%s"}' "$1" "$2" "$c" "$4" "$1"
+}
+t30_helper() {  # <runs> -> rc
+  : > "$T30/gh.log"
+  set +e
+  HOUT=$(T30_RUNS="$1" GH_LOG="$T30/gh.log" PATH="$T30/hbin:$PATH" \
+         "$HELPER" o/r "$SHA30" "Merge clearance gate" 777 2>&1)
+  HRC=$?
+  set -e
+  echo "$HRC"
+}
+SHA30=0123456789abcdef0123456789abcdef01234567
+nl=$'\n'
+bad=""
+[ "$(t30_helper "$OWN$nl$(api 9 in_progress null 20)$nl$OTHER_NATIVE")" = 0 ] || bad="$bad api-in-progress"
+grep -q 'check_name=Merge clearance gate' "$T30/gh.log" || bad="$bad request-name"
+grep -q 'filter=latest' "$T30/gh.log" || bad="$bad request-filter"
+grep -q "commits/$SHA30/check-runs" "$T30/gh.log" || bad="$bad request-head"
+[ "$(t30_helper "$OWN$nl$(api 9 completed failure 20)")" = 0 ] || bad="$bad api-failure"
+[ "$(t30_helper "$OWN$nl$(api 9 completed cancelled 20)")" = 0 ] || bad="$bad api-cancelled"
+[ "$(t30_helper "$OWN$nl$(api 9 completed success 20)")" = 1 ] || bad="$bad api-success"
+[ "$(t30_helper "$OWN$nl$(api 9 completed neutral 20)")" = 1 ] || bad="$bad api-neutral"
+[ "$(t30_helper "$OWN$nl$(api 9 completed skipped 20)")" = 1 ] || bad="$bad api-skipped"
+[ "$(t30_helper "$OWN$nl$(api 9 completed failure 20)$nl$(api 8 completed success 21)")" = 1 ] \
+  || bad="$bad one-api-green"
+[ "$(t30_helper "$OWN$nl$(api 9 completed failure 10)")" = 1 ] || bad="$bad shared-suite"
+[ "$(t30_helper "$OWN$nl$(api 9 completed failure null)")" = 1 ] || bad="$bad api-no-suite"
+[ "$(t30_helper "$OTHER_NATIVE$nl$(api 9 completed failure 20)")" = 1 ] || bad="$bad own-missing"
+[ "$(t30_helper "$OWN$nl$OTHER_NATIVE")" = 1 ] || bad="$bad no-api"
+[ "$(t30_helper "")" = 1 ] || bad="$bad empty"
+[ "$(t30_helper "not json")" = 1 ] || bad="$bad malformed"
+# A run id that is only a PREFIX of this run's id is not this run.
+PREFIX_OWN='{"id":5,"status":"in_progress","conclusion":null,"ext":"uuid-own","suite":10,"app":"github-actions","url":"https://github.com/o/r/actions/runs/7777/job/5"}'
+[ "$(t30_helper "$PREFIX_OWN$nl$(api 9 completed failure 20)")" = 1 ] || bad="$bad run-id-prefix"
+# Another app's run of the same name is not this lineage, either way.
+FOREIGN='{"id":12,"status":"completed","conclusion":"success","ext":"","suite":30,"app":"some-other-app","url":"https://example.invalid/12"}'
+[ "$(t30_helper "$OWN$nl$(api 9 completed failure 20)$nl$FOREIGN")" = 0 ] || bad="$bad foreign-ignored"
+[ "$(t30_helper "$OWN$nl$FOREIGN")" = 1 ] || bad="$bad foreign-not-api"
+rc=$(T30_GH_FAIL=1 t30_helper "$OWN$nl$(api 9 completed failure 20)"); [ "$rc" = 1 ] || bad="$bad gh-fail"
+set +e
+"$HELPER" o/r not-a-sha "Merge clearance gate" 777 >/dev/null 2>&1; [ $? = 2 ] || bad="$bad usage-sha"
+"$HELPER" o/r "$SHA30" "Merge clearance gate" 77x >/dev/null 2>&1; [ $? = 2 ] || bad="$bad usage-run"
+"$HELPER" o/r "$SHA30" "" 777 >/dev/null 2>&1; [ $? = 2 ] || bad="$bad usage-name"
+set -e
+if [ -z "$bad" ]; then
+  pass "#2247: the lineage helper is established only when every current Checks-API run blocks, outside this run's own suite"
+else
+  fail "#2247 lineage helper wrong:$bad"
+fi
+
+echo; echo "--- Test 30d (#2247): lineage confirmation, native conclusion and the Checks-API write"
+# Lineage step with a stand-in helper.
+bad=""
+# Called with a redirect rather than inside $( ), so LOUT survives the call.
+t30_lin() {  # <helper-rc|absent> ; writes the api_blocking output to $T30/lin.res
+  t30_reset
+  rm -f "$T30/wd/scripts/gate-api-lineage-blocking.sh"
+  if [ "$1" != absent ]; then
+    printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$*" >> "%s/helper-args"\nexit %s\n' "$T30" "$1" \
+      > "$T30/wd/scripts/gate-api-lineage-blocking.sh"
+    chmod +x "$T30/wd/scripts/gate-api-lineage-blocking.sh"
+  fi
+  : > "$T30/helper-args"
+  set +e
+  LOUT=$(REPO=o/r HEAD_SHA="$SHA30" RUN_ID=777 CHECK_NAME="Merge clearance gate" t30_run "$LIN_BODY")
+  LRC=$?
+  set -e
+  { [ "$LRC" = 0 ] || echo "step-failed"; t30_out api_blocking; } > "$T30/lin.res"
+}
+t30_lin 0; [ "$(cat "$T30/lin.res")" = true ] || bad="$bad helper-ok"
+grep -qx "o/r $SHA30 Merge clearance gate 777" "$T30/helper-args" || bad="$bad helper-args"
+t30_lin 1; [ -z "$(cat "$T30/lin.res")" ] || bad="$bad helper-no"
+printf '%s' "$LOUT" | grep -q '::warning::' || bad="$bad helper-no-warn"
+t30_lin 2; [ -z "$(cat "$T30/lin.res")" ] || bad="$bad helper-usage"
+t30_lin absent; [ -z "$(cat "$T30/lin.res")" ] || bad="$bad helper-absent"
+printf '%s' "$LOUT" | grep -q '::warning::' || bad="$bad absent-warn"
+rm -f "$T30/wd/scripts/gate-api-lineage-blocking.sh"
+# Report step: the full conjunction, and nothing less.
+rv2() { RC="$1" VERDICT="$2" PENDING="$3" API_BLOCKING="$4" t30_run "$RV2_BODY" >/dev/null 2>&1; }
+rv2 1 blocked true true    || bad="$bad rv-pending"
+rv2 1 blocked true ''      && bad="$bad rv-pending-unconfirmed"
+rv2 1 blocked false true   && bad="$bad rv-not-pending"
+rv2 1 blocked '' ''        && bad="$bad rv-blocked"
+rv2 1 absent true true     && bad="$bad rv-no-blocked-line"
+rv2 2 absent true true     && bad="$bad rv-infra"
+rv2 0 absent true true     && bad="$bad rv-rc0-no-pass"
+rv2 3 absent true true     && bad="$bad rv-unknown-rc"
+rv2 0 pass '' ''           || bad="$bad rv-pass"
+RVOUT=$(RC=1 VERDICT=blocked PENDING=true API_BLOCKING=true t30_run "$RV2_BODY")
+printf '%s' "$RVOUT" | grep -q '::notice::Merge clearance is PENDING' || bad="$bad rv-notice"
+# The same pending verdict still closes the Checks-API hold as FAILURE.
+# #906 also binds this write to the trusted default revision. Both fake
+# reads must agree so the later clearance case exercises a genuine success.
+export T30_TRUSTED_REVISION="$SHA30"
+cat > "$T30/bin/gh" <<'STUB'
+#!/bin/sh
+printf '%s\n' "$*" >> "$GH_LOG"
+if [ "$1" = pr ] && [ "$2" = view ]; then printf '%s\n' "$T30_HEAD"; fi
+if [ "$1" = api ] && [ "$2" = repos/o/r/commits/HEAD ]; then printf '%s\n' "$T30_TRUSTED_REVISION"; fi
+exit 0
+STUB
+cat > "$T30/bin/git" <<'STUB'
+#!/bin/sh
+printf '%s\n' "$T30_TRUSTED_REVISION"
+STUB
+printf '#!/bin/sh\nexit 0\n' > "$T30/bin/sleep"
+chmod +x "$T30/bin/gh" "$T30/bin/git" "$T30/bin/sleep"
+t30_reset
+printf 'gate output\n' > "$T30/mcg-summary.txt"
+T30_HEAD="$SHA30" REPO=o/r PR_NUMBER=7 CHECK_ID=42 HEAD_SHA="$SHA30" RC=1 VERDICT=blocked \
+  t30_run "$P2B_BODY" >/dev/null
+grep -q 'conclusion=failure' "$T30/gh.log" || bad="$bad api-not-red"
+grep -q 'conclusion=success' "$T30/gh.log" && bad="$bad api-green"
+if [ -z "$bad" ]; then
+  pass "#2247: native non-failing needs pending AND a confirmed blocking lineage; every real block, infra exit and unrecognised rc still fails; the Checks-API hold still closes as failure"
+else
+  fail "#2247 native/lineage mapping wrong:$bad"
+fi
+
+echo; echo "--- Test 30e (#2247): several pending events, then clearance, reach CLEAN with no rerun"
+# Drive the extracted steps through a review: four pending events, then the
+# cleared one. A stand-in for GitHub's combination of the two lineages: the
+# head blocks while ANY job-native run of the context failed (each sits in its
+# own suite and is never retired) or the newest Checks-API run is not green.
+bad=""
+native_failures=0
+api_latest=""
+t30_event() {  # <gate-rc> <line> <write> -> updates native_failures, api_latest
+  local pending rc
+  t30_reset
+  T30_RC="$1" T30_LINE="$2" T30_WRITE="$3" PR_NUMBER=7 REPO=o/r t30_run "$GATE_BODY" >/dev/null
+  pending=$(t30_out pending)
+  # Phase 2 publishes the evaluation into the Checks-API lineage.
+  T30_HEAD="$SHA30" REPO=o/r PR_NUMBER=7 CHECK_ID=42 HEAD_SHA="$SHA30" RC="$1" \
+    VERDICT="$(t30_out verdict)" t30_run "$P2B_BODY" >/dev/null
+  if grep -q 'conclusion=success' "$T30/gh.log"; then api_latest=success; else api_latest=failure; fi
+  # The lineage helper reads that newest Checks-API run.
+  local lin=''
+  if [ "$pending" = true ] && [ "$api_latest" != success ]; then lin=true; fi
+  set +e
+  RC="$1" VERDICT="$(t30_out verdict)" PENDING="$pending" API_BLOCKING="$lin" \
+    t30_run "$RV2_BODY" >/dev/null 2>&1
+  rc=$?
+  set -e
+  [ "$rc" = 0 ] || native_failures=$((native_failures + 1))
+}
+merge_state() {
+  if [ "$native_failures" -gt 0 ] || [ "$api_latest" != success ]; then echo BLOCKED; else echo CLEAN; fi
+}
+set +e
+for _ in 1 2 3 4; do t30_event 1 "$BLK" pending; done
+[ "$native_failures" = 0 ] || bad="$bad native-failures-accumulated($native_failures)"
+[ "$(merge_state)" = BLOCKED ] || bad="$bad open-before-clearance"
+t30_event 0 'Merge clearance: PASS — cleared' ''
+[ "$(merge_state)" = CLEAN ] || bad="$bad not-clean-after-clearance"
+# Control: the same review before #2247 (no pending verdict reaches the job)
+# leaves four failed job-native runs, so the head stays blocked after clearance.
+native_failures=0
+for _ in 1 2 3 4; do t30_event 1 "$BLK" ''; done
+t30_event 0 'Merge clearance: PASS — cleared' ''
+{ [ "$native_failures" = 4 ] && [ "$(merge_state)" = BLOCKED ]; } || bad="$bad control($native_failures)"
+set -e
+if [ -z "$bad" ]; then
+  pass "#2247: four pending review events leave no failed job-native run; the head is blocked until clearance and clean after it, with no rerun (control without the verdict stays blocked)"
+else
+  fail "#2247 review-to-clearance sequence wrong:$bad"
+fi
+rm -rf "$T30"
+
+# Test 30f (#2247): the fence pins on the pending arm reject each unbound
+# shape. Inside the re-entrancy guard, like every other mcg22 case.
+if [ -z "${MCG_SKIP_FIX3_SELFTEST:-}" ] && declare -f mcg22_case >/dev/null 2>&1; then
+MCG_TAG='#2247'
+mcg22_case pending-const \
+  's{PENDING: \$\{\{ steps\.gate\.outputs\.pending \}\}}{PENDING: "true"}' \
+  fail '[#2247 pending arm]'
+mcg22_case api-blocking-const \
+  's{API_BLOCKING: \$\{\{ steps\.lineage\.outputs\.api_blocking \}\}}{API_BLOCKING: "true"}' \
+  fail '[#2247 pending arm]'
+mcg22_case lineage-id \
+  's{^        id: lineage$}{        id: lineage2}m' \
+  fail '[#2247 pending arm]'
+mcg22_case lineage-context \
+  's{(Confirm the Checks-API lineage blocks while pending.*?CHECK_NAME: )"Merge clearance gate"}{$1"Codex P1 unresolved threads"}s' \
+  fail '[#2247 pending arm]'
+mcg22_case lineage-run-id \
+  's{RUN_ID: \$\{\{ github\.run_id \}\}}{RUN_ID: "1"}' \
+  fail '[#2247 pending arm]'
+mcg22_case lineage-helper-dropped \
+  's{helper=scripts/gate-api-lineage-blocking\.sh}{helper=scripts/true.sh}' \
+  fail '[#2247 pending arm]'
+mcg22_case lineage-if-unguarded \
+  's{if: \$\{\{ \(steps\.gate\.outputs\.pending == .true. \|\| steps\.budget\.outputs\.skip == .true. \|\| steps\.gate\.outputs\.rate_limited == .true.\) && steps\.open\.outputs\.id != .. \}\}}{if: \$\{\{ always() && steps.open.outputs.id != \x27\x27 \}\}}' \
+  fail '[#850 producer eligibility]'
+mcg22_case lineage-step-removed \
+  's{      - name: Confirm the Checks-API lineage blocks while pending \(#2247\)\n.*?(      - name: Report gate verdict)}{$1}s' \
+  fail '[#2247 pending arm]'
+unset MCG_TAG
+fi
+
+# Test 30g (#2286): the fence pins on the budget guard reject each shape that
+# would let a run that evaluated nothing look green, or turn the guard off.
+if [ -z "${MCG_SKIP_FIX3_SELFTEST:-}" ] && declare -f mcg22_case >/dev/null 2>&1; then
+MCG_TAG='#2286'
+mcg22_case budget-skip-closes-green \
+  's{(if \[ "\$\{BUDGET_SKIP:-\}" = true \] \|\| \[ "\$\{RATE_LIMITED:-\}" = true \]; then\n.*?)conclusion="failure"}{$1conclusion="success"}s' \
+  fail '[#2286 budget guard]'
+mcg22_case budget-report-unconditional \
+  's{(if \[ "\$\{API_BLOCKING:-\}" = true \]; then\n.*?exit 0\n\s*fi\n.*?)exit 1}{$1exit 0}s' \
+  fail '[#2286 budget guard]'
+mcg22_case budget-skip-const \
+  's{(Report gate verdict.*?)BUDGET_SKIP: \$\{\{ steps\.budget\.outputs\.skip \}\}}{$1BUDGET_SKIP: "true"}s' \
+  fail '[#2286 budget guard]'
+mcg22_case budget-knob-malformed \
+  's{(Installation budget guard \(#2286\).*?BUDGET_RESERVE_REQUESTS: )"200"}{$1"two hundred"}s' \
+  fail '[#2286 budget guard]'
+mcg22_case budget-open-id-unbound \
+  's{OPEN_ID: \$\{\{ steps\.open\.outputs\.id \}\}}{OPEN_ID: "1"}' \
+  fail '[#2286 budget guard]'
+mcg22_case budget-gate-if-dropped \
+  's{(      - name: Run scripts/merge-clearance-gate\.sh\n        id: gate\n)        if: [^\n]*\n}{$1        if: \$\{\{ always() \}\}\n}' \
+  fail '[#850 producer eligibility]'
+unset MCG_TAG
+fi
 
 # ---------------------------------------------------------------------------
 echo

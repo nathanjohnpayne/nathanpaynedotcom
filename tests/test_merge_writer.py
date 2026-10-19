@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Production writer + trusted dispatcher/generation evaluator; fake API only."""
+import ast
 import importlib.util
 import io
 import json
 import os
 from pathlib import Path
 import shutil
+import shlex
 import subprocess
+import sys
 import tarfile
 import time
 import tempfile
@@ -76,7 +79,7 @@ if endpoint=='graphql':
         emit({'data':{'repository':{'pullRequest':dict(url=url,headRefOid=head,
             isMergeQueueEnabled=state.get('queue',False),isInMergeQueue=False)}}})
     sys.exit(0)
-if endpoint=='repos/example/repo': emit(dict(full_name='example/repo',default_branch='main')); sys.exit(0)
+if endpoint=='repos/example/repo': emit(dict(full_name='example/repo',default_branch='main',id=state.get('repository_id',123),owner=state.get('repository_owner',dict(id=456,login='nathanjohnpayne')))); sys.exit(0)
 if endpoint=='repos/example/repo/commits/main': emit({'sha':source}); sys.exit(0)
 if endpoint.startswith('repos/example/repo/tarball/'):
     if state.get('archive_fails'): sys.exit(1)
@@ -103,12 +106,11 @@ if endpoint=='repos/example/repo/pulls/123':
 if endpoint.startswith('repos/example/repo/commits/'):
     print('2026-09-14T00:00:00Z'); sys.exit(0)
 if endpoint.endswith('/reviews'):
-    if state.get('no_approval'):
-        emit([[]] if '--slurp' in args else []); sys.exit(0)
-    reviews=[dict(id=1,user=dict(login='nathanpayne-claude'),state='APPROVED',commit_id=head,
+    reviews=[] if state.get('no_approval') else [dict(id=1,user=dict(login='nathanpayne-claude'),state='APPROVED',commit_id=head,
                   submitted_at='2026-09-14T00:05:00Z',body='<!-- mergepath-p4b-request-generation: '+json.dumps([123,124] if state.get('socket_forges_generation') and socket_override else state.get('generation',[123]))+' -->')]
     if state.get('stale_approval'): reviews[0]['commit_id']='d'*40
     if state.get('fresh_codex'): reviews.append(dict(id=3,user=dict(login='chatgpt-codex-connector[bot]'),state='COMMENTED',commit_id=head,submitted_at='2026-09-14T00:06:00Z',body='No issues found.'))
+    if state.get('historical_codex'): reviews.append(dict(id=4,user=dict(login='chatgpt-codex-connector[bot]'),state='COMMENTED',commit_id='d'*40,submitted_at='2026-09-14T00:06:00Z',body='Completed historical review.'))
     if state.get('disagreement') or state.get('late_disagreement') and clearance_files_read: reviews.append(dict(id=2,user=dict(login='nathanpayne-codex'),state='CHANGES_REQUESTED',commit_id='d'*40))
     emit([reviews] if '--slurp' in args else reviews); sys.exit(0)
 if endpoint.endswith('/issues/123/comments'):
@@ -124,7 +126,7 @@ print('unexpected API '+repr(args),file=sys.stderr); sys.exit(99)
 class WriterTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        files = ['scripts/identity-check.sh', 'scripts/merge-clearance-gate.sh', 'scripts/codex-review-check.sh', 'scripts/hooks/gh-pr-guard.sh']
+        files = ['scripts/identity-check.sh', 'scripts/merge-clearance-gate.sh', 'scripts/codex-review-check.sh', 'scripts/codex-review-ledger.sh', 'scripts/hooks/gh-pr-guard.sh']
         files += [str(p.relative_to(ROOT)) for d in ('scripts/lib','scripts/workflow') for p in (ROOT/d).rglob('*') if p.is_file() and '__pycache__' not in str(p)]
         cls.archive = io.BytesIO()
         with tarfile.open(fileobj=cls.archive,mode='w:gz') as bundle:
@@ -140,8 +142,15 @@ class WriterTests(unittest.TestCase):
         self.candidate=self.path/'candidate'
         for folder in ('scripts/lib','scripts/workflow'):
             shutil.copytree(ROOT/folder,self.candidate/folder,ignore=shutil.ignore_patterns('__pycache__'))
-        for name in ('scripts/gh-as-author.sh','scripts/identity-check.sh','scripts/merge-clearance-gate.sh','scripts/codex-review-check.sh'):
+        for name in ('scripts/gh-as-author.sh','scripts/identity-check.sh','scripts/merge-clearance-gate.sh','scripts/codex-review-check.sh','scripts/codex-review-ledger.sh'):
             shutil.copy2(ROOT/name,self.candidate/name)
+        # Enroll the independently controlled fake transport repository in
+        # this disposable installed launcher; production has no override knob.
+        writer = self.candidate/'scripts/workflow/merge-writer.py'
+        source = writer.read_text()
+        begin = source.index('TRUSTED_TARGETS = {')
+        end = source.index('\n}', begin) + 2
+        writer.write_text(source[:begin] + "TRUSTED_TARGETS = {'example/repo': (123, 456)}" + source[end:])
         (self.candidate/'.github').mkdir()
         # Candidate policy/checker helpers would vacuously clear; authoritative
         # evidence and code come from the independent fake default-ref archive.
@@ -161,7 +170,8 @@ class WriterTests(unittest.TestCase):
         (self.path/'state.json').write_text(json.dumps(self.state))
         env={k:v for k,v in os.environ.items() if not k.startswith(('GH_','GITHUB_','OP_PREFLIGHT_','MERGEPATH_','MERGE_CLEARANCE_','CODEX_REVIEW_','GIT_','BASH_','PYTHON','NODE_','BREAK_GLASS_')) and k not in ('ENV','CODEX_CLEARED')}
         env.update(PATH=str(self.path/'bin')+os.pathsep+env['PATH'], OP_PREFLIGHT_AUTHOR_PAT='ghp_fixture-author',
-                   GH_AS_AUTHOR_TRACE_MARKER=str(self.path/'trace'), CODEX_CLEARED='1', **overrides)
+                   GH_AS_AUTHOR_TRACE_MARKER=str(self.path/'trace'), CODEX_CLEARED='1')
+        env.update(overrides)
         argv=args if args is not None else ['pr','merge','123','--squash','--match-head-commit',HEAD]
         return subprocess.run(['/bin/bash',str(self.candidate/'scripts/gh-as-author.sh'),'--','gh',*argv],
                               env=env,cwd=self.candidate,text=True,capture_output=True,timeout=40)
@@ -174,6 +184,103 @@ class WriterTests(unittest.TestCase):
         if (self.path/'calls.jsonl').exists():
             calls=[json.loads(line) for line in (self.path/'calls.jsonl').read_text().splitlines()]
             self.assertFalse(any(call and call[0]=='api' and any(value in ('POST','PATCH','PUT','DELETE') for value in call) for call in calls))
+
+    def test_unenrolled_target_never_downloads_credentialed_checker(self):
+        for changes in ({'repository_id': 999}, {'repository_owner': {'id': 999, 'login': 'nathanjohnpayne'}},
+                        {'repository_owner': {'id': 456, 'login': 'other-author'}}, {'repository_owner': None}):
+            with self.subTest(changes=changes):
+                self.state = dict(generation=[123,124], **changes)
+                self.assert_blocked(self.run_writer(), 'enrolled target')
+                self.assertNotIn('/tarball/', (self.path/'calls.jsonl').read_text())
+
+    def test_unpinned_path_utilities_cannot_enter_credentialed_checker(self):
+        import shlex
+        self.state['generation'] = [123,124]
+        poison = self.path/'untrusted-utilities'
+        poison.mkdir()
+        marker = self.path/'utility-executed'
+        for name in ('awk', 'sed', 'grep'):
+            actual = shutil.which(name)
+            self.assertIsNotNone(actual)
+            (poison/name).write_text('#!/bin/sh\ncase "$PATH" in *mergepath-merge-code-*) printf reached > '
+                                     + shlex.quote(str(marker)) + ';; esac\nexec '
+                                     + shlex.quote(actual) + ' "$@"\n')
+            (poison/name).chmod(0o755)
+        result = self.run_writer(PATH=str(self.path/'bin')+os.pathsep+str(poison)+os.pathsep+os.environ['PATH'])
+        self.assertEqual(result.returncode, 0, result.stdout+result.stderr)
+        self.assertFalse(marker.exists(), 'inherited unpinned utility executed inside credentialed checker')
+        self.assertEqual(len((self.path/'writes.jsonl').read_text().splitlines()), 1)
+
+    def ruby_only_toolchain(self, *, broken=False, unsafe=False):
+        writer = self.candidate/'scripts/workflow/merge-writer.py'
+        source = writer.read_text()
+        start = source.index('SYSTEM_PATH = ')
+        end = source.index('\n', start)
+        system_paths = ast.literal_eval(source[start + len('SYSTEM_PATH = '):end])
+        os_bin = self.path/'os-bin'
+        os_bin.mkdir()
+        # Model an OS without a system YAML parser, independently of the
+        # host's installed Ruby/yq. Keep its other fixed utilities real.
+        for directory in system_paths:
+            for executable in Path(directory).iterdir():
+                target = os_bin/executable.name
+                if executable.name not in ('ruby', 'yq', 'python3') and executable.is_file() \
+                        and os.access(executable, os.X_OK) and not target.exists():
+                    target.symlink_to(executable)
+        writer.write_text(source[:start] + 'SYSTEM_PATH = ' + repr((str(os_bin),)) + source[end:])
+        operator_bin = self.path/'bin'
+        for name in ('bash', 'git', 'jq', 'node'):
+            target = shutil.which(name)
+            self.assertIsNotNone(target, name)
+            (operator_bin/name).symlink_to(target)
+        python = operator_bin/'python3'
+        python.write_text('#!/bin/sh\nexec ' + shlex.quote(sys.executable) + ' -S "$@"\n')
+        python.chmod(0o755)
+        self.assertNotEqual(subprocess.run([str(python), '-c', 'import yaml'],
+                            capture_output=True).returncode, 0)
+        # Prepare the fixture result through the host's existing production
+        # parser choices. The guard harness can run Python without PyYAML.
+        # The fake CLI binds those semantics to exact policy bytes; this tests
+        # enrollment/dispatch rather than Ruby's YAML engine.
+        policy_json = subprocess.check_output([
+            '/bin/bash', '-c', '. "$1"; policy_yaml_to_json "$2"', '_',
+            str(ROOT/'scripts/lib/feedback-policy-helpers.sh'),
+            str(self.path/'governing-policy.yml')], text=True)
+        code = ('import json, pathlib, sys\n'
+                f'root = pathlib.Path({str(self.path)!r})\n'
+                'with (root/"ruby-calls.jsonl").open("a") as log: log.write(json.dumps(sys.argv[1:])+"\\n")\n'
+                'if (root/"ruby-broken").exists(): raise SystemExit(1)\n'
+                'assert "-ryaml" in sys.argv and "-rjson" in sys.argv\n'
+                f'assert pathlib.Path(sys.argv[-1]).read_text() == {POLICY!r}\n'
+                f'print({policy_json!r})\n')
+        ruby = self.candidate/'unsafe-ruby' if unsafe else operator_bin/'ruby'
+        ruby.write_text('#!/bin/sh\nexec ' + shlex.quote(sys.executable) + ' -c ' + shlex.quote(code) + ' "$@"\n')
+        ruby.chmod(0o755)
+        if unsafe:
+            (operator_bin/'ruby').symlink_to(ruby)
+        if broken:
+            (self.path/'ruby-broken').touch()
+        path = os.pathsep.join((str(operator_bin), str(os_bin)))
+        self.assertIsNone(shutil.which('yq', path=path))
+        self.assertIsNone(shutil.which('ruby', path=str(os_bin)))
+        return path
+
+    def test_enrolled_external_ruby_survives_fixed_path_policy_loading(self):
+        self.state['generation'] = [123,124]
+        result = self.run_writer(PATH=self.ruby_only_toolchain())
+        self.assertEqual(result.returncode, 0, result.stdout+result.stderr)
+        self.assertTrue((self.path/'ruby-calls.jsonl').exists())
+        self.assertEqual(len((self.path/'writes.jsonl').read_text().splitlines()), 1)
+
+    def test_broken_external_ruby_cannot_authorize_a_merge(self):
+        self.state['generation'] = [123,124]
+        self.assert_blocked(self.run_writer(PATH=self.ruby_only_toolchain(broken=True)))
+        self.assertTrue((self.path/'ruby-calls.jsonl').exists())
+
+    def test_candidate_controlled_ruby_is_rejected_before_execution(self):
+        self.state['generation'] = [123,124]
+        self.assert_blocked(self.run_writer(PATH=self.ruby_only_toolchain(unsafe=True)), 'unsafe ruby')
+        self.assertFalse((self.path/'ruby-calls.jsonl').exists())
 
     def test_stale_green_claim_and_candidate_poison_do_not_authorize(self):
         self.assert_blocked(self.run_writer(), 'outside the request generation')
@@ -314,6 +421,13 @@ if pathlib.Path(sys.argv[0]).name in ('owner-admin-override.py', 'merge-writer.p
         result=self.run_writer()
         self.assertEqual(result.returncode,0,result.stdout+result.stderr)
         self.assertEqual(len((self.path/'writes.jsonl').read_text().splitlines()),1)
+
+    def test_historical_completion_never_supplies_ordinary_current_head_clearance(self):
+        self.state={'generation':[123,124],'historical_codex':True,'no_approval':True}
+        self.assert_blocked(self.run_writer())
+        self.state['no_approval']=False
+        result=self.run_writer()
+        self.assertEqual(result.returncode,0,result.stdout+result.stderr)
 
     def test_label_removed_during_clearance_cannot_skip_external_review(self):
         self.state={'generation':[123,124],'labels':['needs-external-review'],
