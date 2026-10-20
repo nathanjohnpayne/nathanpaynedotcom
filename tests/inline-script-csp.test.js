@@ -16,7 +16,6 @@ import { JSDOM } from 'jsdom';
 import {
   addInlineScriptCsp,
   BASE_SOURCES,
-  isExecutableScript,
   sha256Source,
 } from '../src/integrations/inline-script-csp.mjs';
 import { builtPages } from './helpers/dom.js';
@@ -37,8 +36,11 @@ function metaScriptSources(html) {
 /** The hash sources the page needs: its executable inline scripts and handlers. */
 function requiredHashes(html) {
   const doc = new JSDOM(html).window.document;
-  const scripts = [...doc.querySelectorAll('script:not([src])')].filter((s) =>
-    isExecutableScript(s.getAttribute('type')),
+  // Independent of the integration's classifier: every inline script needs a
+  // hash except the site's one kind of data block, JSON-LD. A new data-block
+  // type shows up here as a missing hash rather than passing unexamined.
+  const scripts = [...doc.querySelectorAll('script:not([src])')].filter(
+    (s) => s.getAttribute('type') !== 'application/ld+json',
   );
   const handlers = [...doc.querySelectorAll('*')].flatMap((el) =>
     [...el.attributes].filter((a) => /^on/i.test(a.name)).map((a) => a.value),
@@ -88,6 +90,35 @@ describe('addInlineScriptCsp', () => {
     );
     const hashes = metaScriptSources(out).filter((s) => s.startsWith("'sha256-"));
     expect(hashes).toEqual([sha256Source('import "/b.js"')]);
+  });
+
+  it('hashes every script type script-src governs, and no data block', () => {
+    const policed = [
+      ['', 'a()'],
+      ['text/JavaScript', 'b()'],
+      ['text/jscript', 'c()'],
+      ['text/javascript1.5', 'd()'],
+      ['application/x-ecmascript', 'e()'],
+      ['module', 'f()'],
+      ['importmap', '{"imports":{}}'],
+      ['speculationrules', '{"prefetch":[]}'],
+    ];
+    const dataBlocks = [
+      ['application/ld+json', '{"x":1}'],
+      ['text/plain', 'g()'],
+      ['text/template', '<p>h</p>'],
+    ];
+    const tag = ([type, body]) =>
+      type ? `<script type="${type}">${body}</script>` : `<script>${body}</script>`;
+    const out = addInlineScriptCsp(
+      page(
+        [...policed, ...dataBlocks].map(tag).join('') +
+          '<script language="javascript">i()</script>',
+      ),
+    );
+    const hashes = metaScriptSources(out).filter((s) => s.startsWith("'sha256-"));
+    // Expected hashes are computed from the bodies directly, not from the classifier.
+    expect(hashes).toEqual([...policed.map(([, body]) => body), 'i()'].map(sha256Source));
   });
 
   it("allows inline event handlers by hash with 'unsafe-hashes'", () => {

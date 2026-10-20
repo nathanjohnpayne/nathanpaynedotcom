@@ -19,8 +19,9 @@
  * How it works
  * ------------
  * Runs at `astro:build:done`. For each `.html` file in the output directory:
- *   1. hashes the text of every inline script the browser would execute
- *      (classic or module; JSON-LD and other data blocks are skipped), and
+ *   1. hashes the text of every inline script `script-src` governs (classic,
+ *      module, import map, speculation rules; JSON-LD and other data blocks
+ *      are skipped), and
  *      the value of every inline event-handler attribute (`onerror=` on the
  *      résumé logos), which needs `'unsafe-hashes'` as well;
  *   2. builds `script-src 'self' https:` plus those hashes. The meta names no
@@ -44,10 +45,46 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
 
-/** Script `type` values the browser executes; anything else is a data block. */
-export function isExecutableScript(type) {
-  const t = (type ?? '').trim().toLowerCase();
-  return t === '' || t === 'module' || /^(text|application)\/(x-)?(java|ecma)script$/.test(t);
+/** The HTML standard's JavaScript MIME type essence strings. */
+const JAVASCRIPT_MIME_TYPES = new Set([
+  'application/ecmascript',
+  'application/javascript',
+  'application/x-ecmascript',
+  'application/x-javascript',
+  'text/ecmascript',
+  'text/javascript',
+  'text/javascript1.0',
+  'text/javascript1.1',
+  'text/javascript1.2',
+  'text/javascript1.3',
+  'text/javascript1.4',
+  'text/javascript1.5',
+  'text/jscript',
+  'text/livescript',
+  'text/x-ecmascript',
+  'text/x-javascript',
+]);
+
+/**
+ * Whether an inline `<script>` is one `script-src` governs: a classic script,
+ * a module, an import map, or speculation rules, as the HTML standard reads
+ * the `type` attribute (falling back to `language` when `type` is absent).
+ * Anything else, JSON-LD included, is a data block the browser never runs.
+ */
+export function isPolicedScript(script) {
+  let type = script.getAttribute('type');
+  if (type === null) {
+    const language = script.getAttribute('language');
+    type = language ? `text/${language}` : '';
+  }
+  const t = type.trim().toLowerCase();
+  return (
+    t === '' ||
+    t === 'module' ||
+    t === 'importmap' ||
+    t === 'speculationrules' ||
+    JAVASCRIPT_MIME_TYPES.has(t)
+  );
 }
 
 /** CSP source expression for the SHA-256 of `text` (UTF-8, as browsers hash it). */
@@ -79,7 +116,7 @@ export function addInlineScriptCsp(html, label = 'page') {
 
   const hashes = new Set();
   for (const script of document.querySelectorAll('script')) {
-    if (script.hasAttribute('src') || !isExecutableScript(script.getAttribute('type'))) continue;
+    if (script.hasAttribute('src') || !isPolicedScript(script)) continue;
     if (dom.nodeLocation(script).startOffset < insertAt) {
       throw new Error(
         `[inline-script-csp] ${label}: an inline script precedes the policy insertion point`,
