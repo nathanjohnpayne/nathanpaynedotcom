@@ -12,26 +12,32 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { JSDOM } from 'jsdom';
 import {
   addInlineScriptCsp,
   BASE_SOURCES,
+  WORKER_SOURCES,
   sha256Source,
 } from '../src/integrations/inline-script-csp.mjs';
 import { builtPages } from './helpers/dom.js';
 
-/** The `script-src` sources of the page's meta policy; [] when it has none. */
-function metaScriptSources(html) {
+/** The sources of `directive` in the page's one meta policy; [] when absent. */
+function metaDirective(html, directive) {
   const doc = new JSDOM(html).window.document;
   const metas = doc.querySelectorAll('meta[http-equiv="Content-Security-Policy" i]');
   expect(metas.length, 'meta policies on the page').toBe(1);
-  const directive = metas[0]
+  const found = metas[0]
     .getAttribute('content')
     .split(';')
     .map((part) => part.trim().split(/\s+/))
-    .find(([name]) => name === 'script-src');
-  return directive ? directive.slice(1) : [];
+    .find(([name]) => name === directive);
+  return found ? found.slice(1) : [];
 }
+
+/** The `script-src` sources of the page's meta policy; [] when it has none. */
+const metaScriptSources = (html) => metaDirective(html, 'script-src');
 
 /** The hash sources the page needs: its executable inline scripts and handlers. */
 function requiredHashes(html) {
@@ -150,6 +156,31 @@ describe('addInlineScriptCsp', () => {
   });
 });
 
+describe('worker-src', () => {
+  it("allows every worker source the header's worker-src allows (#1445 Codex P2)", () => {
+    // A policy with no worker-src governs workers by its script-src, so
+    // without this the meta would block the header's blob: workers.
+    const firebase = JSON.parse(readFileSync(resolve(__dirname, '../firebase.json'), 'utf-8'));
+    const header = firebase.hosting.headers
+      .find((rule) => rule.source === '**')
+      .headers.find((h) => h.key === 'Content-Security-Policy').value;
+    const headerWorker = header
+      .split(';')
+      .map((part) => part.trim().split(/\s+/))
+      .find(([name]) => name === 'worker-src')
+      .slice(1);
+    expect(headerWorker).toContain('blob:');
+    expect(WORKER_SOURCES).toEqual(expect.arrayContaining(headerWorker));
+  });
+
+  it('is emitted on every page', () => {
+    const out = addInlineScriptCsp(
+      '<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>',
+    );
+    expect(metaDirective(out, 'worker-src')).toEqual(WORKER_SOURCES);
+  });
+});
+
 describe('Built pages', () => {
   const pages = builtPages();
 
@@ -179,6 +210,9 @@ describe('Built pages', () => {
         if (!required.has(source)) problems.push(`${route}: extra ${source}`);
       }
       if (sources.includes("'unsafe-inline'")) problems.push(`${route}: 'unsafe-inline'`);
+      if (metaDirective(html, 'worker-src').join(' ') !== WORKER_SOURCES.join(' ')) {
+        problems.push(`${route}: worker-src`);
+      }
       if (sources.includes("'unsafe-hashes'") !== handlers.length > 0) {
         problems.push(`${route}: 'unsafe-hashes' does not match ${handlers.length} handler(s)`);
       }

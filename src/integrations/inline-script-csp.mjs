@@ -28,7 +28,9 @@
  *      host: an external script must also pass the header's `script-src`, so
  *      the header in `firebase.json` stays the only host allowlist, and the
  *      markup names no analytics host outside the gated scripts
- *      (specs/analytics-privacy.md § Gate);
+ *      (specs/analytics-privacy.md § Gate). It also sets `worker-src` to the
+ *      header's, since a policy without one governs workers by its
+ *      `script-src`;
  *   3. inserts the meta directly after `<meta charset>` (or `<head>`), ahead
  *      of every script, by splicing the source text: the rest of the file is
  *      left byte-for-byte as Astro wrote it.
@@ -106,6 +108,15 @@ export function sha256Source(text) {
 export const BASE_SOURCES = ["'self'", 'https:'];
 
 /**
+ * The meta policy's `worker-src`. Without one, a policy falls back to its own
+ * `script-src` for workers, so the meta would block the `blob:` workers the
+ * header's `worker-src 'self' blob:` allows (hls.js for the Mux video, and
+ * any the analytics SDKs start). It must allow at least what the header's
+ * `worker-src` allows; tests/inline-script-csp.test.js checks that.
+ */
+export const WORKER_SOURCES = ["'self'", 'blob:'];
+
+/**
  * Return `html` with the hash-based meta policy inserted, or throw if the
  * page cannot be covered.
  */
@@ -147,7 +158,8 @@ export function addInlineScriptCsp(html, label = 'page') {
   if (handlerHashes.size) sources.push("'unsafe-hashes'");
   sources.push(...hashes, ...handlerHashes);
 
-  const meta = `<meta http-equiv="Content-Security-Policy" content="script-src ${sources.join(' ')}">`;
+  const policy = `script-src ${sources.join(' ')}; worker-src ${WORKER_SOURCES.join(' ')}`;
+  const meta = `<meta http-equiv="Content-Security-Policy" content="${policy}">`;
   return html.slice(0, insertAt) + meta + html.slice(insertAt);
 }
 
