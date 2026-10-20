@@ -542,6 +542,74 @@ print(json.dumps(result))
         with mock.patch.object(override, 'historical_request_ledger', return_value=late_ledger):
             self.assertFalse(override.audit(payload)['recorded_override'])
 
+    def test_historical_audit_ignores_a_valid_post_merge_request(self):
+        requests, reviews, ledger = completion_fixture()
+        self.state.update(comments=requests, reviews=reviews)
+        with mock.patch.object(override, 'historical_request_ledger', return_value=ledger):
+            self.assertEqual(self.run_prepare(inprocess=True).returncode, 0)
+        posted = json.loads((self.path / 'posted.json').read_text())
+        later = {**requests[0], 'id': 802, 'created_at': '2026-01-01T00:03:00Z'}
+        all_requests, _, live_ledger = completion_fixture(requests=requests + [later])
+        payload = {'pr': {'html_url': URL, 'head': {'sha': HEAD}, 'merged_at': '2026-01-01T00:02:00Z'},
+                   'author': 'nathanjohnpayne', 'comments': all_requests + [posted],
+                   'reviews': reviews, 'inline_comments': []}
+        with mock.patch.object(override, 'historical_request_ledger', return_value=live_ledger):
+            self.assertTrue(override.audit(payload)['recorded_override'])
+        self.assertTrue(override.codex_inflight(all_requests, reviews, [], HEAD, 'nathanjohnpayne',
+                                               ledger=live_ledger, repository='example/repo'))
+
+    def test_historical_request_cutoff_keeps_boundary_and_unanswered_requests(self):
+        requests, _, ledger = completion_fixture()
+        cutoff = '2026-01-01T00:02:00Z'
+        for created in ('2026-01-01T00:01:00Z', cutoff):
+            later = {**requests[0], 'id': 802, 'created_at': created}
+            observed, _, evidence = completion_fixture(requests=requests + [later])
+            self.assertFalse(override.historical_requests_completed(
+                evidence, observed, HEAD, 'nathanjohnpayne', override.BOT, cutoff, 'example/repo'))
+        # An uncounted pre-cutoff retry still needs its attributed response.
+        evidence = copy.deepcopy(ledger)
+        evidence['requests'].append({**evidence['requests'][0], 'id': 802, 'counted': False,
+                                     'outcome': 'pending', 'responses': []})
+        self.assertFalse(override.historical_requests_completed(
+            evidence, requests, HEAD, 'nathanjohnpayne', override.BOT, cutoff, 'example/repo'))
+
+    def test_historical_cutoff_validates_request_timestamps_before_filtering(self):
+        requests, _, ledger = completion_fixture()
+        cutoff = '2026-01-01T00:02:00Z'
+        for value in (None, 7, '', '2026-99-01T00:03:00Z', '2026-01-01T00:03:00+00:00'):
+            with self.subTest(request_timestamp=value):
+                evidence = copy.deepcopy(ledger)
+                evidence['requests'].append({**evidence['requests'][0], 'id': 802, 'created_at': value,
+                                             'outcome': 'pending', 'responses': []})
+                self.assertFalse(override.historical_requests_completed(
+                    evidence, requests, HEAD, 'nathanjohnpayne', override.BOT, cutoff, 'example/repo'))
+        for value in (7, '', '2026-02-30T00:02:00Z'):
+            with self.subTest(cutoff=value):
+                self.assertFalse(override.historical_requests_completed(
+                    ledger, requests, HEAD, 'nathanjohnpayne', override.BOT, value, 'example/repo'))
+
+    def test_historical_cutoff_ignores_only_well_formed_future_request_rows(self):
+        requests, _, ledger = completion_fixture()
+        later = {**requests[0], 'id': 802, 'created_at': '2026-01-01T00:03:00Z'}
+        all_requests, _, evidence = completion_fixture(requests=requests + [later])
+        cutoff = '2026-01-01T00:02:00Z'
+        self.assertTrue(override.historical_requests_completed(
+            evidence, all_requests, HEAD, 'nathanjohnpayne', override.BOT, cutoff, 'example/repo'))
+        self.assertFalse(override.historical_requests_completed(
+            evidence, all_requests, HEAD, 'nathanjohnpayne', override.BOT, repository='example/repo'))
+        for field, value in (('counted', 1), ('id', True), ('id', -1), ('created_at', [])):
+            with self.subTest(field=field, value=value):
+                malformed = copy.deepcopy(evidence)
+                malformed['requests'][-1][field] = value
+                self.assertFalse(override.historical_requests_completed(
+                    malformed, requests, HEAD, 'nathanjohnpayne', override.BOT, cutoff, 'example/repo'))
+        for field, value in (('id', True), ('id', -1), ('created_at', [])):
+            with self.subTest(comment_field=field, value=value):
+                malformed = copy.deepcopy(all_requests)
+                malformed[-1][field] = value
+                self.assertFalse(override.historical_requests_completed(
+                    evidence, malformed, HEAD, 'nathanjohnpayne', override.BOT, cutoff, 'example/repo'))
+
     def test_malformed_governing_bot_fails_before_recording(self):
         self.state['policy'] = {'codex': {'bot_login': ['custom-codex[bot]']}}
         result = self.run_prepare()
@@ -624,9 +692,13 @@ print(json.dumps(result))
         self.assertEqual(self.run_prepare().returncode, 0)
         posted = json.loads((self.path / 'posted.json').read_text())
         workflow = (ROOT / '.github/workflows/pr-audit.yml').read_text()
-        # The PR-loop closing brace bounds collection independently of any
+        # The per-PR audit closing brace bounds collection independently of any
         # declarations or conditions added to the later report renderer.
         collection = workflow.split('              let recordedOverride = null;', 1)[1].split('\n            }\n', 1)[0]
+        # The extracted collection uses the real API/deadline wrappers too.
+        # Exercise those dependencies rather than an unbound fragment or stubs.
+        budget = workflow.split('            const PR_BODY_PARSE_TIMEOUT_MS', 1)[1].split('\n            function parsePrBodyContract', 1)[0]
+        budget = 'const PR_BODY_PARSE_TIMEOUT_MS' + budget
         rendering = workflow.split('              if (recordedOverrides.length > 0) {', 1)[1].split('              body += `\\n---', 1)[0]
         pr = {'number': 123, 'html_url': URL, 'head': {'sha': HEAD}, 'merged_at': '2026-01-01T00:02:00Z'}
         setup = '''const context={repo:{owner:'example',repo:'repo'}};
@@ -637,7 +709,7 @@ const authorIdentity='nathanjohnpayne',codexBotLogin='chatgpt-codex-connector[bo
 const core={warning:message=>{throw new Error(message)}};
 const github={rest:{issues:{listComments:'comments'},pulls:{listReviews:'reviews',listReviewComments:'inline'}},paginate:async endpoint=>endpoint==='comments'?[posted]:[]};
 '''
-        code = 'const pr=' + json.dumps(pr) + ',posted=' + json.dumps(posted) + ';\n' + setup
+        code = 'const pr=' + json.dumps(pr) + ',posted=' + json.dumps(posted) + ';\n' + setup + budget
         code += '(async()=>{let recordedOverride=null;' + collection
         code += '\nlet body="";if(recordedOverrides.length>0){' + rendering
         code += '\nconsole.log(JSON.stringify({recordedOverrides,violations,body,auditedPRCount}));})().catch(e=>{console.error(e);process.exit(1)});'

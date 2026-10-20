@@ -140,13 +140,16 @@
 #     "findings": [
 #       { "path": "...", "line": N, "priority": "P0|P1|P2|P3",
 #         "comment_id": N, "body": "<full finding body>",
-#         "blocking": true|false }
+#         "blocking": true|false, "discretionary": true|false }
 #     ],
 #     # `blocking` (#577) is derived from the resolved feedback_policy
 #     # required-tier set (scripts/lib/feedback-policy-helpers.sh
 #     # resolve_required_tiers) — true iff this finding's tier is one the
 #     # codex-p1-gate would block merge on. Absent feedback_policy block ⇒
 #     # only P1 is blocking. An unmarked (P?) finding is never blocking.
+#     # `discretionary` (#1673) independently uses
+#     # resolve_tiers_by_disposition discretionary; absent policy defaults to
+#     # P2/P3/nitpick. An unmarked finding is neither. The new flag is report-only.
 #     "reaction": null | {
 #       "content": "+1",
 #       "created_at": "<iso-8601>",
@@ -584,6 +587,7 @@ __cra_retire_base_cfg() { # <new-path-or-empty>
 }
 trap '__cra_retire_base_cfg ""; [ -z "$__CRA_ENTRY_CFG_TMP" ] || rm -f "$__CRA_ENTRY_CFG_TMP"' EXIT
 REQUIRED_TIERS_JSON='["p1"]'
+DISCRETIONARY_TIERS_JSON='["p2","p3","nitpick"]'
 if [ -r "$__CODEX_REQ_LIBDIR/lib/feedback-policy-helpers.sh" ]; then
   # shellcheck source=lib/feedback-policy-helpers.sh
   . "$__CODEX_REQ_LIBDIR/lib/feedback-policy-helpers.sh"
@@ -598,6 +602,12 @@ if [ -r "$__CODEX_REQ_LIBDIR/lib/feedback-policy-helpers.sh" ]; then
   # JSON array of required tiers (lowercase p0..p3|nitpick) for jq
   # membership tests. Empty input ⇒ [].
   REQUIRED_TIERS_JSON=$(printf '%s\n' "$__REQUIRED_TIERS" \
+    | jq -R . | jq -s 'map(select(. != ""))')
+  # Disposition defaults differ from the legacy gate set: P0 is not
+  # discretionary merely because an absent policy blocks only P1 (#1673).
+  # Keep this advisory decoration from changing the requester's exits.
+  __DISCRETIONARY_TIERS=$(resolve_tiers_by_disposition discretionary "$CONFIG" || true)
+  DISCRETIONARY_TIERS_JSON=$(printf '%s\n' "$__DISCRETIONARY_TIERS" \
     | jq -R . | jq -s 'map(select(. != ""))')
 fi
 
@@ -835,15 +845,28 @@ esac
 # candidate's edit costs a Codex request, never a skipped one.
 #
 # The own copy still runs through run_policy_helper, which starts it with an
-# empty environment plus PATH (to find bash and awk) and LC_ALL=C.UTF-8:
+# empty environment plus PATH (to find bash and awk) and a verified LC_ALL:
 # neither helper reads anything else, and an empty environment keeps a
-# future helper from silently depending on a credential. The locale is
-# UTF-8, not C, because the matcher compiles `?` to `[^/]`; under C a
+# future helper from silently depending on a credential. Probe UTF-8
+# character semantics instead of trusting a locale spelling (#2315): the
+# matcher compiles `?` to `[^/]`; under C a
 # multibyte character in a file name is several characters, so `?` would
 # match LESS than the labeler: the unsafe direction. The EXCLUDE_RE read
 # executes nothing (jq decodes the file and sed extracts one line).
 run_policy_helper() {  # <script> [args...]; stdin passes through
-  env -i PATH="$PATH" LC_ALL=C.UTF-8 bash "$@"
+  local policy_locale
+  for policy_locale in C.UTF-8 en_US.UTF-8; do
+    # The child must evaluate the sample under its own effective locale.
+    # shellcheck disable=SC2016
+    if env -i PATH="$PATH" LC_ALL="$policy_locale" bash -c \
+      'sample=$(printf "\303\251"); [ "${#sample}" -eq 1 ] && [[ $sample =~ ^[^/]$ ]]' \
+      >/dev/null 2>&1; then
+      env -i PATH="$PATH" LC_ALL="$policy_locale" bash "$@"
+      return $?
+    fi
+  done
+  echo "[codex-review-request] no verified UTF-8 locale for policy helpers" >&2
+  return 2
 }
 # Fetch a base helper as data and confirm it is byte-identical to this
 # requester's own copy. Prints nothing; returns 0 when identical, else sets
@@ -1541,7 +1564,8 @@ scan_codex_state() {
     findings=$(echo "$comments" | jq \
       --arg bot "$BOT_LOGIN" \
       --argjson review_id "$latest_review_id" \
-      --argjson required "$REQUIRED_TIERS_JSON" '
+      --argjson required "$REQUIRED_TIERS_JSON" \
+      --argjson discretionary "$DISCRETIONARY_TIERS_JSON" '
       [ .[]
         | select(.user.login == $bot)
         | select(.pull_request_review_id == $review_id)
@@ -1554,7 +1578,8 @@ scan_codex_state() {
             # normalized tier (p0..p3) against $required (from
             # resolve_required_tiers) so the surfaced flag matches exactly
             # what the codex-p1-gate enforces at merge time.
-            blocking: ( $n != null and ( ("p" + $n) as $t | $required | index($t) != null ) )
+            blocking: ( $n != null and ( ("p" + $n) as $t | $required | index($t) != null ) ),
+            discretionary: ( $n != null and ( ("p" + $n) as $t | $discretionary | index($t) != null ) )
           }
       ]
     ')
@@ -2282,7 +2307,7 @@ refuse_moving_head_unless_allowed() {
   # The CI-pickup read comes first: it also supplies the push-time anchor for
   # the age signal below.
   local dispatched_at="" anchor="$HEAD_PUSHED_AT" anchor_source="$ANCHOR_SOURCE" check_reason=""
-  local signal_label="" wf
+  local signal_label="" wf check_dispatch_unavailable=false
   case "$REQUEST_SIGNAL_MODE" in
     workflow)
       signal_label="$REQUEST_WORKFLOW_NAME"
@@ -2304,12 +2329,12 @@ refuse_moving_head_unless_allowed() {
         status=unreadable
       elif [ "$(printf '%s' "$runs" | jq 'length')" -gt 0 ]; then
         status=$(printf '%s' "$runs" | jq -r 'sort_by(.id) | last | .status // "unknown"')
-        # The LATEST dispatch on this branch is the current push: a re-run
-        # keeps its run's original created_at (it bumps run_attempt), so it
-        # cannot move this, and an earlier push of the same SHA to this branch
-        # is older by construction (Codex P2 on #2175).
+        # Only PR/push events date this push. Any event proves pickup, but a
+        # later manual or scheduled run must not restart a settled head's age
+        # guard (#2198). A re-run keeps the original created_at.
         dispatched_at=$(printf '%s' "$runs" | jq -r '
-          [.[] | (.created_at // empty)
+          [.[] | select(.event == "pull_request" or .event == "push")
+           | (.created_at // empty)
            | select(type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T"))] | max // ""')
       else
         # No repo-lint run on this head. Either CI has not picked it up yet,
@@ -2343,7 +2368,11 @@ refuse_moving_head_unless_allowed() {
           -F per_page=100 2>/dev/null) || suites=""
         suites=$(printf '%s' "$suites" | jq -c -s --arg b "$HEAD_REF" '
           if length > 0 and all(.[]; type == "object" and ((.check_suites | type) == "array"))
-          then [ .[].check_suites[] | select((.head_branch // "") == $b) | .id ]
+          then {known: [ .[].check_suites[] | select((.head_branch // "") == $b) | .id ],
+                created: [ .[].check_suites[] | select((.head_branch // "") == $b)
+                           | {id, created_at} ],
+                unknown: [ .[].check_suites[]
+                           | select((.head_branch | type) != "string" or .head_branch == "") | .id ]}
           else "unreadable" end' 2>/dev/null) || suites='"unreadable"'
         [ -n "$suites" ] || suites='"unreadable"'
       fi
@@ -2352,11 +2381,19 @@ refuse_moving_head_unless_allowed() {
       else
         runs=$(printf '%s' "$runs" | jq -c -s --arg n "$REQUEST_REQUIRES_CHECK" --argjson ids "$suites" '
           if length > 0 and all(.[]; type == "object" and ((.check_runs | type) == "array"))
-          then [ .[].check_runs[] | select((.name // "") == $n)
-                 | select($ids == null or ((.check_suite.id // null) as $s | ($ids | index($s)) != null)) ]
+          then [ .[].check_runs[] | select((.name // "") == $n) ] as $named
+             | [ $named[] | select($ids == null or
+                 ((.check_suite.id // null) as $s | ($ids.known | index($s)) != null)) ] as $known
+             | if ($known | length) > 0 then $known
+               elif $ids != null and any($named[];
+                 (.check_suite.id // null) as $s | ($ids.unknown | index($s)) != null)
+               then "branch-unavailable"
+               else [] end
           else "unreadable" end' 2>/dev/null) || runs='"unreadable"'
         if [ "$runs" = '"unreadable"' ] || [ -z "$runs" ]; then
           status=unreadable
+        elif [ "$runs" = '"branch-unavailable"' ]; then
+          status=branch-unavailable
         else
           status=$(printf '%s' "$runs" | jq -r 'sort_by(.id) | last | .status // "missing"' 2>/dev/null) || status=unreadable
           [ "$status" != null ] || status=missing
@@ -2364,10 +2401,19 @@ refuse_moving_head_unless_allowed() {
       fi
       # Latest run, as in the workflow path: an earlier run of the same SHA
       # must not date the current push.
-      if [ "$status" != unreadable ] && [ "$status" != missing ]; then
-        dispatched_at=$(printf '%s' "$runs" | jq -r '
-          [.[] | (.started_at // empty)
-           | select(type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T"))] | max // ""' 2>/dev/null) || dispatched_at=""
+      if [ "$status" != unreadable ] && [ "$status" != missing ] && [ "$status" != branch-unavailable ]; then
+        dispatched_at=$(printf '%s' "$runs" | jq -r --argjson suites "$suites" '
+          def timestamp: select(type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T"));
+          [.[] | .check_suite.id as $id
+           | [.created_at, .started_at,
+              ($suites.created[]? | select(.id == $id) | .created_at)]
+           | map(timestamp) | first // empty] | max // ""' 2>/dev/null) || dispatched_at=""
+        if [ -z "$dispatched_at" ]; then
+          # Queued checks have no start time. Without any dispatch timestamp,
+          # an old commit date cannot establish pickup age. Keep the anchor
+          # until its age is checked so an independently young head still holds.
+          check_dispatch_unavailable=true
+        fi
       fi
       ;;
     *) status="" ;;
@@ -2378,6 +2424,8 @@ refuse_moving_head_unless_allowed() {
     case "$status" in
       unreadable)
         log "moving-head guard: CI-pickup signal ('$signal_label') for $HEAD_SHA unreadable; not enforced" ;;
+      branch-unavailable)
+        log "moving-head guard: matching '$signal_label' check has unavailable suite branch attribution; CI-pickup signal not enforced" ;;
       no-workflow)
         log "WARNING: moving-head guard: this repository has no '$REQUEST_WORKFLOW_NAME' workflow ($REQUEST_WORKFLOW_PATH), so the CI-pickup signal cannot be observed; not enforced (set codex.request_requires_check to name another check)" ;;
       missing)
@@ -2394,8 +2442,8 @@ refuse_moving_head_unless_allowed() {
         # of a commit created long before reads as an old head the moment it
         # lands. The latest run of the signal for this head on the PR branch
         # was created when GitHub dispatched the current push, which is the
-        # push time this signal means. Use whichever is later. A missing or unparseable timestamp
-        # keeps the commit-based anchor.
+        # push time this signal means. Use whichever is later. Missing check
+        # dispatch metadata retains only an independently young age signal.
         if [ -n "$dispatched_at" ] && [[ "$dispatched_at" > "$anchor" ]]; then
           anchor="$dispatched_at"
           anchor_source="latest '$signal_label' dispatch for HEAD on the PR branch (push dispatch)"
@@ -2410,6 +2458,13 @@ refuse_moving_head_unless_allowed() {
     if [[ "$pushed_epoch" =~ ^[0-9]+$ ]]; then
       age=$((now_epoch - pushed_epoch))
       [ "$age" -ge 0 ] || age=0
+      if [ "$check_dispatch_unavailable" = true ] && [ "$age" -ge "$REQUEST_MIN_HEAD_AGE_SECONDS" ]; then
+        anchor=""
+        anchor_source="unavailable check dispatch timestamp"
+        pushed_epoch=""
+      fi
+    fi
+    if [[ "$pushed_epoch" =~ ^[0-9]+$ ]]; then
       MOVING_HEAD_AGE_SECONDS=$age
       if [ "$age" -lt "$REQUEST_MIN_HEAD_AGE_SECONDS" ]; then
         reasons="head-age"
