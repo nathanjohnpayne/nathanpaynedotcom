@@ -257,7 +257,7 @@ Defined in `firebase.json`:
 | OG image cache | 24 hours |
 | JS/CSS cache | 1 hour; content-hashed `/_astro/**` assets 1 year, `immutable` |
 | HTML cache | 1 hour |
-| Security headers | `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection: 0`, `Referrer-Policy`, `Permissions-Policy`, `Content-Security-Policy-Report-Only` |
+| Security headers | `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection: 0`, `Referrer-Policy`, `Permissions-Policy`, `Content-Security-Policy` (enforcing; per-page inline-script hashes in a meta policy) |
 
 ---
 

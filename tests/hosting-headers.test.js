@@ -21,7 +21,7 @@ function headerValue(source, key) {
   return entry?.value;
 }
 
-const globalCsp = headerValue('**', 'Content-Security-Policy-Report-Only') ?? '';
+const globalCsp = headerValue('**', 'Content-Security-Policy') ?? '';
 
 /**
  * Parse a policy string into a map of directive → source list. Browsers honour
@@ -82,11 +82,28 @@ describe('Hosting security headers', () => {
     }
   });
 
-  it('ships the CSP report-only until the inline scripts are hashed', () => {
-    // Enforcing would need every is:inline script hashed or moved first; the
-    // report-only header records violations without breaking the page.
+  it('enforces the CSP rather than only reporting it (#1080)', () => {
     expect(globalCsp).not.toBe('');
-    expect(headerValue('**', 'Content-Security-Policy')).toBeUndefined();
+    expect(headerValue('**', 'Content-Security-Policy-Report-Only')).toBeUndefined();
+  });
+
+  it("keeps 'unsafe-inline' in the header only for the per-page hash policy to narrow", () => {
+    // The header is one value for every path, so it cannot list each page's
+    // inline-script hashes. Each built page carries a meta script-src without
+    // 'unsafe-inline' (src/integrations/inline-script-csp.mjs), and a browser
+    // runs a script only if both policies allow it; tests/inline-script-csp.test.js
+    // checks every page has one.
+    expect(csp.get('script-src')).toContain("'unsafe-inline'");
+    const config = readFileSync(resolve(__dirname, '../astro.config.mjs'), 'utf-8');
+    expect(config).toMatch(/inlineScriptCsp\(\)/);
+  });
+
+  it('names every script host explicitly, since the meta policy allows any https: script', () => {
+    // The meta script-src is `'self' https:` plus hashes, so this header's
+    // host list is the only thing limiting external scripts. A scheme or a
+    // bare `*` here would open script loading to any host.
+    const broad = csp.get('script-src').filter((s) => /^(https?:|\*|data:|blob:)$/.test(s));
+    expect(broad).toEqual([]);
   });
 
   it('declares each directive once', () => {
@@ -131,6 +148,14 @@ describe('Hosting security headers', () => {
     expect(allows('connect-src', 'https://manifest-a-b.fastly.mux.com/r.m3u8')).toBe(true);
     expect(allows('img-src', 'https://image.mux.com/x/thumbnail.jpg')).toBe(true);
     expect(allows('connect-src', 'https://img.litix.io/')).toBe(true);
+
+    // Cloudflare Web Analytics: injected at the edge, so no built page shows
+    // it. Its beacon reports to the same-origin /cdn-cgi/rum (seen live on
+    // 2026-10-20), so only the script host needs allowing.
+    expect(allows('script-src', 'https://static.cloudflareinsights.com/beacon.min.js/v1')).toBe(
+      true,
+    );
+    expect(allows('connect-src', `${PAGE_ORIGIN}/cdn-cgi/rum`)).toBe(true);
   });
 
   it('allows every external resource the built pages reference', () => {

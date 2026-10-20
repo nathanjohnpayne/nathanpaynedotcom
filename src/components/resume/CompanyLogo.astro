@@ -24,7 +24,10 @@
  *
  * The onerror cascade is a vanilla inline handler — inline handlers/scripts
  * are an established pattern in this repo (e.g. the Connect availability
- * script on the homepage).
+ * script on the homepage). The CSP allows each handler by the hash of its
+ * exact text with 'unsafe-hashes' (src/integrations/inline-script-csp.mjs,
+ * #1080), so the attribute values must stay constant: interpolating a
+ * per-logo value would add a hash per variant rather than break anything.
  */
 interface Props {
   /** Brand name — used for the Logo.dev name lookup and the initials. */

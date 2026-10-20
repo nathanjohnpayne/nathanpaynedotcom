@@ -20,7 +20,7 @@ import {
   type BrowserContext,
   type Page,
 } from '@playwright/test';
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import {
   SITE_HOST,
@@ -136,7 +136,9 @@ async function elementShot(page: Page, selector: string, name: string) {
  * included, when the context is one of this track's own surfaces.
  */
 async function axeViolations(page: Page, selector?: string) {
-  await page.addScriptTag({ path: AXE });
+  // Evaluated rather than added as a <script>: the built pages carry a
+  // hash-only script-src meta policy (#1080) that blocks an injected inline tag.
+  await page.evaluate(readFileSync(AXE, 'utf8'));
   return page.evaluate(
     async ({ selector, full }) => {
       const axe = (
