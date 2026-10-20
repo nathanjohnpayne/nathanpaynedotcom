@@ -6,6 +6,7 @@ import rehypeMermaid from 'rehype-mermaid';
 import { buildSitemapLastmodMap } from './scripts/lib/sitemap-lastmod.mjs';
 import ogImages from './src/integrations/og-images.mjs';
 import robotsSitemap from './src/integrations/robots-sitemap.mjs';
+import inlineScriptCsp from './src/integrations/inline-script-csp.mjs';
 import remarkMermaid from './src/plugins/remark-mermaid.mjs';
 import {
   mermaidOptions,
@@ -49,6 +50,9 @@ export default defineConfig({
     // when we rewrite robots.txt. Integrations run in array order during
     // astro:build:done.
     robotsSitemap(),
+    // Last, so it hashes the HTML exactly as it ships: every page gets a
+    // script-src meta policy listing its inline scripts' hashes (#1080).
+    inlineScriptCsp(),
   ],
   output: 'static',
   build: {

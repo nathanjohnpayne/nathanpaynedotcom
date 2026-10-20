@@ -174,7 +174,9 @@ interface AxeViolation {
 
 /** Run axe-core (fetched and integrity-checked by the harness) over `include`, or the whole document. */
 async function runAxe(page: Page, axePath: string, include?: string[]): Promise<AxeViolation[]> {
-  await page.addScriptTag({ path: axePath });
+  // Evaluated rather than added as a <script>: the built pages carry a
+  // hash-only script-src meta policy (#1080) that blocks an injected inline tag.
+  await page.evaluate(readFileSync(axePath, 'utf8'));
   return page.evaluate(async (scope) => {
     const axe = (
       window as unknown as {
