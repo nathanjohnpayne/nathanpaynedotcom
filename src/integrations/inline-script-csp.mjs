@@ -65,26 +65,32 @@ const JAVASCRIPT_MIME_TYPES = new Set([
   'text/x-javascript',
 ]);
 
+const asciiLowercase = (value) => value.replace(/[A-Z]/g, (c) => c.toLowerCase());
+
 /**
  * Whether an inline `<script>` is one `script-src` governs: a classic script,
- * a module, an import map, or speculation rules, as the HTML standard reads
- * the `type` attribute (falling back to `language` when `type` is absent).
- * Anything else, JSON-LD included, is a data block the browser never runs.
+ * a module, an import map, or speculation rules. Follows the HTML standard's
+ * "prepare the script element" steps for the type string: the `type` value
+ * as written (or `text/` plus `language` when `type` is absent), compared
+ * ASCII case-insensitively. Only the JavaScript MIME type check also accepts
+ * the `type` value with surrounding ASCII whitespace stripped, so
+ * `type=" module "` and a whitespace-only `type` are data blocks. Anything
+ * else, JSON-LD included, is a data block the browser never runs.
  */
 export function isPolicedScript(script) {
-  let type = script.getAttribute('type');
-  if (type === null) {
-    const language = script.getAttribute('language');
-    type = language ? `text/${language}` : '';
+  const type = script.getAttribute('type');
+  const language = script.getAttribute('language');
+  let typeString;
+  if (type === '' || (type === null && !language)) typeString = 'text/javascript';
+  else if (type !== null) typeString = type;
+  else typeString = `text/${language}`;
+  const t = asciiLowercase(typeString);
+  if (JAVASCRIPT_MIME_TYPES.has(t)) return true;
+  if (type !== null) {
+    const stripped = asciiLowercase(type.replace(/^[\t\n\f\r ]+|[\t\n\f\r ]+$/g, ''));
+    if (JAVASCRIPT_MIME_TYPES.has(stripped)) return true;
   }
-  const t = type.trim().toLowerCase();
-  return (
-    t === '' ||
-    t === 'module' ||
-    t === 'importmap' ||
-    t === 'speculationrules' ||
-    JAVASCRIPT_MIME_TYPES.has(t)
-  );
+  return t === 'module' || t === 'importmap' || t === 'speculationrules';
 }
 
 /** CSP source expression for the SHA-256 of `text` (UTF-8, as browsers hash it). */

@@ -93,32 +93,36 @@ describe('addInlineScriptCsp', () => {
   });
 
   it('hashes every script type script-src governs, and no data block', () => {
+    // [attributes, body]. The HTML standard's "prepare the script element"
+    // type string; only the JavaScript MIME check strips whitespace.
     const policed = [
       ['', 'a()'],
-      ['text/JavaScript', 'b()'],
-      ['text/jscript', 'c()'],
-      ['text/javascript1.5', 'd()'],
-      ['application/x-ecmascript', 'e()'],
-      ['module', 'f()'],
-      ['importmap', '{"imports":{}}'],
-      ['speculationrules', '{"prefetch":[]}'],
+      ['type=""', 'b()'],
+      ['type="text/JavaScript"', 'c()'],
+      ['type=" text/javascript "', 'd()'],
+      ['type="text/jscript"', 'e()'],
+      ['type="text/javascript1.5"', 'f()'],
+      ['type="application/x-ecmascript"', 'g()'],
+      ['type="Module"', 'h()'],
+      ['type="importmap"', '{"imports":{}}'],
+      ['type="speculationrules"', '{"prefetch":[]}'],
+      ['language="javascript"', 'i()'],
+      ['language=""', 'j()'],
     ];
     const dataBlocks = [
-      ['application/ld+json', '{"x":1}'],
-      ['text/plain', 'g()'],
-      ['text/template', '<p>h</p>'],
+      ['type="application/ld+json"', '{"x":1}'],
+      ['type="text/plain"', 'k()'],
+      ['type=" module "', 'l()'],
+      ['type=" importmap"', '{"imports":{"m":"/m.js"}}'],
+      ['type="  "', 'n()'],
+      ['language="javascript "', 'o()'],
+      ['type="text/plain" language="javascript"', 'p()'],
     ];
-    const tag = ([type, body]) =>
-      type ? `<script type="${type}">${body}</script>` : `<script>${body}</script>`;
-    const out = addInlineScriptCsp(
-      page(
-        [...policed, ...dataBlocks].map(tag).join('') +
-          '<script language="javascript">i()</script>',
-      ),
-    );
+    const tag = ([attrs, body]) => `<script ${attrs}>${body}</script>`;
+    const out = addInlineScriptCsp(page([...policed, ...dataBlocks].map(tag).join('')));
     const hashes = metaScriptSources(out).filter((s) => s.startsWith("'sha256-"));
     // Expected hashes are computed from the bodies directly, not from the classifier.
-    expect(hashes).toEqual([...policed.map(([, body]) => body), 'i()'].map(sha256Source));
+    expect(hashes).toEqual(policed.map(([, body]) => sha256Source(body)));
   });
 
   it("allows inline event handlers by hash with 'unsafe-hashes'", () => {
