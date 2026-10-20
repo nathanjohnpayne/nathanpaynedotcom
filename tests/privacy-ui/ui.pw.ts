@@ -136,6 +136,15 @@ async function elementShot(page: Page, selector: string, name: string) {
  * included, when the context is one of this track's own surfaces.
  */
 async function axeViolations(page: Page, selector?: string) {
+  // axe reads computed colours as they are now. The notice slides and fades
+  // in on arrival (np-privacy-notice-in), so a scan started mid-fade measures
+  // a blend of ink and paper and reports a contrast failure that a settled
+  // page does not have (#1444). Wait for every finite animation to finish.
+  await page.waitForFunction(() =>
+    document
+      .getAnimations()
+      .every((a) => a.playState !== 'running' || a.effect?.getTiming().iterations === Infinity),
+  );
   // Evaluated rather than added as a <script>: the built pages carry a
   // hash-only script-src meta policy (#1080) that blocks an injected inline tag.
   await page.evaluate(readFileSync(AXE, 'utf8'));
