@@ -172,10 +172,11 @@ case "$endpoint" in
       # LATEST dispatch on the PR branch.
       dispatched) jq -cn --arg o "${CODEX_TEST_CHECK_OTHER:-$(jq -rn 'now - 10800 | floor | todate')}" \
                     --arg a "${CODEX_TEST_CHECK_STARTED:?}" --arg b "${CODEX_TEST_CHECK_RERUN:-$CODEX_TEST_CHECK_STARTED}" \
+                    --arg first_event "${CODEX_TEST_CHECK_EVENT-pull_request}" --arg last_event "${CODEX_TEST_CHECK_RERUN_EVENT-push}" \
                     '{total_count:3,workflow_runs:[
-                      {id:6,name:"repo-lint",path:".github/workflows/repo_lint.yml",head_branch:"other",status:"completed",created_at:$o},
-                      {id:8,name:"repo-lint",path:".github/workflows/repo_lint.yml",head_branch:"feature",status:"completed",created_at:$a},
-                      {id:9,name:"repo-lint",path:".github/workflows/repo_lint.yml",head_branch:"feature",status:"completed",created_at:$b}]}' ;;
+                      {id:6,name:"repo-lint",path:".github/workflows/repo_lint.yml",head_branch:"other",event:"push",status:"completed",created_at:$o},
+                      {id:8,name:"repo-lint",path:".github/workflows/repo_lint.yml",head_branch:"feature",event:$first_event,status:"completed",created_at:$a},
+                      {id:9,name:"repo-lint",path:".github/workflows/repo_lint.yml",head_branch:"feature",event:$last_event,status:"completed",created_at:$b}]}' ;;
       *)          jq -cn --arg st "${CODEX_TEST_LINT_RUNS:-completed}" '{total_count:1,workflow_runs:[{id:2,name:"repo-lint",path:".github/workflows/repo_lint.yml",head_branch:"feature",status:$st}]}' ;;
     esac ;;
   repos/owner/repo/actions/workflows)
@@ -186,12 +187,22 @@ case "$endpoint" in
     esac ;;
   repos/owner/repo/commits/*/check-suites)
     # Suite 100 is the PR branch (head.ref "feature"); suite 200 another branch.
-    printf '{"total_count":2,"check_suites":[{"id":100,"head_branch":"feature"},{"id":200,"head_branch":"other"}]}\n' ;;
+    case "${CODEX_TEST_SUITE_BRANCH:-known}" in
+      unknown) printf '{"total_count":2,"check_suites":[{"id":100,"head_branch":null},{"id":200,"head_branch":"other"}]}\n' ;;
+      unrelated-unknown) printf '{"total_count":2,"check_suites":[{"id":100,"head_branch":"feature"},{"id":200,"head_branch":null}]}\n' ;;
+      *) jq -cn --arg t "${CODEX_TEST_SUITE_CREATED:-}" '{total_count:2,check_suites:[
+           {id:100,head_branch:"feature",created_at:(if $t == "" then null else $t end)},
+           {id:200,head_branch:"other",created_at:"2020-01-01T00:00:00Z"}]}' ;;
+    esac ;;
   repos/owner/repo/commits/*/check-runs)
     # The codex.request_requires_check OVERRIDE path (exact check-run name).
     # Runs carry check_suite.id 100 (the PR branch) unless the shape says not.
     case "${CODEX_TEST_CHECK_RUNS:-completed}" in
       unreadable) echo 'simulated check-runs read failure' >&2; exit 1 ;;
+      dated) jq -cn --arg c "${CODEX_TEST_RUN_CREATED:-}" --arg t "${CODEX_TEST_RUN_STARTED:-}" '
+               {total_count:1,check_runs:[{id:1,name:"lint-fast",status:(if $t == "" then "queued" else "completed" end),check_suite:{id:100},
+                 created_at:(if $c == "" then null else $c end),
+                 started_at:(if $t == "" then null else $t end)}]}' ;;
       missing)    printf '{"total_count":0,"check_runs":[]}\n' ;;
       othername)  printf '{"total_count":1,"check_runs":[{"id":1,"name":"not-lint","status":"completed","check_suite":{"id":100}}]}\n' ;;
       # The deep `lint` job alone must not satisfy an exact `lint-fast`.
@@ -1569,6 +1580,35 @@ test_guard_anchors_on_push_dispatch() {
   [ "$FAIL" -ne "$before" ] || pass "MH11: the age signal is anchored on the latest repo-lint dispatch for the head on the PR branch, not only the commit date"
 }
 
+# #2198: every workflow event proves pickup, but only PR/push dispatches
+# date the age guard. A later manual/scheduled run cannot reset a settled head.
+test_guard_workflow_event_anchors() {
+  refresh_head_dates
+  local dir rc event shape first expected before
+  for event in workflow_dispatch schedule '' pull_request push; do
+    for shape in mixed event-only; do
+      before=$FAIL
+      dir=$(make_case "guard-event-${event:-missing}-$shape")
+      first=pull_request; [ "$shape" != event-only ] || first=$event
+      rc=$(CODEX_TEST_CHECK_EVENT="$first" CODEX_TEST_CHECK_RERUN_EVENT="$event" \
+        CODEX_TEST_CHECK_STARTED="$OLD_HEAD" CODEX_TEST_CHECK_RERUN="$YOUNG_HEAD" \
+        run_guard "$dir" fresh "$OLD_HEAD" dispatched "" --trigger-only)
+      case "$event" in
+        pull_request|push)
+          [ "$rc" = 8 ] && [ "$(trig_count "$dir")" = 0 ] \
+            && [ "$(jqf "$dir" '.moving_head.head_pushed_at')" = "$YOUNG_HEAD" ] \
+            && jq -e '.moving_head.reasons == ["head-age"]' "$dir/out.json" >/dev/null \
+            || fail "#2198: fresh $event dispatch must retain age refusal ($shape, rc=$rc)" ;;
+        *)
+          [ "$rc" = 0 ] && [ "$(trig_count "$dir")" = 1 ] \
+            && grep -q "'repo-lint' is completed on HEAD" "$dir/err.log" \
+            || fail "#2198: ${event:-missing} event must prove pickup without resetting push age ($shape, rc=$rc)" ;;
+      esac
+      [ "$FAIL" -ne "$before" ] || pass "#2198: ${event:-missing} workflow age anchor ($shape)"
+    done
+  done
+}
+
 # MH12 (#2175, #2273): the target policy governs from a subdirectory or a
 # foreign cwd, even when the script checkout requests by default.
 test_policy_resolved_from_script_checkout() {
@@ -1674,6 +1714,80 @@ test_guard_runs_after_the_cap_branch() {
 }
 
 
+# #2274/#2510: queued checks need creation metadata; missing dispatch timestamps
+# cannot establish old-head age or discard an independently young head.
+test_guard_dates_queued_checks() {
+  refresh_head_dates
+  local variant dir rc created started suite head expected before=$FAIL
+  for variant in run-created suite-created started unavailable unavailable-young settled invalid-run; do
+    dir=$(make_case "queued-dating-$variant")
+    printf '  request_requires_check: lint-fast\n' >>"$dir/.github/review-policy.yml"
+    created=""; started=""; suite=""; head=$OLD_HEAD; expected=8
+    case "$variant" in
+      run-created) created=$YOUNG_HEAD; suite=$OLD_HEAD ;;
+      suite-created) suite=$YOUNG_HEAD ;;
+      started) started=$YOUNG_HEAD; suite=$OLD_HEAD ;;
+      unavailable) expected=0 ;;
+      unavailable-young) head=$YOUNG_HEAD ;;
+      settled) created=$OLD_HEAD; suite=$OLD_HEAD; expected=0 ;;
+      invalid-run) created=unreadable; suite=$YOUNG_HEAD ;;
+    esac
+    rc=$(CODEX_TEST_RUN_CREATED="$created" CODEX_TEST_RUN_STARTED="$started" \
+      CODEX_TEST_SUITE_CREATED="$suite" CODEX_TEST_CHECK_RUNS=dated \
+      run_guard "$dir" fresh "$head" completed "" --trigger-only)
+    [ "$rc" = "$expected" ] || fail "#2274: $variant expected exit $expected, got $rc ($(cat "$dir/err.log"))"
+    if [ "$expected" = 8 ]; then
+      [ "$(trig_count "$dir")" = 0 ] \
+        && [ "$(jqf "$dir" '.moving_head.head_pushed_at')" = "$YOUNG_HEAD" ] \
+        && jq -e '.moving_head.reasons == ["head-age"]' "$dir/out.json" >/dev/null \
+        || fail "#2274/#2510: $variant must retain young-head refusal before POST"
+    else
+      [ "$(trig_count "$dir")" = 1 ] || fail "#2274: $variant must retain a settled/unavailable write"
+      [ "$variant" != unavailable ] || grep -q 'head-age signal unavailable, not enforced' "$dir/err.log" \
+        || fail "#2274: missing dispatch timestamps must report unavailable age"
+    fi
+  done
+  [ "$FAIL" -ne "$before" ] || pass "#2274/#2510: queued check metadata dates pickup; missing metadata preserves young-head refusal"
+}
+
+# #2200: fork check suites may not identify their branch. Unknown attribution
+# is an unavailable advisory signal, never proof that a check is missing.
+test_guard_unknown_suite_branch() {
+  refresh_head_dates
+  local variant dir rc head scenario check_run before=$FAIL
+  for variant in old young unrelated known-other; do
+    dir=$(make_case "unknown-suite-$variant")
+    printf '  request_requires_check: lint-fast\n' >>"$dir/.github/review-policy.yml"
+    head=$OLD_HEAD
+    scenario=unknown
+    check_run=completed
+    [ "$variant" != young ] || head=$YOUNG_HEAD
+    [ "$variant" != unrelated ] || scenario=unrelated-unknown
+    [ "$variant" != known-other ] || scenario=known
+    [ "$variant" != known-other ] || check_run=othersuite
+    rc=$(CODEX_TEST_SUITE_BRANCH="$scenario" CODEX_TEST_CHECK_RUNS="$check_run" \
+      run_guard "$dir" fresh "$head" completed "" --trigger-only)
+    case "$variant" in
+      old)
+        [ "$rc" = 0 ] && [ "$(trig_count "$dir")" = 1 ] \
+          && grep -q 'unavailable suite branch attribution' "$dir/err.log" \
+          || fail "#2200: unknown fork branch must fail open distinctly (rc=$rc)" ;;
+      young)
+        [ "$rc" = 8 ] && [ "$(trig_count "$dir")" = 0 ] \
+          && [ "$(jqf "$dir" '.moving_head.check_status')" = branch-unavailable ] \
+          && jq -e '.moving_head.reasons == ["head-age"]' "$dir/out.json" >/dev/null \
+          || fail "#2200: unavailable branch must not mask the age guard (rc=$rc)" ;;
+      unrelated)
+        [ "$rc" = 0 ] && grep -q "'lint-fast' is completed" "$dir/err.log" \
+          || fail "#2200: unrelated unknown suite must retain known matching signal" ;;
+      known-other)
+        [ "$rc" = 8 ] && [ "$(jqf "$dir" '.moving_head.check_status')" = missing ] \
+          || fail "#2200: known other-branch suite must still be missing" ;;
+    esac
+  done
+  [ "$FAIL" -ne "$before" ] || pass "#2200: unknown fork attribution is unavailable; known branch and age signals retain behavior"
+}
+
 # #2158: fresh write-boundary authorization shares the production budgets,
 # performs no POST, and cannot authorize a different expected head.
 test_write_boundary_authorization() {
@@ -1716,6 +1830,8 @@ test_write_boundary_authorization() {
   [ "$FAIL" -ne "$before" ] || pass "write-boundary authorization enforces budget and head without a POST"
 }
 
+test_guard_dates_queued_checks
+test_guard_unknown_suite_branch
 test_write_boundary_authorization
 
 test_fresh_posts_once_no_poll
@@ -1767,6 +1883,7 @@ test_guard_exempts_automatic_caller
 test_guard_does_not_run_on_no_write_paths
 test_guard_applies_in_polling_mode
 test_guard_anchors_on_push_dispatch
+test_guard_workflow_event_anchors
 test_policy_resolved_from_script_checkout
 test_guard_workflow_signal_shapes
 test_guard_override_paginates_and_scopes
