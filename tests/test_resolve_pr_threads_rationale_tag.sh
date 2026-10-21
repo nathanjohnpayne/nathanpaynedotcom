@@ -999,6 +999,27 @@ else
   echo "    captured argv (tail):" >&2; tail -20 "$GH_ARGV_LOG" | sed 's/^/      /' >&2
 fi
 
+# #1677: both persisted marker spellings override the nitpick heuristic.
+# This catches alias loss; merely checking the generic surface default cannot.
+for alias in deferred-to-followup deferred-to-follow-up; do
+  alias_threads=$(printf '%s' "$THREADS_T13" | jq -c --arg alias "$alias" '
+    .data.repository.pullRequest.reviewThreads.nodes[0]
+      |= (.commentsFirst.nodes[0].body = "🧹 Nitpick: something deferred earlier"
+          | .allComments.nodes[1].body = ("[mergepath-resolve: " + $alias + "] deferred earlier"))')
+  GH_ARGV_LOG="$SCRATCH/t1677-$alias.log"; : > "$GH_ARGV_LOG"
+  make_gh_stub "$SCRATCH/gh-real" "$alias_threads" '[]' '[]'
+  make_gh_wrapper "$SCRATCH/gh" "$SCRATCH/gh-real"
+  set +e
+  out=$(GH_ARGV_LOG="$GH_ARGV_LOG" RESOLVE_PR_THREADS_SKIP_IDENTITY_CHECK=1 PATH="$SCRATCH:$PATH" \
+    env -u OP_PREFLIGHT_REVIEWER_PAT -u GH_TOKEN \
+    bash "$FIXTURE_ROOT/scripts/resolve-pr-threads.sh" 99999 --repo test/repo --auto-resolve-bots 2>&1)
+  rc=$?
+  set -e
+  if [ "$rc" = 0 ] && grep -q 'FIELD: body=\[mergepath-resolve: deferred-to-followup\]' "$GH_ARGV_LOG"; then
+    pass=$((pass + 1)); echo "  PASS: persisted $alias marker is honored and emits canonical deferral"
+  else fail=$((fail + 1)); echo "  FAIL: persisted $alias marker lost explicit deferral (rc=$rc)" >&2; echo "$out" >&2; fi
+done
+
 # ─────────────────────────────────────────────────────────────────────
 # Test 14 (#564, CodeRabbit Major on #565): a STALE actioned marker is NOT
 # honored when the bot posts fresh feedback after it. Thread: finding →
@@ -2189,18 +2210,22 @@ fi
 T1010_LEDGER="$SCRATCH/t1010-coderabbit-ledger.jsonl"
 T1010_REPLIED=$(printf '%s' "$T990_B_BARE" | jq '. + [{author:{login:"nathanpayne-claude"},body:"Tracked in test/repo#42; intentionally deferred from this PR.",databaseId:99103,createdAt:"2026-01-02T00:00:00Z"}]')
 T1010_COMMITS_SAVE="$COMMITS_T990"
-for variant in bare replied same-second fixed fixed-equal reraised-fixed reraised-equal reraised-fixed-equal tied-fixed tied-deferred tied-unhandled skew-deferred skew-fixed incomplete incomplete-replied incomplete-restored; do
+for variant in legacy-bare legacy-replied legacy-fixed bare replied same-second fixed fixed-equal reraised-fixed reraised-equal reraised-fixed-equal tied-fixed tied-deferred tied-unhandled skew-deferred skew-fixed incomplete incomplete-replied incomplete-restored; do
   COMMITS_T990="$T1010_COMMITS_SAVE"
   cat > "$T1010_LEDGER" <<'JSON'
 {"repo":"test/repo","comment_id":99101,"verdict":"fixed","disposition":"fixed","recorded_at":"2026-01-02T00:00:00Z"}
 {"repo":"test/repo","comment_id":99101,"verdict":"deferred","disposition":"deferred-to-followup","recorded_at":"2026-01-04T00:00:00Z"}
 JSON
+  case "$variant" in legacy-*)
+    jq -c 'if .disposition == "deferred-to-followup" then .disposition = "deferred-to-follow-up" else . end' "$T1010_LEDGER" > "$T1010_LEDGER.tmp"
+    mv "$T1010_LEDGER.tmp" "$T1010_LEDGER" ;;
+  esac
   comments="$T990_B_BARE"; expected_rc=3; expected_resolved="PRT_990A "
-  if [ "$variant" = replied ] || [ "$variant" = same-second ]; then comments="$T1010_REPLIED"; fi
+  if [ "$variant" = replied ] || [ "$variant" = same-second ] || [ "$variant" = legacy-replied ]; then comments="$T1010_REPLIED"; fi
   if [ "$variant" = same-second ]; then
     printf '%s\n' '{"repo":"test/repo","comment_id":99101,"verdict":"deferred","disposition":"deferred-to-followup","recorded_at":"2026-01-01T00:00:00Z"}' >> "$T1010_LEDGER"
   fi
-  if [ "$variant" = fixed ]; then
+  if [ "$variant" = fixed ] || [ "$variant" = legacy-fixed ]; then
     printf '%s\n' '{"repo":"test/repo","comment_id":99101,"verdict":"fixed","disposition":"fixed","recorded_at":"2026-01-05T00:00:00Z"}' >> "$T1010_LEDGER"
     expected_rc=0; expected_resolved="PRT_990A PRT_990B "
   fi
@@ -2319,13 +2344,16 @@ TARGET_THREADS=$(jq -c '
        | .commentsFirst.nodes[0].databaseId=2001)]
   | .data.repository.pullRequest.reviewThreads.totalCount=2
 ' <<<"$THREADS_T1")
-for scenario in deferred-touched fixed-cross-file rebuttal node-selector missing-issue invalid-issue invalid-commit unknown-selector ambiguous-selector human agent tag-failure tag-stdout-failure tag-stderr-failure tag-warning tag-null readback-failure dry-run bulk-conflict list-conflict no-tag orphan already-resolved; do
+for scenario in deferred-touched deferred-alias missing-alias-issue invalid-alias-issue fixed-cross-file rebuttal node-selector missing-issue invalid-issue invalid-commit unknown-selector ambiguous-selector human agent tag-failure tag-stdout-failure tag-stderr-failure tag-warning tag-null readback-failure dry-run bulk-conflict list-conflict no-tag orphan already-resolved; do
   fixture="$TARGET_THREADS"
   args=(--thread 1001 --disposition fixed --commit abc1234567)
   expected_tag=addressed-elsewhere
   expected_rc=0
   case "$scenario" in
     deferred-touched) args=(--thread 1001 --disposition deferred-to-followup --issue 2196); expected_tag=deferred-to-followup ;;
+    deferred-alias) args=(--thread 1001 --disposition deferred-to-follow-up --issue 2196); expected_tag=deferred-to-followup ;;
+    missing-alias-issue) args=(--thread 1001 --disposition deferred-to-follow-up); expected_rc=1 ;;
+    invalid-alias-issue) args=(--thread 1001 --disposition deferred-to-follow-up --issue 0); expected_rc=1 ;;
     fixed-cross-file) args+=(--rationale 'Fixed the shared caller in another file.') ;;
     rebuttal) args=(--thread 1001 --disposition rebuttal --rationale 'The finding assumes an input this interface cannot accept.'); expected_tag=rebuttal-recorded ;;
     node-selector) args=(--thread PRT_1 --disposition addressed-elsewhere) ;;
@@ -2380,6 +2408,166 @@ for scenario in deferred-touched fixed-cross-file rebuttal node-selector missing
     pass=$((pass+1)); echo "  PASS: #2196 targeted $scenario"
   else
     fail=$((fail+1)); echo "  FAIL: #2196 targeted $scenario (rc=$rc expected=$expected_rc)" >&2; echo "$out" >&2
+  fi
+done
+
+# ─────────────────────────────────────────────────────────────────────
+# #2555 (and #1610): a fix that lands in a file other than the anchored one
+# cannot satisfy step 2 (addressed-elsewhere needs an agent commit touching
+# thread.path), and step 3 then recorded the agent's "Fixed in <sha>" reply
+# as rebuttal-recorded: a wrong disposition of record for the thread, the
+# daily rollup and the Codex review ledger. A reply that leads with "Fixed"
+# is a fix claim, not a rebuttal, so without an agent commit touching the
+# anchored file it now proves nothing: the resolver warns, names the explicit
+# single-thread mode that records a cross-file fix (--thread <id>
+# --disposition fixed, #2196), and leaves the thread for it. A commit that
+# touches the anchored file still records addressed-elsewhere, and a later
+# reply that does not lead with "Fixed" still records rebuttal-recorded.
+# ─────────────────────────────────────────────────────────────────────
+
+# t2555_threads <agent-reply> [<later-agent-reply>]: one unresolved Codex
+# thread on specs/hostnames-lookup.md, raised 2026-01-01, with the agent
+# reply (and optionally a second, later one) after it.
+t2555_threads() {
+  local reply="$1" later=""
+  if [ -n "${2:-}" ]; then
+    later=',{"author":{"login":"nathanjohnpayne"},"body":"'"$2"'","databaseId":25560,"createdAt":"2026-01-07T00:00:00Z"}'
+  fi
+  printf '%s' '{"data":{"repository":{"pullRequest":{"reviewThreads":{"totalCount":1,"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[
+  {"id":"PRT_2555","isResolved":false,"isOutdated":false,
+   "commentsFirst":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"path":"specs/hostnames-lookup.md","body":"![P2 Badge] The glossary in CONTEXT.md conflicts with this definition.","createdAt":"2026-01-01T00:00:00Z"}]},
+   "commentsLast":{"nodes":[{"commit":{"oid":"HEADCURRENT"}}]},
+   "allComments":{"nodes":[
+     {"author":{"login":"chatgpt-codex-connector"},"body":"![P2 Badge] The glossary in CONTEXT.md conflicts with this definition.","databaseId":25551,"createdAt":"2026-01-01T00:00:00Z"},
+     {"author":{"login":"nathanjohnpayne"},"body":"'"$reply"'","databaseId":25559,"createdAt":"2026-01-06T00:00:00Z"}'"$later"'
+   ]}
+  }
+]}}}}}'
+}
+
+# t2555_run <argv-log> <threads-json> <commit-files-map> <mode-args...>
+# → sets out and rc. The PR touches the anchored spec and CONTEXT.md and
+# carries one agent commit, a4c3e4ca, authored after the finding.
+t2555_run() {
+  GH_ARGV_LOG="$1"; : > "$GH_ARGV_LOG"
+  local threads="$2" files_map="$3"
+  shift 3
+  make_gh_stub "$SCRATCH/gh-real" "$threads" '["specs/hostnames-lookup.md","CONTEXT.md"]' \
+    '[{"sha":"a4c3e4ca0123456789abcdef0123456789abcdef","login":"nathanjohnpayne","date":"2026-01-02T00:00:00Z"}]' "$files_map"
+  make_gh_wrapper "$SCRATCH/gh" "$SCRATCH/gh-real"
+  set +e
+  out=$(
+    GH_ARGV_LOG="$GH_ARGV_LOG" RESOLVE_PR_THREADS_SKIP_IDENTITY_CHECK=1 PATH="$SCRATCH:$PATH" \
+    env -u OP_PREFLIGHT_REVIEWER_PAT -u GH_TOKEN \
+    bash "$FIXTURE_ROOT/scripts/resolve-pr-threads.sh" 99999 --repo test/repo "$@" 2>&1
+  )
+  rc=$?
+  set -e
+}
+CROSS_FILE_FIX='{"a4c3e4ca0123456789abcdef0123456789abcdef":["CONTEXT.md"]}'
+ANCHORED_FIX='{"a4c3e4ca0123456789abcdef0123456789abcdef":["specs/hostnames-lookup.md"]}'
+T2555_WARN="WARN: .*leads with 'Fixed'.*--thread <id> --disposition fixed.*#2555"
+
+echo
+echo "Test 2555-A: a 'Fixed' reply with the fix in another file is not recorded as a rebuttal"
+for reply in \
+  'Fixed in a4c3e4ca (head ab17bfa2). Disposition: required; the glossary entry now lives in CONTEXT.md.' \
+  '  fixed by moving the glossary entry to CONTEXT.md in a4c3e4ca; nothing else changed here.' \
+  'FIXED in a4c3e4ca (head ab17bfa2); the glossary entry now lives in CONTEXT.md.' \
+  '**Fixed** in a4c3e4ca; the glossary entry now lives in CONTEXT.md.' \
+  '_Fixed_: the glossary entry now lives in CONTEXT.md, see a4c3e4ca on this PR.' \
+  'Fixed: the glossary entry now lives in CONTEXT.md, see a4c3e4ca on this PR.'; do
+  t2555_run "$SCRATCH/t2555a.log" "$(t2555_threads "$reply")" "$CROSS_FILE_FIX" --resolve-actioned
+  if [ "$rc" -eq 3 ] \
+     && ! grep -q 'addPullRequestReviewThreadReply' "$GH_ARGV_LOG" \
+     && ! grep -q 'resolveReviewThread' "$GH_ARGV_LOG" \
+     && grep -q 'SKIP (not demonstrably actioned' <<<"$out" \
+     && grep -q "$T2555_WARN" <<<"$out"; then
+    pass=$((pass + 1)); echo "  PASS: --resolve-actioned leaves it unresolved and names the explicit fixed mode: ${reply:0:40}..."
+  else
+    fail=$((fail + 1)); echo "  FAIL: cross-file 'Fixed' reply under --resolve-actioned (rc=$rc): ${reply:0:40}..." >&2
+    echo "    script output:" >&2; echo "$out" | sed 's/^/      /' >&2
+    echo "    captured argv (tail):" >&2; tail -20 "$GH_ARGV_LOG" | sed 's/^/      /' >&2
+  fi
+done
+# --auto-resolve-bots resolves on the operator's instruction, but the recorded
+# class is the honest fallback the rollup re-surfaces, never a rebuttal.
+t2555_run "$SCRATCH/t2555a2.log" \
+  "$(t2555_threads 'Fixed in a4c3e4ca (head ab17bfa2). Disposition: required; the glossary entry now lives in CONTEXT.md.')" \
+  "$CROSS_FILE_FIX" --auto-resolve-bots
+if [ "$rc" -eq 0 ] && tag_before_resolve "$GH_ARGV_LOG" \
+   && grep -q 'FIELD: body=\[mergepath-resolve: deferred-to-followup\]' "$GH_ARGV_LOG" \
+   && ! grep -q 'FIELD: body=\[mergepath-resolve: rebuttal-recorded\]' "$GH_ARGV_LOG" \
+   && grep -q "$T2555_WARN" <<<"$out"; then
+  pass=$((pass + 1)); echo "  PASS: --auto-resolve-bots records deferred-to-followup, not a rebuttal, and warns"
+else
+  fail=$((fail + 1)); echo "  FAIL: cross-file 'Fixed' reply under --auto-resolve-bots (rc=$rc)" >&2
+  echo "    script output:" >&2; echo "$out" | sed 's/^/      /' >&2
+  echo "    captured argv (tail):" >&2; tail -20 "$GH_ARGV_LOG" | sed 's/^/      /' >&2
+fi
+
+echo
+echo "Test 2555-B: a 'Fixed' reply whose commit touches the anchored file still records addressed-elsewhere"
+t2555_run "$SCRATCH/t2555b.log" \
+  "$(t2555_threads 'Fixed in a4c3e4ca (head ab17bfa2); the definition on this line now matches the glossary.')" \
+  "$ANCHORED_FIX" --resolve-actioned
+if [ "$rc" -eq 0 ] && tag_before_resolve "$GH_ARGV_LOG" \
+   && grep -q 'FIELD: body=\[mergepath-resolve: addressed-elsewhere\] addressed by commit a4c3e4c' "$GH_ARGV_LOG" \
+   && ! grep -q "$T2555_WARN" <<<"$out"; then
+  pass=$((pass + 1)); echo "  PASS: anchored-file fix keeps addressed-elsewhere with no warning"
+else
+  fail=$((fail + 1)); echo "  FAIL: anchored-file 'Fixed' reply (rc=$rc)" >&2
+  echo "    script output:" >&2; echo "$out" | sed 's/^/      /' >&2
+  echo "    captured argv (tail):" >&2; tail -20 "$GH_ARGV_LOG" | sed 's/^/      /' >&2
+fi
+
+echo
+echo "Test 2555-C: a later genuine rebuttal after a 'Fixed' reply still records rebuttal-recorded"
+t2555_run "$SCRATCH/t2555c.log" \
+  "$(t2555_threads 'Fixed in a4c3e4ca (head ab17bfa2); the glossary entry now lives in CONTEXT.md.' 'Disagree with the remaining point: the spec definition is canonical and CONTEXT.md defers to it.')" \
+  "$CROSS_FILE_FIX" --resolve-actioned
+if [ "$rc" -eq 0 ] && tag_before_resolve "$GH_ARGV_LOG" \
+   && grep -q 'FIELD: body=\[mergepath-resolve: rebuttal-recorded\]' "$GH_ARGV_LOG" \
+   && ! grep -q 'FIELD: body=\[mergepath-resolve: addressed-elsewhere\]' "$GH_ARGV_LOG"; then
+  pass=$((pass + 1)); echo "  PASS: the scan continues past the 'Fixed' reply to the rebuttal"
+else
+  fail=$((fail + 1)); echo "  FAIL: 'Fixed' reply followed by a rebuttal (rc=$rc)" >&2
+  echo "    script output:" >&2; echo "$out" | sed 's/^/      /' >&2
+  echo "    captured argv (tail):" >&2; tail -20 "$GH_ARGV_LOG" | sed 's/^/      /' >&2
+fi
+
+echo
+echo "Test 2555-D: the explicit mode the warning names records the cross-file fix"
+t2555_run "$SCRATCH/t2555d.log" \
+  "$(t2555_threads 'Fixed in a4c3e4ca (head ab17bfa2). Disposition: required; the glossary entry now lives in CONTEXT.md.')" \
+  "$CROSS_FILE_FIX" --thread PRT_2555 --disposition fixed --commit a4c3e4ca0123456789abcdef0123456789abcdef \
+  --rationale 'the glossary entry now lives in CONTEXT.md'
+if [ "$rc" -eq 0 ] && tag_before_resolve "$GH_ARGV_LOG" \
+   && grep -q 'FIELD: body=\[mergepath-resolve: addressed-elsewhere\]' "$GH_ARGV_LOG" \
+   && grep -q 'a4c3e4ca' "$GH_ARGV_LOG"; then
+  pass=$((pass + 1)); echo "  PASS: --thread --disposition fixed tags addressed-elsewhere citing the commit"
+else
+  fail=$((fail + 1)); echo "  FAIL: explicit fixed disposition on the cross-file thread (rc=$rc)" >&2
+  echo "    script output:" >&2; echo "$out" | sed 's/^/      /' >&2
+  echo "    captured argv (tail):" >&2; tail -20 "$GH_ARGV_LOG" | sed 's/^/      /' >&2
+fi
+
+echo
+echo "Test 2555-E: a rebuttal that merely begins with the letters of 'Fixed' is still a rebuttal (Codex P2 on #2599)"
+for reply in \
+  'Fixed-width inputs cannot reach this branch; the finding does not apply to this spec line.' \
+  'Fixedly anchored definitions are the point of this spec; the glossary defers to it, no change.' \
+  '`fixed_width` inputs cannot reach this branch; the finding does not apply here.' \
+  'fixed_width inputs cannot reach this branch; the finding does not apply here.'; do
+  t2555_run "$SCRATCH/t2555e.log" "$(t2555_threads "$reply")" "$CROSS_FILE_FIX" --resolve-actioned
+  if [ "$rc" -eq 0 ] && tag_before_resolve "$GH_ARGV_LOG" \
+     && grep -q 'FIELD: body=\[mergepath-resolve: rebuttal-recorded\]' "$GH_ARGV_LOG" \
+     && ! grep -q "$T2555_WARN" <<<"$out"; then
+    pass=$((pass + 1)); echo "  PASS: not a fix claim, recorded as a rebuttal with no warning: ${reply:0:30}..."
+  else
+    fail=$((fail + 1)); echo "  FAIL: '${reply:0:30}...' was treated as a fix claim (rc=$rc)" >&2
+    echo "    script output:" >&2; echo "$out" | sed 's/^/      /' >&2
+    echo "    captured argv (tail):" >&2; tail -20 "$GH_ARGV_LOG" | sed 's/^/      /' >&2
   fi
 done
 

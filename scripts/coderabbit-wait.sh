@@ -1403,7 +1403,7 @@ parse_rate_limit_window() {
 #   rate_limit | paused | in_progress | status_probe | review
 #
 # Pure: string predicates over the passed body, reading only the marker
-# constants above. No globals beyond those and no I/O — extracted by sentinel
+# constants above (including SUMMARY_MARKER). No other globals or I/O — extracted by sentinel
 # and sourced directly by tests/test_coderabbit_wait_status_probe.sh, the same
 # pattern as the coderabbit_summary_helpers block below.
 #
@@ -1469,7 +1469,12 @@ classify_comment() {
     echo "status_probe"
     return
   fi
-  if grep -qiE 'review in progress|currently reviewing|commits? under review' <<<"$body"; then
+  # #1569: the persistent summary's walkthrough and release notes narrate the
+  # PR's own changes, so these phrases there are content, not live state.
+  # Use the same byte-zero marker prefix as the summary selector. Actual
+  # in-progress markers and narration retain their earlier precedence; unmarked
+  # standalone status notices retain this legacy fallback.
+  if [[ "$body" != "$SUMMARY_MARKER"* ]] && grep -qiE 'review in progress|currently reviewing|commits? under review' <<<"$body"; then
     echo "in_progress"
     return
   fi
@@ -1848,6 +1853,11 @@ summary_names_only_other_head() {  # <body> <head_sha>
 # drop everything to EOF — including a real marker. Single definition, used
 # by both probe verdict sites AND the polling summary-marker gate so the
 # heuristic cannot drift between them.
+crw_first_fixed_line() {
+  local body=$1 needle=$2
+  awk -v needle="$needle" 'index($0,needle){print NR; exit}' <<<"$body"
+}
+
 summary_blocking_marker_present() {
   local body=$1 unfenced scan s_line e_line
   # Preserve the structural reader's raw-body fallback (#1178). A failed tier
@@ -1876,8 +1886,8 @@ summary_blocking_marker_present() {
   # from the quote to the real end and delete the finding in between — the same
   # latching failure the gate's summary_strip_pre_merge_block already avoids by
   # selecting from structural lines only.
-  s_line=$(printf '%s\n' "$unfenced" | grep -nF "$CR_PRE_MERGE_BLOCK_START" | head -1 | cut -d: -f1)
-  e_line=$(printf '%s\n' "$unfenced" | grep -nF "$CR_PRE_MERGE_BLOCK_END" | head -1 | cut -d: -f1)
+  s_line=$(crw_first_fixed_line "$unfenced" "$CR_PRE_MERGE_BLOCK_START")
+  e_line=$(crw_first_fixed_line "$unfenced" "$CR_PRE_MERGE_BLOCK_END")
   if [ -n "$s_line" ] && [ -n "$e_line" ] && [ "$s_line" -lt "$e_line" ]; then
     scan=$(printf '%s' "$unfenced" | awk \
       -v s="$CR_PRE_MERGE_BLOCK_START" -v e="$CR_PRE_MERGE_BLOCK_END" \
@@ -1948,11 +1958,11 @@ summary_blocking_marker_present() {
 # commits row is never inside a fence"; that is asserted rather than measured.
 # Fail-closed is the right direction to be wrong in, so this ships as-is.
 #
-# Second conjunct dependency: `summary_blocking_marker_present` still locates
-# its delimiters with a `grep -nF | head -1` pipeline under `set -euo pipefail`,
-# which is the #1038 SIGPIPE-141 shape (#520/#947/#1147). Left to that issue
-# rather than widened into here — but the reason this call site is SAFE is not
-# the one it looks like, and getting it wrong is how a later fix inverts it.
+# Second conjunct dependency: `summary_blocking_marker_present` locates each
+# delimiter with the single-process fixed-string helper (#1038), avoiding the
+# early-exit pipeline's SIGPIPE-141 shape (#520/#947/#1147). The reason this
+# call site remains SAFE is still not the one it may first look like, and
+# getting it wrong is how a later edit inverts it.
 #
 # It is NOT "the abort escalates". Calling it as `... || return 1` puts it on
 # the left of a `||`, which suspends errexit for the whole dynamic extent of the
@@ -1965,8 +1975,8 @@ summary_blocking_marker_present() {
 # delimiters therefore WIDENS the scan rather than blinding it — the marker is
 # still found and this guard still escalates.
 #
-# So a #1038 fix must preserve that default, not merely remove the pipe. Three
-# plausible cleanups flip this call site from fail-closed to fail-open:
+# The #1038 fix preserves that default while removing the pipe. Three plausible
+# cleanups would still flip this call site from fail-closed to fail-open:
 # initialising `scan=""`, restructuring so the narrowed block is the default, or
 # adding `|| return 1` to the `s_line=` assignment "for hygiene" — that last one
 # turns a widened scan into "no marker found", i.e. suppress, i.e. a false clear
@@ -3645,11 +3655,13 @@ request_codex_rate_limit_failover() {
     # a head CodeRabbit refused to Codex so the PR is not stranded, and it
     # fires on the provider's refusal, not on a push the agent is amending.
     # The requester still warns, and its dedup/idempotency is untouched.
+    # --failover (#2534) marks a trigger it posts, so this stand-in for the
+    # lost CodeRabbit review does not spend the Codex request ceiling.
     local request_json
     # This substitution requires Codex on this exact head, so automatic
     # content-free carry-forward suppression cannot satisfy the request.
     if request_json=$(MERGEPATH_PHASE_4A_GATED=true MERGEPATH_CODEX_AUTO_TRIGGER=false \
-        "$CODEX_REQUEST_CMD" --trigger-only --allow-moving-head "$PR_NUMBER" "$REPO"); then
+        "$CODEX_REQUEST_CMD" --trigger-only --failover --allow-moving-head "$PR_NUMBER" "$REPO"); then
       printf '%s\n' "$request_json" >&2
       if ! printf '%s' "$request_json" | jq -e '.trigger_requested == true and (.blocked_reason // null) == null' >/dev/null 2>&1; then
         log "codex failover: unusable request or known provider block — human attention required"

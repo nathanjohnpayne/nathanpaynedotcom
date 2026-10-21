@@ -223,6 +223,18 @@ case "$endpoint" in
     esac ;;
   repos/owner/repo/commits/*)     printf '%s\n' "$t" ;;
   repos/owner/repo/issues/999/timeline)  printf '[]\n' ;;
+  # #2591: the GraphQL force-push timeline, for heads a force-push replaced.
+  graphql)
+    case "${CODEX_TEST_FORCE_PUSH:-none}" in
+      fail) echo 'simulated GraphQL failure' >&2; exit 1 ;;
+      none) printf '%s\n' '{"data":{"repository":{"pullRequest":{"timelineItems":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[]}}}}}' ;;
+      *) jq -cn --arg b "$CODEX_TEST_FORCE_PUSH" '{data:{repository:{pullRequest:{timelineItems:{pageInfo:{hasNextPage:false,endCursor:null},
+           nodes:[{beforeCommit:{oid:$b},afterCommit:{oid:"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}]}}}}}' ;;
+    esac ;;
+  # #2553: the PR's commits, for failover markers' heads.
+  repos/owner/repo/pulls/999/commits)
+    if [ "${CODEX_TEST_COMMITS_FAIL:-0}" = 1 ]; then echo 'simulated commits read failure' >&2; exit 1; fi
+    printf '%s\n' '[{"sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]' ;;
   repos/owner/repo/pulls/999/reviews)
     case "$scenario" in
       reply-only|body-P1|body-P2)
@@ -259,6 +271,20 @@ case "$endpoint" in
       cap_three)        jq -cn --arg who "$author" --arg t "$old" '[range(3) | {id:(8150 + .),user:{login:$who},created_at:$t,body:"@codex review"}]' ;;
       cap_duplicate_ids) jq -cn --arg who "$author" --arg t "$old" '[range(12) | {id:(8200 + (. % 9)),user:{login:$who},created_at:$t,body:"@codex review"}]' ;;
       cap_bad_id)       jq -cn --arg who "$author" --arg t "$old" '[range(9) | {id:(8300 + .),user:{login:$who},created_at:$t,body:"@codex review"}] + [{user:{login:$who},created_at:$t,body:"@codex review"}]' ;;
+      # #2534: ten prior requests, one of them a marked CodeRabbit failover.
+      cap_failover)     jq -cn --arg who "$author" --arg t "$old" '[range(10) | {id:(8400 + (. * 2)),user:{login:$who},created_at:$t,body:"@codex review"}]
+                          + [{id:8401,user:{login:$who},created_at:$t,updated_at:$t,
+                              body:"<!-- mergepath-codex-failover:v1 head=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa trigger_comment_id=8400 -->"}]' ;;
+      # #2553: the same, with the marker naming a head this PR never had.
+      cap_failover_foreign) jq -cn --arg who "$author" --arg t "$old" '[range(10) | {id:(8400 + (. * 2)),user:{login:$who},created_at:$t,body:"@codex review"}]
+                          + [{id:8401,user:{login:$who},created_at:$t,updated_at:$t,
+                              body:"<!-- mergepath-codex-failover:v1 head=1111111111111111111111111111111111111111 trigger_comment_id=8400 -->"}]' ;;
+      # #2591: the marker names a head a force-push replaced; only GraphQL has it.
+      cap_failover_forced) jq -cn --arg who "$author" --arg t "$old" '[range(10) | {id:(8400 + (. * 2)),user:{login:$who},created_at:$t,body:"@codex review"}]
+                          + [{id:8401,user:{login:$who},created_at:$t,updated_at:$t,
+                              body:"<!-- mergepath-codex-failover:v1 head=9999999999999999999999999999999999999999 trigger_comment_id=8400 -->"}]' ;;
+      # #2534: what the failover stub has posted so far.
+      live)             if [ -f "$CODEX_TEST_STATE_DIR/live-comments.json" ]; then cat "$CODEX_TEST_STATE_DIR/live-comments.json"; else printf '[]\n'; fi ;;
       *)                printf '[]\n' ;;
     esac
     ;;
@@ -1977,6 +2003,114 @@ test_trigger_timestamp_validation() {
 test_trigger_timestamp_validation
 
 test_trigger_only_future_head_preserves_recent_blocks
+
+# #2534: the CodeRabbit rate-limit failover does not spend the request
+# ceiling. --failover marks the trigger it posts, and the ceiling skips a
+# marked trigger.
+test_failover_marker() {
+  local dir rc before
+  before=$FAIL
+  # A real head, so the PR head set (#2553) is readable.
+  local fo_head=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  dir=$(make_case failover-ceiling)
+  rc=$(CODEX_TEST_HEAD=$fo_head run_trigger_only "$dir" cap_failover)
+  [ "$rc" = 0 ] && [ "$(trig_count "$dir")" = 1 ] \
+    || fail "#2534: ten requests with one marked failover must leave a slot (rc=$rc posts=$(trig_count "$dir")); err=$(tail -3 "$dir/err.log")"
+  grep -q 'request attempts 9/10' "$dir/err.log" \
+    || fail "#2534: the marked failover was counted: $(grep 'request attempts' "$dir/err.log")"
+  # #2553: a marker naming a foreign head, or an unreadable head set, exempts nothing.
+  dir=$(make_case failover-ceiling-foreign)
+  rc=$(CODEX_TEST_HEAD=$fo_head run_trigger_only "$dir" cap_failover_foreign)
+  [ "$rc" = 7 ] && [ "$(trig_count "$dir")" = 0 ] \
+    && grep -q 'request-attempt cap reached.*10/10' "$dir/err.log" \
+    || fail "#2553: a marker naming a foreign head must not exempt its trigger (rc=$rc posts=$(trig_count "$dir"))"
+  # #2591: a head a force-push replaced counts when GraphQL names it, and a
+  # failed GraphQL read leaves only that head out.
+  dir=$(make_case failover-ceiling-forced)
+  rc=$(CODEX_TEST_HEAD=$fo_head CODEX_TEST_FORCE_PUSH=9999999999999999999999999999999999999999 run_trigger_only "$dir" cap_failover_forced)
+  [ "$rc" = 0 ] && [ "$(trig_count "$dir")" = 1 ] && grep -q 'request attempts 9/10' "$dir/err.log" \
+    || fail "#2591: a marker on a force-pushed-away head must exempt its trigger when GraphQL names it (rc=$rc posts=$(trig_count "$dir"))"
+  dir=$(make_case failover-ceiling-forced-unreadable)
+  rc=$(CODEX_TEST_HEAD=$fo_head CODEX_TEST_FORCE_PUSH=fail run_trigger_only "$dir" cap_failover_forced)
+  [ "$rc" = 7 ] && [ "$(trig_count "$dir")" = 0 ] \
+    || fail "#2591: without the GraphQL heads that marker must not exempt its trigger (rc=$rc posts=$(trig_count "$dir"))"
+  dir=$(make_case failover-ceiling-forced-ok-without-graphql)
+  rc=$(CODEX_TEST_HEAD=$fo_head CODEX_TEST_FORCE_PUSH=fail run_trigger_only "$dir" cap_failover)
+  [ "$rc" = 0 ] && grep -q 'request attempts 9/10' "$dir/err.log" \
+    || fail "#2591: a failed GraphQL read must not drop the REST heads (rc=$rc)"
+  dir=$(make_case failover-ceiling-unreadable)
+  rc=$(CODEX_TEST_HEAD=$fo_head CODEX_TEST_COMMITS_FAIL=1 run_trigger_only "$dir" cap_failover)
+  [ "$rc" = 7 ] && [ "$(trig_count "$dir")" = 0 ] && grep -q "head set is unreadable" "$dir/err.log" \
+    || fail "#2553: an unreadable head set must exempt nothing (rc=$rc posts=$(trig_count "$dir"))"
+
+  # A failover stub that records both writes, so the readback sees them.
+  write_failover_stub() {
+    cat >"$1/scripts/gh-as-author.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+state_dir=${CODEX_TEST_STATE_DIR:?}
+live="$state_dir/live-comments.json"
+[ -f "$live" ] || printf '[]\n' >"$live"
+count=0
+[ -f "$state_dir/post-count" ] && count=$(cat "$state_dir/post-count")
+count=$((count + 1)); printf '%s\n' "$count" >"$state_dir/post-count"
+id=$((1000 + count)); now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+case "${8:-}" in
+  --body) [ "${9:-}" = "@codex review" ] || exit 98; body=$9
+          t=0; [ -f "$state_dir/trigger-count" ] && t=$(cat "$state_dir/trigger-count")
+          printf '%s\n' "$((t + 1))" >"$state_dir/trigger-count" ;;
+  --body-file) [ "${CODEX_TEST_MARKER_WRITE:-ok}" = ok ] || exit 97
+               [ "${MERGEPATH_CODEX_FAILOVER_MARKER_WRITE:-}" = 1 ] || exit 96
+               body=$(cat "$9"); printf '%s\n' "$body" >"$state_dir/marker-body" ;;
+  *) exit 95 ;;
+esac
+jq -c --argjson id "$id" --arg b "$body" --arg t "$now" '. + [{id: $id, user: {login: "nathanjohnpayne"}, body: $b, created_at: $t, updated_at: $t}]' "$live" >"$live.tmp"
+mv "$live.tmp" "$live"
+printf 'https://github.com/owner/repo/pull/999#issuecomment-%s\n' "$id"
+EOF
+    chmod +x "$1/scripts/gh-as-author.sh"
+  }
+  run_failover() { # <dir> [marker-write]
+    local rc=0
+    ( cd "$1" && PATH="$1/bin:$PATH" GH_TOKEN=test-token CODEX_TEST_STATE_DIR="$1/state" CODEX_TEST_SCENARIO=live \
+        CODEX_TEST_HEAD=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa CODEX_TEST_MARKER_WRITE="${2:-ok}" MERGEPATH_PHASE_4A_GATED=true \
+        ./scripts/codex-review-request.sh --trigger-only --failover --allow-moving-head 999 owner/repo \
+        >"$1/out.json" 2>"$1/err.log" ) || rc=$?
+    printf '%s\n' "$rc"
+  }
+
+  dir=$(make_case failover-marker)
+  write_failover_stub "$dir"
+  rc=$(run_failover "$dir")
+  [ "$rc" = 0 ] && [ "$(trig_count "$dir")" = 1 ] && [ "$(jqf "$dir" .failover_marker)" = recorded ] \
+    && [ "$(cat "$dir/state/marker-body")" = '<!-- mergepath-codex-failover:v1 head=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa trigger_comment_id=1001 -->' ] \
+    || fail "#2534: --failover must post one trigger and record its marker (rc=$rc marker=$(jqf "$dir" .failover_marker 2>/dev/null)); err=$(tail -3 "$dir/err.log")"
+  # A second failover on the same head reuses the trigger and marks nothing.
+  rc=$(run_failover "$dir")
+  [ "$rc" = 0 ] && [ "$(trig_count "$dir")" = 1 ] && [ "$(jqf "$dir" .failover_marker)" = not-posted ] \
+    && [ "$(jq length "$dir/state/live-comments.json")" = 2 ] \
+    || fail "#2534: a reused trigger must not gain a second marker (rc=$rc marker=$(jqf "$dir" .failover_marker 2>/dev/null))"
+
+  # A failed marker write is reported, not fatal: the trigger stands and counts.
+  dir=$(make_case failover-marker-fail)
+  write_failover_stub "$dir"
+  rc=$(run_failover "$dir" fail)
+  [ "$rc" = 0 ] && [ "$(trig_count "$dir")" = 1 ] && [ "$(jqf "$dir" .failover_marker)" = failed ] \
+    && jq -e '.trigger_posted == true and .trigger_requested == true' "$dir/out.json" >/dev/null \
+    || fail "#2534: a failed marker write must leave the posted trigger reported (rc=$rc marker=$(jqf "$dir" .failover_marker 2>/dev/null))"
+
+  # Plain --trigger-only never writes a marker.
+  dir=$(make_case failover-plain)
+  write_failover_stub "$dir"
+  rc=0
+  ( cd "$dir" && PATH="$dir/bin:$PATH" GH_TOKEN=test-token CODEX_TEST_STATE_DIR="$dir/state" CODEX_TEST_SCENARIO=live \
+      CODEX_TEST_HEAD=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa MERGEPATH_PHASE_4A_GATED=true \
+      ./scripts/codex-review-request.sh --trigger-only --allow-moving-head 999 owner/repo >"$dir/out.json" 2>"$dir/err.log" ) || rc=$?
+  [ "$rc" = 0 ] && [ "$(trig_count "$dir")" = 1 ] && [ "$(jqf "$dir" .failover_marker)" = null ] && [ ! -f "$dir/state/marker-body" ] \
+    || fail "#2534: --trigger-only without --failover wrote a marker (rc=$rc)"
+  [ "$FAIL" -ne "$before" ] || pass "#2534: --failover marks only the trigger it posts, a marked failover spends no ceiling slot, and a failed marker write is not fatal"
+}
+test_failover_marker
 
 echo "----"
 echo "test_codex_review_request_trigger_only: $PASS passed, $FAIL failed"
