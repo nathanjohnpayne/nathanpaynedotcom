@@ -139,8 +139,9 @@ coderabbit:
 #      human; a spent ceiling runs automated Phase 4b, which stops for the
 #      human on a runaway, untested rebuttal or disagreement (REVIEW_POLICY.md
 #      § Disagreements and Tiebreaking).
-#   4. On timeout (silence within `review_timeout_seconds`), the script
-#      exits with code 4 (FALLBACK_REQUIRED). The agent then runs
+#   4. On timeout (silence within `review_timeout_seconds`) or an account or
+#      connection block (`blocked_reason` usage_limit or not_connected), the
+#      script exits with code 4 (FALLBACK_REQUIRED). The agent then runs
 #      `scripts/phase-4b-review.sh <PR#>` from a trusted main checkout and
 #      uses the manual handoff in REVIEW_POLICY.md § Phase 4b, targeting
 #      `cli_login` below, only when that run falls back.
