@@ -282,13 +282,13 @@ phase_4b_automation:
   # wrapper. 'manual' defers to the human handoff.
   mode: local
 
-  # Completed Phase 4b round cap (mergepath#2665, epic mergepath#2657).
-  # DECLARATIVE ONLY until the round ledger (mergepath#2663) is installed in
-  # this repo: the installed orchestrator performs one adapter pass per
-  # invocation, does not persist round state and does not read this value,
-  # so setting 3 here has NO enforcement effect yet. Once the ledger is synced,
-  # refs/mergepath/p4b-rounds/pr-<N> becomes the sole reservation and cap
-  # authority and a 4th completed round is refused for an owner decision.
+  # Enforced cap on completed automated Phase 4b rounds per PR
+  # (mergepath#2663, installed here by the mergepath@b99ad73 sync). Read from
+  # the governing base policy: a slot is reserved in the per-PR Git-ref round
+  # ledger (refs/mergepath/p4b-rounds/pr-<N>) before any adapter run, and a
+  # 4th completed round is refused for an owner decision. Enforcement covers
+  # only publishers that reserve through the ledger; the manual handoff does
+  # not. Set to 3 by mergepath#2665 (epic mergepath#2657).
   # Previously 2.
   max_review_rounds: 3
 
