@@ -405,6 +405,38 @@ for near_miss in \
   eq p1 "$(coderabbit_tier_of "$near_miss")" "cr_heading: nonexact heading remains classified: $near_miss"
 done
 
+# #2560: CodeRabbit prefixes a finding it could not verify with a status
+# banner, `⚠️ **Unverified finding**`. The banner is a verification status,
+# not a severity, so its bare warning glyph must not grade a finding
+# CodeRabbit badged 🟡 Minor as p1. Only the complete banner line is excluded
+# (blockquoted or not); a real `⚠️ Potential issue` under it keeps grading p1.
+UNVERIFIED_MINOR='`17-17`: **📐 Maintainability & Code Quality** | **🟡 Minor** | **⚡ Quick win**
+
+⚠️ **Unverified finding**
+Verification ran but could not confirm this finding. It is shown for review, not as a verified issue.
+
+Consider renaming the local for clarity.'
+eq p2   "$(coderabbit_tier_of "$UNVERIFIED_MINOR")"  "cr_banner: Unverified finding banner + Minor badge grades p2 (#2560)"
+eq "p2" "$(coderabbit_tiers_of "$UNVERIFIED_MINOR")" "cr_banner: Unverified finding banner contributes no marker (#2560)"
+for banner in \
+  '⚠️ **Unverified finding**' \
+  '> ⚠️ **Unverified finding**' \
+  '**⚠️ Unverified finding**' \
+  '> **⚠️ Unverified finding**' \
+  '⚠️ Unverified finding'; do
+  eq "" "$(coderabbit_tier_of "$banner")"  "cr_banner: banner alone has no tier: $banner"
+  eq "" "$(coderabbit_tiers_of "$banner")" "cr_banner: banner alone has no markers: $banner"
+  eq p2 "$(coderabbit_tier_of "$banner
+**🟡 Minor** Real finding under the banner.")" "cr_banner: Minor under the banner keeps p2: $banner"
+  eq p1 "$(coderabbit_tier_of "$banner
+**⚠️ Potential issue** Real required finding under the banner.")" "cr_banner: Potential issue under the banner stays p1: $banner"
+done
+for near_miss in \
+  '⚠️ **Unverified finding** _🟠 Major_ real finding on the same line' \
+  '⚠️ **Unverified finding**: investigate this'; do
+  eq p1 "$(coderabbit_tier_of "$near_miss")" "cr_banner: nonexact banner line remains classified: $near_miss"
+done
+
 # A failed heading read must discard partial output just like marker extraction.
 for classifier in coderabbit_tiers_of coderabbit_tier_of; do
   if (
@@ -662,6 +694,46 @@ printf 'code_scanning: {bot_login: "unterminated\n' > "$CFG_BROKEN"
 BROKEN_RC=0
 policy_block_field_parsed code_scanning bot_login "$CFG_BROKEN" >/dev/null 2>&1 || BROKEN_RC=$?
 eq 1 "$BROKEN_RC" "policy_block_field_parsed: unparseable YAML is rc 1 (unknown), not a silent empty"
+
+# The preferred yq branch must reject an entire multi-document stream before
+# emitting any JSON, including a valid first document followed by invalid YAML.
+if command -v yq >/dev/null 2>&1 && yq --version 2>/dev/null | grep -qi mikefarah; then
+  YQ_JSON=$(policy_yaml_to_json "$CFG_FLOW")
+  eq custom-ghas\[bot\] "$(printf '%s' "$YQ_JSON" | jq -r '.code_scanning.bot_login')" \
+    "yq preferred parser preserves a valid flow mapping"
+  for suffix in 'code_scanning: {}' '[broken' ''; do
+    printf 'code_scanning: {}\n---\n%s\n' "$suffix" > "$WORKDIR/yq-multiple.yml"
+    YQ_RC=0
+    YQ_JSON=$(policy_yaml_to_json "$WORKDIR/yq-multiple.yml") || YQ_RC=$?
+    eq 1 "$YQ_RC" "yq preferred parser rejects additional YAML documents: $suffix"
+    eq '' "$YQ_JSON" "yq preferred parser emits no partial document: $suffix"
+  done
+  printf 'code_scanning:\n  bot_login: |\n    ---\n' > "$WORKDIR/yq-block-scalar.yml"
+  YQ_JSON=$(policy_yaml_to_json "$WORKDIR/yq-block-scalar.yml")
+  eq '---' "$(printf '%s' "$YQ_JSON" | jq -r '.code_scanning.bot_login')" \
+    "yq counts parsed documents, not separator text inside a scalar"
+else
+  echo 'SKIP: mikefarah yq is unavailable for preferred-parser controls'
+fi
+
+# A conversion error after successful document counting must not leak a
+# partial value either. This shim isolates that second command's failure.
+YQ_FAIL_BIN="$WORKDIR/yq-conversion-failure-bin"
+mkdir -p "$YQ_FAIL_BIN"
+cat > "$YQ_FAIL_BIN/yq" <<'SH'
+#!/usr/bin/env bash
+case "$1" in
+  --version) echo 'yq mikefarah test fixture' ;;
+  eval-all) echo 1 ;;
+  eval) printf '{"partial":'; exit 1 ;;
+  *) exit 1 ;;
+esac
+SH
+chmod +x "$YQ_FAIL_BIN/yq"
+YQ_RC=0
+YQ_JSON=$(PATH="$YQ_FAIL_BIN:$PATH" policy_yaml_to_json "$CFG_FLOW") || YQ_RC=$?
+eq 1 "$YQ_RC" "yq conversion failure is nonzero after successful document counting"
+eq '' "$YQ_JSON" "yq conversion failure emits no partial JSON"
 
 # Exercise the actual optional Ruby branch independently of whichever parser
 # this runner normally selects. Parsing only document1 must not discard later

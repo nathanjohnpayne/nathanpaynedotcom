@@ -47,10 +47,40 @@ class TriggerGuardTests(unittest.TestCase):
                     with self.subTest(body=body, role=role, channel=(noun, verb)), self.assertRaises(guard.Refused):
                         self.check([noun, verb, "7", "--body", body], role=role)
 
+    def test_owner_runaway_marker_is_refused_for_every_role_and_channel(self):
+        head = "b" * 40
+        marker = f"TIEBREAK_RUNAWAY_ACCEPTED=https://github.com/o/r/pull/7@{head}"
+        for body in (marker, f"Owner says:\n```\n{marker.lower()}\n```", f"x {marker} y"):
+            for role in ("reviewer", "author", "hook"):
+                for noun, verb in (("pr", "comment"), ("pr", "review"), ("issue", "comment")):
+                    with self.subTest(body=body, role=role, channel=(noun, verb)), self.assertRaises(guard.Refused):
+                        self.check([noun, verb, "7", "--body", body], role=role)
+
+    def test_failover_marker_needs_the_requester_write_context(self):
+        marker = "<!-- mergepath-codex-failover:v1 head=" + "c" * 40 + " trigger_comment_id=4321 -->"
+        with patch.dict(os.environ, {"MERGEPATH_CODEX_FAILOVER_MARKER_WRITE": "1"}):
+            args, meta = self.check(["pr", "comment", "7", "--body", marker], role="author")
+            self.assertTrue(meta["guarded"])
+            for role, argv in (("reviewer", ["pr", "comment", "7", "--body", marker]),
+                               ("author", ["issue", "comment", "7", "--body", marker]),
+                               ("author", ["pr", "review", "7", "--comment", "--body", marker]),
+                               ("author", ["pr", "comment", "7", "--body", "note\n" + marker]),
+                               ("author", ["pr", "comment", "7", "--body", marker.replace("v1", "v2")])):
+                with self.subTest(role=role, argv=argv), self.assertRaises(guard.Refused):
+                    self.check(argv, role=role)
+        with patch.dict(os.environ, {"MERGEPATH_CODEX_FAILOVER_MARKER_WRITE": ""}), self.assertRaises(guard.Refused):
+            self.check(["pr", "comment", "7", "--body", marker], role="author")
+        for body in ("The marker is <!-- mergepath-codex-failover:v1 head=<full-sha> trigger_comment_id=<id> -->.",
+                     "mergepath-codex-failover:v1 head=abc"):
+            with self.subTest(body=body):
+                self.assertTrue(self.check(["pr", "comment", "7", "--body", body])[1]["guarded"])
+
     def test_owner_tiebreak_placeholders_and_prose_remain_allowed(self):
         for body in ("Post TIEBREAK_REBUTTAL_ACCEPTED=<PR-URL>@<full-head-sha>#<finding-id> to settle it.",
                      "The TIEBREAK_REBUTTAL_ACCEPTED marker names a finding.",
-                     "TIEBREAK_REBUTTAL_ACCEPTED=https://github.com/o/r/pull/7@abc#12"):
+                     "TIEBREAK_REBUTTAL_ACCEPTED=https://github.com/o/r/pull/7@abc#12",
+                     "Post TIEBREAK_RUNAWAY_ACCEPTED=<PR-URL>@<full-head-sha> to release it.",
+                     "TIEBREAK_RUNAWAY_ACCEPTED=https://github.com/o/r/pull/7@abc"):
             with self.subTest(body=body):
                 args, meta = self.check(["pr", "comment", "7", "--body", body])
                 self.assertTrue(meta["guarded"])
@@ -233,6 +263,29 @@ class TriggerGuardTests(unittest.TestCase):
         payload.write_text(json.dumps({"query": 'mutation { addComment(input: {body: "@codex review"}) { clientMutationId } }'}))
         self.assertEqual(raw, Path(args[-1]).read_bytes())
         self.assertFalse(meta["trigger"])
+
+    def test_unreadable_payload_file_names_the_path_not_the_encoding(self):
+        missing = self.root / "never-written.md"
+        directory = self.root / "a-directory"
+        directory.mkdir()
+        for path, reason in ((missing, "No such file or directory"), (directory, "Is a directory")):
+            for args in (["issue", "comment", "518", "--body-file", str(path)],
+                         ["pr", "comment", "123", "-F", str(path)]):
+                with self.subTest(path=path.name, args=args[:2]):
+                    with self.assertRaises(guard.Refused) as caught:
+                        self.check(args)
+                    message = str(caught.exception)
+                    self.assertIn("could not be read", message)
+                    self.assertIn(reason, message)
+                    self.assertIn(str(path), message)
+                    self.assertNotIn("UTF-8", message)
+
+    def test_non_utf8_payload_keeps_the_encoding_message(self):
+        body = self.root / "latin1.md"
+        body.write_bytes("caf\xe9".encode("latin-1"))
+        with self.assertRaises(guard.Refused) as caught:
+            self.check(["issue", "comment", "518", "--body-file", str(body)])
+        self.assertIn("cannot be read as UTF-8", str(caught.exception))
 
     def test_snapshot_preserves_unicode_and_trailing_newlines(self):
         body = self.root / "comment.md"

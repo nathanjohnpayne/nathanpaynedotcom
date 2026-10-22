@@ -70,6 +70,68 @@ T3=2026-09-25T00:15:00Z
 T4=2026-09-25T00:20:00Z
 T5=2026-09-25T00:25:00Z
 
+# ---- Input timestamps (#1578) ----------------------------------------------
+# Every named field is populated so each mutation exercises exactly one bad
+# instant in an otherwise valid input to the production pure library.
+TIMED_INPUT=$(inputs "$(req 1 "$T0" "$T1" | arr)" "$(review 10 "$T2" "$HEAD_A" '["p1"]' | arr)" \
+  "$(verdict 20 "$T3" '["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]' true | arr)" \
+  "$(reaction 30 "$T4" | arr)" "$(block 40 "$T5" usage_limit | arr)" \
+  | jq -c --arg t "$T5" '.rebuttals = [{finding: 100, path: null, at: $t, sources: []}]
+                         | .summary = {status: "completed", observed_at: $t}')
+timestamp_refused() { # name input: no successful or partial ledger is usable
+  local output rc=0
+  output=$(crl_ledger "$2" 2>/dev/null) || rc=$?
+  if [ "$rc" -ne 0 ] && [ -z "$output" ]; then
+    pass "$1"
+  else
+    fail "$1: rc=$rc output=$output"
+  fi
+}
+for _field in requests.0.created_at requests.0.eyes_at reviews.0.submitted_at \
+  verdicts.0.created_at blocks.0.created_at reactions.0.created_at rebuttals.0.at summary.observed_at; do
+  _path=$(jq -nc --arg f "$_field" '$f | split(".") | map(tonumber? // .)')
+  timestamp_refused "timestamp: $_field rejects a malformed instant" \
+    "$(jq -c --argjson p "$_path" 'setpath($p; "!")' <<<"$TIMED_INPUT")"
+  # The parser removes the first fraction anywhere; syntax must establish
+  # that it belongs to seconds before that conversion (#2528 review).
+  for _instant in 2026-09-25T00:00:01Z.123 2026.123-09-25T00:00:01Z; do
+    timestamp_refused "timestamp: $_field rejects misplaced fraction $_instant" \
+      "$(jq -c --argjson p "$_path" --arg t "$_instant" 'setpath($p; $t)' <<<"$TIMED_INPUT")"
+  done
+  L=$(crl_ledger "$(jq -c --argjson p "$_path" 'setpath($p; "2026-09-25T00:00:01.123Z")' <<<"$TIMED_INPUT")")
+  check "timestamp: $_field accepts a seconds fraction" "$L" '.summary.requests == 1'
+  # eyes_at alone is nullable; every other present record requires its instant.
+  for _bad in missing null number boolean array object; do
+    if [ "$_field" = requests.0.eyes_at ] && { [ "$_bad" = missing ] || [ "$_bad" = null ]; }; then continue; fi
+    timestamp_refused "timestamp: $_field rejects $_bad" \
+      "$(jq -c --argjson p "$_path" --arg bad "$_bad" '
+        if $bad == "missing" then delpaths([$p])
+        else setpath($p; ({null: null, number: 17, boolean: true, array: [], object: {}}[$bad])) end' <<<"$TIMED_INPUT")"
+  done
+done
+L=$(crl_ledger "$(jq -c 'walk(if type == "string" and test("Z$") then sub("Z$"; ".123Z") else . end)' <<<"$TIMED_INPUT")")
+check "timestamp: fractional UTC instants remain valid in every field" "$L" \
+  '.summary.requests == 1 and .summary.blocking_responses_solicited == 1 and .requests[0].eyes_at == "2026-09-25T00:05:00.123Z"'
+L=$(crl_ledger "$(jq -c '.requests[0].eyes_at = null' <<<"$TIMED_INPUT")")
+check "timestamp: null eyes remain valid" "$L" '.summary.eyes_now == 0 and .summary.blocking_responses_solicited == 1'
+L=$(crl_ledger "$(jq -c 'del(.reactions, .rebuttals, .summary) | .metadata = {created_at: "!"}' <<<"$TIMED_INPUT")")
+check "timestamp: absent optional evidence and unrelated metadata remain valid" "$L" \
+  '.rebuttals == [] and .current_summary == null and .summary.blocking_responses_solicited == 1'
+L=$(crl_ledger "$(jq -c 'del(.requests[0].eyes_at) | .reactions = null | .rebuttals = null | .summary = null' <<<"$TIMED_INPUT")")
+check "timestamp: absent eyes and null optional evidence retain their defaults" "$L" \
+  '.requests[0].eyes_at == null and .rebuttals == [] and .current_summary == null and .summary.blocking_responses_solicited == 1'
+# Budget impact: the valid blocking review counts as one; changing only its
+# instant must refuse the ledger, never turn it into window 0 / count zero.
+_budget_input=$(inputs "$(req 1 "$T0" | arr)" "$(review 10 "$T1" "$HEAD_A" '["p1"]' | arr)" '[]' '[]' '[]')
+L=$(crl_ledger "$_budget_input")
+if [ "$(crl_blocking_count "$L" "$HEAD_A" nathanjohnpayne)" = 1 ]; then
+  pass "timestamp: valid solicited review consumes the blocking budget"
+else
+  fail "timestamp: valid solicited review did not consume the blocking budget"
+fi
+timestamp_refused "timestamp: malformed blocking review cannot escape the budget as unsolicited" \
+  "$(jq -c '.reviews[0].submitted_at = "!"' <<<"$_budget_input")"
+
 # ---- Part 1: attribution rules ---------------------------------------------
 
 L=$(ledger "$(req 1 $T0 | arr)" "$(review 10 $T1 $HEAD_A '["p1","p2"]' | arr)" '[]' '[]' '[]')
@@ -276,6 +338,118 @@ IN2=$(inputs "$R2B" "$BB" '[]' '[]' '[]')
 stop_check "stops: two blocking reviews at a request ceiling of 2 under a budget of 10 are a runaway" \
   "$(stops "$IN2" '[]' 10 2)" '.stops == ["runaway"] and .request_ceiling == 2'
 stop_check "stops: the same two at a ceiling of 3 are no runaway" "$(stops "$IN2" '[]' 10 3)" '.stops == []'
+# A CodeRabbit failover request spends no ceiling (#2534), so it is no runaway
+# window either: matchline#581's two blocking rounds, one of them the failover,
+# are one deliberate request of two. A third, deliberate, blocking request then
+# completes the runaway.
+R2F=$(printf '%s\n' "$(req 1 2026-09-25T00:00:00Z | jq -c '.ceiling_exempt = true')" "$(req 2 2026-09-25T01:00:00Z)" | arr)
+stop_check "stops: a failover request is not a runaway window" "$(stops "$(inputs "$R2F" "$BB" '[]' '[]' '[]')" '[]' 10 2)" \
+  '.stops == [] and .counted_requests == 1 and .blocking_windows == 1'
+R3F=$(printf '%s\n' "$(req 1 2026-09-25T00:00:00Z | jq -c '.ceiling_exempt = true')" "$(req 2 2026-09-25T01:00:00Z)" "$(req 3 2026-09-25T02:00:00Z)" | arr)
+BBB_F=$(printf '%s\n' "$(preview 10 2026-09-25T00:10:00Z '[["a.sh","p1"]]')" "$(preview 11 2026-09-25T01:10:00Z '[["b.sh","p1"]]' '[]' "$HEAD_B")" \
+  "$(preview 12 2026-09-25T02:10:00Z '[["c.sh","p1"]]' '[]' "$HEAD_B")" | arr)
+stop_check "stops: two deliberate blocking requests after a failover are a runaway" "$(stops "$(inputs "$R3F" "$BBB_F" '[]' '[]' '[]')" '[]' 10 2)" \
+  '.stops == ["runaway"] and .counted_requests == 2 and .blocking_windows == 2'
+stop_check "stops: the failover response still counts toward the blocking budget" "$(stops "$(inputs "$R3F" "$BBB_F" '[]' '[]' '[]')" '[]' 3 2)" \
+  '.stops == ["blocking-budget"] and .blocking_reviews == 3'
+L_F=$(crl_ledger "$(inputs "$R2F" "$BB" '[]' '[]' '[]' | jq -c '.rebuttals = []')" | jq -c '.max_blocking_reviews = 10')
+if printf '%s' "$L_F" | jq -e '[.requests[].ceiling_exempt] == [true, false]' >/dev/null; then
+  pass "stops: the ledger carries ceiling_exempt through"
+else
+  fail "stops: the ledger dropped ceiling_exempt: $(printf '%s' "$L_F" | jq -c '[.requests[] | {id, ceiling_exempt}]')"
+fi
+if crl_human_stops "$(printf '%s' "$L_F" | jq -c '.requests[0].ceiling_exempt = "yes"')" "$HEAD_A" nathanjohnpayne 10 2 >/dev/null; then
+  fail "stops: a malformed ceiling_exempt was read"
+else
+  pass "stops: a malformed ceiling_exempt fails closed"
+fi
+stop_check "stops: a ledger without ceiling_exempt counts every author request" \
+  "$(crl_human_stops "$(printf '%s' "$L_F" | jq -c 'del(.requests[].ceiling_exempt)')" "$HEAD_A" nathanjohnpayne 10 2)" '.stops == ["runaway"]'
+
+# A blocking response whose every blocking finding was fixed is no runaway
+# window (#2534, option B). Fixed needs all three: a fix disposition (.fixes),
+# a later head descending from the reviewed one that changed the file
+# (.head_changes), and an attributed Codex response on that later head that
+# does not re-raise the path. matchline#581's shape: request 1 found a.sh
+# (finding 100, HEAD_A), request 2 on HEAD_B found a different bug in b.sh
+# (finding 110). Each case below changes one thing.
+# fx_stops <ledger-inputs> <fixes> <head-changes> [ceiling] [rebuttals]
+fx_stops() {
+  local l
+  l=$(crl_ledger "$(printf '%s' "$1" | jq -c --argjson rb "${5:-[]}" '.rebuttals = $rb')" \
+    | jq -c --argjson fx "$2" --argjson hc "$3" '.max_blocking_reviews = 10 | .fixes = $fx | .head_changes = $hc') || return 1
+  crl_human_stops "$l" "$HEAD_A" nathanjohnpayne 10 "${4:-2}"
+}
+hc() { # <base> <head> <status> <files-json>
+  jq -nc --arg b "$1" --arg h "$2" --arg s "$3" --argjson f "$4" '[{base: $b, head: $h, status: $s, files: $f}]'
+}
+HC_AB=$(hc "$HEAD_A" "$HEAD_B" ahead '["a.sh"]')
+stop_check "fixed: a fixed, unre-raised finding is no runaway window" "$(fx_stops "$IN2" '[100]' "$HC_AB")" \
+  '.stops == [] and .fixed_responses == ["w1.0"] and .blocking_windows == 1 and .counted_requests == 2'
+stop_check "fixed: the blocking budget still counts the fixed response" "$(fx_stops "$IN2" '[100]' "$HC_AB")" '.blocking_reviews == 2'
+fx_no() { # <name> <stops-json>
+  stop_check "fixed: $1 keeps the runaway" "$2" '.stops == ["runaway"] and .fixed_responses == []'
+}
+fx_no "no fix disposition" "$(fx_stops "$IN2" '[]' "$HC_AB")"
+fx_no "a disposition on another finding" "$(fx_stops "$IN2" '[110]' "$HC_AB")"
+fx_no "no recorded head change" "$(fx_stops "$IN2" '[100]' '[]')"
+fx_no "a later head that did not change the file" "$(fx_stops "$IN2" '[100]' "$(hc "$HEAD_A" "$HEAD_B" ahead '["other.sh"]')")"
+fx_no "a later head that does not descend from the reviewed one" "$(fx_stops "$IN2" '[100]' "$(hc "$HEAD_A" "$HEAD_B" diverged '["a.sh"]')")"
+fx_no "an unreadable compare" "$(fx_stops "$IN2" '[100]' "$(hc "$HEAD_A" "$HEAD_B" unreadable '[]')")"
+fx_no "a change recorded for other heads" "$(fx_stops "$IN2" '[100]' "$(hc "$HEAD_C" "$HEAD_B" ahead '["a.sh"]')")"
+fx_no "a rebutted finding" "$(fx_stops "$IN2" '[100]' "$HC_AB" 2 "$(rebut 100 a.sh 2026-09-25T00:20:00Z | arr)" | jq -c '.stops |= map(select(. == "runaway"))')"
+# Codex re-raised the path on the later head.
+BB_RE=$(printf '%s\n' "$(preview 10 2026-09-25T00:10:00Z '[["a.sh","p1"]]')" "$(preview 11 2026-09-25T01:10:00Z '[["a.sh","p1"]]' '[]' "$HEAD_B")" | arr)
+fx_no "a later blocking finding on the same path" "$(fx_stops "$(inputs "$R2B" "$BB_RE" '[]' '[]' '[]')" '[100]' "$HC_AB")"
+# A later blocking finding Codex left unlocated may be the same one.
+BB_UN=$(printf '%s\n' "$(preview 10 2026-09-25T00:10:00Z '[["a.sh","p1"]]')" "$(preview 11 2026-09-25T01:10:00Z '[]' '["p1"]' "$HEAD_B")" | arr)
+fx_no "a later unlocated blocking finding" "$(fx_stops "$(inputs "$R2B" "$BB_UN" '[]' '[]' '[]')" '[100]' "$HC_AB")"
+# The later look must be on a later head.
+BB_SAME=$(printf '%s\n' "$(preview 10 2026-09-25T00:10:00Z '[["a.sh","p1"]]')" "$(preview 11 2026-09-25T01:10:00Z '[["b.sh","p1"]]')" | arr)
+fx_no "a later response on the same head" "$(fx_stops "$(inputs "$R2B" "$BB_SAME" '[]' '[]' '[]')" '[100]' "$(hc "$HEAD_A" "$HEAD_A" ahead '["a.sh"]')")"
+# The later look must be attributed: two responses in one window are ambiguous.
+BB_AMB=$(printf '%s\n' "$(preview 10 2026-09-25T00:10:00Z '[["a.sh","p1"]]')" "$(preview 11 2026-09-25T01:10:00Z '[["b.sh","p1"]]' '[]' "$HEAD_B")" \
+  "$(preview 12 2026-09-25T01:20:00Z '[["c.sh","p1"]]' '[]' "$HEAD_B")" | arr)
+fx_no "a later response the ledger cannot attribute" "$(fx_stops "$(inputs "$R2B" "$BB_AMB" '[]' '[]' '[]')" '[100]' "$HC_AB")"
+# A response with a body finding, or one of two findings unfixed, is not fixed.
+BB_BODY=$(printf '%s\n' "$(preview 10 2026-09-25T00:10:00Z '[["a.sh","p1"]]' '["p1"]')" "$(preview 11 2026-09-25T01:10:00Z '[["b.sh","p1"]]' '[]' "$HEAD_B")" | arr)
+fx_no "a response that also has a body finding" "$(fx_stops "$(inputs "$R2B" "$BB_BODY" '[]' '[]' '[]')" '[100]' "$HC_AB")"
+BB_TWO=$(printf '%s\n' "$(preview 10 2026-09-25T00:10:00Z '[["a.sh","p1"],["d.sh","p1"]]')" "$(preview 11 2026-09-25T01:10:00Z '[["b.sh","p1"]]' '[]' "$HEAD_B")" | arr)
+fx_no "a response with one of two findings unfixed" "$(fx_stops "$(inputs "$R2B" "$BB_TWO" '[]' '[]' '[]')" '[100]' "$(hc "$HEAD_A" "$HEAD_B" ahead '["a.sh","d.sh"]')")"
+stop_check "fixed: both findings fixed clears the response" \
+  "$(fx_stops "$(inputs "$R2B" "$BB_TWO" '[]' '[]' '[]')" '[100,101]' "$(hc "$HEAD_A" "$HEAD_B" ahead '["a.sh","d.sh"]')")" '.stops == []'
+# The last round has no later look, so it always counts: with three rounds at a
+# ceiling of 3, the first two fixed, one window remains and there is no runaway;
+# with nothing fixed, all three count.
+R3B=$(printf '%s\n' "$(req 1 2026-09-25T00:00:00Z)" "$(req 2 2026-09-25T01:00:00Z)" "$(req 3 2026-09-25T02:00:00Z)" | arr)
+BBB3=$(printf '%s\n' "$(preview 10 2026-09-25T00:10:00Z '[["a.sh","p1"]]')" "$(preview 11 2026-09-25T01:10:00Z '[["b.sh","p1"]]' '[]' "$HEAD_B")" \
+  "$(preview 12 2026-09-25T02:10:00Z '[["c.sh","p1"]]' '[]' "$HEAD_C")" | arr)
+HC3=$(jq -nc --arg a "$HEAD_A" --arg b "$HEAD_B" --arg c "$HEAD_C" '[{base: $a, head: $b, status: "ahead", files: ["a.sh"]},
+  {base: $a, head: $c, status: "ahead", files: ["a.sh", "b.sh"]}, {base: $b, head: $c, status: "ahead", files: ["b.sh"]}]')
+stop_check "fixed: two fixed rounds before a third leave one runaway window" "$(fx_stops "$(inputs "$R3B" "$BBB3" '[]' '[]' '[]')" '[100,110,120]' "$HC3" 3)" \
+  '.stops == [] and .fixed_responses == ["w1.0","w2.0"] and .blocking_windows == 1'
+stop_check "fixed: the same three rounds with nothing fixed are a runaway" "$(fx_stops "$(inputs "$R3B" "$BBB3" '[]' '[]' '[]')" '[]' "$HC3" 3)" \
+  '.stops == ["runaway"] and .blocking_windows == 3'
+# A request in the same second as the round's last signal is not later, even
+# when a fractional timestamp would sort it after ("00Z" > "00.5Z").
+L_FS=$(crl_ledger "$(printf '%s' "$IN2" | jq -c '.rebuttals = []')" \
+  | jq -c --argjson hc "$HC_AB" '.max_blocking_reviews = 10 | .fixes = [100] | .head_changes = $hc
+          | .responses[0].last_at = "2026-09-25T01:00:00.5Z"')
+stop_check "fixed: a same-second request does not read as later than the round" \
+  "$(crl_human_stops "$L_FS" "$HEAD_A" nathanjohnpayne 10 2)" '.stops == ["runaway"] and .fixed_responses == []'
+stop_check "fixed: an unreadable round time proves nothing" \
+  "$(crl_human_stops "$(printf '%s' "$L_FS" | jq -c '.responses[0].last_at = "soon"')" "$HEAD_A" nathanjohnpayne 10 2)" '.stops == ["runaway"] and .fixed_responses == []'
+# Malformed evidence fails; an older ledger without it reads as nothing fixed.
+L_FX=$(crl_ledger "$(printf '%s' "$IN2" | jq -c '.rebuttals = []')" | jq -c --argjson hc "$HC_AB" '.max_blocking_reviews = 10 | .fixes = [100] | .head_changes = $hc')
+for _bad in '.fixes = ["100"]' '.head_changes = [{base: 1}]' '.head_changes = "x"' '.responses[0].blocking_findings = [{id: "x"}]'; do
+  if crl_human_stops "$(printf '%s' "$L_FX" | jq -c "$_bad")" "$HEAD_A" nathanjohnpayne 10 2 >/dev/null; then
+    fail "fixed: malformed evidence ($_bad) was read"
+  else
+    pass "fixed: malformed evidence ($_bad) fails closed"
+  fi
+done
+stop_check "fixed: a ledger without fixed-finding evidence counts every round" \
+  "$(crl_human_stops "$(printf '%s' "$L_FX" | jq -c 'del(.fixes, .head_changes, .responses[].blocking_findings)')" "$HEAD_A" nathanjohnpayne 10 2)" '.stops == ["runaway"]'
 stop_check "stops: a spent blocking budget names blocking-budget, not runaway" "$(stops "$IN2" '[]' 2 2)" '.stops == ["blocking-budget"]'
 # Runaway counts request windows, not responses (#1584): two blocking reviews
 # both answering the FIRST request, with a second request that drew nothing,
@@ -503,6 +677,136 @@ stop_check "tiebreak: settling one of two rebuttals leaves the stop standing" "$
 stop_check "tiebreak: a marker line per finding settles both" \
   "$(tb_stops "$IN" "$RB2" "$(printf '%s\n' "$(cm 1 nathanjohnpayne 2026-09-25T03:00:00Z 2026-09-25T03:00:00Z "$(printf '%s\n%s' "$M100" "$(mark 101)")")" | arr)")" '.stops == []'
 
+# ---- Owner tiebreak on a runaway (#2534) --------------------------------------
+
+# matchline#581's shape: a request ceiling of 2, and each request drew a
+# blocking review. The last signal is the second response, at 01:10.
+rmark() { printf 'TIEBREAK_RUNAWAY_ACCEPTED=%s@%s' "${1:-$PR_URL}" "${2:-$HEAD_A}"; }
+# rw_stops <ledger-inputs> <comments-json> [rebuttals] [max] -> applied stops
+rw_stops() {
+  local l st marks
+  l=$(crl_ledger "$(printf '%s' "$1" | jq -c --argjson rb "${3:-[]}" '.rebuttals = $rb')" \
+    | jq -c --argjson m "${4:-10}" '.max_blocking_reviews = $m') || return 1
+  st=$(crl_human_stops "$l" "$HEAD_A" nathanjohnpayne "${4:-10}" 2) || return 1
+  marks=$(crl_owner_tiebreaks "$2" nathanjohnpayne "$PR_URL" "$HEAD_A") || return 1
+  crl_apply_owner_tiebreaks "$st" "$l" "$marks"
+}
+RM=$(rmark)
+RWC=$(printf '%s\n' "$(cm 1 nathanjohnpayne 2026-09-25T03:00:00Z 2026-09-25T03:00:00Z "$RM")" | arr)
+stop_check "runaway tiebreak: without a marker the runaway stands" "$(rw_stops "$IN2" '[]')" \
+  '.stops == ["runaway"] and (.owner_tiebreaks | length) == 0'
+stop_check "runaway tiebreak: an owner runaway marker clears the runaway" "$(rw_stops "$IN2" "$RWC")" \
+  '.stops == [] and .owner_tiebreaks == [{kind: "runaway"}]'
+stop_check "runaway tiebreak: a marker on a multi-line comment, with CRLF and indentation, is read" \
+  "$(rw_stops "$IN2" "$(printf '%s\n' "$(cm 1 nathanjohnpayne 2026-09-25T03:00:00Z 2026-09-25T03:00:00Z "$(printf 'Both rounds found real bugs.\r\n  %s\r\n' "$RM")")" | arr)")" '.stops == []'
+stop_check "runaway tiebreak: the PR URL compares case-insensitively" \
+  "$(rw_stops "$IN2" "$(printf '%s\n' "$(cm 1 nathanjohnpayne 2026-09-25T03:00:00Z 2026-09-25T03:00:00Z "$(rmark HTTPS://GITHUB.COM/O/R/pull/1)")" | arr)")" '.stops == []'
+
+rw_no_clear() { # <name> <comments-json>
+  stop_check "runaway tiebreak: $1 does not clear the runaway" "$(rw_stops "$IN2" "$2")" \
+    '.stops == ["runaway"] and (.owner_tiebreaks | length) == 0'
+}
+rw_no_clear "a marker by another account" "$(printf '%s\n' "$(cm 1 nathanpayne-claude 2026-09-25T03:00:00Z 2026-09-25T03:00:00Z "$RM")" | arr)"
+rw_no_clear "an edited marker comment" "$(printf '%s\n' "$(cm 1 nathanjohnpayne 2026-09-25T03:00:00Z 2026-09-25T03:05:00Z "$RM")" | arr)"
+rw_no_clear "a marker posted before the last request" "$(printf '%s\n' "$(cm 1 nathanjohnpayne 2026-09-25T00:30:00Z 2026-09-25T00:30:00Z "$RM")" | arr)"
+rw_no_clear "a marker posted after the last request but before its response" "$(printf '%s\n' "$(cm 1 nathanjohnpayne 2026-09-25T01:05:00Z 2026-09-25T01:05:00Z "$RM")" | arr)"
+rw_no_clear "a marker in the same second as the last response" "$(printf '%s\n' "$(cm 1 nathanjohnpayne 2026-09-25T01:10:00Z 2026-09-25T01:10:00Z "$RM")" | arr)"
+rw_no_clear "a marker for another head" "$(printf '%s\n' "$(cm 1 nathanjohnpayne 2026-09-25T03:00:00Z 2026-09-25T03:00:00Z "$(rmark "$PR_URL" "$HEAD_B")")" | arr)"
+rw_no_clear "a marker for another PR" "$(printf '%s\n' "$(cm 1 nathanjohnpayne 2026-09-25T03:00:00Z 2026-09-25T03:00:00Z "$(rmark https://github.com/o/r/pull/2)")" | arr)"
+rw_no_clear "a marker with a finding suffix" "$(printf '%s\n' "$(cm 1 nathanjohnpayne 2026-09-25T03:00:00Z 2026-09-25T03:00:00Z "$RM#100")" | arr)"
+rw_no_clear "a rebuttal marker" "$(printf '%s\n' "$(cm 1 nathanjohnpayne 2026-09-25T03:00:00Z 2026-09-25T03:00:00Z "$(mark 100)")" | arr)"
+rw_no_clear "a marker quoted, in prose, or as a placeholder" "$(printf '%s\n' \
+  "$(cm 1 nathanjohnpayne 2026-09-25T03:00:00Z 2026-09-25T03:00:00Z "> $RM")" \
+  "$(cm 2 nathanjohnpayne 2026-09-25T03:00:00Z 2026-09-25T03:00:00Z "see $RM for the rule")" \
+  "$(cm 3 nathanjohnpayne 2026-09-25T03:00:00Z 2026-09-25T03:00:00Z "TIEBREAK_RUNAWAY_ACCEPTED=<PR-URL>@<full-head-sha>")" | arr)"
+rw_no_clear "no comments" '[]'
+
+# A response group that gains a later signal moves the floor with it.
+L_RW=$(crl_ledger "$(printf '%s' "$IN2" | jq -c '.rebuttals = []')" | jq -c '.max_blocking_reviews = 10 | .responses[-1].last_at = "2026-09-25T03:30:00Z"')
+stop_check "runaway tiebreak: a marker older than a response's last signal leaves the runaway standing" \
+  "$(crl_apply_owner_tiebreaks "$(crl_human_stops "$L_RW" "$HEAD_A" nathanjohnpayne 10 2)" "$L_RW" "$(crl_owner_tiebreaks "$RWC" nathanjohnpayne "$PR_URL" "$HEAD_A")")" \
+  '.stops == ["runaway"] and (.owner_tiebreaks | length) == 0'
+
+# A request posted after the runaway's last response moves the floor too.
+IN2_LATE=$(inputs "$(printf '%s\n' "$(req 1 2026-09-25T00:00:00Z)" "$(req 2 2026-09-25T01:00:00Z)" "$(req 3 2026-09-25T02:00:00Z null false)" | arr)" "$BB" '[]' '[]' '[]')
+stop_check "runaway tiebreak: a marker older than a later request leaves the runaway standing" \
+  "$(rw_stops "$IN2_LATE" "$(printf '%s\n' "$(cm 1 nathanjohnpayne 2026-09-25T01:30:00Z 2026-09-25T01:30:00Z "$RM")" | arr)")" \
+  '.stops == ["runaway"] and (.owner_tiebreaks | length) == 0'
+stop_check "runaway tiebreak: a marker newer than that request clears the runaway" "$(rw_stops "$IN2_LATE" "$RWC")" \
+  '.stops == [] and .owner_tiebreaks == [{kind: "runaway"}]'
+
+# The runaway marker settles nothing else: a dispute or a spent blocking
+# budget on the same head still stands.
+stop_check "runaway tiebreak: a runaway marker leaves an untested rebuttal standing" \
+  "$(tb_stops "$(inputs "$(req 1 2026-09-25T00:00:00Z | arr)" "$(printf '%s\n' "$FIRST" | arr)" '[]' '[]' '[]')" "$RB" "$RWC")" \
+  '.stops == ["untested-rebuttal"] and (.owner_tiebreaks | length) == 0'
+RB_RW=$(rebut 110 b.sh 2026-09-25T01:30:00Z | arr)
+stop_check "runaway tiebreak: with a runaway and an untested rebuttal, the marker clears only the runaway" \
+  "$(rw_stops "$IN2" "$RWC" "$RB_RW")" \
+  '.stops == ["untested-rebuttal"] and .owner_tiebreaks == [{kind: "runaway"}] and (.untested_rebuttals | map(.finding)) == [110]'
+stop_check "runaway tiebreak: a rebuttal marker and a runaway marker together clear both" \
+  "$(rw_stops "$IN2" "$(printf '%s\n' "$(cm 1 nathanjohnpayne 2026-09-25T03:00:00Z 2026-09-25T03:00:00Z "$(printf '%s\n%s' "$RM" "$(mark 110)")")" | arr)" "$RB_RW")" \
+  '.stops == [] and (.owner_tiebreaks | map(.kind) | sort) == ["runaway", "untested"]'
+stop_check "runaway tiebreak: a runaway marker leaves blocking-budget standing" \
+  "$(rw_stops "$IN2" "$RWC" '[]' 2)" '.stops == ["blocking-budget"] and (.owner_tiebreaks | length) == 0'
+
+# Instants compare as whole seconds, never as text (#2561). ISO strings
+# collate "...00Z" after "...00.5Z", and a non-instant string sorts above
+# every real one, so a lexicographic test would release the stop on a
+# same-second, fractional or malformed timestamp. The ledger grammar accepts
+# a seconds fraction (#2528), so the floor can carry one.
+L_RW_FRAC=$(printf '%s' "$L_RW" | jq -c '.responses[-1].last_at = "2026-09-25T03:00:00.5Z"')
+ST_RW_FRAC=$(crl_human_stops "$L_RW_FRAC" "$HEAD_A" nathanjohnpayne 10 2)
+rw_frac() { crl_apply_owner_tiebreaks "$ST_RW_FRAC" "$L_RW_FRAC" "$(crl_owner_tiebreaks "$1" nathanjohnpayne "$PR_URL" "$HEAD_A")"; }
+stop_check "runaway tiebreak: a same-second marker does not outrank a fractional-second floor" "$(rw_frac "$RWC")" \
+  '.stops == ["runaway"] and (.owner_tiebreaks | length) == 0'
+stop_check "runaway tiebreak: a next-second marker postdates a fractional-second floor" \
+  "$(rw_frac "$(printf '%s\n' "$(cm 1 nathanjohnpayne 2026-09-25T03:00:01Z 2026-09-25T03:00:01Z "$RM")" | arr)")" \
+  '.stops == [] and .owner_tiebreaks == [{kind: "runaway"}]'
+rw_no_clear "a marker whose comment timestamp is not an instant" "$(printf '%s\n' "$(cm 1 nathanjohnpayne not-a-time not-a-time "$RM")" | arr)"
+rw_no_clear "a marker whose comment timestamp sorts above every instant" "$(printf '%s\n' "$(cm 1 nathanjohnpayne zzzz-99-99T99:99:99Z zzzz-99-99T99:99:99Z "$RM")" | arr)"
+stop_check "runaway tiebreak: a floor that is not an instant leaves the runaway standing" \
+  "$(crl_apply_owner_tiebreaks "$ST_RW_FRAC" "$(printf '%s' "$L_RW_FRAC" | jq -c '.responses[-1].last_at = "later"')" "$(crl_owner_tiebreaks "$RWC" nathanjohnpayne "$PR_URL" "$HEAD_A")")" \
+  '.stops == ["runaway"] and (.owner_tiebreaks | length) == 0'
+# A malformed candidate that is NOT the maximum ("!" sorts below every digit)
+# must hold too: a textual max would discard it before the floor is checked
+# (Codex on #2567).
+# A trailing newline passes a `$`-anchored grammar in this regex dialect and
+# fromdateiso8601 still converts it (Codex on #2567): the grammar must use
+# absolute anchors so such a candidate holds even against a later marker.
+stop_check "runaway tiebreak: a candidate with a trailing newline is malformed and holds against a later marker" \
+  "$(crl_apply_owner_tiebreaks "$ST_RW_FRAC" "$(printf '%s' "$L_RW_FRAC" | jq -c '.responses[-1].last_at = "2026-09-25T03:00:00Z\n"')" "$(crl_owner_tiebreaks "$(printf '%s\n' "$(cm 1 nathanjohnpayne 2026-09-25T04:00:00Z 2026-09-25T04:00:00Z "$RM")" | arr)" nathanjohnpayne "$PR_URL" "$HEAD_A")")" \
+  '.stops == ["runaway"] and (.owner_tiebreaks | length) == 0'
+stop_check "runaway tiebreak: a marker whose own timestamp carries a trailing newline does not clear" \
+  "$(rw_frac "$(printf '%s\n' "$(cm 1 nathanjohnpayne $'2026-09-25T04:00:00Z\n' $'2026-09-25T04:00:00Z\n' "$RM")" | arr)")" \
+  '.stops == ["runaway"] and (.owner_tiebreaks | length) == 0'
+stop_check "runaway tiebreak: a malformed candidate below the maximum still leaves the runaway standing" \
+  "$(crl_apply_owner_tiebreaks "$ST_RW_FRAC" "$(printf '%s' "$L_RW_FRAC" | jq -c '.responses[0].last_at = "!"')" "$(crl_owner_tiebreaks "$(printf '%s\n' "$(cm 1 nathanjohnpayne 2026-09-25T04:00:00Z 2026-09-25T04:00:00Z "$RM")" | arr)" nathanjohnpayne "$PR_URL" "$HEAD_A")")" \
+  '.stops == ["runaway"] and (.owner_tiebreaks | length) == 0'
+# last_at feeds the floor, so a non-string value fails the ledger rather than
+# dropping that response out of the floor; an absent last_at still falls back
+# to first_at (L_RW's last response: last_at 03:30, first_at 01:10).
+# An explicit null is present and malformed (CodeRabbit on #2567): falling back
+# to first_at would move the floor earlier, so it fails; only an ABSENT key
+# falls back.
+for _bad_last in '.responses[-1].last_at = 5' '.responses[-1].last_at = true' '.responses[-1].last_at = {}' '.responses[-1].last_at = null'; do
+  if crl_human_stops "$(printf '%s' "$L_RW" | jq -c "$_bad_last")" "$HEAD_A" nathanjohnpayne 10 2 >/dev/null; then
+    fail "runaway tiebreak: a response with a malformed last_at ($_bad_last) was accepted"
+  else
+    pass "runaway tiebreak: a response with a malformed last_at ($_bad_last) fails the ledger"
+  fi
+done
+L_RW_NOLAST=$(printf '%s' "$L_RW" | jq -c 'del(.responses[].last_at)')
+stop_check "runaway tiebreak: a response without last_at falls back to first_at for the floor" \
+  "$(crl_apply_owner_tiebreaks "$(crl_human_stops "$L_RW_NOLAST" "$HEAD_A" nathanjohnpayne 10 2)" "$L_RW_NOLAST" "$(crl_owner_tiebreaks "$RWC" nathanjohnpayne "$PR_URL" "$HEAD_A")")" \
+  '.stops == [] and .owner_tiebreaks == [{kind: "runaway"}]'
+# The fallback floor is the response's first_at (01:10), later than the last
+# request (01:00): a marker between the two must hold, or the fallback has
+# dropped the response and only the requests set the floor (CodeRabbit on #2567).
+stop_check "runaway tiebreak: under the absent-last_at fallback a marker after the last request but before first_at holds" \
+  "$(crl_apply_owner_tiebreaks "$(crl_human_stops "$L_RW_NOLAST" "$HEAD_A" nathanjohnpayne 10 2)" "$L_RW_NOLAST" "$(crl_owner_tiebreaks "$(printf '%s\n' "$(cm 1 nathanjohnpayne 2026-09-25T01:05:00Z 2026-09-25T01:05:00Z "$RM")" | arr)" nathanjohnpayne "$PR_URL" "$HEAD_A")")" \
+  '.stops == ["runaway"] and (.owner_tiebreaks | length) == 0'
+
 # The barrier's own reader (p4b_codex_human_stops) applies markers it reads from
 # the PR's comments, and leaves the stop standing when it cannot read them.
 TB_DIR=$(mktemp -d "${TMPDIR:-/tmp}/ledger-tiebreak.XXXXXX")
@@ -530,6 +834,73 @@ stop_check "barrier: an owner marker on the PR clears it, and the result records
   '.state == "clear" and .stops == [] and .owner_tiebreaks == [{kind: "untested", finding: 100}]'
 stop_check "barrier: unreadable comments leave the stop standing" "$(barrier_stops FAIL)" \
   '.state == "stop" and .stops == ["untested-rebuttal"]'
+# The barrier reads markers when a runaway is the only stop, too (#2534): the
+# stub budget's ceiling is 2, as on matchline.
+crl_ledger "$(printf '%s' "$IN2" | jq -c '.rebuttals = []')" \
+  | jq -c '.max_blocking_reviews = 10 | .policy_fingerprint = "1-2"' >"$TB_DIR/ledger.json"
+stop_check "barrier: no marker leaves the runaway standing" "$(barrier_stops '[]')" \
+  '.state == "stop" and .stops == ["runaway"]'
+stop_check "barrier: an owner runaway marker on the PR clears it, and the result records the tiebreak" "$(barrier_stops "$RWC")" \
+  '.state == "clear" and .stops == [] and .owner_tiebreaks == [{kind: "runaway"}]'
+stop_check "barrier: unreadable comments leave the runaway standing" "$(barrier_stops FAIL)" \
+  '.state == "stop" and .stops == ["runaway"]'
+
+# ---- Resolved stops: the one consumer-facing calculation (#2558) -------------
+# crl_resolved_human_stops is what the Phase 4b barrier and Cockpit both call:
+# crl_human_stops with the owner's markers applied. It reads the comments
+# through the command it is given, only when a dispute or runaway stop holds,
+# and a failed read leaves the stop standing.
+rs_read() { printf 'read\n' >>"$TB_DIR/rs-reads"; printf '%s' "$1"; }
+rs_fail() { printf 'read\n' >>"$TB_DIR/rs-reads"; return 1; }
+rs_reads() { if [ -f "$TB_DIR/rs-reads" ]; then wc -l <"$TB_DIR/rs-reads" | tr -d ' '; else printf 0; fi; }
+RS_RW=$(crl_ledger "$(printf '%s' "$IN2" | jq -c '.rebuttals = []')" | jq -c '.max_blocking_reviews = 10')
+stop_check "resolved: an owner runaway marker releases the runaway, and the result records it" \
+  "$(crl_resolved_human_stops "$RS_RW" "$HEAD_A" nathanjohnpayne 10 2 "$PR_URL" rs_read "$RWC")" \
+  '.stops == [] and .owner_tiebreaks == [{kind: "runaway"}] and .blocking_windows == 2'
+stop_check "resolved: no marker leaves the runaway standing, with an empty tiebreak record" \
+  "$(crl_resolved_human_stops "$RS_RW" "$HEAD_A" nathanjohnpayne 10 2 "$PR_URL" rs_read '[]')" \
+  '.stops == ["runaway"] and .owner_tiebreaks == []'
+stop_check "resolved: unreadable comments leave the runaway standing, with no tiebreak record" \
+  "$(crl_resolved_human_stops "$RS_RW" "$HEAD_A" nathanjohnpayne 10 2 "$PR_URL" rs_fail)" \
+  '.stops == ["runaway"] and (has("owner_tiebreaks") | not)'
+stop_check "resolved: a comments payload that is not one array leaves the runaway standing" \
+  "$(crl_resolved_human_stops "$RS_RW" "$HEAD_A" nathanjohnpayne 10 2 "$PR_URL" rs_read '{"not":"an array"}')" \
+  '.stops == ["runaway"] and (has("owner_tiebreaks") | not)'
+stop_check "resolved: no reader at all leaves the runaway standing" \
+  "$(crl_resolved_human_stops "$RS_RW" "$HEAD_A" nathanjohnpayne 10 2 "$PR_URL")" \
+  '.stops == ["runaway"] and (has("owner_tiebreaks") | not)'
+RS_D=$(crl_ledger "$(inputs "$(req 1 2026-09-25T00:00:00Z | arr)" "$(printf '%s\n' "$FIRST" | arr)" '[]' '[]' '[]' \
+  | jq -c --argjson rb "$RB" '.rebuttals = $rb')" | jq -c '.max_blocking_reviews = 10')
+stop_check "resolved: an owner rebuttal marker releases an untested rebuttal" \
+  "$(crl_resolved_human_stops "$RS_D" "$HEAD_A" nathanjohnpayne 10 "" "$PR_URL" rs_read "$C")" \
+  '.stops == [] and .untested_rebuttals == [] and .owner_tiebreaks == [{kind: "untested", finding: 100}]'
+stop_check "resolved: a runaway marker releases no dispute" \
+  "$(crl_resolved_human_stops "$RS_D" "$HEAD_A" nathanjohnpayne 10 "" "$PR_URL" rs_read "$RWC")" \
+  '.stops == ["untested-rebuttal"] and .owner_tiebreaks == []'
+# With no releasable stop the reader never runs and the output is crl_human_stops' own.
+RS_CLEAN=$(crl_ledger "$(inputs "$R4" "$CCBB" '[]' '[]' '[]' | jq -c '.rebuttals = []')" | jq -c '.max_blocking_reviews = 10')
+RS_BUDGET=$(printf '%s' "$RS_CLEAN" | jq -c '.max_blocking_reviews = 2')
+reads_before=$(rs_reads)
+OUT=$(crl_resolved_human_stops "$RS_CLEAN" "$HEAD_A" nathanjohnpayne 10 20 "$PR_URL" rs_fail)
+if [ "$OUT" = "$(crl_human_stops "$RS_CLEAN" "$HEAD_A" nathanjohnpayne 10 20)" ] \
+   && printf '%s' "$OUT" | jq -e '.stops == [] and (has("owner_tiebreaks") | not)' >/dev/null; then
+  pass "resolved: with no stop the output is crl_human_stops' own"
+else
+  fail "resolved: the no-stop output differs from crl_human_stops: $OUT"
+fi
+stop_check "resolved: a spent blocking budget alone is not releasable" \
+  "$(crl_resolved_human_stops "$RS_BUDGET" "$HEAD_A" nathanjohnpayne 2 20 "$PR_URL" rs_fail)" \
+  '.stops == ["blocking-budget"] and (has("owner_tiebreaks") | not)'
+if OUT=$(crl_resolved_human_stops '{"not":"a ledger"}' "$HEAD_A" nathanjohnpayne 10 2 "$PR_URL" rs_read "$RWC") || [ -n "$OUT" ]; then
+  fail "resolved: a malformed ledger was accepted: $OUT"
+else
+  pass "resolved: a malformed ledger fails, printing nothing"
+fi
+if [ "$(rs_reads)" = "$reads_before" ]; then
+  pass "resolved: with no dispute or runaway stop, or no ledger, the comments are never read"
+else
+  fail "resolved: the comments were read with nothing to release ($reads_before -> $(rs_reads))"
+fi
 
 # ---- Part 2: CLI contract (stubbed gh, real libs) ---------------------------
 
@@ -588,6 +959,19 @@ case "$1" in
   repos/o/r/pulls/comments/*/reactions)
     id=${1#repos/o/r/pulls/comments/}; id=${id%/reactions}
     if [ -f "$LEDGER_TEST_DIR/finding_reactions_$id.json" ]; then cat "$LEDGER_TEST_DIR/finding_reactions_$id.json"; else printf '[]\n'; fi ;;
+  # #2553: the PR's commits and timeline, read for failover markers' heads.
+  repos/o/r/pulls/7/commits)
+    if [ -f "$LEDGER_TEST_DIR/commits.json" ]; then cat "$LEDGER_TEST_DIR/commits.json"; else echo "no commits fixture" >&2; exit 1; fi ;;
+  repos/o/r/issues/7/timeline) printf '[]\n' ;;
+  # #2591: the GraphQL force-push timeline.
+  graphql)
+    if [ -f "$LEDGER_TEST_DIR/graphql.json" ]; then cat "$LEDGER_TEST_DIR/graphql.json"; else echo "no graphql fixture" >&2; exit 1; fi ;;
+  # #2534: a head-to-head compare, filtered by the caller's --jq like gh does.
+  repos/o/r/compare/*)
+    [ -f "$LEDGER_TEST_DIR/compare.json" ] || { echo "no compare fixture" >&2; exit 1; }
+    filter=.; prev=""
+    for a in "$@"; do [ "$prev" != --jq ] || filter=$a; prev=$a; done
+    jq -c "$filter" "$LEDGER_TEST_DIR/compare.json" ;;
   *) echo "unexpected endpoint $1" >&2; exit 99 ;;
 esac
 EOF
@@ -626,6 +1010,154 @@ if ! grep -q '^repos/o/r/issues/7/reactions$' "$D/calls" && ! grep -qvE '^repos/
   pass "CLI: reads only the PR's own records"
 else
   fail "CLI read an unexpected endpoint: $(cat "$D/calls")"
+fi
+
+# A CodeRabbit failover request is marked ceiling_exempt from its marker (#2534).
+D="$WORK/failover"; make_cli_case "$D"
+jq -n '[{id: 101, user: {login: "nathanjohnpayne"}, body: "@codex review", created_at: "2026-09-25T00:00:00Z"},
+        {id: 102, user: {login: "nathanjohnpayne"}, created_at: "2026-09-25T00:00:04Z", updated_at: "2026-09-25T00:00:04Z",
+         body: "<!-- mergepath-codex-failover:v1 head=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa trigger_comment_id=101 -->"},
+        {id: 103, user: {login: "nathanjohnpayne"}, body: "@codex review", created_at: "2026-09-25T01:00:00Z"}]' >"$D/issue_comments.json"
+printf '[]\n' >"$D/commits.json"
+RC=$(run_cli "$D")
+if [ "$RC" = 0 ] && jq -e '[.requests[] | select(.counted) | {id, ceiling_exempt}]
+     == [{id: 101, ceiling_exempt: true}, {id: 103, ceiling_exempt: false}]' "$D/out" >/dev/null; then
+  pass "CLI: a failover-marked request is ceiling_exempt, a deliberate one is not"
+else
+  fail "CLI failover case: rc=$RC out=$(cat "$D/out") err=$(cat "$D/err")"
+fi
+# #2553: the marker must name a head this PR had; a foreign head, or an
+# unreadable commit list, exempts nothing.
+jq -c 'map(if .id == 102 then .body |= sub("head=a{40}"; "head=" + ("1" * 40)) else . end)' "$D/issue_comments.json" >"$D/ic.tmp" && mv "$D/ic.tmp" "$D/issue_comments.json"
+RC=$(run_cli "$D")
+if [ "$RC" = 0 ] && jq -e '[.requests[] | select(.counted) | .ceiling_exempt] == [false, false]' "$D/out" >/dev/null; then
+  pass "CLI: a failover marker naming a foreign head exempts nothing"
+else
+  fail "CLI failover foreign-head case: rc=$RC out=$(jq -c '[.requests[] | {id, ceiling_exempt}]' "$D/out" 2>/dev/null) err=$(cat "$D/err")"
+fi
+jq -c 'map(if .id == 102 then .body |= sub("head=1{40}"; "head=" + ("b" * 40)) else . end)' "$D/issue_comments.json" >"$D/ic.tmp" && mv "$D/ic.tmp" "$D/issue_comments.json"
+printf '[{"sha":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}]\n' >"$D/commits.json"
+RC=$(run_cli "$D")
+if [ "$RC" = 0 ] && jq -e '[.requests[] | select(.counted) | .ceiling_exempt] == [true, false]' "$D/out" >/dev/null; then
+  pass "CLI: a failover marker naming an earlier PR commit exempts its trigger"
+else
+  fail "CLI failover earlier-head case: rc=$RC out=$(jq -c '[.requests[] | {id, ceiling_exempt}]' "$D/out" 2>/dev/null) err=$(cat "$D/err")"
+fi
+# #2591: a head a force-push replaced is only in the GraphQL timeline.
+printf '[]\n' >"$D/commits.json"
+RC=$(run_cli "$D")
+if [ "$RC" = 0 ] && jq -e '[.requests[] | select(.counted) | .ceiling_exempt] == [false, false]' "$D/out" >/dev/null; then
+  pass "CLI: without the GraphQL timeline, a force-pushed-away head exempts nothing"
+else
+  fail "CLI failover no-graphql case: rc=$RC err=$(cat "$D/err")"
+fi
+jq -n '{data: {repository: {pullRequest: {timelineItems: {pageInfo: {hasNextPage: false, endCursor: null},
+  nodes: [{beforeCommit: {oid: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}, afterCommit: {oid: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}]}}}}}' >"$D/graphql.json"
+RC=$(run_cli "$D")
+if [ "$RC" = 0 ] && jq -e '[.requests[] | select(.counted) | .ceiling_exempt] == [true, false]' "$D/out" >/dev/null; then
+  pass "CLI: a failover marker on a head a force-push replaced exempts its trigger"
+else
+  fail "CLI failover force-pushed case: rc=$RC out=$(jq -c '[.requests[] | {id, ceiling_exempt}]' "$D/out" 2>/dev/null) err=$(cat "$D/err")"
+fi
+rm -f "$D/commits.json"
+RC=$(run_cli "$D")
+if [ "$RC" = 0 ] && jq -e '[.requests[] | select(.counted) | .ceiling_exempt] == [false, false]' "$D/out" >/dev/null; then
+  pass "CLI: an unreadable commit list exempts nothing"
+else
+  fail "CLI failover unreadable-commits case: rc=$RC err=$(cat "$D/err")"
+fi
+
+# Fixed-finding evidence (#2534): a non-bot thumbs-up on a Codex root is a fix
+# disposition unless the thread is tagged, the root also has a thumbs-down, or
+# only the bot reacted; the CLI then compares the reviewed head with each later
+# reviewed head.
+fx_case() { # <dir> <reactions-60-json> <extra-review-comments-json> [root-60-rollup-json]
+  make_cli_case "$1"
+  jq -n '[{id: 101, user: {login: "nathanjohnpayne"}, body: "@codex review", created_at: "2026-09-25T00:00:00Z"},
+          {id: 102, user: {login: "nathanjohnpayne"}, body: "@codex review", created_at: "2026-09-25T01:00:00Z"}]' >"$1/issue_comments.json"
+  jq -n '[{id: 50, user: {login: "chatgpt-codex-connector[bot]"}, submitted_at: "2026-09-25T00:10:00Z", commit_id: "cccccccccccccccccccccccccccccccccccccccc", body: ""},
+          {id: 51, user: {login: "chatgpt-codex-connector[bot]"}, submitted_at: "2026-09-25T01:10:00Z", commit_id: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", body: ""}]' >"$1/reviews.json"
+  jq -n --argjson extra "$3" --argjson rollup "${4:-null}" '[({id: 60, pull_request_review_id: 50, in_reply_to_id: null, path: "x.sh", user: {login: "chatgpt-codex-connector[bot]"},
+           body: "**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>** first", created_at: "2026-09-25T00:10:00Z"}
+           + (if $rollup == null then {} else {reactions: $rollup} end)),
+          {id: 70, pull_request_review_id: 51, in_reply_to_id: null, path: "y.sh", user: {login: "chatgpt-codex-connector[bot]"},
+           body: "**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>** second", created_at: "2026-09-25T01:10:00Z"}] + $extra' >"$1/review_comments.json"
+  printf '%s\n' "$2" >"$1/finding_reactions_60.json"
+  jq -n '{status: "ahead", files: [{filename: "x2.sh", previous_filename: "x.sh"}, {filename: "z.sh"}]}' >"$1/compare.json"
+}
+UP='[{"content": "+1", "user": {"login": "nathanpayne-claude"}, "created_at": "2026-09-25T00:30:00Z"}]'
+D="$WORK/fixes"; fx_case "$D" "$UP" '[]'
+RC=$(run_cli "$D")
+if [ "$RC" = 0 ] && jq -e '.fixes == [60]
+     and .head_changes == [{base: "cccccccccccccccccccccccccccccccccccccccc", head: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                            status: "ahead", files: ["x.sh", "x2.sh", "z.sh"]}]
+     and ([.responses[] | select(.window == 1) | .blocking_findings] == [[{id: 60, path: "x.sh"}]])' "$D/out" >/dev/null; then
+  pass "CLI: a non-bot thumbs-up is a fix disposition, and the reviewed head is compared with the later one"
+else
+  fail "CLI fixes case: rc=$RC out=$(jq -c '{fixes, head_changes, r: [.responses[] | {rid, blocking_findings}]}' "$D/out" 2>/dev/null) err=$(cat "$D/err")"
+fi
+grep -q '^repos/o/r/compare/cccccccccccccccccccccccccccccccccccccccc\.\.\.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa$' "$D/calls" \
+  && pass "CLI: the compare reads the reviewed head against the later reviewed head" \
+  || fail "CLI: unexpected compare calls: $(grep compare "$D/calls")"
+for _fx in "tag|$UP|[{\"id\": 61, \"pull_request_review_id\": 52, \"in_reply_to_id\": 60, \"path\": \"x.sh\", \"user\": {\"login\": \"nathanjohnpayne\"}, \"body\": \"[mergepath-resolve: deferred-to-followup] later\", \"created_at\": \"2026-09-25T00:40:00Z\"}]" \
+           "down|[{\"content\": \"+1\", \"user\": {\"login\": \"nathanpayne-claude\"}, \"created_at\": \"2026-09-25T00:30:00Z\"}, {\"content\": \"-1\", \"user\": {\"login\": \"nathanpayne-codex\"}, \"created_at\": \"2026-09-25T00:31:00Z\"}]|[]" \
+           "bot|[{\"content\": \"+1\", \"user\": {\"login\": \"chatgpt-codex-connector[bot]\"}, \"created_at\": \"2026-09-25T00:30:00Z\"}]|[]"; do
+  _name=${_fx%%|*}; _rest=${_fx#*|}; _react=${_rest%|*}; _extra=${_rest##*|}
+  D="$WORK/fixes-$_name"; fx_case "$D" "$_react" "$_extra"
+  RC=$(run_cli "$D")
+  if [ "$RC" = 0 ] && jq -e '.fixes == [] and .head_changes == []' "$D/out" >/dev/null; then
+    pass "CLI: $_name is no fix disposition and reads no compare"
+  else
+    fail "CLI fixes-$_name case: rc=$RC out=$(jq -c '{fixes, head_changes}' "$D/out" 2>/dev/null) err=$(cat "$D/err")"
+  fi
+done
+# A discretionary finding cannot make a runaway, so the fix pass does not read
+# its reactions (the rebuttal pass still reads them once).
+D="$WORK/fixes-p2"; fx_case "$D" "$UP" '[]'
+jq -c 'map(if .id == 60 then .body = "**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>** minor" else . end)' \
+  "$D/review_comments.json" >"$D/rc.tmp" && mv "$D/rc.tmp" "$D/review_comments.json"
+RC=$(run_cli "$D")
+if [ "$RC" = 0 ] && jq -e '.fixes == []' "$D/out" >/dev/null \
+   && [ "$(grep -c '^repos/o/r/pulls/comments/60/reactions$' "$D/calls")" = 1 ]; then
+  pass "CLI: a discretionary finding is not read for a fix disposition"
+else
+  fail "CLI fixes-p2 case: rc=$RC fixes=$(jq -c .fixes "$D/out" 2>/dev/null) calls=$(grep reactions "$D/calls" | tr '\n' ' ')"
+fi
+# resolve-pr-threads.sh records a fix as addressed-elsewhere: that tag keeps
+# the disposition; another tag beside it still removes it.
+AE='[{"id": 61, "pull_request_review_id": 52, "in_reply_to_id": 60, "path": "x.sh", "user": {"login": "nathanjohnpayne"}, "body": "[mergepath-resolve: addressed-elsewhere] fixed in abc1234", "created_at": "2026-09-25T00:40:00Z"}]'
+D="$WORK/fixes-addressed"; fx_case "$D" "$UP" "$AE"
+RC=$(run_cli "$D")
+if [ "$RC" = 0 ] && jq -e '.fixes == [60]' "$D/out" >/dev/null; then
+  pass "CLI: an addressed-elsewhere tag is the fix class and keeps the disposition"
+else
+  fail "CLI fixes-addressed case: rc=$RC out=$(jq -c '{fixes}' "$D/out" 2>/dev/null) err=$(cat "$D/err")"
+fi
+D="$WORK/fixes-addressed-nitpick"
+fx_case "$D" "$UP" "$(printf '%s' "$AE" | jq -c '. + [{id: 62, pull_request_review_id: 53, in_reply_to_id: 60, path: "x.sh", user: {login: "nathanjohnpayne"}, body: "[mergepath-resolve: nitpick-noted] later", created_at: "2026-09-25T00:41:00Z"}]')"
+RC=$(run_cli "$D")
+if [ "$RC" = 0 ] && jq -e '.fixes == []' "$D/out" >/dev/null; then
+  pass "CLI: a nitpick tag beside addressed-elsewhere removes the disposition"
+else
+  fail "CLI fixes-addressed-nitpick case: rc=$RC out=$(jq -c '{fixes}' "$D/out" 2>/dev/null) err=$(cat "$D/err")"
+fi
+# A thumbs-down the rollup has not caught up with is not read as a rebuttal,
+# but the fix read still sees it.
+D="$WORK/fixes-stale-down"
+fx_case "$D" '[{"content": "+1", "user": {"login": "nathanpayne-claude"}, "created_at": "2026-09-25T00:30:00Z"}, {"content": "-1", "user": {"login": "nathanpayne-codex"}, "created_at": "2026-09-25T00:31:00Z"}]' '[]' '{"+1": 1, "-1": 0}'
+RC=$(run_cli "$D")
+if [ "$RC" = 0 ] && jq -e '.fixes == [] and .rebuttals == []' "$D/out" >/dev/null; then
+  pass "CLI: a thumbs-down behind a stale rollup still blocks the fix disposition"
+else
+  fail "CLI fixes-stale-down case: rc=$RC out=$(jq -c '{fixes, rebuttals}' "$D/out" 2>/dev/null) err=$(cat "$D/err")"
+fi
+# A compare that fails records the pair without files, so nothing is fixed.
+D="$WORK/fixes-unreadable"; fx_case "$D" "$UP" '[]'; rm -f "$D/compare.json"
+RC=$(run_cli "$D")
+if [ "$RC" = 0 ] && jq -e '.fixes == [60] and .head_changes[0].status == "unreadable" and .head_changes[0].files == []' "$D/out" >/dev/null; then
+  pass "CLI: an unreadable compare records no changed files"
+else
+  fail "CLI fixes-unreadable case: rc=$RC out=$(jq -c '{fixes, head_changes}' "$D/out" 2>/dev/null) err=$(cat "$D/err")"
 fi
 
 # --expect-head (#1560 slice 3): the requester's blocking-review count must be
@@ -723,6 +1255,21 @@ if [ "$RC" = 3 ] && [ ! -s "$D/out" ] && grep -q 'no submitted_at' "$D/err"; the
 else
   fail "CLI null submitted_at: rc=$RC out=$(cat "$D/out") err=$(cat "$D/err")"
 fi
+
+# A present malformed instant reaches the pure library; its refusal must keep
+# the CLI error boundary (exit 3, no partial JSON or summary output).
+D="$WORK/bad-submitted-at"; make_cli_case "$D"
+jq -n '[{id: 101, user: {login: "nathanjohnpayne"}, body: "@codex review", created_at: "2026-09-25T00:00:00Z"}]' >"$D/issue_comments.json"
+jq -n '[{id: 50, user: {login: "chatgpt-codex-connector[bot]"}, submitted_at: "!", commit_id: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", body: "P1: blocking"}]' >"$D/reviews.json"
+for _mode in json summary; do
+  _args=(); [ "$_mode" != summary ] || _args+=(--summary)
+  RC=$(run_cli "$D" "${_args[@]}")
+  if [ "$RC" = 3 ] && [ ! -s "$D/out" ] && grep -q 'ledger computation failed' "$D/err"; then
+    pass "CLI: malformed submitted_at refuses $_mode output"
+  else
+    fail "CLI malformed submitted_at ($_mode): rc=$RC out=$(cat "$D/out") err=$(cat "$D/err")"
+  fi
+done
 
 # Rebuttal collection (#1560 slice 3): a tagged thread, and a thumbs-down on
 # the root, are rebuttals; the bot's own thumbs-down and a rollup that rules

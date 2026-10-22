@@ -88,9 +88,25 @@ EOF
 #!/usr/bin/env bash
 set -euo pipefail
 state_dir=${CODEX_TEST_STATE_DIR:?}
+# #2657: the request checkpoint posts through --body-file; record it apart
+# from triggers so trigger counts stay exact. It must never carry the phrase.
+prev=""
+for arg in "$@"; do
+  if [ "$prev" = "--body-file" ] && grep -Fq 'mergepath-codex-request-checkpoint:v1' "$arg"; then
+    if grep -Eiq '@codex[[:space:]]+review' "$arg"; then echo "checkpoint carried the trigger phrase" >&2; exit 97; fi
+    [ "${CODEX_TEST_CHECKPOINT_FAIL:-0}" != 1 ] || { echo "checkpoint write refused" >&2; exit 1; }
+    n=0; [ -f "$state_dir/checkpoint-count" ] && n=$(cat "$state_dir/checkpoint-count")
+    n=$((n + 1)); printf '%s\n' "$n" >"$state_dir/checkpoint-count"; cp "$arg" "$state_dir/checkpoint-$n.md"
+    printf 'https://github.com/owner/repo/pull/999#issuecomment-%s\n' "$((5000 + n))"
+    exit 0
+  fi
+  prev="$arg"
+done
 if [ "${9:-}" != "@codex review" ]; then
   echo "trigger body was not exact '@codex review': $*" >&2; exit 98
 fi
+# #2657: a refused trigger write (the loser of a concurrent request).
+[ "${CODEX_TEST_TRIGGER_FAIL:-0}" != 1 ] || { echo "trigger write refused" >&2; exit 1; }
 count=0
 [ -f "$state_dir/trigger-count" ] && count=$(cat "$state_dir/trigger-count")
 count=$((count + 1))
@@ -223,6 +239,18 @@ case "$endpoint" in
     esac ;;
   repos/owner/repo/commits/*)     printf '%s\n' "$t" ;;
   repos/owner/repo/issues/999/timeline)  printf '[]\n' ;;
+  # #2591: the GraphQL force-push timeline, for heads a force-push replaced.
+  graphql)
+    case "${CODEX_TEST_FORCE_PUSH:-none}" in
+      fail) echo 'simulated GraphQL failure' >&2; exit 1 ;;
+      none) printf '%s\n' '{"data":{"repository":{"pullRequest":{"timelineItems":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[]}}}}}' ;;
+      *) jq -cn --arg b "$CODEX_TEST_FORCE_PUSH" '{data:{repository:{pullRequest:{timelineItems:{pageInfo:{hasNextPage:false,endCursor:null},
+           nodes:[{beforeCommit:{oid:$b},afterCommit:{oid:"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}]}}}}}' ;;
+    esac ;;
+  # #2553: the PR's commits, for failover markers' heads.
+  repos/owner/repo/pulls/999/commits)
+    if [ "${CODEX_TEST_COMMITS_FAIL:-0}" = 1 ]; then echo 'simulated commits read failure' >&2; exit 1; fi
+    printf '%s\n' '[{"sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]' ;;
   repos/owner/repo/pulls/999/reviews)
     case "$scenario" in
       reply-only|body-P1|body-P2)
@@ -241,6 +269,11 @@ case "$endpoint" in
         [ -z "${CODEX_TEST_FRESHNESS_TRANSITION:-}" ] || touch "$CODEX_TEST_STATE_DIR/freshness-scan-complete"
         jq -cn --arg who "$author" --arg t "$CODEX_TEST_TRIGGER_AT" '[{id:7050,user:{login:$who},created_at:$t,body:"@codex review"}]' ;;
       dup_author)       jq -cn --arg who "$author" --arg t "$t" '[{id:7001,user:{login:$who},created_at:$t,body:"@codex review"}]' ;;
+      # #2582: the same request, with Codex reporting a review of HEAD Running since.
+      dup_author_running)
+        jq -cn --arg who "$author" --arg t "$t" --arg h "${head_sha:0:7}" '[{id:7001,user:{login:$who},created_at:$t,body:"@codex review"},
+          {id:7009,user:{login:"chatgpt-codex-connector[bot]"},created_at:$t,updated_at:$t,
+           body:("<!-- codex-pull-request-review-summary -->\n\n| Review | Status | Commit | Review trigger |\n| --- | --- | --- | --- |\n| 📝 **Code Review** | ⏳ **Running** | `" + $h + "` | Manual request |\n")}]' ;;
       dup_author_upper) jq -cn --arg who "$author" --arg t "$t" '[{id:7002,user:{login:$who},created_at:$t,body:"@CODEX REVIEW"}]' ;;
       author_prose)     jq -cn --arg who "$author" --arg t "$t" '[{id:7003,user:{login:$who},created_at:$t,body:"Status: @codex review was already requested."}]' ;;
       author_quoted)    jq -cn --arg who "$author" --arg t "$t" '[{id:7004,user:{login:$who},created_at:$t,body:"Earlier note:\n> @codex review\n\nDo not run it again."}]' ;;
@@ -257,8 +290,27 @@ case "$endpoint" in
       cap_at_limit_blocked) jq -cn --arg who "$author" --arg t "$old" '[range(10) | {id:(8050 + .),user:{login:$who},created_at:$t,body:"@codex review"}] + [{id:8060,user:{login:"chatgpt-codex-connector[bot]"},created_at:$t,body:"You have reached your Codex usage limits for code reviews."}]' ;;
       cap_below_limit)  jq -cn --arg who "$author" --arg t "$old" '[range(9) | {id:(8100 + .),user:{login:$who},created_at:$t,body:"@codex review"}]' ;;
       cap_three)        jq -cn --arg who "$author" --arg t "$old" '[range(3) | {id:(8150 + .),user:{login:$who},created_at:$t,body:"@codex review"}]' ;;
+      cp_four)          jq -cn --arg who "$author" --arg t "$old" '[range(4) | {id:(8700 + .),user:{login:$who},created_at:$t,body:"@codex review"}]' ;;
+      cp_five)          jq -cn --arg who "$author" --arg t "$old" '[range(5) | {id:(8710 + .),user:{login:$who},created_at:$t,body:"@codex review"}]' ;;
+      cp_five_existing) jq -cn --arg who "$author" --arg t "$old" '[range(5) | {id:(8720 + .),user:{login:$who},created_at:$t,body:"@codex review"}] + [{id:8730,user:{login:$who},created_at:$t,body:"<!-- mergepath-codex-request-checkpoint:v1 counted=5 head=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa -->\nCheckpoint."}]' ;;
+      cp_five_quoted)   jq -cn --arg who "$author" --arg t "$old" '[range(5) | {id:(8760 + .),user:{login:$who},created_at:$t,body:"@codex review"}] + [{id:8770,user:{login:$who},created_at:$t,body:"Note: the requester writes <!-- mergepath-codex-request-checkpoint:v1 counted=5 head=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --> at five requests."}]' ;;
+      cp_five_foreign)  jq -cn --arg who "$author" --arg t "$old" '[range(5) | {id:(8740 + .),user:{login:$who},created_at:$t,body:"@codex review"}] + [{id:8750,user:{login:"someone-else"},created_at:$t,body:"<!-- mergepath-codex-request-checkpoint:v1 counted=5 head=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa -->"}]' ;;
       cap_duplicate_ids) jq -cn --arg who "$author" --arg t "$old" '[range(12) | {id:(8200 + (. % 9)),user:{login:$who},created_at:$t,body:"@codex review"}]' ;;
       cap_bad_id)       jq -cn --arg who "$author" --arg t "$old" '[range(9) | {id:(8300 + .),user:{login:$who},created_at:$t,body:"@codex review"}] + [{user:{login:$who},created_at:$t,body:"@codex review"}]' ;;
+      # #2534: ten prior requests, one of them a marked CodeRabbit failover.
+      cap_failover)     jq -cn --arg who "$author" --arg t "$old" '[range(10) | {id:(8400 + (. * 2)),user:{login:$who},created_at:$t,body:"@codex review"}]
+                          + [{id:8401,user:{login:$who},created_at:$t,updated_at:$t,
+                              body:"<!-- mergepath-codex-failover:v1 head=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa trigger_comment_id=8400 -->"}]' ;;
+      # #2553: the same, with the marker naming a head this PR never had.
+      cap_failover_foreign) jq -cn --arg who "$author" --arg t "$old" '[range(10) | {id:(8400 + (. * 2)),user:{login:$who},created_at:$t,body:"@codex review"}]
+                          + [{id:8401,user:{login:$who},created_at:$t,updated_at:$t,
+                              body:"<!-- mergepath-codex-failover:v1 head=1111111111111111111111111111111111111111 trigger_comment_id=8400 -->"}]' ;;
+      # #2591: the marker names a head a force-push replaced; only GraphQL has it.
+      cap_failover_forced) jq -cn --arg who "$author" --arg t "$old" '[range(10) | {id:(8400 + (. * 2)),user:{login:$who},created_at:$t,body:"@codex review"}]
+                          + [{id:8401,user:{login:$who},created_at:$t,updated_at:$t,
+                              body:"<!-- mergepath-codex-failover:v1 head=9999999999999999999999999999999999999999 trigger_comment_id=8400 -->"}]' ;;
+      # #2534: what the failover stub has posted so far.
+      live)             if [ -f "$CODEX_TEST_STATE_DIR/live-comments.json" ]; then cat "$CODEX_TEST_STATE_DIR/live-comments.json"; else printf '[]\n'; fi ;;
       *)                printf '[]\n' ;;
     esac
     ;;
@@ -278,6 +330,7 @@ run_trigger_only() {
       CODEX_TEST_STATE_DIR="$dir/state" \
       CODEX_TEST_SCENARIO="$scenario" \
       CODEX_TEST_BASE_POLICY_MODE="$base_policy_mode" \
+      CODEX_TEST_CHECKPOINT_FAIL="${CODEX_TEST_CHECKPOINT_FAIL:-0}" \
       MERGEPATH_PHASE_4A_GATED="$phase4a_gated" \
       ./scripts/codex-review-request.sh --trigger-only 999 owner/repo \
       >"$dir/out.json" 2>"$dir/err.log"
@@ -451,6 +504,76 @@ test_request_attempt_cap() {
     fi
     [ "$FAIL" -ne "$before" ] || pass "#813: $description"
   done
+}
+
+# #2657: the five-request checkpoint reuses the ceiling's request count, is
+# recorded once per PR by the author, and never blocks or changes a budget.
+cp_count() { if [ -f "$1/state/checkpoint-count" ]; then cat "$1/state/checkpoint-count"; else printf '0\n'; fi; }
+test_request_checkpoint() {
+  local scenario dir rc before want_cp want_rec
+  for scenario in cp_four cp_five cp_five_existing cp_five_foreign cp_five_quoted cap_below_limit cap_three; do
+    before=$FAIL
+    case "$scenario" in
+      cp_four|cap_three) want_cp=0; want_rec=null ;;
+      cp_five|cp_five_foreign|cp_five_quoted|cap_below_limit) want_cp=1; want_rec=posted ;;
+      cp_five_existing) want_cp=0; want_rec=existing ;;
+    esac
+    dir=$(make_case "checkpoint-$scenario")
+    rc=$(run_trigger_only "$dir" "$scenario")
+    [ "$rc" = 0 ] || fail "#2657 $scenario: expected exit 0, got $rc; err=$(tail -n 3 "$dir/err.log")"
+    [ "$(trig_count "$dir")" = 1 ] || fail "#2657 $scenario: the request itself was not posted exactly once ($(trig_count "$dir"))"
+    [ "$(cp_count "$dir")" = "$want_cp" ] || fail "#2657 $scenario: expected $want_cp checkpoint posts, got $(cp_count "$dir")"
+    [ "$(jqf "$dir" '.request_checkpoint.recorded // "null"')" = "$want_rec" ] \
+      || fail "#2657 $scenario: request_checkpoint.recorded=$(jqf "$dir" '.request_checkpoint.recorded // "null"'), expected $want_rec"
+    if [ "$want_cp" = 1 ]; then
+      grep -Fq 'counted=' "$dir/state/checkpoint-1.md" && grep -Fq 'reassess the scope' "$dir/state/checkpoint-1.md" \
+        && grep -Fq 'nathanjohnpayne/mergepath#2657' "$dir/state/checkpoint-1.md" \
+        || fail "#2657 $scenario: checkpoint body lacks its count or guidance"
+    fi
+    [ "$FAIL" -ne "$before" ] || pass "#2657 checkpoint: $scenario posts $want_cp checkpoint(s), recorded=$want_rec, request still posts"
+  done
+  before=$FAIL
+  dir=$(make_case "checkpoint-write-fails")
+  rc=$(CODEX_TEST_CHECKPOINT_FAIL=1 run_trigger_only "$dir" cp_five)
+  [ "$rc" = 0 ] && [ "$(trig_count "$dir")" = 1 ] && [ "$(jqf "$dir" '.request_checkpoint.recorded')" = failed ] \
+    || fail "#2657: a failed checkpoint write blocked or hid the request (rc=$rc posts=$(trig_count "$dir"))"
+  [ "$FAIL" -ne "$before" ] || pass "#2657 checkpoint: a failed checkpoint write never blocks the request"
+  # Staging: the body file is created but cannot be written (a full disk or
+  # quota); here the "file" is a directory, so the write fails.
+  before=$FAIL
+  dir=$(make_case "checkpoint-staging-fails")
+  cat >"$dir/bin/mktemp" <<'EOF'
+#!/usr/bin/env bash
+case "${1:-}" in
+  *codex-request-checkpoint*) path=$(/usr/bin/mktemp -d "$1") && printf '%s\n' "$path" ;;
+  *) exec /usr/bin/mktemp "$@" ;;
+esac
+EOF
+  chmod +x "$dir/bin/mktemp"
+  rc=$(run_trigger_only "$dir" cp_five)
+  [ "$rc" = 0 ] && [ "$(trig_count "$dir")" = 1 ] && [ "$(cp_count "$dir")" = 0 ] \
+    && [ "$(jqf "$dir" '.request_checkpoint.recorded')" = failed ] \
+    || fail "#2657: a checkpoint staging failure blocked or hid the request (rc=$rc posts=$(trig_count "$dir")); $(tail -3 "$dir/err.log")"
+  [ "$FAIL" -ne "$before" ] || pass "#2657 checkpoint: a staging failure never blocks the request"
+  # A CodeRabbit failover is not a deliberate round: it records no checkpoint,
+  # so the next ordinary request still gets it.
+  before=$FAIL
+  dir=$(make_case "checkpoint-failover")
+  rc=0
+  ( cd "$dir" && PATH="$dir/bin:$PATH" GH_TOKEN=test-token CODEX_TEST_STATE_DIR="$dir/state" CODEX_TEST_SCENARIO=cp_five \
+      ./scripts/codex-review-request.sh --trigger-only --failover 999 owner/repo >"$dir/out.json" 2>"$dir/err.log" ) || rc=$?
+  [ "$rc" = 0 ] && [ "$(trig_count "$dir")" = 1 ] && [ "$(cp_count "$dir")" = 0 ] \
+    && [ "$(jqf "$dir" '.request_checkpoint // "null"')" = null ] \
+    || fail "#2657: a failover trigger recorded the checkpoint (rc=$rc posts=$(trig_count "$dir") checkpoints=$(cp_count "$dir")); $(tail -3 "$dir/err.log")"
+  [ "$FAIL" -ne "$before" ] || pass "#2657 checkpoint: a failover trigger never records the checkpoint"
+  # A requester whose own trigger write is refused records no checkpoint, so
+  # concurrent requesters at the threshold cannot each add one.
+  before=$FAIL
+  dir=$(make_case "checkpoint-trigger-refused")
+  rc=$(CODEX_TEST_TRIGGER_FAIL=1 run_trigger_only "$dir" cp_five)
+  [ "$rc" = 3 ] && [ "$(trig_count "$dir")" = 0 ] && [ "$(cp_count "$dir")" = 0 ] \
+    || fail "#2657: a refused trigger write still recorded a checkpoint (rc=$rc posts=$(trig_count "$dir") checkpoints=$(cp_count "$dir"))"
+  [ "$FAIL" -ne "$before" ] || pass "#2657 checkpoint: only a request that posted records the checkpoint"
 }
 
 test_nondefault_request_attempt_cap() {
@@ -1830,9 +1953,59 @@ test_write_boundary_authorization() {
   [ "$FAIL" -ne "$before" ] || pass "write-boundary authorization enforces budget and head without a POST"
 }
 
+# #2582: authorization applies the no-write decisions of the mode the
+# canonical requester writes from. Polling mode posts while a trigger is on
+# HEAD by design, so only its own refusals apply; an absent or trigger-only
+# mode keeps the #489 duplicate refusal, and an unknown mode fails closed.
+test_write_boundary_authorization_caller_mode() {
+  local label scenario mode auto want dir rc gate before=$FAIL
+  while IFS='|' read -r label scenario mode auto want; do
+    dir=$(make_case "authorize-mode-$label")
+    gate=$(write_gate_stub "$dir" false)
+    # The Running case needs a request still inside its own reply deadline.
+    sed -i.bak 's/^  review_timeout_seconds: 0$/  review_timeout_seconds: 999999999/' "$dir/.github/review-policy.yml"
+    cp "$dir/.github/review-policy.yml" "$dir/state/base-review-policy.yml"
+    rc=0
+    (
+      cd "$dir"
+      PATH="$dir/bin:$PATH" GH_TOKEN=test-token CODEX_TEST_STATE_DIR="$dir/state" \
+        CODEX_TEST_SCENARIO="$scenario" CODEX_TEST_HEAD=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+        MERGEPATH_PHASE_4A_GATED=true MERGEPATH_CODEX_TRIGGER_EXPECTED_HEAD=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+        MERGEPATH_CODEX_TRIGGER_CALLER_MODE="$mode" \
+        MERGEPATH_CODEX_AUTO_TRIGGER="$auto" MERGEPATH_CODEX_AUTO_TRIGGER_GATE_CMD="$gate" \
+        ./scripts/codex-review-request.sh --authorize-trigger-write --allow-moving-head 999 owner/repo \
+        >"$dir/out.json" 2>"$dir/err.log"
+    ) || rc=$?
+    case "$want" in
+      authorized)
+        [ "$rc" = 0 ] && jq -e '.authorized == true and .head_sha == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"' "$dir/out.json" >/dev/null \
+          || fail "#2582 authorization ($label): expected authorized (rc=$rc; $(cat "$dir/err.log"))" ;;
+      unknown-mode)
+        [ "$rc" = 3 ] && ! jq -e '.authorized == true' "$dir/out.json" >/dev/null 2>&1 \
+          && grep -q 'unknown caller mode' "$dir/err.log" \
+          || fail "#2582 authorization ($label): an unknown caller mode must fail closed (rc=$rc; $(cat "$dir/err.log"))" ;;
+      *)
+        [ "$rc" = 3 ] && jq -e --arg reason "$want" '.authorized == false and .reason == $reason' "$dir/out.json" >/dev/null \
+          || fail "#2582 authorization ($label): expected refusal '$want' (rc=$rc; $(cat "$dir/err.log"))" ;;
+    esac
+    [ "$(trig_count "$dir")" = 0 ] || fail "#2582 authorization must never post ($label)"
+  done <<'CASES'
+poll-dup|dup_author|poll|false|authorized
+poll-fresh|fresh|poll|false|authorized
+poll-content-free|fresh|poll|true|authorized
+poll-running|dup_author_running|poll|false|pending-request-running
+poll-cleared|body-P2|poll|false|already-cleared
+explicit-trigger-only-dup|dup_author|trigger-only|false|existing-trigger
+absent-dup|dup_author||false|existing-trigger
+bogus-mode|dup_author|polling|false|unknown-mode
+CASES
+  [ "$FAIL" -ne "$before" ] || pass "#2582: authorization applies the caller's request mode; trigger-only stays the default"
+}
+
 test_guard_dates_queued_checks
 test_guard_unknown_suite_branch
 test_write_boundary_authorization
+test_write_boundary_authorization_caller_mode
 
 test_fresh_posts_once_no_poll
 test_dup_author_skips
@@ -1841,6 +2014,7 @@ test_author_containment_posts
 test_stale_author_command_posts
 test_reviewer_trigger_does_not_count
 test_request_attempt_cap
+test_request_checkpoint
 test_nondefault_request_attempt_cap
 test_candidate_cannot_raise_governing_request_attempt_cap
 test_governing_cap_read_failure_refuses_new_write
@@ -1977,6 +2151,114 @@ test_trigger_timestamp_validation() {
 test_trigger_timestamp_validation
 
 test_trigger_only_future_head_preserves_recent_blocks
+
+# #2534: the CodeRabbit rate-limit failover does not spend the request
+# ceiling. --failover marks the trigger it posts, and the ceiling skips a
+# marked trigger.
+test_failover_marker() {
+  local dir rc before
+  before=$FAIL
+  # A real head, so the PR head set (#2553) is readable.
+  local fo_head=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  dir=$(make_case failover-ceiling)
+  rc=$(CODEX_TEST_HEAD=$fo_head run_trigger_only "$dir" cap_failover)
+  [ "$rc" = 0 ] && [ "$(trig_count "$dir")" = 1 ] \
+    || fail "#2534: ten requests with one marked failover must leave a slot (rc=$rc posts=$(trig_count "$dir")); err=$(tail -3 "$dir/err.log")"
+  grep -q 'request attempts 9/10' "$dir/err.log" \
+    || fail "#2534: the marked failover was counted: $(grep 'request attempts' "$dir/err.log")"
+  # #2553: a marker naming a foreign head, or an unreadable head set, exempts nothing.
+  dir=$(make_case failover-ceiling-foreign)
+  rc=$(CODEX_TEST_HEAD=$fo_head run_trigger_only "$dir" cap_failover_foreign)
+  [ "$rc" = 7 ] && [ "$(trig_count "$dir")" = 0 ] \
+    && grep -q 'request-attempt cap reached.*10/10' "$dir/err.log" \
+    || fail "#2553: a marker naming a foreign head must not exempt its trigger (rc=$rc posts=$(trig_count "$dir"))"
+  # #2591: a head a force-push replaced counts when GraphQL names it, and a
+  # failed GraphQL read leaves only that head out.
+  dir=$(make_case failover-ceiling-forced)
+  rc=$(CODEX_TEST_HEAD=$fo_head CODEX_TEST_FORCE_PUSH=9999999999999999999999999999999999999999 run_trigger_only "$dir" cap_failover_forced)
+  [ "$rc" = 0 ] && [ "$(trig_count "$dir")" = 1 ] && grep -q 'request attempts 9/10' "$dir/err.log" \
+    || fail "#2591: a marker on a force-pushed-away head must exempt its trigger when GraphQL names it (rc=$rc posts=$(trig_count "$dir"))"
+  dir=$(make_case failover-ceiling-forced-unreadable)
+  rc=$(CODEX_TEST_HEAD=$fo_head CODEX_TEST_FORCE_PUSH=fail run_trigger_only "$dir" cap_failover_forced)
+  [ "$rc" = 7 ] && [ "$(trig_count "$dir")" = 0 ] \
+    || fail "#2591: without the GraphQL heads that marker must not exempt its trigger (rc=$rc posts=$(trig_count "$dir"))"
+  dir=$(make_case failover-ceiling-forced-ok-without-graphql)
+  rc=$(CODEX_TEST_HEAD=$fo_head CODEX_TEST_FORCE_PUSH=fail run_trigger_only "$dir" cap_failover)
+  [ "$rc" = 0 ] && grep -q 'request attempts 9/10' "$dir/err.log" \
+    || fail "#2591: a failed GraphQL read must not drop the REST heads (rc=$rc)"
+  dir=$(make_case failover-ceiling-unreadable)
+  rc=$(CODEX_TEST_HEAD=$fo_head CODEX_TEST_COMMITS_FAIL=1 run_trigger_only "$dir" cap_failover)
+  [ "$rc" = 7 ] && [ "$(trig_count "$dir")" = 0 ] && grep -q "head set is unreadable" "$dir/err.log" \
+    || fail "#2553: an unreadable head set must exempt nothing (rc=$rc posts=$(trig_count "$dir"))"
+
+  # A failover stub that records both writes, so the readback sees them.
+  write_failover_stub() {
+    cat >"$1/scripts/gh-as-author.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+state_dir=${CODEX_TEST_STATE_DIR:?}
+live="$state_dir/live-comments.json"
+[ -f "$live" ] || printf '[]\n' >"$live"
+count=0
+[ -f "$state_dir/post-count" ] && count=$(cat "$state_dir/post-count")
+count=$((count + 1)); printf '%s\n' "$count" >"$state_dir/post-count"
+id=$((1000 + count)); now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+case "${8:-}" in
+  --body) [ "${9:-}" = "@codex review" ] || exit 98; body=$9
+          t=0; [ -f "$state_dir/trigger-count" ] && t=$(cat "$state_dir/trigger-count")
+          printf '%s\n' "$((t + 1))" >"$state_dir/trigger-count" ;;
+  --body-file) [ "${CODEX_TEST_MARKER_WRITE:-ok}" = ok ] || exit 97
+               [ "${MERGEPATH_CODEX_FAILOVER_MARKER_WRITE:-}" = 1 ] || exit 96
+               body=$(cat "$9"); printf '%s\n' "$body" >"$state_dir/marker-body" ;;
+  *) exit 95 ;;
+esac
+jq -c --argjson id "$id" --arg b "$body" --arg t "$now" '. + [{id: $id, user: {login: "nathanjohnpayne"}, body: $b, created_at: $t, updated_at: $t}]' "$live" >"$live.tmp"
+mv "$live.tmp" "$live"
+printf 'https://github.com/owner/repo/pull/999#issuecomment-%s\n' "$id"
+EOF
+    chmod +x "$1/scripts/gh-as-author.sh"
+  }
+  run_failover() { # <dir> [marker-write]
+    local rc=0
+    ( cd "$1" && PATH="$1/bin:$PATH" GH_TOKEN=test-token CODEX_TEST_STATE_DIR="$1/state" CODEX_TEST_SCENARIO=live \
+        CODEX_TEST_HEAD=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa CODEX_TEST_MARKER_WRITE="${2:-ok}" MERGEPATH_PHASE_4A_GATED=true \
+        ./scripts/codex-review-request.sh --trigger-only --failover --allow-moving-head 999 owner/repo \
+        >"$1/out.json" 2>"$1/err.log" ) || rc=$?
+    printf '%s\n' "$rc"
+  }
+
+  dir=$(make_case failover-marker)
+  write_failover_stub "$dir"
+  rc=$(run_failover "$dir")
+  [ "$rc" = 0 ] && [ "$(trig_count "$dir")" = 1 ] && [ "$(jqf "$dir" .failover_marker)" = recorded ] \
+    && [ "$(cat "$dir/state/marker-body")" = '<!-- mergepath-codex-failover:v1 head=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa trigger_comment_id=1001 -->' ] \
+    || fail "#2534: --failover must post one trigger and record its marker (rc=$rc marker=$(jqf "$dir" .failover_marker 2>/dev/null)); err=$(tail -3 "$dir/err.log")"
+  # A second failover on the same head reuses the trigger and marks nothing.
+  rc=$(run_failover "$dir")
+  [ "$rc" = 0 ] && [ "$(trig_count "$dir")" = 1 ] && [ "$(jqf "$dir" .failover_marker)" = not-posted ] \
+    && [ "$(jq length "$dir/state/live-comments.json")" = 2 ] \
+    || fail "#2534: a reused trigger must not gain a second marker (rc=$rc marker=$(jqf "$dir" .failover_marker 2>/dev/null))"
+
+  # A failed marker write is reported, not fatal: the trigger stands and counts.
+  dir=$(make_case failover-marker-fail)
+  write_failover_stub "$dir"
+  rc=$(run_failover "$dir" fail)
+  [ "$rc" = 0 ] && [ "$(trig_count "$dir")" = 1 ] && [ "$(jqf "$dir" .failover_marker)" = failed ] \
+    && jq -e '.trigger_posted == true and .trigger_requested == true' "$dir/out.json" >/dev/null \
+    || fail "#2534: a failed marker write must leave the posted trigger reported (rc=$rc marker=$(jqf "$dir" .failover_marker 2>/dev/null))"
+
+  # Plain --trigger-only never writes a marker.
+  dir=$(make_case failover-plain)
+  write_failover_stub "$dir"
+  rc=0
+  ( cd "$dir" && PATH="$dir/bin:$PATH" GH_TOKEN=test-token CODEX_TEST_STATE_DIR="$dir/state" CODEX_TEST_SCENARIO=live \
+      CODEX_TEST_HEAD=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa MERGEPATH_PHASE_4A_GATED=true \
+      ./scripts/codex-review-request.sh --trigger-only --allow-moving-head 999 owner/repo >"$dir/out.json" 2>"$dir/err.log" ) || rc=$?
+  [ "$rc" = 0 ] && [ "$(trig_count "$dir")" = 1 ] && [ "$(jqf "$dir" .failover_marker)" = null ] && [ ! -f "$dir/state/marker-body" ] \
+    || fail "#2534: --trigger-only without --failover wrote a marker (rc=$rc)"
+  [ "$FAIL" -ne "$before" ] || pass "#2534: --failover marks only the trigger it posts, a marked failover spends no ceiling slot, and a failed marker write is not fatal"
+}
+test_failover_marker
 
 echo "----"
 echo "test_codex_review_request_trigger_only: $PASS passed, $FAIL failed"

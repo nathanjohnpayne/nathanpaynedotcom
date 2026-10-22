@@ -1028,7 +1028,7 @@ class Segment:
     __slots__ = (
         "sid", "parent", "parent_is_capture", "parent_is_subshell", "words",
         "line", "pipe_to", "_cmd", "_resolved", "_cmd_index", "_cmd_literal",
-        "_function_binding", "eval_pattern_uncertain",
+        "_function_binding", "eval_pattern_uncertain", "tee_output_processes",
     )
 
     def __init__(self, sid, parent, parent_is_capture, line):
@@ -1062,6 +1062,9 @@ class Segment:
         self._cmd_literal = None
         self._function_binding = None
         self.eval_pattern_uncertain = False
+        # Standalone output-process operands retain their already-lexed child
+        # commands for the finite tee stderr side-write check (#1497).
+        self.tee_output_processes = []
 
 
 class Ref:
@@ -1127,6 +1130,7 @@ _ASSIGN_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\[[^]]*\])?\+?=")
 # makes these anchors correct rather than merely narrower.
 _FD_PREFIX = r"(?:\{[A-Za-z_][A-Za-z0-9_]*\}|[0-9]*)"
 _REDIR_RE = re.compile(r"^" + _FD_PREFIX + r"(&>>|&>|>>|>\||>&|<&|<>|<|>)")
+_HERESTRING_RE = re.compile(r"^" + _FD_PREFIX + r"<<<$")
 # OUTPUT redirections only.  Only these can carry a value past a capture --
 # `_v=$(printf %s "$PAT" >&2)` is the escape #1012 measured.  An INPUT
 # redirection (`<`, `<<`, `<<<`) feeds the command and cannot escape anything,
@@ -1470,6 +1474,7 @@ class Lexer:
         self.heredocs = []
         self.func_defs = []  # (name, body_start_index, body_end_index)
         self.quoted_data_offsets = set()  # Read-only function-header context.
+        self.parameter_data_offsets = set()  # WORD data cannot define functions.
         self.unterminated_ansi_c_quotes = []  # Original source offsets.
         self.unsupported_ansi_aliases = []  # Executable-context failure offsets.
         self.unsupported_ansi_sources = []  # Non-alias source-proof failures.
@@ -1490,6 +1495,9 @@ class Lexer:
             body_offset + i for i in sub.quoted_data_offsets
         )
         self.comment_offsets.update(body_offset + i for i in sub.comment_offsets)
+        self.parameter_data_offsets.update(
+            body_offset + i for i in sub.parameter_data_offsets
+        )
         self.xtrace_context_events.extend(
             (body_offset + pos, seg, word, eligible)
             for pos, seg, word, eligible in sub.xtrace_context_events
@@ -1594,6 +1602,7 @@ class Lexer:
             body, hd.owner, start_line, cur_ll, in_heredoc_body=True,
             source_offset=source_offset,
         )
+        masked = _mask_continued_pid_parameters(masked)
         for offset, raw in enumerate(masked.split("\n")):
             for name, in_ew in _iter_refs_ew(raw):
                 r = Ref(name, start_line + offset, hd.owner)
@@ -1617,6 +1626,7 @@ class Lexer:
         n = len(text)
         i = 0
         line = 1
+        parameter_backtick_end = -1
 
         cur_ll = LogicalLine(1)
         self.logical.append(cur_ll)
@@ -1720,6 +1730,8 @@ class Lexer:
         def start_segment(pipe=False, xtrace_boundary=True):
             finish_word()
             lv = cur_level()
+            # Delimiter ownership cannot carry into another command segment.
+            lv.pop("tee_heredoc_delimiter_pending", None)
             if xtrace_boundary:
                 lv["xtrace_keyword_prefix"] = True
             prev = lv["seg"]
@@ -1741,6 +1753,7 @@ class Lexer:
             cur_ll = LogicalLine(next_line)
             self.logical.append(cur_ll)
             lv = levels[0]
+            lv.pop("tee_heredoc_delimiter_pending", None)
             lv["xtrace_keyword_prefix"] = True
             seg = self._new_segment(None, False, next_line)
             lv["seg"] = seg
@@ -1750,6 +1763,15 @@ class Lexer:
             c = text[i]
             if "'" in quotes or '"' in quotes:
                 self.quoted_data_offsets.add(i)
+            if any(q.startswith("${") for q in quotes):
+                self.parameter_data_offsets.add(i)
+                # Retain executable backtick child context without changing
+                # the existing token/reference walk of the parameter WORD.
+                if c == "`" and "'" not in quotes and i >= parameter_backtick_end:
+                    end = _skip_backtick(text, i)
+                    if end > i + 1 and text[end - 1] == "`":
+                        self.function_source_children.append((i + 1, Lexer(text[i + 1:end - 1])))
+                        parameter_backtick_end = end
 
             # ---- inside a here-doc body ----
             if in_heredoc is not None:
@@ -1835,6 +1857,15 @@ class Lexer:
             # ---- expansions and quotes ----
             if c == "$" and i + 1 < n:
                 nxt = text[i + 1]
+                pid_end = _pid_parameter_end(text, i)
+                if pid_end is not None:
+                    # PID special parameter: the second dollar cannot start a
+                    # reference, even across an active continuation. Keep
+                    # logical word spelling and physical source line counts.
+                    cur_level()["word"].append("$$")
+                    line += text[i:pid_end].count("\n")
+                    i = pid_end
+                    continue
                 if nxt == "[":
                     # A raw legacy arithmetic bound withholds new ANSI proof
                     # without changing this loop's existing token semantics.
@@ -2040,8 +2071,14 @@ class Lexer:
             # ---- here-doc / here-string openers ----
             if c == "<" and i + 1 < n and text[i + 1] == "<":
                 if i + 2 < n and text[i + 2] == "<":
-                    # here-string: the following word belongs to this segment
-                    cur_level()["seg"].words.append("<<<")
+                    # Reuse the existing redirection prefix grammar: an
+                    # adjacent descriptor belongs to the operator, not its word.
+                    prefix = "".join(cur_level()["word"])
+                    if not _is_fd_prefix(prefix):
+                        finish_word()
+                        prefix = ""
+                    cur_level()["word"] = []
+                    cur_level()["seg"].words.append(prefix + "<<<")
                     i += 3
                     continue
                 j = i + 2
@@ -2101,6 +2138,9 @@ class Lexer:
                     j += 1
                     continue
                 delim = "".join(delim_chars)
+                # A recorded << has already consumed its delimiter. An empty
+                # delimiter before >( ) instead leaves that operand pending.
+                cur_level()["tee_heredoc_delimiter_pending"] = not bool(delim)
                 if delim:
                     hd = HereDoc(delim, interpolating, strip_tabs, cur_level()["seg"])
                     pending_heredocs.append(hd)
@@ -2164,6 +2204,44 @@ class Lexer:
                 # process substitution: a NON-capturing level, so the emitter
                 # inside is judged on its own merits
                 parent_seg = cur_level()["seg"]
+                # This substitution consumes the pending delimiter target,
+                # but must not itself become a tee output operand. Later
+                # standalone operands belong to their own argument positions.
+                delimiter_target = cur_level().pop("tee_heredoc_delimiter_pending", False)
+                previous = parent_seg.words[-1] if parent_seg.words else ""
+                redirection = _REDIR_RE.match(previous)
+                probe = Segment(-1, None, False, line)
+                probe.words = list(parent_seg.words)
+                # Test the logical preceding character without rewriting
+                # source offsets. An escaped backslash leaves LF as a boundary.
+                operand_start = i
+                while text[max(0, operand_start - 2):operand_start] == "\\\n":
+                    slash = operand_start - 2
+                    run_start = slash
+                    while run_start > 0 and text[run_start - 1] == "\\":
+                        run_start -= 1
+                    if (slash - run_start) % 2:
+                        break
+                    operand_start -= 2
+                tee_operand = (
+                    c == ">" and not cur_level()["word"]
+                    and text[operand_start - 1:operand_start] in (" ", "\t", "\n")
+                    and resolve_command(probe)[0] == "tee"
+                    and not delimiter_target
+                    and not _HERESTRING_RE.fullmatch(previous)
+                    and not (redirection and redirection.end() == len(previous))
+                )
+                if (parent_seg.words and _HERESTRING_RE.fullmatch(parent_seg.words[-1])
+                        and not cur_level()["word"]):
+                    # This child still occupies the here-string operand word.
+                    # A width-only marker must not look like output redirection.
+                    cur_level()["word"].append("<()")
+                elif (redirection and redirection.end() == len(previous)
+                        and not cur_level()["word"]):
+                    # The consumed target occupies a word even before the
+                    # command appears. Resolving later must not consume the
+                    # command word as this redirection's target instead.
+                    cur_level()["word"].append("<()")
                 seg = self._new_segment(parent_seg, False, line)
                 cur_ll.segments.append(seg)
                 levels.append(
@@ -2171,6 +2249,8 @@ class Lexer:
                         "seg": seg,
                         "capture": False,
                         "kind": "procsub",
+                        "tee_output_owner": parent_seg if tee_operand else None,
+                        "tee_output_start": len(cur_ll.segments) - 1,
                         "word": [],
                         "saved_quotes": quotes,
                     }
@@ -2342,6 +2422,22 @@ class Lexer:
                 if len(levels) > 1:
                     finish_word()
                     kind = levels[-1]["kind"]
+                    owner = levels[-1].get("tee_output_owner")
+                    operand_end = i + 1
+                    while (owner is not None
+                           and text[operand_end:operand_end + 2] == "\\\n"):
+                        operand_end += 2
+                    if (owner is not None
+                            and text[operand_end:operand_end + 2] not in ("<(", ">(")
+                            and (operand_end == n or text[operand_end] in " \t\n;&|()<>")):
+                        # Concatenated pathname words and redirection targets
+                        # are not standalone tee operands. Keep only direct
+                        # children; nested substitutions retain their own role.
+                        owner.tee_output_processes.append([
+                            child for child in cur_ll.segments[
+                                levels[-1]["tee_output_start"]:
+                            ] if child.parent is owner and child.words
+                        ])
                     quotes = levels[-1]["saved_quotes"]
                     levels.pop()
                     if kind == "cmdsub":
@@ -2684,6 +2780,34 @@ def _skip_balanced_parens_legacy(text, start):
     return n
 
 
+def _pid_parameter_end(text, start):
+    """Consume two expansion dollars across only active backslash-LF spans."""
+    if text[start:start + 1] != "$":
+        return None
+    end = start + 1
+    while text.startswith("\\\n", end):
+        end += 2
+    return end + 1 if text[end:end + 1] == "$" else None
+
+
+def _mask_continued_pid_parameters(text):
+    """Keep physical here-doc lines while consuming a cross-line PID pair."""
+    chars = list(text)
+    i = 0
+    while i < len(text):
+        if text[i] == "\\":
+            i += 2
+            continue
+        end = _pid_parameter_end(text, i)
+        if end is not None:
+            if end > i + 2:
+                chars[i] = chars[end - 1] = " "
+            i = end
+            continue
+        i += 1
+    return "".join(chars)
+
+
 def ident_at(text, pos):
     """Match a shell identifier at `pos`, transparently across `\\<newline>`.
 
@@ -2865,6 +2989,10 @@ def _iter_refs_at(s):
             i += 2
             continue
         if ch == "$":
+            pid_end = _pid_parameter_end(s, i)
+            if pid_end is not None:
+                i = pid_end
+                continue
             if i + 1 < n and s[i + 1] == "{":
                 name = braced_ref_at(s, i)
                 if name:
@@ -3110,8 +3238,19 @@ def resolve_command(seg):
         if w in ("{", "}"):
             idx += 1
             continue
-        if w == "<<" or w == "<<<":
+        if w == "<<":
+            # The lexer already consumed the here-doc delimiter.
             idx += 1
+            continue
+        if _HERESTRING_RE.fullmatch(w):
+            # Spaced and attached source forms retain a separate operand word.
+            if (idx + 1 < len(words)
+                    and _unquote_command_word(words[idx + 1], allow_empty=True) is None):
+                # Expanding operands can diagnose before the command runs.
+                # Keep the parent's opaque reading, without grading expansion.
+                seg._cmd = (UNRESOLVED, has_redir)
+                return seg._cmd
+            idx += 2
             continue
         if _ASSIGN_RE.match(w):
             idx += 1
@@ -3229,7 +3368,7 @@ def tee_file_operands(seg):
             continue
         if w in ("{", "}", "<<"):
             continue
-        if w == "<<<":
+        if _HERESTRING_RE.fullmatch(w):
             skip_next = True  # the here-string word, not a file operand
             continue
         m = _REDIR_RE.match(w)
@@ -3249,6 +3388,23 @@ def tee_file_operands(seg):
             continue
         files.append(lit)
     return files
+
+
+def _tee_process_substitution_sidewrite(seg):
+    """The measured single-cat stderr operand, not general stdin dataflow."""
+    if resolve_command(seg)[0] != "tee":
+        return False
+    for children in seg.tee_output_processes:
+        if len(children) != 1:
+            continue  # No command-list or process-substitution pipeline model.
+        child = children[0]
+        if (resolve_command(child)[0] == "cat" and child._cmd_index is not None
+                and all(re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", word)
+                        for word in child.words[:child._cmd_index])
+                and child.pipe_to is None
+                and child.words[child._cmd_index + 1:] in ([">&2"], ["1>&2"])):
+            return True
+    return False
 
 
 def _printf_literal(raw, literal):
@@ -3606,7 +3762,7 @@ def reaches_output(ref, emitter_helpers, helper_routing=None):
         # `cat`/`tee` write their standard input, so a here-doc body or a
         # here-string handed to one is an emission by the same rule.
         elif kind != EMIT and cmd in STDIN_ECHOERS:
-            if note is not None or "<<<" in seg.words:
+            if note is not None or any(_HERESTRING_RE.fullmatch(w) for w in seg.words):
                 kind = EMIT
                 if note is None:
                     note = "here-string"
@@ -3621,6 +3777,12 @@ def reaches_output(ref, emitter_helpers, helper_routing=None):
             return False, ""
         else:
             emitter = cmd or emitter
+        # The emitted value has reached this tee. Its recorded stderr side
+        # write is independent of stdout pipeline/capture/subshell routing.
+        if _tee_process_substitution_sidewrite(seg):
+            return True, _why(
+                note, "tee, whose output process substitution writes to stderr"
+            )
         if seg.pipe_to is not None:
             # The value goes into the next segment's stdin rather than to a
             # terminal -- unless a redirection moves fd 1 somewhere the pipe
@@ -3835,6 +3997,15 @@ def _mask_heredoc_body_lines(text, lx=None):
     return "".join(masked)
 
 
+def _function_header_is_data(lx, offset):
+    # Child source owns its own context, even when the containing WORD is data.
+    for start, child in lx.function_source_children:
+        if start <= offset < start + len(child.text):
+            return _function_header_is_data(child, offset - start)
+    return (offset in lx.quoted_data_offsets or offset in lx.comment_offsets
+            or offset in lx.parameter_data_offsets)
+
+
 def _iter_function_definitions(text):
     """Yield each recognized function definition as (match, name, body).
 
@@ -3856,10 +4027,7 @@ def _iter_function_definitions(text):
     lx = Lexer(text)
     structural = _mask_heredoc_body_lines(text, lx)
     for m in _FUNC_DEF_RE.finditer(structural):
-        if (
-            m.start("name") in lx.quoted_data_offsets
-            or m.start("name") in lx.comment_offsets
-        ):
+        if _function_header_is_data(lx, m.start("name")):
             continue
         name = m.group("name")
         if name in RESERVED_WORDS:
@@ -4006,7 +4174,7 @@ def discover_emitter_helpers(text, return_routing=False):
                         if not (
                             cmd in STDIN_ECHOERS
                             and cmd not in bodies
-                            and "<<<" in seg.words
+                            and any(_HERESTRING_RE.fullmatch(w) for w in seg.words)
                         ):
                             continue
                     for w in seg.words:
@@ -4329,6 +4497,10 @@ def _heredoc_data_has_positional(body):
         if body[i] == "\\" and body[i + 1:i + 2] in ("$", "`", "\\", "\n"):
             i += 2
             continue
+        pid_end = _pid_parameter_end(body, i)
+        if pid_end is not None:
+            i = pid_end
+            continue
         if body.startswith("${", i):
             try:
                 end = _simple_parameter_end(body, i)
@@ -4403,6 +4575,10 @@ def _word_has_verbatim_positional_exact(w):
         if in_double and c == "$" and w[i + 1 : i + 2] == "{":
             _simple_parameter_end(w, i)  # raises on a word it cannot read
         if c == "$":
+            pid_end = _pid_parameter_end(w, i)
+            if pid_end is not None:
+                i = pid_end
+                continue
             if i + 1 < n and w[i + 1] == "{":
                 j = i + 2
                 if j < n and w[j] in "#!":
@@ -4443,6 +4619,10 @@ def _word_has_verbatim_positional_legacy(w):
             i = n if j == -1 else j + 1
             continue
         if c == "$":
+            pid_end = _pid_parameter_end(w, i)
+            if pid_end is not None:
+                i = pid_end
+                continue
             if i + 1 < n and w[i + 1] == "{":
                 j = i + 2
                 if j < n and w[j] in "#!":
@@ -5051,7 +5231,8 @@ def _text_enables_xtrace(text, outer_only=False):
 def scan_text(text, path="<text>", _depth=0, _initial_xtrace=False,
               _uncertain_eval_output=False):
     """Return (findings, pragma_errors)."""
-    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    # Preserve lone CR as shell data; only CRLF has established normalization.
+    text = text.replace("\r\n", "\n")
     helpers, routed_any, routed_fd1 = discover_emitter_helpers(text, return_routing=True)
     lx = Lexer(text)
     findings = []
@@ -5197,7 +5378,9 @@ def scan_text(text, path="<text>", _depth=0, _initial_xtrace=False,
         for ref in ll.refs:
             if ref.line in exempt_lines or ref.seg in exempt_segments:
                 continue
-            hit, why = reaches_output(ref, helpers, (routed_any, routed_fd1))
+            hit, why = reaches_output(
+                ref, helpers, (routed_any, routed_fd1)
+            )
             if not hit and _uncertain_eval_output:
                 hit, why = True, (
                     "uncertain pre-eval expansion may change how this "
@@ -5475,7 +5658,7 @@ def _command_arguments(words, start):
             continue
         if word in ("{", "}", "<<"):
             continue
-        if word == "<<<":
+        if _HERESTRING_RE.fullmatch(word):
             skip_next = True
             continue
         match = _REDIR_RE.match(word)
@@ -5541,6 +5724,8 @@ def shell_file_operands(text):
     the operand, so the fragment behind it kept its non-shell classification
     and was never read while bash executed it (#1032 round 3 P1).
     """
+    # This discovery lexer receives raw text, independently of scan_text.
+    text = text.replace("\r\n", "\n")
     out = []
     lx = Lexer(text)
     for ll in lx.logical:
@@ -5575,7 +5760,8 @@ def source_operands(text):
 
 
 def _read_text(path):
-    with open(path, "r", encoding="utf-8", errors="replace") as fh:
+    # Keep raw line endings until the separate scan/discovery lexer entries.
+    with open(path, "r", encoding="utf-8", errors="replace", newline="") as fh:
         return fh.read()
 
 
@@ -5728,8 +5914,7 @@ def scan_tree(root):
     findings = []
     for p in shell:
         try:
-            with open(p, "r", encoding="utf-8", errors="replace") as fh:
-                text = fh.read()
+            text = _read_text(p)
         except OSError as exc:
             errors.append("%s: unreadable: %s" % (p, exc))
             continue
@@ -9035,6 +9220,47 @@ CORPUS = [
         'helper-backtick-next-line-code',
         MUST_FLAG,
         'out=`\nfunction log\n{ echo "$1"; }\nlog "$GH_TOKEN" >&2`\n',
+    ),
+    # Non-executable parameter WORD data and contained code (#2087).
+    (
+        'helper-parameter-word-header-data',
+        MUST_NOT_FLAG,
+        'data=${UNSET:-\ntrue()\n(\n echo "$1"\n)\n}\ntrue "$GH_TOKEN"\n',
+    ),
+    (
+        'helper-parameter-word-quoted-header-data',
+        MUST_NOT_FLAG,
+        'data="${UNSET:-\ntrue()\n(\n echo "$1"\n)\n}"\ntrue "$GH_TOKEN"\n',
+    ),
+    (
+        'helper-parameter-word-actual-function',
+        MUST_FLAG,
+        'true()\n(\n echo "$1"\n)\ntrue "$GH_TOKEN"\n',
+    ),
+    (
+        'helper-parameter-word-substitution-emits',
+        MUST_FLAG,
+        'data=${UNSET:-$(function log\n{ echo "$1"; }\nlog "$GH_TOKEN" >&2)}\n',
+    ),
+    (
+        'helper-parameter-word-substitution-captured',
+        MUST_NOT_FLAG,
+        'data=${UNSET:-$(function log\n{ echo "$1"; }\nlog "$GH_TOKEN")}\n',
+    ),
+    (
+        'helper-parameter-word-substitution-nonemitter',
+        MUST_NOT_FLAG,
+        'data=${UNSET:-$(function log\n{ : "$1"; }\nlog "$GH_TOKEN" >&2)}\n',
+    ),
+    (
+        'helper-parameter-word-substitution-quoted-data',
+        MUST_NOT_FLAG,
+        'data=${UNSET:-$(value=\'\ntrue()\n{ echo "$1"; }\n\'\ntrue "$GH_TOKEN" >&2)}\n',
+    ),
+    (
+        'helper-parameter-word-nested-data',
+        MUST_NOT_FLAG,
+        'data=${UNSET:-${OTHER:-\ntrue()\n(\n echo "$1"\n)\n}}\ntrue "$GH_TOKEN"\n',
     ),
     (
         'helper-comment-header-data',
@@ -14203,8 +14429,8 @@ def run_oracle(body, workdir, name, shebang=None, run_via=None, sample=None, fix
     path = os.path.join(workdir, name)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     text = (shebang if shebang is not None else oracle_prologue(sample)) + body
-    with open(path, "w", encoding="utf-8") as fh:
-        fh.write(text)
+    with open(path, "wb") as fh:
+        fh.write(text.encode("utf-8"))
     os.chmod(path, 0o755)
     env = {
         "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
@@ -15648,6 +15874,654 @@ KNOWN_BROADER.update({cid: (
     "option state are reconstructed (#1465 extglob review repair)."
 ) for cid in ('eval-extglob-extglob-not', 'eval-extglob-safe-matched-plus', 'eval-extglob-safe-unmatched-at', 'eval-extglob-opener-not-space')})
 
+def _pid_continuation_cases():
+    """Preserve logical dollar pairs and physical reference positions."""
+    failures = []
+    for reader in (_word_has_verbatim_positional_exact,
+                   _word_has_verbatim_positional_legacy,
+                   _heredoc_data_has_positional):
+        for word, expected in (
+            ("$\\\n$$1", True),
+            ("$\\\n$1", False),
+            ("$\\\n$${1}", True),
+            ("$\\\n${1}", False),
+            ("$\\\n$\\\n$1", True),
+            ("$\\\\\n$$1", False),
+        ):
+            if reader(word) != expected:
+                failures.append("PID continuation %s: %r expected %s" %
+                                (reader.__name__, word, expected))
+    raw = "$\\\n$$GH_TOKEN"
+    clean = "$\\\n$GH_TOKEN"
+    if _iter_refs_at(raw) != [("GH_TOKEN", raw.rfind("$GH_TOKEN"))]:
+        failures.append("PID continuation raw reader: real dollar offset lost")
+    if _iter_refs_at(clean):
+        failures.append("PID continuation raw reader: literal PID suffix flagged")
+    for source, expected_lines in (
+        ("echo \"$\\\n$$GH_TOKEN\"\necho \"$GH_TOKEN\"\n", [2,3]),
+        ("echo \"$\\\n\\\n$$GH_TOKEN\"\n", [3]),
+        ("cat <<EOF\n$\\\n$$GH_TOKEN\nEOF\n", [3]),
+        ("cat <<EOF\n$\\\n$GH_TOKEN\nEOF\n", []),
+        ("echo \"$\\\n$GH_TOKEN\"\necho \"$GH_TOKEN\"\n", [3]),
+    ):
+        findings, errors = scan_text(source)
+        if errors or [f.line for f in findings] != expected_lines:
+            failures.append("PID continuation source lines: %r expected %s, got %s/%s" %
+                            (source, expected_lines, [f.line for f in findings], errors))
+    return failures
+
+
+def _tee_process_substitution_cases():
+    """Retain a standalone measured tee operand without inventing a path."""
+    failures = []
+    for consumer, expected in [
+        ("cat >&2", True), ("cat 1>&2", True),
+        ("cat >/dev/null", False), ("cat 1>/dev/null", False),
+        ("cat >&2; :", False), ("cat >&2 | cat", False),
+    ]:
+        text = 'printf %%s "$GH_TOKEN" | tee >(%s) | grep -qF zz\n' % consumer
+        lx = Lexer(text)
+        tee = next(seg for ll in lx.logical for seg in ll.segments
+                   if seg.parent is None and resolve_command(seg)[0] == "tee")
+        if len(tee.tee_output_processes) != 1:
+            failures.append("tee process operand: missing child link for " + consumer)
+        if _tee_process_substitution_sidewrite(tee) != expected:
+            failures.append("tee process sidewrite: wrong consumer boundary for " + consumer)
+        findings, errors = scan_text(text)
+        if bool(findings) != expected or errors:
+            failures.append("tee process sidewrite: wrong finding/error for " + consumer)
+    for text in [
+        'tee <(cat >&2)\n', 'tee prefix>(cat >&2)\n',
+        'tee >(cat >&2)suffix\n', 'tee > >(cat >&2)\n',
+        'tee >(cat >&2)>(cat >/dev/null)\n',
+        'tee >(cat >/dev/null)>(cat >&2)\n',
+        'tee <<< >(cat >&2)\n', '>(cat >&2) tee\n',
+        'tee << >(cat >&2)\n',
+        'cat >(cat >&2)\n',
+    ]:
+        lx = Lexer(text)
+        if any(seg.tee_output_processes for ll in lx.logical for seg in ll.segments):
+            failures.append("tee process operand: admitted a non-operand " + repr(text))
+    text = ('printf %s "$GH_TOKEN" | tee >(cat >/dev/null) '
+            '>(cat >&2) | grep -qF zz\n')
+    findings, errors = scan_text(text)
+    if not findings or errors:
+        failures.append("tee process sidewrite: later output operand lost")
+    findings, errors = scan_text(text.replace('"$GH_TOKEN"', 'safe'))
+    if findings or errors:
+        failures.append("tee process sidewrite: invented a credential reference")
+    for cid, expected, body in _tee_review_cases():
+        findings, errors = scan_text(body)
+        if bool(findings) != (expected == MUST_FLAG) or errors:
+            failures.append("tee review boundary: " + cid)
+    for cid, expected, body in _tee_round2_cases() + _tee_namespace_cases():
+        findings, errors = scan_text(body)
+        if bool(findings) != (expected == MUST_FLAG) or errors:
+            failures.append("tee round2 boundary: " + cid)
+    for cid, expected, body in _tee_continuation_cases():
+        findings, errors = scan_text(body)
+        if bool(findings) != (expected == MUST_FLAG) or errors:
+            failures.append("tee continuation boundary: " + cid)
+        if cid.startswith("tee-continuation-"):
+            owners = [seg for ll in Lexer(body).logical for seg in ll.segments
+                      if seg.parent is None and resolve_command(seg)[0] == "tee"]
+            expected_links = 1 if cid in (
+                "tee-continuation-space", "tee-continuation-pipe",
+                "tee-continuation-repeated", "tee-continuation-null",
+            ) else 0
+            if sum(len(seg.tee_output_processes) for seg in owners) != expected_links:
+                failures.append("tee continuation child links: " + cid)
+    for suffix, expected_links in (
+        ('\\\n', 1),
+        ('\\\\\n', 0),
+        ('\\\\\\\n', 0),
+        ('\\\r\n', 0),
+        ('\\\r', 0),
+    ):
+        text = 'tee >(cat >&2)' + suffix
+        links = sum(len(seg.tee_output_processes)
+                    for ll in Lexer(text).logical for seg in ll.segments)
+        if links != expected_links:
+            failures.append("tee continuation raw boundary: " + repr(suffix))
+    body = _tee_continuation_cases()[2][2] + 'echo "$GH_TOKEN"\n'
+    findings, errors = scan_text(body)
+    if errors or [f.line for f in findings] != [1, body.count("\n")]:
+        failures.append("tee continuation boundary: physical finding lines changed")
+    for cid, expected, body in _tee_identity_cases():
+        findings, errors = scan_text(body)
+        if bool(findings) != (expected == MUST_FLAG) or errors:
+            failures.append("tee identity boundary: " + cid)
+    for consumer in (
+        "command cat >&2", "command -v cat >&2", "env LC_ALL=C cat >&2",
+        "LC_ALL=C command cat >&2", "LC_ALL=C cat -- >&2",
+        "A[0]=x cat >&2", "A+=x cat >&2",
+    ):
+        text = 'tee >(' + consumer + ')\n'
+        tee = next(seg for ll in Lexer(text).logical for seg in ll.segments
+                   if seg.parent is None and resolve_command(seg)[0] == "tee")
+        if _tee_process_substitution_sidewrite(tee):
+            failures.append("tee scalar prefix boundary: " + consumer)
+    for cid, expected, body in _tee_routing_cases():
+        findings, errors = scan_text(body)
+        if bool(findings) != (expected == MUST_FLAG) or errors:
+            failures.append("tee stderr routing boundary: " + cid)
+    for option in ("--help", "--version"):
+        text = ('PATH="$PWD/bin:$PATH"\n'
+                'printf %s "$GH_TOKEN" | tee ' + option + ' >(cat >&2) | grep -qF zz\n')
+        findings, errors = scan_text(text)
+        if not findings or errors:
+            failures.append("tee implementation uncertainty: " + option)
+    # This is an existing routing-role assertion, not an oracle claim about
+    # filename diagnostics: an argument alone is not admitted as tee stdin.
+    lx = Lexer('tee "$GH_TOKEN" >(cat >&2)\n')
+    ref = next(ref for ll in lx.logical for ref in ll.refs if ref.name == "GH_TOKEN")
+    if reaches_output(ref, set())[0]:
+        failures.append("tee stderr routing: value never admitted as emitted stdin")
+    body = 'out=$(\n  printf %s "$GH_TOKEN" | tee >(cat >&2)\n)\n'
+    findings, errors = scan_text(body)
+    if errors or [finding.line for finding in findings] != [2]:
+        failures.append("tee stderr routing: physical reference line changed")
+    # Metadata-only incomplete syntax isolates lifetime resets without an
+    # oracle claim about how Bash executes a missing delimiter.
+    for label, text, expected_links in [
+        ("unconsumed", 'tee << >(cat >&2)\n', [0]),
+        ("same-command", 'tee << >(cat >/dev/null) >(cat >&2)\n', [1]),
+        ("same-command-null", 'tee << >(cat >/dev/null) >(cat >/dev/null)\n', [1]),
+        ("next-segment", 'tee << ; tee >(cat >&2)\n', [0, 1]),
+        ("next-logical-line", 'tee <<\ntee >(cat >&2)\n', [0, 1]),
+    ]:
+        owners = [seg for ll in Lexer(text).logical for seg in ll.segments
+                  if seg.parent is None and resolve_command(seg)[0] == "tee"]
+        if [len(seg.tee_output_processes) for seg in owners] != expected_links:
+            failures.append("tee delimiter ownership: " + label)
+        expected_sidewrite = label in ("same-command", "next-segment", "next-logical-line")
+        if any(_tee_process_substitution_sidewrite(seg) for seg in owners) != expected_sidewrite:
+            failures.append("tee delimiter consumer boundary: " + label)
+    for cid, expected, body in _tee_delimiter_lifetime_cases():
+        findings, errors = scan_text(body)
+        if bool(findings) != (expected == MUST_FLAG) or errors:
+            failures.append("tee delimiter lifetime: " + cid)
+        if findings and [finding.line for finding in findings] != [1]:
+            failures.append("tee delimiter lifetime: physical reference line " + cid)
+        owners = [seg for ll in Lexer(body).logical for seg in ll.segments
+                  if seg.parent is None and resolve_command(seg)[0] == "tee"]
+        if [len(seg.tee_output_processes) for seg in owners] != [0, 1]:
+            failures.append("tee delimiter lifetime: later-command ownership " + cid)
+    for text, command, index, links, sidewrite in [
+        ('3> >(cat >/dev/null) tee >(cat >&2) >/dev/null\n', "tee", 2, 1, True),
+        ('3> >(cat >/dev/null) tee >(cat >/dev/null) >/dev/null\n', "tee", 2, 1, False),
+        ('tee 3> >(cat >/dev/null) >(cat >&2)\n', "tee", 0, 1, True),
+        ('tee 3> >(cat >/dev/null) >(cat >/dev/null)\n', "tee", 0, 1, False),
+        ('3> >(cat >&2) tee >(cat >/dev/null)\n', "tee", 2, 1, False),
+        ('3> >(cat >/dev/null) tee\n', "tee", 2, 0, False),
+        ('3> >(cat >/dev/null) printf %s safe\n', "printf", 2, 0, False),
+        ('3> >(cat >/dev/null) 4> >(cat >/dev/null) tee >(cat >&2)\n', "tee", 4, 1, True),
+    ]:
+        segments = [seg for ll in Lexer(text).logical for seg in ll.segments
+                    if seg.parent is None and seg.words]
+        if len(segments) != 1:
+            failures.append("tee leading target: segment count " + repr(text))
+            continue
+        owner = segments[0]
+        if resolve_command(owner)[0] != command or owner._cmd_index != index:
+            failures.append("tee leading target: command/index " + repr(text))
+        if len(owner.tee_output_processes) != links:
+            failures.append("tee leading target: operand ownership " + repr(text))
+        if _tee_process_substitution_sidewrite(owner) != sidewrite:
+            failures.append("tee leading target: consumer boundary " + repr(text))
+    for cid, expected, body in _tee_leading_target_cases():
+        findings, errors = scan_text(body)
+        if bool(findings) != (expected == MUST_FLAG) or errors:
+            failures.append("tee leading target: " + cid)
+        if findings and [finding.line for finding in findings] != [1]:
+            failures.append("tee leading target: physical reference line " + cid)
+        lx = Lexer(body)
+        ref = next(ref for ll in lx.logical for ref in ll.refs if ref.name == "GH_TOKEN")
+        owner = ref.seg.pipe_to
+        child_stderr = cid == "tee-leading-target-stderr"
+        reached, reason = reaches_output(ref, set())
+        if (owner is None or resolve_command(owner)[0] != "tee"
+                or _tee_process_substitution_sidewrite(owner) != child_stderr):
+            failures.append("tee leading target: child sink distinction " + cid)
+        # Null child output stays quiet; the existing terminal tee route
+        # still flags independently, without grading >/dev/null destinations.
+        expected_reason = ("tee, whose output process substitution writes to stderr"
+                           if child_stderr else "tee")
+        if not reached or reason != _why("piped standard input", expected_reason):
+            failures.append("tee leading target: inherited terminal route " + cid)
+    return failures
+
+
+def _tee_leading_target_cases():
+    """Inert leading-target declarations for parent-only native checks."""
+    prefix = 'printf %s "$GH_TOKEN" | 3> >(cat >/dev/null) tee '
+    return [
+        ("tee-leading-target-stderr", MUST_FLAG,
+         prefix + '>(cat >&2) >/dev/null\n'),
+        ("tee-leading-target-null", MUST_FLAG,
+         prefix + '>(cat >/dev/null) >/dev/null\n'),
+    ]
+
+
+def _tee_delimiter_lifetime_cases():
+    """Inert later-command pairs; native acceptance belongs to the parent."""
+    prefix = 'tee << >(cat >/dev/null); printf %s "$GH_TOKEN" | tee '
+    suffix = ' | grep -qF zz\nsafe\n>(cat > /dev/null)\n'
+    return [
+        ("tee-delimiter-later-command-stderr", MUST_FLAG,
+         prefix + '>(cat >&2)' + suffix),
+        ("tee-delimiter-later-command-null", MUST_NOT_FLAG,
+         prefix + '>(cat >/dev/null)' + suffix),
+    ]
+
+
+def _tee_routing_cases():
+    """Inert source declarations for the parent's dummy-profile oracle."""
+    pipe = 'printf %s "$GH_TOKEN" | tee >(cat >&2)'
+    null_pipe = pipe.replace('cat >&2', 'cat >/dev/null')
+    return [
+        ("tee-routing-capture-stderr", MUST_FLAG, 'out=$(' + pipe + ')\n'),
+        ("tee-routing-capture-null-child", MUST_NOT_FLAG, 'out=$(' + null_pipe + ')\n'),
+        ("tee-routing-subshell-capture-stderr", MUST_FLAG, 'out=$( (' + pipe + ') )\n'),
+        ("tee-routing-subshell-capture-null-child", MUST_NOT_FLAG, 'out=$( (' + null_pipe + ') )\n'),
+        ("tee-routing-null-stdout", MUST_FLAG, pipe + ' >/dev/null\n'),
+        ("tee-routing-capture-null-stdout", MUST_FLAG, 'out=$(' + pipe + ' >/dev/null)\n'),
+        ("tee-routing-capture-quiet-hop", MUST_NOT_FLAG,
+         'out=$(printf %s "$GH_TOKEN" | grep -qF zz | tee >(cat >&2))\n'),
+        ("tee-routing-capture-safe-input", MUST_NOT_FLAG,
+         'out=$(printf %s safe | tee >(cat >&2))\n'),
+        ("tee-routing-capture-concatenated-first", MUST_NOT_FLAG,
+         'out=$(printf %s "$GH_TOKEN" | tee >(cat >&2)>(cat >/dev/null))\n'),
+        ("tee-routing-capture-concatenated-last", MUST_NOT_FLAG,
+         'out=$(printf %s "$GH_TOKEN" | tee >(cat >/dev/null)>(cat >&2))\n'),
+    ]
+
+
+def _tee_identity_cases():
+    """Unproven tee implementations and scalar-prefix cat consumers."""
+    local = (
+        "cat >tee <<'LOCAL_TEE'\n"
+        '#!/bin/sh\n'
+        'for target in "$@"; do\n'
+        '  case "$target" in /dev/fd/*) exec /bin/cat >"$target";; esac\n'
+        'done\n'
+        'LOCAL_TEE\n'
+        'chmod +x tee\n'
+    )
+    noop = "printf '#!/bin/sh\\nexit 0\\n' >tee\nchmod +x tee\n"
+    pipe = 'printf %s "$GH_TOKEN" | tee >(cat >&2) | grep -qF zz\n'
+    return [
+        ('tee-path-local-help', MUST_FLAG, local + pipe.replace('| tee >(', '| ./tee --help >(')),
+        ('tee-path-local-version', MUST_FLAG, local + pipe.replace('| tee >(', '| ./tee --version >(')),
+        ('tee-path-local-null', MUST_NOT_FLAG, local + pipe.replace('| tee >(', '| ./tee --help >(').replace('cat >&2', 'cat >/dev/null')),
+        ('tee-path-local-safe', MUST_NOT_FLAG, local + pipe.replace('| tee >(', '| ./tee --help >(').replace('"$GH_TOKEN"', 'safe')),
+        ('tee-path-local-noop', MUST_FLAG, noop + pipe.replace('| tee >(', '| ./tee --help >(')),
+        ('tee-assignment-cat-stderr', MUST_FLAG, pipe.replace('>(cat', '>(LC_ALL=C cat')),
+        ('tee-assignment-cat-multiple', MUST_FLAG, pipe.replace('>(cat', '>(LC_ALL=C EXTRA="safe value" cat')),
+        ('tee-assignment-cat-fd1', MUST_FLAG, pipe.replace('>(cat >&2)', '>(LC_ALL=C cat 1>&2)')),
+        ('tee-assignment-cat-null', MUST_NOT_FLAG, pipe.replace('>(cat >&2)', '>(LC_ALL=C cat >/dev/null)')),
+        ('tee-assignment-cat-query', MUST_NOT_FLAG, pipe.replace('>(cat', '>(LC_ALL=C command -v cat')),
+        ('tee-enclosing-brace-null-stderr', MUST_FLAG, '{ ' + pipe.rstrip() + '; } 2>/dev/null\n'),
+        ('tee-enclosing-subshell-null-stderr', MUST_FLAG, '(' + pipe.rstrip() + ') 2>/dev/null\n'),
+        ('tee-enclosing-brace-stderr', MUST_FLAG, '{ ' + pipe.rstrip() + '; }\n'),
+        ('tee-enclosing-subshell-stderr', MUST_FLAG, '(' + pipe.rstrip() + ')\n'),
+        ('tee-path-qualified-function-usr', MUST_FLAG,
+         '/usr/bin/tee(){ /bin/cat >&2; }\n' + pipe.replace('| tee >(', '| /usr/bin/tee --help >(')),
+        ('tee-path-qualified-function-bin', MUST_FLAG,
+         '/bin/tee(){ /bin/cat >&2; }\n' + pipe.replace('| tee >(', '| /bin/tee --help >(')),
+    ]
+
+
+def _tee_continuation_cases():
+    """Logical operand boundaries retain continued separation and concatenation."""
+    continuation = "\\\n"
+    head = 'printf %s "$GH_TOKEN" | tee '
+    tail = ' | grep -qF zz\n'
+    return [
+        ('tee-continuation-space', MUST_FLAG, head + '>(cat >&2)' + continuation + tail),
+        ('tee-continuation-pipe', MUST_FLAG, head + '>(cat >&2)' + continuation + '| grep -qF zz\n'),
+        ('tee-continuation-repeated', MUST_FLAG, head + '>(cat >&2)' + continuation * 2 + '\t| grep -qF zz\n'),
+        ('tee-continuation-null', MUST_NOT_FLAG, head + '>(cat >/dev/null)' + continuation + tail),
+        ('tee-continuation-suffix', MUST_FLAG, head + '>(cat >&2)' + continuation + 'suffix' + tail),
+        ('tee-continuation-adjacent-first', MUST_NOT_FLAG, head + '>(cat >&2)' + continuation + '>(cat >/dev/null)' + tail),
+        ('tee-continuation-adjacent-last', MUST_NOT_FLAG, head + '>(cat >/dev/null)' + continuation + '>(cat >&2)' + tail),
+        ('tee-deferred-target-options', MUST_FLAG, head + '3> >(cat >/dev/null) --help >(cat >&2)' + tail),
+        ('tee-deferred-herestring-options', MUST_FLAG, head + '<<< >(cat >/dev/null) --help >(cat >&2)' + tail),
+        ('tee-deferred-stdin-null', MUST_FLAG, head + '</dev/null >(cat >&2)' + tail),
+        ('tee-deferred-stdin-herestring', MUST_FLAG, head + '<<< safe >(cat >&2)' + tail),
+        ('tee-deferred-stdin-heredoc', MUST_FLAG, head + '<<EOF >(cat >&2)' + tail + 'safe\nEOF\n'),
+    ]
+
+
+def _tee_round2_cases():
+    """Consumed targets and uncertain command bindings cannot hide side writes."""
+    pipe = 'printf %s "$GH_TOKEN" | tee >(cat >&2) | grep -qF zz\n'
+    alias = "shopt -s expand_aliases; alias tee='command tee --'\n"
+    return [
+        ("tee-round2-consumed-target", MUST_FLAG,
+         'printf %s "$GH_TOKEN" | tee 3> >(cat >/dev/null) >(cat >&2) | grep -qF zz\n'),
+        ("tee-round2-consumed-target-null", MUST_NOT_FLAG,
+         'printf %s "$GH_TOKEN" | tee 3> >(cat >/dev/null) >(cat >/dev/null) | grep -qF zz\n'),
+        ("tee-round2-cat-after", MUST_FLAG, pipe + 'cat(){ :; }\n'),
+        ("tee-round2-cat-false", MUST_FLAG, 'if false; then cat(){ :; }; fi; ' + pipe),
+        ("tee-round2-cat-subshell", MUST_FLAG, '(cat(){ :; })\n' + pipe),
+        ("tee-round2-alias-help", MUST_FLAG,
+         alias + pipe.replace('tee >(', 'tee --help >(')),
+        ("tee-round2-alias-version", MUST_FLAG,
+         alias + pipe.replace('tee >(', 'tee --version >(')),
+        ("tee-round2-alias-null", MUST_NOT_FLAG,
+         alias + pipe.replace('tee >(', 'tee --help >(').replace('cat >&2', 'cat >/dev/null')),
+        ("tee-round2-alias-qualified", MUST_FLAG,
+         alias + pipe.replace('tee >(', '/usr/bin/tee --help >(')),
+    ]
+
+
+def _tee_namespace_cases():
+    """Known setup builtins withhold only the optional unqualified exit proof."""
+    pipe = 'printf %s "$GH_TOKEN" | tee --help >(cat >&2) | grep -qF zz\n'
+    setups = (
+        ("eval", "eval \"alias tee='command tee --'\"\n"),
+        ("source", "source <(printf %s \"alias tee='command tee --'\")\n"),
+        ("dot", ". <(printf %s \"alias tee='command tee --'\")\n"),
+    )
+    return [
+        ("tee-round2-setup-" + name + "-" + suffix, rule,
+         'shopt -s expand_aliases\n' + setup + pipeline)
+        for name, setup in setups
+        for suffix, rule, pipeline in (
+            ("leak", MUST_FLAG, pipe),
+            ("null", MUST_NOT_FLAG, pipe.replace('cat >&2', 'cat >/dev/null')),
+            ("qualified", MUST_FLAG, pipe.replace('| tee ', '| /usr/bin/tee ')),
+        )
+    ]
+
+
+def _tee_review_cases():
+    """Reviewed namespace, consumed-delimiter and literal exit-mode pairs."""
+    return [
+        ("tee-review-cat-shadow", MUST_FLAG,
+         'cat(){ :; }\nprintf \'%s\' "$GH_TOKEN" | tee >(cat >&2) | grep -qF zz\n'),
+        ("tee-review-cat-shadow-absolute", MUST_FLAG,
+         'cat(){ :; }\nprintf \'%s\' "$GH_TOKEN" | tee >(/bin/cat >&2) | grep -qF zz\n'),
+        ("tee-review-heredoc-after", MUST_FLAG,
+         'tee <<EOF >(cat >&2) | grep -qF zz\n$GH_TOKEN\nEOF\n'),
+        ("tee-review-heredoc-before", MUST_FLAG,
+         'tee >(cat >&2) <<EOF | grep -qF zz\n$GH_TOKEN\nEOF\n'),
+        ("tee-review-heredoc-null", MUST_NOT_FLAG,
+         'tee <<EOF >(cat >/dev/null) | grep -qF zz\n$GH_TOKEN\nEOF\n'),
+        ("tee-review-heredoc-quoted", MUST_NOT_FLAG,
+         'tee <<\'EOF\' >(cat >&2) | grep -qF zz\n$GH_TOKEN\nEOF\n'),
+        ("tee-review-help", MUST_FLAG,
+         'printf \'%s\' "$GH_TOKEN" | tee --help >(cat >&2) | grep -qF zz\n'),
+        ("tee-review-version", MUST_FLAG,
+         'printf \'%s\' "$GH_TOKEN" | tee --version >(cat >&2) | grep -qF zz\n'),
+        ("tee-review-end-options", MUST_FLAG,
+         'printf \'%s\' "$GH_TOKEN" | tee -- --help >(cat >&2) | grep -qF zz\n'),
+        ("tee-review-opaque-option", MUST_FLAG,
+         'option=--\nprintf \'%s\' "$GH_TOKEN" | tee "$option" --help >(cat >&2) | grep -qF zz\n'),
+        ("tee-review-quoted-help", MUST_FLAG,
+         'printf \'%s\' "$GH_TOKEN" | tee \'--help\' >(cat >&2) | grep -qF zz\n'),
+        ("tee-review-append-help", MUST_FLAG,
+         'printf \'%s\' "$GH_TOKEN" | tee -a --help >(cat >&2) | grep -qF zz\n'),
+        ("tee-review-tee-shadow", MUST_FLAG,
+         'tee(){ /bin/cat >&2; }\nprintf \'%s\' "$GH_TOKEN" | tee --help >(cat >&2) | grep -qF zz\n'),
+        ("tee-review-qualified-tee-help", MUST_FLAG,
+         'tee(){ /bin/cat >&2; }\nprintf \'%s\' "$GH_TOKEN" | /usr/bin/tee --help >(cat >&2) | grep -qF zz\n'),
+    ]
+
+
+def _line_ending_normalization_cases(tmp, observe=None):
+    """Raw reads and each lexer entry retain the lone CR before CRLF."""
+    global Lexer
+
+    failures = []
+    text = '# boundary\r\r\nprintf safe\n'
+    expected = text.replace("\r\n", "\n")
+    root = os.path.join(tmp, "normalize-once")
+    path = os.path.join(root, "scripts", "fixture.sh")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "wb") as fh:
+        fh.write(text.encode("utf-8"))
+    preserved = _read_text(path) == text
+    if not preserved:
+        failures.append("line ending raw read: CR/CRLF bytes changed before lexing")
+    original = Lexer
+    seen = []
+
+    def observe_lexer(source):
+        if source.startswith("# boundary"):
+            seen.append(source)
+        return original(source)
+
+    try:
+        Lexer = observe_lexer
+        for label, action in (
+            ("direct", lambda: scan_text(text)),
+            ("discovery", lambda: shell_file_operands(text)),
+            ("tree", lambda: scan_tree(root)),
+        ):
+            seen.clear()
+            action()
+            passed = bool(seen) and all(source == expected for source in seen)
+            if not passed:
+                failures.append("line ending %s: expected one normalization, got %r" % (label, seen))
+            if observe is not None:
+                observe(dict(cid="normalize-once-" + label, raw_read_preserved=preserved,
+                             expected=repr(expected), observed=[repr(source) for source in seen],
+                             passed=passed and preserved))
+    finally:
+        Lexer = original
+    return failures
+
+
+def _line_ending_ingress_cases(tmp, run_programs=True, observe=None):
+    """Exact bytes distinguish direct scanning, tree reads and promotion."""
+    import hashlib
+
+    failures = []
+    for cid, rule, body in CORPUS:
+        if not cid.startswith("line-ending-"):
+            continue
+        root = os.path.join(tmp, cid)
+        path = os.path.join(root, "scripts", "fixture.sh")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        text = oracle_prologue() + body
+        raw = text.encode("utf-8")
+        with open(path, "wb") as fh:
+            fh.write(raw)
+        with open(path, "rb") as fh:
+            exact = fh.read() == raw
+        direct, direct_errors = scan_text(text, cid)
+        tree, tree_errors, count = scan_tree(root)
+        expected = rule == MUST_FLAG
+        line = oracle_prologue().count("\n") + (2 if "heredoc" in cid else 3)
+        read_preserved = _read_text(path) == text
+        passed = (exact and read_preserved and not direct_errors and not tree_errors
+                  and bool(direct) == expected and bool(tree) == expected and count == 1
+                  and all(f.line == line for f in direct + tree))
+        if observe is not None:
+            observe(dict(cid=cid, bytes_sha256=hashlib.sha256(raw).hexdigest(), exact_bytes=exact,
+                         read_preserved=read_preserved, direct_lines=[f.line for f in direct],
+                         direct_errors=direct_errors, tree_lines=[f.line for f in tree],
+                         tree_errors=tree_errors, count=count, passed=passed))
+        if not passed:
+            failures.append("line ending ingress %s: exact=%s preserved=%s direct=%s/%s tree=%s/%s count=%d" %
+                            (cid, exact, read_preserved, [f.line for f in direct], direct_errors,
+                             [f.line for f in tree], tree_errors, count))
+
+    for cid, body, expected in (
+        ("lone-cr-promoted", ': # \r read x <<EOF\n. ./payload.env\nEOF\n', True),
+        ("lone-cr-comment-data", ': # \r. ./payload.env\n', False),
+        ("crlf-promoted", '. ./payload.env\r\n', True),
+    ):
+        root = os.path.join(tmp, cid)
+        entry = os.path.join(root, "scripts", "main.sh")
+        os.makedirs(os.path.dirname(entry), exist_ok=True)
+        payload = os.path.join(root, "scripts", "payload.env")
+        entry_raw = (oracle_prologue() + body).encode("utf-8")
+        payload_raw = b'echo "$GH_TOKEN"\n'
+        with open(entry, "wb") as fh:
+            fh.write(entry_raw)
+        with open(payload, "wb") as fh:
+            fh.write(payload_raw)
+        with open(entry, "rb") as fh:
+            exact = fh.read() == entry_raw
+        with open(payload, "rb") as fh:
+            exact = exact and fh.read() == payload_raw
+        shell, discovery_errors, _roots = discover_shell_files(root)
+        findings, errors, count = scan_tree(root)
+        expected_count = 2 if expected else 1
+        passed = (exact and not discovery_errors and not errors and len(shell) == expected_count
+                  and count == expected_count and bool(findings) == expected
+                  and all(f.path == "scripts/payload.env" and f.line == 1 for f in findings))
+        leaked = out = err = None
+        # This CRLF source-operand case pins established discovery
+        # compatibility, like fs-crlf; it is not a raw Bash execution claim.
+        if run_programs and cid != "crlf-promoted":
+            leaked, out, err = run_oracle(body, root, "scripts/main.sh")
+            passed = passed and leaked is expected
+            with open(entry, "rb") as fh:
+                passed = passed and fh.read() == (oracle_prologue() + body).encode("utf-8")
+        if observe is not None:
+            observe(dict(cid=cid, expected=expected, discovery_count=len(shell), count=count,
+                         exact_bytes=exact, entry_sha256=hashlib.sha256(entry_raw).hexdigest(),
+                         payload_sha256=hashlib.sha256(payload_raw).hexdigest(),
+                         discovery_errors=discovery_errors, errors=errors,
+                         findings=[str(f) for f in findings], leaked=leaked,
+                         oracle_run=run_programs and cid != "crlf-promoted",
+                         stdout=out, stderr=err, passed=passed))
+        if not passed:
+            failures.append("line ending promotion %s: discovered=%d/%s scanned=%d/%s findings=%s leaked=%s stdout=%r stderr=%r" %
+                            (cid, len(shell), discovery_errors, count, errors,
+                             [str(f) for f in findings], leaked, out, err))
+    failures.extend(_line_ending_normalization_cases(tmp, observe=observe))
+    return failures
+
+
+def _leading_herestring_cases():
+    """Here-string operands precede commands; here-doc delimiters are absent."""
+    failures = []
+    cases = [
+        ('<<< x echo "$GH_TOKEN"\n', "echo", 2, False),
+        ('<<<x echo "$GH_TOKEN"\n', "echo", 2, False),
+        ('<<< x printf \'%s\\n\' "$GH_TOKEN"\n', "printf", 2, False),
+        ('echo "$GH_TOKEN" <<< x\n', "echo", 0, False),
+        ('<<< x : "$GH_TOKEN"\n', ":", 2, False),
+        ('< /dev/null echo "$GH_TOKEN"\n', "echo", 2, False),
+        ('</dev/null echo "$GH_TOKEN"\n', "echo", 1, False),
+        ('>out echo "$GH_TOKEN"\n', "echo", 1, True),
+        ('<<EOF echo "$GH_TOKEN"\nx\nEOF\n', "echo", 1, False),
+        ('< /dev/null : "$GH_TOKEN"\n', ":", 2, False),
+    ]
+    for source, command, index, redirected in cases:
+        lx = Lexer(source)
+        seg = next(seg for ll in lx.logical for seg in ll.segments if seg.words)
+        actual = resolve_command(seg)
+        if actual != (command, redirected) or seg._cmd_index != index:
+            failures.append("leading here-string resolution: %r expected %s at %d, got %r at %s" %
+                            (source, command, index, actual, seg._cmd_index))
+        if source.startswith("<<<") and seg.words[:2] != ["<<<", "x"]:
+            failures.append("leading here-string lexer: operator and operand must be separate")
+    return failures
+
+
+def _herestring_operand_cases():
+    """Pin lexical operand width/order and inherited expansion opacity."""
+    failures = []
+    for source, words, command, index in (
+        ('echo<<< x "$GH_TOKEN"\n',
+         ['echo', '<<<', 'x', '"$GH_TOKEN"'], 'echo', 0),
+        ('printf<<<x \'%s\\n\' "$GH_TOKEN"\n',
+         ['printf', '<<<', 'x', "'%s\\n'", '"$GH_TOKEN"'], 'printf', 0),
+        ('<<< <(printf x) printf \'%s\\n\' "$GH_TOKEN"\n',
+         ['<<<', '<()', 'printf', "'%s\\n'", '"$GH_TOKEN"'], 'printf', 2),
+        ('<<< <(printf x)suffix : "$GH_TOKEN"\n',
+         ['<<<', '<()suffix', ':', '"$GH_TOKEN"'], ':', 2),
+        ('<<< >(:) echo "$GH_TOKEN"\n',
+         ['<<<', '<()', 'echo', '"$GH_TOKEN"'], 'echo', 2),
+        ('<<< \'<()\' : "$GH_TOKEN"\n',
+         ['<<<', "'<()'", ':', '"$GH_TOKEN"'], ':', 2),
+        ('<<< $((1/$GH_TOKEN)) :\n',
+         ['<<<', '$((1/$GH_TOKEN))', ':'], UNRESOLVED, None),
+        ('<<< "$GH_TOKEN" :\n',
+         ['<<<', '"$GH_TOKEN"', ':'], UNRESOLVED, None),
+        ('<<< \'$((1/$GH_TOKEN))\' : "$GH_TOKEN"\n',
+         ['<<<', "'$((1/$GH_TOKEN))'", ':', '"$GH_TOKEN"'], ':', 2),
+        ('\'<<<\' x echo "$GH_TOKEN"\n',
+         ["'<<<'", 'x', 'echo', '"$GH_TOKEN"'], '<<<', 0),
+    ):
+        lx = Lexer(source)
+        seg = next(seg for ll in lx.logical for seg in ll.segments if seg.words)
+        actual = resolve_command(seg)
+        if seg.words != words or actual != (command, False) or seg._cmd_index != index:
+            failures.append("here-string operand boundary: %r expected %r/%s/%s, got %r/%r/%s" %
+                            (source, words, command, index, seg.words, actual, seg._cmd_index))
+    return failures
+
+
+def _herestring_descriptor_cases():
+    """Keep bound descriptors and empty operands separate from command proof."""
+    failures = []
+    for prefix in ("0", "00", "12", "{fd}"):
+        for operand, command in (("echo", ":"), ("x", "echo")):
+            source = '%s<<< %s %s "$GH_TOKEN"\n' % (prefix, operand, command)
+            lx = Lexer(source)
+            seg = next(seg for ll in lx.logical for seg in ll.segments if seg.words)
+            if (seg.words != [prefix + "<<<", operand, command, '"$GH_TOKEN"']
+                    or resolve_command(seg) != (command, False) or seg._cmd_index != 2):
+                failures.append("here-string descriptor binding: %r got %r/%r/%s" %
+                                (source, seg.words, resolve_command(seg), seg._cmd_index))
+    for source, command, index in (
+        ('<<< \'\' : "$GH_TOKEN"\n', ':', 2),
+        ('<<< "" : "$GH_TOKEN"\n', ':', 2),
+        ('<<< \'\' "$cmd" "$GH_TOKEN"\n', UNRESOLVED, None),
+        ('<<< \'\' \'\' "$GH_TOKEN"\n', UNRESOLVED, None),
+        ('0 <<< x echo "$GH_TOKEN"\n', '0', 0),
+        ('"0"<<< x echo "$GH_TOKEN"\n', '0', 0),
+        ('\\0<<< x echo "$GH_TOKEN"\n', '0', 0),
+        ('0<<< <(printf x) echo "$GH_TOKEN"\n', 'echo', 2),
+    ):
+        seg = next(seg for ll in Lexer(source).logical for seg in ll.segments if seg.words)
+        if resolve_command(seg) != (command, False) or seg._cmd_index != index:
+            failures.append("here-string descriptor/empty boundary: %r got %r/%s" %
+                            (source, resolve_command(seg), seg._cmd_index))
+    seg = Lexer('tee 12<<< input out.txt\n').logical[0].segments[0]
+    if tee_file_operands(seg) != ['out.txt']:
+        failures.append("here-string descriptor: tee operand became a file")
+    if list(_command_arguments(seg.words, 1)) != [('out.txt', 'out.txt')]:
+        failures.append("here-string descriptor: redirection operand became an argument")
+    for descriptor in ('0', '3'):
+        # Preserve the prior conservative presence rule, not a descriptor model.
+        findings, errors = scan_text('cat %s<<< "$GH_TOKEN"\n' % descriptor)
+        if not findings or errors:
+            failures.append("here-string descriptor: stdin-echoer presence rule changed")
+    if 'log' not in discover_emitter_helpers('log(){ cat 0<<< "$1"; }\n'):
+        failures.append("here-string descriptor: stdin-echoer helper lost")
+    return failures
+
+
+def _pid_special_parameter_cases():
+    """Pin independent readers and later real-reference source coordinates."""
+    failures = []
+    for reader in (_word_has_verbatim_positional_exact,
+                   _word_has_verbatim_positional_legacy,
+                   _heredoc_data_has_positional):
+        for word, expected in (("$$1", False), ("$${1}", False),
+                               ("$$$1", True), ("$1", True),
+                               (r"\$\$1", False), (r"\$$1", True)):
+            if reader(word) != expected:
+                failures.append("PID %s: %r expected %s" %
+                                (reader.__name__, word, expected))
+    raw = '$$GH_TOKEN $${GH_TOKEN} $$$GH_TOKEN'
+    expected = [("GH_TOKEN", raw.rfind("$GH_TOKEN"))]
+    if _iter_refs_at(raw) != expected:
+        failures.append("PID raw references: expected only the adjacent real reference")
+    findings, errors = scan_text('echo "$$GH_TOKEN"\necho "$GH_TOKEN"\n')
+    if errors or len(findings) != 1 or findings[0].line != 2:
+        failures.append("PID later real reference: expected only physical line 2")
+    return failures
+
+
 def _corpus_id_cases():
     """Every corpus id is UNIQUE, and every declared id names a real case.
 
@@ -15804,6 +16678,39 @@ def _function_definition_cases():
         findings, errors = scan_text(PROLOGUE + text)
         if list(_iter_function_definitions(text)) or findings or errors:
             failures.append("quoted data acquired an emitting helper: %r" % text)
+    parameter_definitions = {'helper-parameter-word-header-data': [], 'helper-parameter-word-quoted-header-data': [], 'helper-parameter-word-actual-function': ['true'], 'helper-parameter-word-substitution-emits': ['log'], 'helper-parameter-word-substitution-captured': ['log'], 'helper-parameter-word-substitution-nonemitter': ['log'], 'helper-parameter-word-substitution-quoted-data': [], 'helper-parameter-word-nested-data': []}
+    # Backtick children keep their own executable/quoted/parameter context.
+    for text, expected in (
+        ('value=${U:-`\nfunction log\n{ : "$1"; }\n`}\n', ["log"]),
+        ('value="${U:-`\nfunction log\n{ : "$1"; }\n`}"\n', ["log"]),
+        ("value=${U:-`data='\ntrue()\n{ echo \"$1\"; }\n'\n`}\n", []),
+        ('value=${U:-`data=${V:-\ntrue()\n( echo "$1"; )\n}\n`}\n', []),
+    ):
+        definitions = list(_iter_function_definitions(text))
+        if [name for _match, name, _body in definitions] != expected:
+            failures.append("parameter WORD backtick source context: " + repr(text))
+        if len(_function_body_line_spans(text)) != len(expected):
+            failures.append("parameter WORD backtick source spans: " + repr(text))
+    parameter_corpus = {name: body for name, _rule, body in CORPUS}
+    for cid, expected in parameter_definitions.items():
+        text = parameter_corpus[cid]
+        definitions = list(_iter_function_definitions(text))
+        if [name for _match, name, _body in definitions] != expected:
+            failures.append("parameter WORD function discovery: " + cid)
+        spans, offsets = _function_body_line_spans(text, with_offsets=True)
+        expected_spans = [(text.count("\n", 0, match.end()) + 1,
+                           text.count("\n", 0, match.end()) + 1 + body.count("\n"))
+                          for match, _name, body in definitions]
+        expected_offsets = [(match.end() - 1, match.end() + len(body))
+                            for match, _name, body in definitions]
+        if spans != expected_spans or offsets != expected_offsets:
+            failures.append("parameter WORD function spans: " + cid)
+        for match, _name, body in definitions if expected else []:
+            opener = text.index("(\n") if cid.endswith("actual-function") else text.index("{ ")
+            if match.end() - 1 != opener or body != text[opener + 1:opener + 1 + len(body)]:
+                failures.append("parameter WORD actual body offset: " + cid)
+        if not expected and (spans or offsets or "true" in discover_emitter_helpers(text)):
+            failures.append("parameter WORD data acquired a helper or body span: " + cid)
     executed = ': "$(function log\n# note\n{ echo "$1"; }\nlog "$GH_TOKEN" >&2)"\n'
     findings, errors = scan_text(PROLOGUE + executed)
     if "log" not in discover_emitter_helpers(executed) or not findings or errors:
@@ -16260,12 +17167,236 @@ CORPUS += [('eval-assignment-tilde-control-single-quoted', 'clean', 'HOME=\'; ec
 KNOWN_BROADER["eval-assignment-tilde-safe-home"] = "A written assignment-tilde operand retains source-only eval uncertainty even when this oracle supplies a safe HOME value; no runtime value propagation is modeled (#2228)."
 
 
+# #1456: PID text is literal until another real expansion begins.
+CORPUS += [
+    ("pid-named-double-quoted", MUST_NOT_FLAG, 'echo "$$GH_TOKEN"\n'),
+    ("pid-named-unquoted", MUST_NOT_FLAG, 'echo $$GH_TOKEN\n'),
+    ("pid-named-braced-literal", MUST_NOT_FLAG, 'echo "$${GH_TOKEN}"\n'),
+    ("pid-named-single-quoted", MUST_NOT_FLAG, "echo '$$GH_TOKEN'\n"),
+    ("pid-named-later-real", MUST_FLAG, 'echo "$$GH_TOKEN"; echo "$GH_TOKEN"\n'),
+    ("pid-named-adjacent-real", MUST_FLAG, 'echo "$$$GH_TOKEN"\n'),
+    ("pid-named-adjacent-braced-real", MUST_FLAG, 'echo "$$${GH_TOKEN}"\n'),
+    ("pid-named-escaped-pair", MUST_NOT_FLAG, r'echo "\$\$GH_TOKEN"' + '\n'),
+    ("pid-named-escaped-first-real", MUST_FLAG, r'echo "\$$GH_TOKEN"' + '\n'),
+    ("pid-heredoc-named", MUST_NOT_FLAG, 'cat <<EOF\n$$GH_TOKEN\nEOF\n'),
+    ("pid-heredoc-braced-literal", MUST_NOT_FLAG, 'cat <<EOF\n$${GH_TOKEN}\nEOF\n'),
+    ("pid-heredoc-adjacent-real", MUST_FLAG, 'cat <<EOF\n$$$GH_TOKEN\nEOF\n'),
+    ("pid-heredoc-escaped-pair", MUST_NOT_FLAG, 'cat <<EOF\n\\$\\$GH_TOKEN\nEOF\n'),
+    ("pid-heredoc-escaped-first-real", MUST_FLAG, 'cat <<EOF\n\\$$GH_TOKEN\nEOF\n'),
+    ("pid-helper-positional", MUST_NOT_FLAG, 'show() { echo "$$1"; }; show "$GH_TOKEN"\n'),
+    ("pid-helper-braced-literal", MUST_NOT_FLAG, 'show() { echo "$${1}"; }; show "$GH_TOKEN"\n'),
+    ("pid-helper-real-positional", MUST_FLAG, 'show() { echo "$1"; }; show "$GH_TOKEN"\n'),
+    ("pid-helper-adjacent-real", MUST_FLAG, 'show() { echo "$$$1"; }; show "$GH_TOKEN"\n'),
+    ("pid-helper-escaped-pair", MUST_NOT_FLAG, r'show() { echo "\$\$1"; }; show "$GH_TOKEN"' + '\n'),
+    ("pid-helper-escaped-first-real", MUST_FLAG, r'show() { echo "\$$1"; }; show "$GH_TOKEN"' + '\n'),
+    ("pid-helper-heredoc", MUST_NOT_FLAG, 'show() { cat <<EOF\n$$1\nEOF\n}; show "$GH_TOKEN"\n'),
+    ("pid-helper-heredoc-real", MUST_FLAG, 'show() { cat <<EOF\n$1\nEOF\n}; show "$GH_TOKEN"\n'),
+]
+
+
+# #1456 continuation repair: only active backslash-LF between PID dollars.
+CORPUS += [
+    ("pid-continuation-named-quoted", MUST_FLAG, "echo \"$\\\n$$GH_TOKEN\"\n"),
+    ("pid-continuation-named-unquoted", MUST_FLAG, "echo $\\\n$$GH_TOKEN\n"),
+    ("pid-continuation-named-braced", MUST_FLAG, "echo \"$\\\n$${GH_TOKEN}\"\n"),
+    ("pid-continuation-named-both-splits", MUST_FLAG, "echo \"$\\\n$\\\n$GH_TOKEN\"\n"),
+    ("pid-continuation-named-repeated-split", MUST_FLAG, "echo \"$\\\n\\\n$$GH_TOKEN\"\n"),
+    ("pid-continuation-named-pid-literal", MUST_NOT_FLAG, "echo \"$\\\n$GH_TOKEN\"\n"),
+    ("pid-continuation-named-braced-literal", MUST_NOT_FLAG, "echo \"$\\\n${GH_TOKEN}\"\n"),
+    ("pid-continuation-named-inactive-backslash", MUST_NOT_FLAG, "echo \"$\\\\\n$$GH_TOKEN\"\n"),
+    ("pid-continuation-named-escaped-first", MUST_NOT_FLAG, "echo \"\\$\\\n$$GH_TOKEN\"\n"),
+    ("pid-continuation-named-later-real", MUST_FLAG, "echo \"$\\\n$GH_TOKEN\"\necho \"$GH_TOKEN\"\n"),
+    ("pid-continuation-heredoc-real", MUST_FLAG, "cat <<EOF\n$\\\n$$GH_TOKEN\nEOF\n"),
+    ("pid-continuation-heredoc-literal", MUST_NOT_FLAG, "cat <<EOF\n$\\\n$GH_TOKEN\nEOF\n"),
+    ("pid-continuation-heredoc-braced-real", MUST_FLAG, "cat <<EOF\n$\\\n$${GH_TOKEN}\nEOF\n"),
+    ("pid-continuation-helper-real", MUST_FLAG, "show(){ echo \"$\\\n$$1\"; }; show \"$GH_TOKEN\"\n"),
+    ("pid-continuation-helper-literal", MUST_NOT_FLAG, "show(){ echo \"$\\\n$1\"; }; show \"$GH_TOKEN\"\n"),
+    ("pid-continuation-helper-braced-real", MUST_FLAG, "show(){ echo \"$\\\n$${1}\"; }; show \"$GH_TOKEN\"\n"),
+    ("pid-continuation-helper-heredoc-real", MUST_FLAG, "show(){ cat <<EOF\n$\\\n$$1\nEOF\n}; show \"$GH_TOKEN\"\n"),
+    ("pid-continuation-helper-heredoc-literal", MUST_NOT_FLAG, "show(){ cat <<EOF\n$\\\n$1\nEOF\n}; show \"$GH_TOKEN\"\n"),
+]
+
+
+# #1462: a leading here-string's literal operand is not the command word.
+CORPUS += [
+    ("leading-herestring-spaced-echo", MUST_FLAG, '<<< x echo "$GH_TOKEN"\n'),
+    ("leading-herestring-attached-echo", MUST_FLAG, '<<<x echo "$GH_TOKEN"\n'),
+    ("leading-herestring-spaced-printf", MUST_FLAG, '<<< x printf \'%s\\n\' "$GH_TOKEN"\n'),
+    ("leading-herestring-trailing-echo-control", MUST_FLAG, 'echo "$GH_TOKEN" <<< x\n'),
+    ("leading-herestring-safe-colon-control", MUST_NOT_FLAG, '<<< x : "$GH_TOKEN"\n'),
+]
+
+
+# #1462 review repair: lexical ordering/width and leading operand diagnostics.
+CORPUS += [
+    ("herestring-review-attached-echo", MUST_FLAG, 'echo<<< x "$GH_TOKEN"\n'),
+    ("herestring-review-attached-echo-compact", MUST_FLAG, 'echo<<<x "$GH_TOKEN"\n'),
+    ("herestring-review-attached-printf", MUST_FLAG, 'printf<<< x \'%s\\n\' "$GH_TOKEN"\n'),
+    ("herestring-review-attached-quiet", MUST_NOT_FLAG, ':<<< x "$GH_TOKEN"\n'),
+    ("herestring-review-process-operand", MUST_FLAG, '<<< <(printf x) printf \'%s\\n\' "$GH_TOKEN"\n'),
+    ("herestring-review-process-suffix", MUST_FLAG, '<<< <(printf x)suffix echo "$GH_TOKEN"\n'),
+    ("herestring-review-process-quiet", MUST_NOT_FLAG, '<<< <(printf x) : "$GH_TOKEN"\n'),
+    ("herestring-review-process-output-operand", MUST_FLAG, '<<< >(:) echo "$GH_TOKEN"\n'),
+    ("herestring-review-process-output-captured", MUST_NOT_FLAG, 'saved=$(<<< >(:) echo "$GH_TOKEN")\n'),
+    ("herestring-review-process-captured", MUST_NOT_FLAG, 'saved=$(<<< <(printf x) printf \'%s\\n\' "$GH_TOKEN")\n'),
+    ("herestring-review-process-child-stderr", MUST_FLAG, '<<< <(printf \'%s\' "$GH_TOKEN" >&2) :\n'),
+    ("herestring-review-process-trailing", MUST_FLAG, 'printf \'%s\\n\' "$GH_TOKEN" <<< <(printf x)\n'),
+    ("herestring-review-command-operand", MUST_FLAG, '<<< "$(printf x)" echo "$GH_TOKEN"\n'),
+    ("herestring-review-arithmetic-diagnostic", MUST_FLAG, '<<< $(($GH_TOKEN/0)) :\n'),
+    ("herestring-review-quoted-arithmetic", MUST_NOT_FLAG, '<<< \'$((1/$GH_TOKEN))\' : "$GH_TOKEN"\n'),
+    ("herestring-review-quoted-process", MUST_NOT_FLAG, '<<< \'<(printf x)\' : "$GH_TOKEN"\n'),
+]
+
+
+# #1462 descriptor preservation: existing prefix grammar and empty operands.
+CORPUS += [
+    ("herestring-descriptor-zero-quiet", MUST_NOT_FLAG, '0<<< echo : "$GH_TOKEN"\n'),
+    ("herestring-descriptor-zero-emitter", MUST_FLAG, '0<<< x echo "$GH_TOKEN"\n'),
+    ("herestring-descriptor-zeroes-quiet", MUST_NOT_FLAG, '00<<< echo : "$GH_TOKEN"\n'),
+    ("herestring-descriptor-zeroes-emitter", MUST_FLAG, '00<<< x echo "$GH_TOKEN"\n'),
+    ("herestring-descriptor-twelve-quiet", MUST_NOT_FLAG, '12<<< echo : "$GH_TOKEN"\n'),
+    ("herestring-descriptor-twelve-emitter", MUST_FLAG, '12<<< x echo "$GH_TOKEN"\n'),
+    ("herestring-descriptor-variable-quiet", MUST_NOT_FLAG, '{fd}<<< echo : "$GH_TOKEN"\n'),
+    ("herestring-descriptor-variable-emitter", MUST_FLAG, '{fd}<<< x echo "$GH_TOKEN"\n'),
+    ("herestring-descriptor-spaced-number", MUST_NOT_FLAG, '0 <<< x echo "$GH_TOKEN"\n'),
+    ("herestring-descriptor-quoted-number", MUST_NOT_FLAG, '"0"<<< x echo "$GH_TOKEN"\n'),
+    ("herestring-descriptor-escaped-number", MUST_NOT_FLAG, '\\0<<< x echo "$GH_TOKEN"\n'),
+    ("herestring-descriptor-process-operand", MUST_FLAG, '0<<< <(printf x) echo "$GH_TOKEN"\n'),
+    ("herestring-descriptor-stdin-echoer", MUST_FLAG, 'cat 0<<< "$GH_TOKEN"\n'),
+    ("herestring-descriptor-helper-stdin", MUST_FLAG, 'log(){ cat 0<<< "$1"; }; log "$GH_TOKEN"\n'),
+    ("herestring-descriptor-empty-single", MUST_NOT_FLAG, '<<< \'\' : "$GH_TOKEN"\n'),
+    ("herestring-descriptor-empty-double", MUST_NOT_FLAG, '<<< "" : "$GH_TOKEN"\n'),
+    ("herestring-descriptor-empty-emitter", MUST_FLAG, '<<< \'\' echo "$GH_TOKEN"\n'),
+    ("herestring-descriptor-empty-variable-command", MUST_FLAG, 'cmd=echo; <<< "" "$cmd" "$GH_TOKEN"\n'),
+]
+
+
+# #1466: only the contested separator changes; other command endings stay LF.
+CORPUS += [
+    ("line-ending-lone-cr-heredoc", MUST_FLAG, ': # \r read x <<EOF\necho "$GH_TOKEN"\nEOF\n'),
+    ("line-ending-lf-heredoc", MUST_NOT_FLAG, ': # \n read x <<EOF\necho "$GH_TOKEN"\nEOF\n'),
+    ("line-ending-crlf-heredoc", MUST_NOT_FLAG, ': # \r\n read x <<EOF\necho "$GH_TOKEN"\nEOF\n'),
+    ("line-ending-lone-cr-xtrace", MUST_FLAG, 'set -x\n: # \rset +x\n: "$GH_TOKEN"\n'),
+    ("line-ending-lf-xtrace", MUST_NOT_FLAG, 'set -x\n: # \nset +x\n: "$GH_TOKEN"\n'),
+    ("line-ending-crlf-xtrace", MUST_NOT_FLAG, 'set -x\n: # \r\nset +x\n: "$GH_TOKEN"\n'),
+]
+
+
+# #1497: a measured tee output-process operand forks before the quiet consumer.
+CORPUS += [
+    ("tee-process-stderr", MUST_FLAG,
+     'printf \'%s\' "$GH_TOKEN" | tee >(cat >&2) | grep -qF zz\n'),
+    ("tee-process-null", MUST_NOT_FLAG,
+     'printf \'%s\' "$GH_TOKEN" | tee >(cat >/dev/null) | grep -qF zz\n'),
+    ("tee-process-fd1-stderr", MUST_FLAG,
+     'printf \'%s\' "$GH_TOKEN" | tee >(cat 1>&2) | grep -qF zz\n'),
+    ("tee-process-fd1-null", MUST_NOT_FLAG,
+     'printf \'%s\' "$GH_TOKEN" | tee >(cat 1>/dev/null) | grep -qF zz\n'),
+    ("tee-process-concatenated-stderr-first", MUST_NOT_FLAG,
+     'printf \'%s\' "$GH_TOKEN" | tee >(cat >&2)>(cat >/dev/null) | grep -qF zz\n'),
+    ("tee-process-concatenated-stderr-last", MUST_NOT_FLAG,
+     'printf \'%s\' "$GH_TOKEN" | tee >(cat >/dev/null)>(cat >&2) | grep -qF zz\n'),
+]
+
+
 # Exact shape scopes are populated only from inspected measurements. Existing
 # declarations default to the legacy sample; a new shape disagreement is not
 # covered merely because the case has a legacy declaration. Shape-only cases
 # must name their scope explicitly and still disagree on every named cell.
 # Measured scopes are explicit per ID; agreement in a sibling shape does not
 # waive a declaration. Existing reasons and ordinary scanner rules stay intact.
+CORPUS += _tee_review_cases()
+CORPUS += _tee_round2_cases()
+CORPUS += _tee_namespace_cases()
+CORPUS += _tee_continuation_cases()
+CORPUS += _tee_identity_cases()
+CORPUS += _tee_routing_cases()
+CORPUS += _tee_delimiter_lifetime_cases()
+CORPUS += _tee_leading_target_cases()
+KNOWN_BROADER["tee-leading-target-null"] = (
+    "The measured leading-target/null-child fixture is quiet in all three "
+    "shapes on host/GNU profiles. Its child sidewrite predicate is false, but "
+    "the existing terminal tee emission route does not grade the trailing "
+    ">/dev/null destination. Correct target width restores that retained "
+    "conservative route; the matched post-command fixture already flags. "
+    "No descriptor-flow relaxation is claimed."
+)
+# The same reviewed case/body now records the approved conservative reduction.
+KNOWN_BROADER.update({cid: (
+    "This unchanged own help/version fixture is quiet for the measured tee "
+    "implementation, but command spelling does not prove implementation identity. "
+    "The optional exit proof is removed, so all three shapes remain conservative. "
+    "Precision is deferred to https://github.com/nathanjohnpayne/mergepath/issues/2670"
+) for cid in (
+    "tee-review-help", "tee-review-version", "tee-review-quoted-help",
+    "tee-review-append-help",
+)})
+KNOWN_BROADER.update({cid: (
+    "Qualified tee paths do not prove implementation identity: Bash can invoke "
+    "a literal function even named /usr/bin/tee or /bin/tee. This unchanged "
+    "quiet own fixture is conservatively flagged in all three shapes after "
+    "withholding optional qualified exit proof. Precision is deferred to "
+    "https://github.com/nathanjohnpayne/mergepath/issues/2670"
+) for cid in (
+    "tee-review-qualified-tee-help", "tee-round2-alias-qualified",
+    "tee-round2-setup-eval-qualified", "tee-round2-setup-source-qualified",
+    "tee-round2-setup-dot-qualified",
+)})
+KNOWN_BROADER["tee-path-local-noop"] = (
+    "This local executable is natively quiet in all three shapes, but a "
+    "qualified tee name has no optional exit-only proof. No executable "
+    "contents or binding model is inferred; precision is deferred to "
+    "https://github.com/nathanjohnpayne/mergepath/issues/2670"
+)
+KNOWN_BROADER.update({cid: (
+    "The process side-write inventory retains the credential reference despite "
+    "this measured enclosing stderr-null sink in all three shapes. Enclosing "
+    "fd precision is deferred to https://github.com/nathanjohnpayne/mergepath/issues/2699; no general fd-flow model is added."
+) for cid in (
+    "tee-enclosing-brace-null-stderr", "tee-enclosing-subshell-null-stderr",
+)})
+KNOWN_BROADER.update({
+    "tee-continuation-suffix": (
+        "The inherited literal-file policy flags a continued pathname suffix "
+        "whose runtime process-path open fails quietly in all three shapes; "
+        "both original914 and published510 scanners flag it. Path evaluation "
+        "is outside the finite process-operand boundary."
+    ),
+    "tee-deferred-target-options": (
+        "The optional tee exit proof is removed because command spelling does "
+        "not prove implementation identity. This unchanged consumed redirection "
+        "target/help case remains conservative in all three shapes. Deferred "
+        "to https://github.com/nathanjohnpayne/mergepath/issues/2670"
+    ),
+    "tee-deferred-herestring-options": (
+        "The optional tee exit proof is removed because command spelling does "
+        "not prove implementation identity. This unchanged consumed here-string "
+        "target/help case remains conservative in all three shapes. Deferred "
+        "to https://github.com/nathanjohnpayne/mergepath/issues/2670"
+    ),
+    "tee-deferred-stdin-null": (
+        "The tee side-write route conservatively retains upstream input despite "
+        "this quiet literal null stdin override in all three shapes. Deferred "
+        "to https://github.com/nathanjohnpayne/mergepath/issues/2671"
+    ),
+    "tee-deferred-stdin-herestring": (
+        "The tee side-write route conservatively retains upstream input despite "
+        "this quiet safe here-string stdin override in all three shapes. Deferred "
+        "to https://github.com/nathanjohnpayne/mergepath/issues/2671"
+    ),
+    "tee-deferred-stdin-heredoc": (
+        "The tee side-write route conservatively retains upstream input despite "
+        "this quiet safe here-doc stdin override in all three shapes. Deferred "
+        "to https://github.com/nathanjohnpayne/mergepath/issues/2671"
+    ),
+})
+KNOWN_BROADER["tee-review-cat-shadow"] = (
+    "Literal cat side writes remain conservative without executed callsite binding; "
+    "the measured local no-op is quiet in all three shapes. "
+    "Deferred: https://github.com/nathanjohnpayne/mergepath/issues/2658"
+)
+
+
 KNOWN_MISS_SHAPES = {
     'ansi-c-plain-alias-invoked-inherited': ('all-digit', 'digit-leading-non-numeric', 'letter-leading'),
     'array-double-quoted-apostrophe-after-nested-substitution': ('all-digit', 'digit-leading-non-numeric', 'letter-leading'),
@@ -16318,6 +17449,26 @@ KNOWN_MISS_SHAPES = {
 }
 
 KNOWN_BROADER_SHAPES = {
+    'tee-leading-target-null': ('all-digit', 'digit-leading-non-numeric', 'letter-leading'),
+    'tee-review-help': ('all-digit', 'digit-leading-non-numeric', 'letter-leading'),
+    'tee-review-version': ('all-digit', 'digit-leading-non-numeric', 'letter-leading'),
+    'tee-review-quoted-help': ('all-digit', 'digit-leading-non-numeric', 'letter-leading'),
+    'tee-review-append-help': ('all-digit', 'digit-leading-non-numeric', 'letter-leading'),
+    'tee-review-qualified-tee-help': ('all-digit', 'digit-leading-non-numeric', 'letter-leading'),
+    'tee-round2-alias-qualified': ('all-digit', 'digit-leading-non-numeric', 'letter-leading'),
+    'tee-round2-setup-eval-qualified': ('all-digit', 'digit-leading-non-numeric', 'letter-leading'),
+    'tee-round2-setup-source-qualified': ('all-digit', 'digit-leading-non-numeric', 'letter-leading'),
+    'tee-round2-setup-dot-qualified': ('all-digit', 'digit-leading-non-numeric', 'letter-leading'),
+    'tee-path-local-noop': ('all-digit', 'digit-leading-non-numeric', 'letter-leading'),
+    'tee-enclosing-brace-null-stderr': ('all-digit', 'digit-leading-non-numeric', 'letter-leading'),
+    'tee-enclosing-subshell-null-stderr': ('all-digit', 'digit-leading-non-numeric', 'letter-leading'),
+    'tee-continuation-suffix': ('all-digit', 'digit-leading-non-numeric', 'letter-leading'),
+    'tee-deferred-target-options': ('all-digit', 'digit-leading-non-numeric', 'letter-leading'),
+    'tee-deferred-herestring-options': ('all-digit', 'digit-leading-non-numeric', 'letter-leading'),
+    'tee-deferred-stdin-null': ('all-digit', 'digit-leading-non-numeric', 'letter-leading'),
+    'tee-deferred-stdin-herestring': ('all-digit', 'digit-leading-non-numeric', 'letter-leading'),
+    'tee-deferred-stdin-heredoc': ('all-digit', 'digit-leading-non-numeric', 'letter-leading'),
+    'tee-review-cat-shadow': ('all-digit', 'digit-leading-non-numeric', 'letter-leading'),
     'alias-defined-and-used-on-one-line': ('all-digit', 'digit-leading-non-numeric', 'letter-leading'),
     'capture-stderr-only-redirection': ('all-digit', 'digit-leading-non-numeric', 'letter-leading'),
     'capture-stderr-onto-stdout': ('all-digit', 'digit-leading-non-numeric', 'letter-leading'),
@@ -17498,6 +18649,14 @@ def self_test():
     import hashlib
     import json
 
+    # The parent owns the end-to-end probes; only its guarded child runs the
+    # corpus. Delegating before any oracle work avoids measuring it twice.
+    residue_failures = _residue_and_quoted_tmpdir_case()
+    if residue_failures is not None:
+        for failure in residue_failures:
+            print("check_no_token_in_output: FAIL: %s" % failure, file=sys.stderr)
+        return int(bool(residue_failures))
+
     failures = []
     # Evidence is additive to the existing outcomes; no cell is run twice.
     tilde_evidence_seen = set()
@@ -17524,6 +18683,12 @@ def self_test():
         return 1
 
     failures.extend(_corpus_id_cases())
+    failures.extend(_pid_special_parameter_cases())
+    failures.extend(_pid_continuation_cases())
+    failures.extend(_leading_herestring_cases())
+    failures.extend(_tee_process_substitution_cases())
+    failures.extend(_herestring_operand_cases())
+    failures.extend(_herestring_descriptor_cases())
     failures.extend(_oracle_sample_cases())
     failures.extend(_oracle_signal_binding_cases())
     failures.extend(_printf_allowlist_cases())
@@ -17537,6 +18702,9 @@ def self_test():
     failures.extend(_heredoc_echo_conservatism_cases())
 
     with tempfile.TemporaryDirectory(prefix="token-output-oracle.") as tmp:
+        # Report the actual allocation, not merely the requested environment.
+        print("check_no_token_in_output: oracle TMPDIR: "
+              + json.dumps(os.path.dirname(tmp)))
 
         def _one(cell):
             entry, sample = cell
@@ -17704,9 +18872,8 @@ def self_test():
         failures.extend(_shebang_xtrace_cases())
         failures.extend(_discovery_failure_cases(tmp))
         failures.extend(_shell_file_promotion_cases(tmp))
+        failures.extend(_line_ending_ingress_cases(tmp))
         failures.extend(_path_independence_case(tmp))
-
-    failures.extend(_residue_and_quoted_tmpdir_case())
 
     failures.extend(_sentinel_window_cases())
 
@@ -18845,7 +20012,10 @@ def _path_independence_case(tmp):
 
 
 def _residue_and_quoted_tmpdir_case():
-    """Two successive runs leave nothing behind, and a quoted TMPDIR is inert.
+    """Run the corpus once under a quoted TMPDIR and check all temp cleanup.
+
+    Return None only in the child, suppressing recursive residue setup while
+    leaving the complete corpus and its auxiliary axes enabled.
 
     #1012 installed two `trap ... RETURN` handlers where the second replaced
     the first, so one temp file survived every `--scan`, and a `'` in TMPDIR
@@ -18853,9 +20023,11 @@ def _residue_and_quoted_tmpdir_case():
     scan path at all and drives its fixtures from a Python context manager, so
     the property is asserted directly rather than argued.
     """
-    failures = []
+    import json
+
     if os.environ.get("_TOKEN_OUTPUT_SELFTEST_INNER") == "1":
-        return failures
+        return None
+    failures = []
 
     # The #1012 reproduction, asserted END TO END on the process exit code:
     # a tree whose ONLY file is an extensionless `#!/usr/bin/env -S bash -e`
@@ -18912,6 +20084,23 @@ def _residue_and_quoted_tmpdir_case():
             env=env,
             capture_output=True,
         )
+        # Keep the child's full oracle diagnostics visible and count a
+        # completed corpus independently of its PASS/FAIL verdict.
+        stdout = proc.stdout.decode("utf-8", "replace")
+        stderr = proc.stderr.decode("utf-8", "replace")
+        sys.stdout.write(stdout)
+        sys.stderr.write(stderr)
+        summaries = [line for line in stdout.splitlines()
+                     if line.startswith("check_no_token_in_output: oracle samples: ")]
+        root_prefix = "check_no_token_in_output: oracle TMPDIR: "
+        roots = [line[len(root_prefix):] for line in stdout.splitlines()
+                 if line.startswith(root_prefix)]
+        if len(summaries) != 1:
+            failures.append("residue: expected exactly one full oracle corpus, observed %d"
+                            % len(summaries))
+        if roots != [json.dumps(quoted)]:
+            failures.append("residue: full oracle corpus did not allocate exactly once "
+                            "under the quoted TMPDIR: %r" % roots)
         if proc.returncode != 0:
             failures.append(
                 "residue: --self-test under a quoted TMPDIR exited %d: %s"
@@ -18920,9 +20109,12 @@ def _residue_and_quoted_tmpdir_case():
         leftover = sorted(os.listdir(quoted))
         if leftover:
             failures.append(
-                "residue: %d file(s) left under TMPDIR after two runs: %s"
+                "residue: %d file(s) left under TMPDIR after two scans and the self-test: %s"
                 % (len(leftover), leftover)
             )
+        if not failures:
+            print("check_no_token_in_output: PASS (one full oracle corpus under "
+                  "quoted TMPDIR; two scans and self-test left no residue)")
     return failures
 
 
