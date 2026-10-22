@@ -120,8 +120,10 @@ explicitly authorizes a break-glass override in chat.
       **P0/P1** findings on the current HEAD (P2 and P3 findings do NOT
       block clearance—address them at the agent's judgment), OR a
       👍 reaction on the PR issue.
-   d. On exit code `4` (FALLBACK_REQUIRED, timeout), stop 4a and drop to
-      Phase 4b below.
+   d. On exit code `4` (FALLBACK_REQUIRED, timeout), or exit `7` with
+      `kind: "request-ceiling"` (the 10-request ceiling is spent), stop 4a
+      and drop to Phase 4b below, whose barrier decides between the
+      automated review and a human stop.
    e. On disagreement (repeat-after-rebuttal) or a spent blocking-review
       budget (`codex.max_blocking_reviews`), escalate per REVIEW_POLICY.md
       § Disagreements and Tiebreaking: stop the loop, post a summary
@@ -135,11 +137,11 @@ explicitly authorizes a break-glass override in chat.
       nathanjohnpayne per REVIEW_POLICY.md step 17a (head-pinned merge
       command and the outstanding-reviewer-disagreement rule).
 
-   **Phase 4b—External review fallback.** Applies when Phase 4a is unavailable (`codex.enabled: false`, either helper script missing, Codex App not review-ready) or timed out (4a exit code `4`). Phase 4a disagreement and runaway do NOT come here—they stop and go to the human per REVIEW_POLICY.md § Disagreements and Tiebreaking. Canonical steps: REVIEW_POLICY.md § Phase 4b.
+   **Phase 4b—External review fallback.** Applies when Phase 4a is unavailable (`codex.enabled: false`, either helper script missing, Codex App not review-ready) timed out (4a exit code `4`), or spent its request ceiling (4a exit `7`, `kind: "request-ceiling"`). Phase 4a disagreement and runaway do NOT come here—they stop and go to the human per REVIEW_POLICY.md § Disagreements and Tiebreaking. Canonical steps: REVIEW_POLICY.md § Phase 4b.
 
    a. **Automated Phase 4b—do this first.** When `.github/review-policy.yml` has `phase_4b_automation.enabled: true` and `mode: local` (it does in this repo), do NOT post the manual handoff—run `scripts/phase-4b-review.sh <PR#> --repo <owner/repo>` yourself, **from a trusted `main`-ref checkout, never from the checkout of the PR under review** (mergepath#628): the PR is passed by number and its diff is reviewed as data, so a PR that edits the phase-4b scripts, the adapters, or `gh-as-reviewer.sh` cannot shape its own verdict. It selects an external reviewer whose agent differs from the authoring agent, runs that reviewer's headless CLI over the diff, and posts `APPROVED` or `CHANGES_REQUESTED` under the reviewer identity via `scripts/gh-as-reviewer.sh`, pinned to the reviewed HEAD.
       - Exit `0`—`APPROVED` posted. Verify the merge gate, then merge as nathanjohnpayne per REVIEW_POLICY.md step 19b. Run `scripts/codex-review-check.sh <PR#>` when that helper is on disk; when it is not (a missing Phase 4a helper is itself one of the conditions that routes a PR to 4b), check the same gate conditions by hand: CI green, gate (b), and gate (c) satisfied by this Phase 4b `APPROVED` pinned to the current HEAD. The gate conditions are the authority; the check script is one way to evaluate them, not a precondition for merging (REVIEW_POLICY.md § Phase 4b). If the verdict carried discretionary findings and `post_review_issues: true`, the orchestrator already filed the step 11 issues and linked them in the approval body—do not file them again.
-      - Exit `1`—`CHANGES_REQUESTED` posted. That is a completed review round, not a failure: address the findings as nathanjohnpayne, push fix commits, and rerun. One adapter pass per invocation, so cap the loop at `phase_4b_automation.max_review_rounds`. On exhausting the cap, stop: do not rerun, do not post the manual handoff, do not merge. Escalate to the human per REVIEW_POLICY.md § Disagreements and Tiebreaking, exactly as Phase 4a does for runaway.
+      - Exit `1`—`CHANGES_REQUESTED` posted. That is a completed review round, not a failure: address the findings as nathanjohnpayne, push fix commits, and rerun. One adapter pass per invocation; the round ledger enforces `phase_4b_automation.max_review_rounds` across invocations (mergepath#2663). On exhausting the cap, stop: do not rerun, do not post the manual handoff, do not merge. Escalate to the human per REVIEW_POLICY.md § Disagreements and Tiebreaking, exactly as Phase 4a does for runaway.
       - Any OTHER non-zero exit (config or infrastructure error, fail-closed manual fallback, automation disabled) drops to the manual handoff below, as does the absence of `scripts/phase-4b-review.sh` from disk.
 
    b. **Manual CLI handoff—only when the automated review above declines:**

@@ -120,8 +120,10 @@ coderabbit:
 # review as `chatgpt-codex-connector[bot]`.
 #
 # This replaces the human-shuttled Phase 4 external review on the happy path.
-# On timeout, disagreement, or runaway, the flow falls back to the manual
-# CLI path described in REVIEW_POLICY.md § Phase 4b.
+# On a timeout or a spent request ceiling the flow enters Phase 4b, where
+# scripts/phase-4b-review.sh runs first (automated Phase 4b is enabled
+# here); the manual CLI path in REVIEW_POLICY.md § Phase 4b applies only
+# when that run falls back. Disagreement and runaway go to the human.
 #
 # Prerequisite: the ChatGPT Codex Connector GitHub App must be installed on
 # the repository with Code Review enabled at
@@ -138,9 +140,10 @@ coderabbit:
 #      human on a runaway, untested rebuttal or disagreement (REVIEW_POLICY.md
 #      § Disagreements and Tiebreaking).
 #   4. On timeout (silence within `review_timeout_seconds`), the script
-#      exits with code 4 (FALLBACK_REQUIRED). The agent then falls back
-#      to the manual handoff in REVIEW_POLICY.md § Phase 4b, targeting
-#      `cli_login` below.
+#      exits with code 4 (FALLBACK_REQUIRED). The agent then runs
+#      `scripts/phase-4b-review.sh <PR#>` from a trusted main checkout and
+#      uses the manual handoff in REVIEW_POLICY.md § Phase 4b, targeting
+#      `cli_login` below, only when that run falls back.
 #   5. Before merging, run `scripts/codex-review-check.sh <PR#>` to verify
 #      the merge gate. All of the following must hold:
 #        a) required CI checks are green
