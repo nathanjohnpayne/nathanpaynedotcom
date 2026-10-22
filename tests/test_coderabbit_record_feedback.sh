@@ -83,6 +83,16 @@ case "$ep" in
   graphql) cat "${CRRF_FIXTURE_THREADS:?}" ;;
   repos/owner/repo/pulls/999/comments) cat "${CRRF_FIXTURE_COMMENTS:?}" ;;
   repos/owner/repo/pulls/999) cat "${CRRF_FIXTURE_PR:?}" ;;
+  repos/owner/repo/pulls/comments/*)
+    # #2565 by-id fetch, served from the CRRF_FIXTURE_DIRECT array of full
+    # comment objects; an absent id answers like a 404, CRRF_DIRECT_FAIL=1
+    # like a transport failure.
+    if [ "${CRRF_DIRECT_FAIL:-0}" = "1" ]; then
+      echo "error connecting to api.github.com" >&2; exit 1
+    fi
+    id=${ep##*/}
+    hit=$(jq -c --argjson id "$id" '[.[] | select(.id == $id)] | first // empty' "${CRRF_FIXTURE_DIRECT:?}" 2>/dev/null || true)
+    if [ -n "$hit" ]; then printf '%s\n' "$hit"; else echo "gh: Not Found (HTTP 404)" >&2; exit 1; fi ;;
   *) echo "unexpected gh api endpoint: $ep" >&2; exit 9 ;;
 esac
 EOF
@@ -128,6 +138,8 @@ run_case() {
       CRRF_FIXTURE_PR="${CRRF_FIXTURE_PR:-$dir/pr.json}" \
       CRRF_FIXTURE_COMMENTS="${CRRF_FIXTURE_COMMENTS:-/dev/null}" \
       CRRF_FIXTURE_THREADS="${CRRF_FIXTURE_THREADS:-$dir/threads.json}" \
+      CRRF_FIXTURE_DIRECT="${CRRF_FIXTURE_DIRECT:-/dev/null}" \
+      CRRF_DIRECT_FAIL="${CRRF_DIRECT_FAIL:-0}" \
       CODERABBIT_FEEDBACK_LEDGER="$dir/state/ledger.jsonl" \
       "$dir/scripts/coderabbit-record-feedback.sh" "$@" \
       >"$dir/out.json" 2>"$dir/err.log"
@@ -335,9 +347,9 @@ EOF
 test_scan_is_head_pinned() {
   local dir rc
   dir=$(make_case "scan-head-pinned")
-  # Inline comments: 4001 sits on the current HEAD; 4000 is a stale finding
-  # from an earlier SHA (both commit_id and original_commit_id off-HEAD) —
-  # the scan must collect ONLY 4001, and the 4000 verdict reports not-found.
+  # Inline comments: 4001 sits on the current HEAD; 4000 is a stale, unnamed
+  # finding from an earlier SHA — the scan must collect ONLY 4001, and 4000
+  # must not surface anywhere. The non-bot 4002 verdict reports not-found.
   jq -n --arg sha "$HEAD_SHA" --arg minor "$MINOR_BODY" --arg major "$MAJOR_BODY" '
     [
       { id: 4000, user: {login: "coderabbitai[bot]"}, body: $major,
@@ -345,12 +357,13 @@ test_scan_is_head_pinned() {
       { id: 4001, user: {login: "coderabbitai[bot]"}, body: $minor,
         path: "new.ts", line: 2, commit_id: $sha, original_commit_id: $sha },
       { id: 4002, user: {login: "somebody-else"}, body: $major,
-        path: "human.ts", line: 3, commit_id: $sha, original_commit_id: $sha }
+        path: "human.ts", line: 3, commit_id: $sha, original_commit_id: $sha,
+        pull_request_url: "https://api.github.com/repos/owner/repo/pulls/999" }
     ]
   ' >"$dir/comments.json"
   make_threads_fixture '[{isResolved: false, comment_ids: [4000, 4001, 4002]}]' >"$dir/threads.json"
-  rc=$(CRRF_FIXTURE_COMMENTS="$dir/comments.json" \
-    run_case "$dir" -- 999 --repo owner/repo --scan --verdict 4000=fixed --verdict 4001=fixed --verdict 4002=fixed)
+  rc=$(CRRF_FIXTURE_COMMENTS="$dir/comments.json" CRRF_FIXTURE_DIRECT="$dir/comments.json" \
+    run_case "$dir" -- 999 --repo owner/repo --scan --verdict 4001=fixed --verdict 4002=fixed)
 
   if [ "$rc" != "0" ]; then
     fail "scan head-pinned: exit $rc; stderr=$(cat "$dir/err.log")"
@@ -358,12 +371,94 @@ test_scan_is_head_pinned() {
     fail "scan head-pinned: ledger has $(ledger_lines "$dir") lines, expected 1 (only the HEAD bot finding)"
   elif [ "$(head -1 "$(ledger_file "$dir")" | jq -r '.comment_id')" != "4001" ]; then
     fail "scan head-pinned: recorded $(head -1 "$(ledger_file "$dir")" | jq -r '.comment_id'), expected 4001"
-  elif [ "$(jq -r '[.skipped[] | select(.comment_id==4000 and .why=="not-found")] | length' "$dir/out.json")" != "1" ]; then
-    fail "scan head-pinned: stale 4000 not reported not-found; out=$(cat "$dir/out.json")"
+  elif [ "$(jq -r '[.skipped[] | select(.comment_id==4000)] | length' "$dir/out.json")" != "0" ]; then
+    fail "scan head-pinned: unnamed stale 4000 was collected by the scan; out=$(cat "$dir/out.json")"
   elif [ "$(jq -r '[.skipped[] | select(.comment_id==4002 and .why=="not-found")] | length' "$dir/out.json")" != "1" ]; then
     fail "scan head-pinned: non-bot 4002 not reported not-found; out=$(cat "$dir/out.json")"
+  elif grep -q 'pulls/comments/4001' "$dir/state/gh-calls.log"; then
+    fail "scan head-pinned: a finding the scan collected was fetched again by id"
   else
-    pass "scan collects only current-HEAD bot findings (stale-SHA and non-bot comments excluded)"
+    pass "scan collects only current-HEAD bot findings (unnamed stale-SHA and non-bot comments excluded)"
+  fi
+}
+
+test_scan_fetches_named_offhead_finding() {
+  # #2565: a pushed fix leaves the fixed finding anchored on the earlier SHA,
+  # so the HEAD scan dropped it and a `fixed` verdict skipped silently. A
+  # named id outside the scan is fetched by id and accepted only as a bot
+  # comment on this PR; other named ids stay not-found; a failed read exits 3.
+  local dir rc
+  dir=$(make_case "scan-named-offhead")
+  jq -n --arg sha "$HEAD_SHA" --arg minor "$MINOR_BODY" '
+    [ { id: 4001, user: {login: "coderabbitai[bot]"}, body: $minor,
+        path: "new.ts", line: 2, commit_id: $sha, original_commit_id: $sha } ]
+  ' >"$dir/comments.json"
+  jq -n --arg major "$MAJOR_BODY" '
+    [
+      { id: 4000, user: {login: "coderabbitai[bot]"}, body: $major,
+        path: "old.ts", line: null, original_line: 50,
+        commit_id: "stale-sha", original_commit_id: "stale-sha",
+        pull_request_url: "https://api.github.com/repos/owner/repo/pulls/999" },
+      { id: 4005, user: {login: "coderabbitai[bot]"}, body: $major,
+        path: "other.ts", line: 7, commit_id: "stale-sha", original_commit_id: "stale-sha",
+        pull_request_url: "https://api.github.com/repos/owner/repo/pulls/998" },
+      { id: 4002, user: {login: "somebody-else"}, body: $major,
+        path: "human.ts", line: 3, commit_id: "stale-sha", original_commit_id: "stale-sha",
+        pull_request_url: "https://api.github.com/repos/owner/repo/pulls/999" }
+    ]
+  ' >"$dir/direct.json"
+  make_threads_fixture '[{isResolved: true, comment_ids: [4000]}, {isResolved: false, comment_ids: [4001]}]' >"$dir/threads.json"
+  rc=$(CRRF_FIXTURE_COMMENTS="$dir/comments.json" CRRF_FIXTURE_DIRECT="$dir/direct.json" \
+    run_case "$dir" -- 999 --repo owner/repo --scan \
+      --verdict "4000=fixed:classifier now follows the HTML standard (f3937f98)" \
+      --verdict 4005=fixed --verdict 4002=fixed --verdict 4009=fixed)
+
+  local row
+  row=$(grep '"comment_id":4000' "$(ledger_file "$dir")" 2>/dev/null || printf '')
+  if [ "$rc" != "0" ]; then
+    fail "named off-HEAD: exit $rc; stderr=$(cat "$dir/err.log")"
+  elif [ "$(ledger_lines "$dir")" != "1" ] || [ -z "$row" ]; then
+    fail "named off-HEAD: expected exactly one ledger row, for 4000; ledger=$(cat "$(ledger_file "$dir")" 2>/dev/null)"
+  elif [ "$(printf '%s' "$row" | jq -r '[.tier, .path, .line, .disposition, .resolved, .head_sha] | @tsv')" != "$(printf 'p1\told.ts\t50\tfixed\ttrue\t%s' "$HEAD_SHA")" ]; then
+    fail "named off-HEAD: row fields wrong; row=$row"
+  elif [ "$(printf '%s' "$row" | jq -r '.reason')" != "classifier now follows the HTML standard (f3937f98)" ]; then
+    fail "named off-HEAD: reason not carried; row=$row"
+  elif [ "$(jq -r '[.recorded[] | select(.comment_id==4000 and .action=="recorded")] | length' "$dir/out.json")" != "1" ]; then
+    fail "named off-HEAD: 4000 not reported recorded; out=$(cat "$dir/out.json")"
+  elif [ "$(jq -r '[.skipped[] | select(.why=="not-found") | .comment_id] | sort' "$dir/out.json" | jq -c .)" != "[4002,4005,4009]" ]; then
+    fail "named off-HEAD: other-PR, non-bot and 404 ids must stay not-found; out=$(cat "$dir/out.json")"
+  elif [ "$(grep -c 'pulls/comments/4000$' "$dir/state/gh-calls.log")" != "1" ]; then
+    fail "named off-HEAD: expected exactly one direct fetch of 4000; calls=$(cat "$dir/state/gh-calls.log")"
+  elif ! grep -q 'comment 4005 belongs to another pull request' "$dir/err.log" \
+    || ! grep -q 'comment 4002 .*is not authored by coderabbitai\[bot\]' "$dir/err.log" \
+    || ! grep -q 'comment 4009 .*not found' "$dir/err.log"; then
+    fail "named off-HEAD: rejection reasons not logged; stderr=$(cat "$dir/err.log")"
+  else
+    pass "a --verdict id outside the current-HEAD scan is fetched by id and recorded when it is a CodeRabbit finding on this PR (#2565)"
+  fi
+
+  # A transport failure on the direct read is exit 3 with nothing written.
+  dir=$(make_case "scan-named-offhead-transport")
+  jq -n '[]' >"$dir/comments.json"
+  rc=$(CRRF_FIXTURE_COMMENTS="$dir/comments.json" CRRF_FIXTURE_DIRECT="$dir/comments.json" CRRF_DIRECT_FAIL=1 \
+    run_case "$dir" -- 999 --repo owner/repo --scan --verdict 4000=fixed)
+  if [ "$rc" != "3" ]; then
+    fail "named off-HEAD transport failure: exit $rc, expected 3; stderr=$(cat "$dir/err.log")"
+  elif [ "$(ledger_lines "$dir")" != "0" ]; then
+    fail "named off-HEAD transport failure: ledger written despite the failed read"
+  else
+    pass "a failed direct read of a named finding exits 3 and writes nothing (#2565)"
+  fi
+
+  # Without --scan there is no direct fetch; an uncollected id stays not-found.
+  dir=$(make_case "findings-json-no-direct-fetch")
+  printf '{ "findings": [] }\n' >"$dir/findings.json"
+  rc=$(CRRF_DIRECT_FAIL=1 run_case "$dir" -- 999 --repo owner/repo --findings-json findings.json --verdict 4000=fixed)
+  if [ "$rc" != "0" ] || grep -q 'pulls/comments/' "$dir/state/gh-calls.log" \
+    || [ "$(jq -r '[.skipped[] | select(.comment_id==4000 and .why=="not-found")] | length' "$dir/out.json")" != "1" ]; then
+    fail "findings-json: direct fetch must be a --scan arm only (rc=$rc); calls=$(cat "$dir/state/gh-calls.log")"
+  else
+    pass "--findings-json without --scan never fetches by id; an uncollected id stays not-found"
   fi
 }
 
@@ -474,7 +569,7 @@ test_marker_absence_preserves_supplied_tier() {
 
 test_deferred_aliases_and_superseding_rows() {
   local alias dir rc rc2 rc3 rc4
-  for alias in deferred tracked split deferred-to-followup; do
+  for alias in deferred tracked split deferred-to-followup deferred-to-follow-up; do
     dir=$(make_case "deferred-$alias")
     jq -n --arg b "$MINOR_BODY" '[{path:"x",line:1,comment_id:9801,body:$b}]' > "$dir/findings.json"
     make_threads_fixture '[{isResolved: true, comment_ids: [9801]}]' > "$dir/threads.json"
@@ -500,6 +595,31 @@ test_deferred_aliases_and_superseding_rows() {
   done
 }
 
+# #1677: a persisted legacy spelling is already the same disposition. Both
+# input spellings are no-ops; a later fixed verdict appends, never rewrites.
+test_persisted_deferral_alias_idempotence() {
+  local dir rc before alias
+  dir=$(make_case "persisted-deferral-alias")
+  jq -n --arg b "$MINOR_BODY" '[{path:"x",line:1,comment_id:9802,body:$b}]' > "$dir/findings.json"
+  mkdir -p "$(dirname "$(ledger_file "$dir")")"
+  printf '%s\n' '{"repo":"owner/repo","comment_id":9802,"verdict":"deferred","disposition":"deferred-to-follow-up","recorded_at":"2026-01-01T00:00:00Z"}' > "$(ledger_file "$dir")"
+  before=$(cat "$(ledger_file "$dir")")
+  for alias in deferred-to-followup deferred-to-follow-up; do
+    rc=$(run_case "$dir" -- 999 --repo owner/repo --findings-json findings.json --verdict "9802=$alias")
+    if [ "$rc" = 0 ] && [ "$(cat "$(ledger_file "$dir")")" = "$before" ] \
+      && jq -e '.skipped[0].why == "already-recorded"' "$dir/out.json" >/dev/null; then
+      pass "persisted deferral alias + $alias is an unchanged no-op"
+    else fail "persisted deferral alias + $alias rewrote or appended history (rc=$rc)"; fi
+  done
+  rc=$(run_case "$dir" -- 999 --repo owner/repo --findings-json findings.json --verdict 9802=fixed)
+  if [ "$rc" = 0 ] && [ "$(ledger_lines "$dir")" = 2 ] \
+    && [ "$(head -1 "$(ledger_file "$dir")")" = "$before" ] \
+    && jq -se '.[1].disposition == "fixed" and .[1].superseded_prior' "$(ledger_file "$dir")" >/dev/null; then
+    pass "a later fix supersedes the alias without rewriting its persisted row"
+  else fail "later fix did not supersede persisted alias (rc=$rc)"; fi
+}
+
+test_persisted_deferral_alias_idempotence
 test_deferred_aliases_and_superseding_rows
 test_tier_extraction_error_refuses_supplied_fallback
 test_marker_absence_preserves_supplied_tier
@@ -511,6 +631,7 @@ test_unknown_verdict_exits_2_pre_write
 test_idempotent_rerecord_noop
 test_superseding_verdict_appends_flagged_row
 test_scan_is_head_pinned
+test_scan_fetches_named_offhead_finding
 test_string_id_findings_json_matches_consistently
 test_never_posts_any_write
 

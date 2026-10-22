@@ -94,15 +94,16 @@
 #   1   One or more unresolved blocking-tier findings on current HEAD —
 #       gate blocks.
 #   2   Usage / config error. Error message on stderr.
-#   3   REQUIRE_REVIEW_SUMMARY only: a completed CodeRabbit review run is on
-#       the current HEAD and NO acceptor recognised a summary for it, so the
-#       findings on that surface are not knowable. NOT a finding count.
-#       An event-driven caller treats it as non-green; the scheduled /
-#       issue_comment sweep must DECLINE TO PUBLISH rather than post a
-#       success read off the previous publication. Since the primary acceptor
-#       reads the summary out of the run object's OWN body, this no longer
-#       fires merely because the walkthrough comment has not caught up — it
-#       means the run's serialization is one this gate cannot classify.
+#   3   REQUIRE_REVIEW_SUMMARY only: hold when a completed CodeRabbit run on
+#       the current HEAD has no summary recognised by any acceptor, so its
+#       findings cannot be classified; or when an earlier recognised clean
+#       summary is in hand but a later current-HEAD run remains unrecognised.
+#       The second case withholds that stale clean verdict. Neither case is a
+#       known blocking finding or a finding count. An event-driven caller treats
+#       the hold as non-green; the scheduled / issue_comment publisher must
+#       DECLINE TO PUBLISH rather than report success from an earlier result.
+#       The primary acceptor reads the summary from the run object's own body,
+#       so a lagging walkthrough comment alone does not trigger the first case.
 #
 # Design notes:
 #   - Read-only. Only GETs against the GitHub API.
@@ -979,11 +980,16 @@ esac
 # anchored to this exact PR head, and only when the comment is fresh at-or-after
 # that run; otherwise an older markerless body can inherit a later exact-head
 # object and briefly publish a stale verdict.
+#
+# The marker is read after CodeRabbit's leading vendor header, with the same
+# shared definition the waiter's selector uses (#2734). A headered summary was
+# otherwise out of scope altogether, so a finding carried only by it was never
+# graded — a false clear of this gate.
 MARKER_SUMMARY_JSON=$(echo "$ISSUE_COMMENTS_JSON" | jq -c \
-  --arg bot "$BOT_LOGIN" --arg m "$CR_SUMMARY_MARKER" '
+  --arg bot "$BOT_LOGIN" --arg m "$CR_SUMMARY_MARKER" "$CR_STRIP_VENDOR_HEADER_JQ"'
   [ .[]
     | select(.user.login == $bot)
-    | select((.body // "") | startswith($m))
+    | select((.body // "") | cr_strip_vendor_header | startswith($m))
     | . + { fresh_at: ([.created_at, (.updated_at // .created_at)]
                         | map(select(type == "string" and . != "")) | max // "") }
   ]
@@ -1566,10 +1572,10 @@ log "found $SUMMARY_BLOCKING_COUNT blocking-tier summary finding(s) on HEAD"
 #
 # The channel: a PR comment whose FIRST LINE is exactly the token
 #   [mergepath-summary-ack: <HEAD sha> <finding-set fingerprint>]
-# written by a human collaborator (author_association OWNER / MEMBER /
-# COLLABORATOR — a GitHub-computed field, not something the commenter sets)
-# and, per the same reasoning that keeps bots out of the reviewer set, not by
-# a `[bot]` account. Rationale for the rebuttal or deferral goes on the lines
+# written by an eligible non-bot collaborator (author_association OWNER /
+# MEMBER / COLLABORATOR — a GitHub-computed field, not something the commenter
+# sets), consistent with the bot exclusion in the reviewer set. Rationale for
+# the rebuttal or deferral goes on the lines
 # BELOW the token.
 #
 # Head-pinned by construction, not by clock: the token names the current head

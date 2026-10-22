@@ -7,6 +7,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+WAITER_SOURCE="${CODERABBIT_TEST_WAITER_SOURCE:-$ROOT/scripts/coderabbit-wait.sh}"
 
 WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/coderabbit-wait-status-probe.XXXXXX")"
 trap 'rm -rf "$WORKDIR"' EXIT
@@ -30,7 +31,7 @@ make_case() {
   local dir="$WORKDIR/$name"
 
   mkdir -p "$dir/scripts/lib" "$dir/.github" "$dir/bin" "$dir/state"
-  cp "${CODERABBIT_TEST_WAITER_SOURCE:-$ROOT/scripts/coderabbit-wait.sh}" "$dir/scripts/coderabbit-wait.sh"
+  cp "$WAITER_SOURCE" "$dir/scripts/coderabbit-wait.sh"
   cp "$ROOT/scripts/lib/gh-token-resolver.sh" "$dir/scripts/lib/gh-token-resolver.sh"
   cp "$ROOT/scripts/lib/reviewers-helpers.sh" "$dir/scripts/lib/reviewers-helpers.sh"
   # Hard-required by coderabbit-wait.sh since #1008: both fetch wrappers
@@ -317,7 +318,7 @@ case "$endpoint" in
           printf '[]\n'
         fi
         ;;
-      probe_review_on_head|probe_ack_after_blocking_summary|probe_blocking_summary_no_ack|probe_ack_after_clean_summary|probe_ack_without_summary)
+      probe_review_on_head|probe_ack_after_blocking_summary|probe_blocking_summary_no_ack|probe_ack_after_clean_summary|probe_ack_without_summary|probe_review_object_vendor_header)
         # #814: a genuine CodeRabbit review already on HEAD. --probe must
         # return the SAME terminal verdict the polling mode does.
         printf '[{"id":9941,"user":{"login":"%s"},"submitted_at":"%s","commit_id":"head-sha","body":"%s"}]\n' "$bot" "$head_time" "$run_body"
@@ -850,6 +851,11 @@ _⚠️ Potential issue_ | _🟠 Major_ carried only by this summary." ;;
         # the retired grep could not see.
         printf '[{"id":8721,"user":{"login":"%s"},"created_at":"%s","updated_at":"%s","body":"<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\\n**Actionable comments posted: 1**\\n\\n<details>\\n<summary>scripts/foo.sh (1)</summary>\\n\\n_🔒 Security \\u0026 Privacy_ | _🟠 Major_ | _⚡ Quick win_\\n\\n**Reject the diagnostic bypass in merge-gate callers.**\\n\\n<!-- cr-indicator-types:potential_issue -->"}]\n' "$bot" "$head_time" "$head_time"
         ;;
+      probe_summary_release_notes)
+        # #1569: completed current-head summary, deliberately no review object.
+        jq -nc --arg bot "$bot" --arg at "$reply_time" --arg phrase "${CODERABBIT_TEST_SUMMARY_PHRASE:?}" \
+          '[{id:15691,user:{login:$bot},created_at:$at,updated_at:$at,body:("<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\nNo actionable comments were generated in the recent review.\nReviewing files between aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa and head-sha.\n<!-- This is an auto-generated comment: release notes by coderabbit.ai -->\n## Summary by CodeRabbit\n- Fixes: " + $phrase + " on the current changes.\n<!-- end of auto-generated comment: release notes by coderabbit.ai -->")}]'
+        ;;
       probe_clean_incremental)
         # #851 fixtures: no review object (reviews endpoint falls to its []
         # default); the summarize comment is the only head evidence. Prior-head
@@ -904,6 +910,44 @@ _⚠️ Potential issue_ | _🟠 Major_ carried only by this summary." ;;
         # Start delimiter without end: nothing stripped, fails toward rc 2.
         printf '[{"id":7923,"user":{"login":"%s"},"created_at":"%s","updated_at":"%s","body":"<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\\nReviewing files that changed from the base of the PR and between aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa and head-sha.\\n\\n<!-- pre_merge_checks_walkthrough_start -->\\n_⚠️ Potential issue_ after a truncated block."}]\n' "$bot" "$reply_time" "$reply_time"
         ;;
+      probe_summary_vendor_header)
+        # #2734, the live #2702 shape: CodeRabbit's invisible vendor header
+        # opens the summarize comment, which names this head, and there is no
+        # review object. The barrier's refused `@coderabbitai review` drew the
+        # newer headered "Already reviewed the last commit" reply, which is
+        # narration and never evidence.
+        jq -nc --arg bot "$bot" --arg at "$reply_time" '[
+          {id:27341,user:{login:$bot},created_at:$at,updated_at:$at,body:"<!-- coderabbit-ai-generated:v1 -->\n\n<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n<!-- recent_review_start -->\n\nNo actionable comments were generated in the recent review. 🎉\n\nReviewing files that changed from the base of the PR and between aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa and head-sha.\n\n<!-- recent_review_end -->\n<!-- This is an auto-generated comment: release notes by coderabbit.ai -->\n## Summary by CodeRabbit\n- Fixes\n<!-- end of auto-generated comment: release notes by coderabbit.ai -->"},
+          {id:27342,user:{login:$bot},created_at:"2026-06-04T00:00:08Z",updated_at:"2026-06-04T00:00:08Z",body:"<!-- coderabbit-ai-generated:v1 -->\n\n<!-- This is an auto-generated reply by CodeRabbit -->\n<!-- CodeRabbit review command invocation: v2:0000 -->\n<details>\n<summary>⚠️ Action not completed</summary>\n\nAlready reviewed the last commit.\n\n> Note: CodeRabbit is an incremental review system and does not re-review already reviewed commits.\n\n</details>"}]'
+        ;;
+      probe_summary_vendor_header_prior_head)
+        # #2734: the header does not loosen the SHA conjunct.
+        jq -nc --arg bot "$bot" --arg at "$reply_time" '[
+          {id:27343,user:{login:$bot},created_at:$at,updated_at:$at,body:"<!-- coderabbit-ai-generated:v1 -->\n\n<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\nNo actionable comments were generated in the recent review.\n\nReviewing files that changed from the base of the PR and between aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa and prior-sha."}]'
+        ;;
+      probe_summary_vendor_header_midreview)
+        # #2734: a headered mid-review summary already names the head.
+        jq -nc --arg bot "$bot" --arg at "$reply_time" '[
+          {id:27344,user:{login:$bot},created_at:$at,updated_at:$at,body:"<!-- coderabbit-ai-generated:v1 -->\n\n<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n<!-- This is an auto-generated comment: review in progress by coderabbit.ai -->\n> Currently processing new changes in this PR.\n\nReviewing files that changed from the base of the PR and between aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa and head-sha.\n<!-- end of auto-generated comment: review in progress by coderabbit.ai -->"}]'
+        ;;
+      probe_summary_vendor_header_finding)
+        # #2734: a summary-only blocking marker behind the header escalates.
+        jq -nc --arg bot "$bot" --arg at "$reply_time" '[
+          {id:27345,user:{login:$bot},created_at:$at,updated_at:$at,body:"<!-- coderabbit-ai-generated:v1 -->\n\n<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n_⚠️ Potential issue_ carried only by this summary.\n\nReviewing files that changed from the base of the PR and between aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa and head-sha."}]'
+        ;;
+      probe_summary_vendor_header_not_first_line|probe_summary_vendor_header_reply_quotes)
+        # #2734: the header is framing only as the FIRST line. A newer reply
+        # with the header on its second line, or one quoting the marker below
+        # its own header and reply marker, opens with neither, so the prior-head
+        # summary stays the one selected (#794).
+        jq -nc --arg bot "$bot" --arg at "$reply_time" --arg sc "$scenario" '[
+          {id:27346,user:{login:$bot},created_at:$at,updated_at:$at,body:"<!-- coderabbit-ai-generated:v1 -->\n\n<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\nNo actionable comments were generated in the recent review.\n\nReviewing files that changed from the base of the PR and between aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa and prior-sha."},
+          {id:27347,user:{login:$bot},created_at:"2026-06-04T00:00:08Z",updated_at:"2026-06-04T00:00:08Z",body:(
+            if $sc == "probe_summary_vendor_header_not_first_line"
+            then "🧩 Analysis chain\n<!-- coderabbit-ai-generated:v1 -->\n\n<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n\nbetween aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa and head-sha per gh pr view --json headRefOid."
+            else "<!-- coderabbit-ai-generated:v1 -->\n\n<!-- This is an auto-generated reply by CodeRabbit -->\n<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n\nbetween aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa and head-sha per gh pr view --json headRefOid."
+            end)}]'
+        ;;
       probe_summary_aged_clean)
         # Clean head-pinned summary predating the anchor (liveness case).
         printf '[{"id":7924,"user":{"login":"%s"},"created_at":"2026-06-03T00:00:00Z","updated_at":"2026-06-03T00:00:00Z","body":"<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\\nNo actionable comments were generated in the recent review.\\n\\nReviewing files that changed from the base of the PR and between aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa and head-sha."}]\n' "$bot"
@@ -912,6 +956,12 @@ _⚠️ Potential issue_ | _🟠 Major_ carried only by this summary." ;;
         # Paused stanza in an AGED summary only the anchor-free selection
         # sees: the class conjunct alone must reject it (#593 precedent).
         printf '[{"id":7925,"user":{"login":"%s"},"created_at":"2026-06-03T00:00:00Z","updated_at":"2026-06-03T00:00:00Z","body":"<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\\n<!-- This is an auto-generated comment: review paused by coderabbit.ai -->\\n> [!NOTE]\\n> ## Reviews paused\\n<!-- end of auto-generated comment: review paused by coderabbit.ai -->\\n\\nReviewing files that changed from the base of the PR and between aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa and head-sha."}]\n' "$bot"
+        ;;
+      probe_review_object_vendor_header)
+        # #2734: the run is on head; its summary, published after it, opens
+        # with the vendor header.
+        jq -nc --arg bot "$bot" --arg at "$reply_time" '[
+          {id:27348,user:{login:$bot},created_at:$at,updated_at:$at,body:"<!-- coderabbit-ai-generated:v1 -->\n\n<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n**Actionable comments posted: 0**\n\nNothing to flag."}]'
         ;;
       probe_review_object_premerge_warning)
         # Review object ON head; the published summary's only ⚠️ is a
@@ -2600,6 +2650,12 @@ probe_summary_midreview|notyet:in_progress|a mid-review summary that already nam
 probe_summary_chat_reply_only|notyet:summary-without-head-review|a SHA-quoting chat reply with a prior-head summary must not clear (#794)
 probe_summary_marker_outside_premerge|findings|a blocking marker outside the pre-merge table escalates immediately as rc 2
 probe_summary_premerge_truncated|findings|a truncated pre-merge block strips nothing and fails toward rc 2
+probe_summary_vendor_header|reported:27341|a head-pinned summary behind the vendor header is reported, not summary-without-head-review (#2734, the #2702 shape)
+probe_summary_vendor_header_prior_head|notyet:summary-without-head-review|a headered summary naming only prior heads must not clear this one (#2734)
+probe_summary_vendor_header_midreview|notyet:in_progress|a headered mid-review summary that names the head stays in_progress (#2734)
+probe_summary_vendor_header_finding|findings|a headered summary-only blocking marker escalates as rc 2 (#2734)
+probe_summary_vendor_header_not_first_line|notyet:summary-without-head-review|a header after content is not framing, so a SHA-quoting reply is never the summary (#2734)
+probe_summary_vendor_header_reply_quotes|notyet:summary-without-head-review|a headered reply quoting the marker below its reply marker is never the summary (#2734)
 ROWS
 }
 
@@ -2809,6 +2865,9 @@ test_857_summary_selector_unit() {
   marker='<!-- This is an auto-generated comment: summarize by coderabbit.ai -->'
   awk '/^# BEGIN coderabbit_summary_selector$/{f=1;next} /^# END coderabbit_summary_selector$/{f=0} f' \
     "$ROOT/scripts/coderabbit-wait.sh" >"$snip"
+  # The selector reads the shared vendor-header definition (#2734).
+  # shellcheck source=../scripts/lib/coderabbit-fence.sh
+  . "$ROOT/scripts/lib/coderabbit-fence.sh"
   # shellcheck disable=SC1090
   . "$snip"
 
@@ -2840,6 +2899,96 @@ test_857_summary_selector_unit() {
     pass "#857: the shared summary selector is marker-led at byte zero, bot-scoped, and newest-by-fresh_at"
   else
     fail "#857 summary selector:$bad"
+  fi
+}
+
+test_2734_vendor_header_reaches_the_barrier() {
+  # #2734, the #2702 incident end to end. CodeRabbit finished the head and said
+  # so in a summarize comment opened by its invisible vendor header, with no
+  # review object. The byte-zero selector found no summary, so the probe read
+  # `summary-without-head-review`, the barrier posted a review request
+  # CodeRabbit refused, waited out its window, and fell back to the manual
+  # handoff. Chained through the SHIPPED barrier arms rather than a restatement
+  # of them: `reported` is what opens the CodeRabbit side, and a terminal
+  # observation must not be one the barrier answers with a trigger.
+  local dir rc cls trig=declined
+  dir=$(make_case probe-2734-vendor-header 600 true 30 3 2)
+  rc=$(run_probe_case "$dir" probe_summary_vendor_header)
+  cls=$(bash -c '. "$1/scripts/phase-4b/lib.sh"; p4b_barrier_class_coderabbit head-sha "$3" "$(cat "$2")"' \
+    _ "$ROOT" "$dir/out.json" "$rc" 2>/dev/null || echo PARSE_ERROR)
+  if bash -c '. "$1/scripts/phase-4b/lib.sh"; p4b_barrier_should_trigger "$2"' \
+      _ "$ROOT" "$(jq -r '.probe.observed // ""' "$dir/out.json" 2>/dev/null)" 2>/dev/null; then
+    trig=would-trigger
+  fi
+  if [ "$rc" = 0 ] && [ "$cls" = reported ] && [ "$trig" = declined ]; then
+    pass "#2734: a vendor-headered head-pinned summary is reported, and the barrier reads it as reported without a trigger"
+  else
+    fail "#2734 vendor-headered summary → rc=$rc class=$cls trigger=$trig json=$(cat "$dir/out.json" 2>/dev/null)"
+    sed 's/^/      /' "$dir/err.log" >&2 || true
+  fi
+
+  # The review-object arm reads the same summary through its own publication
+  # scan, which was a second byte-zero test: a headered summary published
+  # after the run was skipped, and the probe read `awaiting-summary`.
+  local dir2 rc2
+  dir2=$(make_case probe-2734-vendor-header-robj 600 true 30 3 2)
+  rc2=$(run_probe_case "$dir2" probe_review_object_vendor_header)
+  if [ "$rc2" = 0 ] && jq -e '.status == "reported" and .probe.observed == "terminal" and .review.endpoint == "reviews" and .review.id == 9941' "$dir2/out.json" >/dev/null 2>&1 \
+     && [ "$(probe_count "$dir2")" = 0 ]; then
+    pass "#2734: a vendor-headered summary published after a head-pinned run completes the review-object arm"
+  else
+    fail "#2734 review-object arm → rc=$rc2 json=$(cat "$dir2/out.json" 2>/dev/null)"
+    sed 's/^/      /' "$dir2/err.log" >&2 || true
+  fi
+}
+
+test_2734_vendor_header_unit() {
+  # #2734. The rule lives once in scripts/lib/coderabbit-fence.sh, spelled
+  # twice: jq for the selectors, shell for the classifiers. Assert the two
+  # spellings agree on every shape the rule distinguishes, then that each
+  # shell call site reads a headered body the way it reads the bare one.
+  local snip="$WORKDIR/2734-classifier.sh" bad="" b sh jqo h body i=0
+  local source=${CODERABBIT_TEST_WAITER_SOURCE:-$ROOT/scripts/coderabbit-wait.sh}
+  # shellcheck source=../scripts/lib/coderabbit-fence.sh
+  . "$ROOT/scripts/lib/coderabbit-fence.sh"
+  h=$CR_VENDOR_HEADER
+  for b in "$h"$'\n\nM\nx' "$h"$'\r\n\r\nM' "$h  "$'\nM' "$h"$'\nM' "$h" "$h"$'\n' "$h"$'\n  ' \
+           "$h"$'\n\n\n' "$h x"$'\nM' "x$h"$'\nM' $'\n'"$h"$'\nM' "$h"$'\n'"$h"$'\nM' 'M' '' "$h"$'\n\t\nM'; do
+    i=$((i + 1))
+    sh=$(cr_strip_vendor_header "$b"; printf .); sh=${sh%.}
+    jqo=$(jq -nj --arg b "$b" "$CR_STRIP_VENDOR_HEADER_JQ"' $b | cr_strip_vendor_header'; printf .); jqo=${jqo%.}
+    [ "$sh" = "$jqo" ] || bad="$bad parity-$i"
+  done
+  # The stripped shapes themselves: framing goes only from the first line.
+  [ "$(cr_strip_vendor_header "$h"$'\n\nM')" = M ] || bad="$bad strips-first-line"
+  [ "$(cr_strip_vendor_header "$h"$'\n'"$h"$'\nM')" = "$h"$'\nM' ] || bad="$bad strips-once"
+  [ "$(cr_strip_vendor_header "$h x"$'\nM')" = "$h x"$'\nM' ] || bad="$bad keeps-content-line"
+  [ "$(cr_strip_vendor_header "x$h"$'\nM')" = "x$h"$'\nM' ] || bad="$bad keeps-later-header"
+
+  eval "$(grep -E '^(RATE_LIMIT_MARKER|PAUSED_MARKER|IN_PROGRESS_MARKER|SUMMARY_MARKER)=' "$source")"
+  awk '/^# BEGIN coderabbit_comment_classifier$/{f=1;next} /^# END coderabbit_comment_classifier$/{f=0} f' "$source" >"$snip"
+  awk '/^# BEGIN coderabbit_summary_helpers$/{f=1;next} /^# END coderabbit_summary_helpers$/{f=0} f' "$source" >>"$snip"
+  # shellcheck disable=SC1090
+  . "$snip"
+  # The #956 structural reader: a headered heading-only refusal, which no HTML
+  # marker names, fell to classify_comment's `review` default.
+  [ "$(crw_classify_selected_comment "$h"$'\n\n> [!WARNING]\n> ## Review limit reached\n\nNext review available in: 10 minutes')" = rate_limit ] \
+    || bad="$bad headered-heading-refusal"
+  [ "$(crw_classify_selected_comment "$h"$'\n\n'"$SUMMARY_MARKER"$'\n> [!WARNING]\n> ## Review limit reached\n\nNext.')" = rate_limit ] \
+    || bad="$bad headered-summary-refusal"
+  # The #1569 prose exemption: walkthrough prose in a headered summary is
+  # content, as it is in a bare one.
+  body="$h
+
+$SUMMARY_MARKER
+## Walkthrough
+- Resumes when review in progress matches the current changes."
+  [ "$(classify_comment "$body")" = review ] || bad="$bad headered-summary-prose"
+  [ "$(classify_comment "x$body")" = in_progress ] || bad="$bad unframed-prose-keeps-fallback"
+  if [ -z "$bad" ]; then
+    pass "#2734: the vendor-header rule agrees in jq and shell, strips the first line only, and reaches the refusal reader and the #1569 exemption"
+  else
+    fail "#2734 vendor header:$bad"
   fi
 }
 
@@ -2947,6 +3096,62 @@ Reviewing files that changed from the base of the PR and between $b40 and $h40."
   fi
 }
 
+test_1569_summary_prose_classifier_unit() {
+  local snip="$WORKDIR/1569-classifier.sh" phrase body bad=""
+  local source=${CODERABBIT_TEST_WAITER_SOURCE:-$ROOT/scripts/coderabbit-wait.sh}
+  eval "$(grep -E '^(RATE_LIMIT_MARKER|PAUSED_MARKER|IN_PROGRESS_MARKER|SUMMARY_MARKER)=' "$source")"
+  awk '/^# BEGIN coderabbit_comment_classifier$/{f=1;next} /^# END coderabbit_comment_classifier$/{f=0} f' "$source" >"$snip"
+  # classify_comment reads the shared vendor-header definition (#2734).
+  # shellcheck source=../scripts/lib/coderabbit-fence.sh
+  . "$ROOT/scripts/lib/coderabbit-fence.sh"
+  # shellcheck disable=SC1090
+  . "$snip"
+  for phrase in 'review in progress' 'currently reviewing' 'commits under review' 'commit under review'; do
+    body="$SUMMARY_MARKER
+## Walkthrough
+- Resumes when $phrase matches the current changes.
+<!-- This is an auto-generated comment: release notes by coderabbit.ai -->
+## Summary by CodeRabbit
+- Fixes: $phrase on the current changes."
+    [ "$(classify_comment "$body")" = review ] || bad="$bad summary:$phrase"
+    [ "$(classify_comment "$body
+<!-- This is an auto-generated comment: $IN_PROGRESS_MARKER -->")" = in_progress ] || bad="$bad active-marker:$phrase"
+    [ "$(classify_comment "$phrase on this pull request.")" = in_progress ] || bad="$bad standalone:$phrase"
+  done
+  [ "$(classify_comment "$SUMMARY_MARKER
+$RATE_LIMIT_MARKER
+$PAUSED_MARKER
+$IN_PROGRESS_MARKER")" = rate_limit ] || bad="$bad rate-limit-order"
+  [ "$(classify_comment "$SUMMARY_MARKER
+$PAUSED_MARKER
+$IN_PROGRESS_MARKER")" = paused ] || bad="$bad pause-order"
+  [ "$(classify_comment "$SUMMARY_MARKER
+Here's a summary of where things stand: currently reviewing.")" = status_probe ] || bad="$bad narration"
+  [ "$(classify_comment "Here's a summary of where things stand: review in progress.")" = status_probe ] || bad="$bad standalone-narration"
+  if [ -z "$bad" ]; then
+    pass "#1569: summary prose is content; active markers, standalone notices and narration retain precedence"
+  else
+    fail "#1569 classifier:$bad"
+  fi
+}
+
+test_1569_completed_summary_release_notes_probe() {
+  local phrase dir rc n=0
+  for phrase in 'review in progress' 'currently reviewing' 'commits under review'; do
+    n=$((n + 1))
+    dir=$(make_case "1569-summary-prose-$n" 0 false 0 0)
+    enable_trust_status_context "$dir"
+    rc=$(CODERABBIT_TEST_SUMMARY_PHRASE="$phrase" CODERABBIT_TEST_STATUS=success \
+      CODERABBIT_TEST_STATUS_DESCRIPTION='Review completed' run_probe_case "$dir" probe_summary_release_notes)
+    if [ "$rc" = 0 ] && jq -e '.status == "reported" and .head_sha == "head-sha" and .probe.observed == "terminal" and .review.endpoint == "issues" and .review.id == 15691' "$dir/out.json" >/dev/null \
+      && [ "$(probe_count "$dir")" = 0 ]; then
+      pass "#1569: completed summary with '$phrase' release notes clears without a review object or POST"
+    else
+      fail "#1569 completed summary '$phrase': rc=$rc json=$(cat "$dir/out.json")"
+    fi
+  done
+}
+
 test_1005_classifier_pipe_buffer_unit() {
   # #1005. `classify_comment` is a pure classifier, so drive it directly from
   # the extracted sentinel block rather than through a stub-gh fixture: the
@@ -2967,7 +3172,7 @@ test_1005_classifier_pipe_buffer_unit() {
   # CodeRabbit reads as a completed clean report.
   local snip="$WORKDIR/comment-classifier.sh" mut="$WORKDIR/comment-classifier-piped.sh"
   local bad="" pad big_rl big_rl_prose big_paused big_prog big_probe big_prog_prose
-  eval "$(grep -E '^(RATE_LIMIT_MARKER|PAUSED_MARKER|IN_PROGRESS_MARKER)=' \
+  eval "$(grep -E '^(RATE_LIMIT_MARKER|PAUSED_MARKER|IN_PROGRESS_MARKER|SUMMARY_MARKER)=' \
     "$ROOT/scripts/coderabbit-wait.sh")"
   awk '/^# BEGIN coderabbit_comment_classifier$/{f=1;next} /^# END coderabbit_comment_classifier$/{f=0} f' \
     "$ROOT/scripts/coderabbit-wait.sh" >"$snip"
@@ -3438,11 +3643,11 @@ test_851_summary_helpers_unit() {
   # tests/test_audit_branch_protection.sh.
   local snip="$WORKDIR/summary-helpers.sh" h40 h64 bad=""
   local clean_body chat_body failure_body inside_body outside_body trunc_body
-  local big_pad big_other_head big_this_head
+  local big_pad big_other_head big_this_head repeated_body start_line end_line outside_rc helper_source i old_pipeline_rc old_pipeline_line
   eval "$(grep -E '^(CR_SUMMARY_BENIGN_STANZA_RE|CR_PRE_MERGE_BLOCK_START|CR_PRE_MERGE_BLOCK_END)=' \
-    "$ROOT/scripts/coderabbit-wait.sh")"
+    "$WAITER_SOURCE")"
   awk '/^# BEGIN coderabbit_summary_helpers$/{f=1;next} /^# END coderabbit_summary_helpers$/{f=0} f' \
-    "$ROOT/scripts/coderabbit-wait.sh" >"$snip"
+    "$WAITER_SOURCE" >"$snip"
   # The block's one external dependency (#837): the shared classifier the
   # blocking-marker predicate grades each line with. Sourced from the same
   # canonical lib the script hard-requires, so the unit assertions below run
@@ -3547,8 +3752,30 @@ $big_pad"
   # END rendered before START is not a block; stripping to EOF from the
   # latched START would swallow the real marker after it.
   summary_blocking_marker_present "$inverted_body" || bad="$bad inverted-delims"
+  # #1038: retain the first delimiter line when the start marker has thousands
+  # of later matches, and keep hygiene removal plus outside-marker detection.
+  # The source-shape assertion makes restoring the old early-exit pipeline a
+  # deterministic test failure on every platform.
+  repeated_body="$CR_PRE_MERGE_BLOCK_START"
+  for ((i=0; i<2000; i++)); do repeated_body+=$'\n'"$CR_PRE_MERGE_BLOCK_START"; done
+  repeated_body+=$'\n'"$CR_PRE_MERGE_BLOCK_END"$'\n_🟠 Major_ outside the hygiene block'
+  start_line=$(crw_first_fixed_line "$repeated_body" "$CR_PRE_MERGE_BLOCK_START")
+  end_line=$(crw_first_fixed_line "$repeated_body" "$CR_PRE_MERGE_BLOCK_END")
+  [ "$start_line" = 1 ] || bad="$bad repeated-start-first-line"
+  [ "$end_line" = 2002 ] || bad="$bad repeated-end-line"
+  outside_rc=0; summary_blocking_marker_present "$repeated_body" || outside_rc=$?
+  [ "$outside_rc" = 0 ] || bad="$bad repeated-delimiter-marker-status"
+  helper_source=$(awk '/^summary_blocking_marker_present\(\) \{/{f=1} f{print} f && /^}/{exit}' "$WAITER_SOURCE")
+  [ "$(grep -c 'crw_first_fixed_line' <<<"$helper_source")" = 2 ] || bad="$bad locator-not-used-twice"
+  ! grep -Eq 'grep -nF .*\| *head -1' <<<"$helper_source" || bad="$bad early-exit-pipeline-restored"
+  # Deterministically model grep writing its first located line and then
+  # receiving SIGPIPE (141) when head exits. This pins pipefail's old status
+  # propagation without relying on grep/head scheduling timing.
+  old_pipeline_rc=0
+  old_pipeline_line=$(printf '%s\n' "$repeated_body" | bash -c 'printf "1:START\n"; exit 141' | head -1 | cut -d: -f1) || old_pipeline_rc=$?
+  [ "$old_pipeline_line" = 1 ] && [ "$old_pipeline_rc" = 141 ] || bad="$bad old-pipeline-status-control"
   if [ -z "$bad" ]; then
-    pass "#851/#968 helpers: stanza vacuity guard, 40-hex token boundary, pre-merge strip, other-head demotion"
+    pass "#851/#968/#1038 helpers: stanza vacuity guard, 40-hex token boundary, pre-merge strip, safe first-delimiter lookup, other-head demotion"
   else
     fail "#851/#968 helpers:$bad"
   fi
@@ -4474,6 +4701,13 @@ PY1673
   fi
 }
 
+if [ "${CODERABBIT_TEST_ONLY_1038:-0}" = 1 ]; then
+  test_851_summary_helpers_unit
+  echo "Results: $PASS passed, $FAIL failed"
+  [ "$FAIL" -eq 0 ]
+  exit $?
+fi
+
 test_1673_discretionary_counts
 if test_878_nested_tier_errors; then
   pass "#878: nested marker predicates preserve extraction errors separately from absence and API failure"
@@ -4529,7 +4763,11 @@ test_probe_unknown_option_fails_closed
 test_851_summary_evidence_matrix
 test_851_review_object_premerge_shares_strip
 test_851_summary_helpers_unit
+test_2734_vendor_header_unit
+test_2734_vendor_header_reaches_the_barrier
 test_968_summary_head_claim_unit
+test_1569_summary_prose_classifier_unit
+test_1569_completed_summary_release_notes_probe
 test_1005_classifier_pipe_buffer_unit
 test_1003_head_run_evidence_unit
 test_1031_rung_binds_to_the_graded_run

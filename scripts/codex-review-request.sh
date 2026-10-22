@@ -7,11 +7,16 @@
 # caller (e.g. an authoring agent) can reason over it.
 #
 # Usage:
-#   scripts/codex-review-request.sh [--trigger-only] [--allow-moving-head] <PR_NUMBER> [REPO]
+#   scripts/codex-review-request.sh [--trigger-only] [--failover] [--allow-moving-head] <PR_NUMBER> [REPO]
 #
 # Flags:
 #   --trigger-only       Post (or confirm) the `@codex review` trigger and
 #                        exit 0 without polling for clearance (#489).
+#   --failover           --trigger-only for the CodeRabbit rate-limit
+#                        failover in scripts/coderabbit-wait.sh only. A
+#                        trigger this run posts is recorded with a failover
+#                        marker comment, and the request ceiling does not
+#                        count it (#2534).
 #   --allow-moving-head  Downgrade the moving-head refusal (exit 8, below) to
 #                        a warning and post anyway. For the exceptional
 #                        callers that must request on a head the agent has
@@ -188,6 +193,10 @@
 #     # the later codex-review-check.sh --diagnostic-signal-only probe maps the
 #     # provider-authored evidence to its Phase 4b exit-2 waiver.
 #     "trigger_posted": true | false,
+#     "request_checkpoint": null | {after, counted_requests, recorded, comment_id},
+#     # #2657: set when this run's new request found the PR already at five
+#     # or more counted requests. recorded is "posted", "existing" or "failed";
+#     # it is informational and never changes the exit code.
 #     "request_resumed": true | false,
 #     # true when this invocation resumed an earlier in-flight request
 #     # instead of posting one (#1550), including one that expired and was
@@ -354,13 +363,16 @@ __CRR_ORIGINAL_ARGS=("$@")
 # helper blocking on Codex's full review. Extract the flag, leave positionals.
 # #2166: --allow-moving-head downgrades the moving-head refusal (exit 8) to a
 # warning. See refuse_moving_head_unless_allowed below.
+# #2534: --failover is --trigger-only plus a failover marker on a posted trigger.
 TRIGGER_ONLY=false
+FAILOVER=false
 AUTHORIZE_TRIGGER_WRITE=false
 ALLOW_MOVING_HEAD=false
 __POSITIONAL=()
 for __arg in "$@"; do
   case "$__arg" in
     --trigger-only) TRIGGER_ONLY=true ;;
+    --failover) FAILOVER=true; TRIGGER_ONLY=true ;;
     --authorize-trigger-write) AUTHORIZE_TRIGGER_WRITE=true; TRIGGER_ONLY=true ;;
     --allow-moving-head) ALLOW_MOVING_HEAD=true ;;
     *) __POSITIONAL+=("$__arg") ;;
@@ -369,8 +381,9 @@ done
 set -- ${__POSITIONAL[@]+"${__POSITIONAL[@]}"}
 
 if [ $# -lt 1 ] || [ $# -gt 2 ]; then
-  echo "Usage: $0 [--trigger-only] [--allow-moving-head] <PR_NUMBER> [REPO]" >&2
+  echo "Usage: $0 [--trigger-only] [--failover] [--allow-moving-head] <PR_NUMBER> [REPO]" >&2
   echo "  --trigger-only       post/confirm the @codex trigger, then exit 0 (no clearance poll)" >&2
+  echo "  --failover           --trigger-only for the CodeRabbit rate-limit failover; marks the trigger it posts" >&2
   echo "  --allow-moving-head  post even when the head is younger than codex.request_min_head_age_seconds" >&2
   echo "                       or CI has not picked it up yet (warns instead of exit 8)" >&2
   echo "  PR_NUMBER       pull request number (integer)" >&2
@@ -1464,11 +1477,11 @@ log "PR $REPO#$PR_NUMBER — fetching HEAD commit metadata"
 
 PR_JSON=$(gh api "repos/$REPO/pulls/$PR_NUMBER" 2>&1) || die 3 "failed to fetch PR metadata: $PR_JSON"
 
-HEAD_SHA=$(echo "$PR_JSON" | jq -r '.head.sha')
+HEAD_SHA=$(printf '%s\n' "$PR_JSON" | jq -r '.head.sha')
 # The PR's head branch scopes the moving-head guard's push-dispatch anchor to
 # runs dispatched for THIS branch (Codex P2 on #2175). Empty when unreadable;
 # the guard then falls back to every run for the SHA.
-HEAD_REF=$(echo "$PR_JSON" | jq -r '.head.ref // empty' 2>/dev/null) || HEAD_REF=""
+HEAD_REF=$(printf '%s\n' "$PR_JSON" | jq -r '.head.ref // empty' 2>/dev/null) || HEAD_REF=""
 if [ -z "$HEAD_SHA" ] || [ "$HEAD_SHA" = "null" ]; then
   die 3 "could not determine HEAD sha for PR #$PR_NUMBER"
 fi
@@ -1550,7 +1563,7 @@ scan_codex_state() {
   # comments from earlier reviews on the same HEAD forever — same
   # bug class as PR #65 round 1's gate (c) findings filter on
   # codex-review-check.sh.
-  latest_review_id=$(echo "$review" | jq -r 'if . == null then "" else .id end')
+  latest_review_id=$(printf '%s\n' "$review" | jq -r 'if . == null then "" else .id end')
 
   # Inline findings from the bot on the current HEAD commit, scoped
   # to the LATEST review round (via pull_request_review_id), with
@@ -1561,7 +1574,7 @@ scan_codex_state() {
   # alternation's leftmost match wins, matching codex_tier_of's first-marker
   # rule. If there's no current review, findings is empty.
   if [ -n "$latest_review_id" ] && [ "$latest_review_id" != "null" ]; then
-    findings=$(echo "$comments" | jq \
+    findings=$(printf '%s\n' "$comments" | jq \
       --arg bot "$BOT_LOGIN" \
       --argjson review_id "$latest_review_id" \
       --argjson required "$REQUIRED_TIERS_JSON" \
@@ -1602,7 +1615,7 @@ scan_codex_state() {
   # newer non-affirmative verdict on the same HEAD supersedes an older clean
   # one and fails closed (same #608 P1 shape as the merge gate). KEEP THIS
   # FILTER IN SYNC with CODEX_VERDICT_JSON in scripts/codex-review-check.sh.
-  verdict=$(echo "$issue_comments" | jq -c \
+  verdict=$(printf '%s\n' "$issue_comments" | jq -c \
     --arg bot "$BOT_LOGIN" --arg sha "$HEAD_SHA" '
     ($sha | ascii_downcase) as $head
     | [ .[]
@@ -1648,7 +1661,7 @@ scan_codex_state() {
   # happens to mention e.g. "rate limit" is not misread as a quota block.
   # usage_limit wins over not_connected on a comment matching both.
   if [ "$CODEX_FAILURE_MARKERS_OK" = "true" ]; then
-    blocked=$(echo "$issue_comments" | jq -c \
+    blocked=$(printf '%s\n' "$issue_comments" | jq -c \
       --arg bot "$BOT_LOGIN" \
       --arg usage_re "$CODEX_USAGE_LIMIT_MARKER_RE" \
       --arg nc_re "$CODEX_NOT_CONNECTED_MARKER_RE" '
@@ -1710,7 +1723,7 @@ current_blocked_reason() {
 # response must end the poll instead of running to timeout).
 has_signal() {
   local scan=$1
-  [ "$(echo "$scan" | jq -r '.review != null or .verdict != null')" = "true" ]
+  [ "$(printf '%s\n' "$scan" | jq -r '.review != null or .verdict != null')" = "true" ]
 }
 
 # Returns 0 iff the scan produced a signal that should be treated as
@@ -1737,7 +1750,7 @@ has_cleared_signal() {
   # Latest-signal-wins between commit-anchored reviews and verdicts.
   # An older clean review cannot mask a newer negative verdict; verdicts
   # win timestamp ties. Unanchored reactions have no authority (#1751).
-  [ "$(echo "$scan" | jq -r '
+  [ "$(printf '%s\n' "$scan" | jq -r '
     def review_time: if .review == null then "" else .review.submitted_at end;
     def verdict_time: if .verdict == null then "" else .verdict.created_at end;
     # P0 ALWAYS blocks clearance (the absent-policy disposition default is
@@ -1775,7 +1788,7 @@ has_cleared_signal() {
 has_post_trigger_signal() {
   local scan=$1
   local after=${TRIGGER_SIGNAL_THRESHOLD:-$TRIGGER_POST_TIME}
-  [ "$(echo "$scan" | jq -r --arg after "$after" '
+  [ "$(printf '%s\n' "$scan" | jq -r --arg after "$after" '
     ((.review != null and .review.submitted_at >= $after)
      or (.verdict != null and .verdict.created_at >= $after))
   ')" = "true" ]
@@ -1947,18 +1960,21 @@ run_feedback_accounting_gate() {
       # untrusted reader is "for an additional login to WIDEN a scan, never to
       # narrow one", and a narrowing caller "must resolve $CONFIG itself".
       #
-      # policy_block_field_parsed reads through the YAML->JSON parse, so a
-      # flow-style `coderabbit: {bot_login: ...}` resolves identically to block
-      # style -- the #1124 defect class.
-      #
-      # Every failure path yields an EMPTY relax set, which refuses: an
-      # unresolvable base policy means we cannot say who may be skipped. The
-      # snapshot is the one resolved above, which accounting also classified
-      # `.missing` with -- not a second resolution that could see a newer base.
-      if [ -n "$__cra_base_cfg" ] && [ -r "$__cra_base_cfg" ]; then
+      # Parse the shared snapshot successfully before defaulting absent fields
+      # (#1359). A failed parse is not absence and must not synthesize a
+      # skippable provider. One structured parse serves both identity sets,
+      # including flow-style YAML (#1124), just as it does in accounting.
+      if [ -n "$__cra_base_cfg" ] && [ -r "$__cra_base_cfg" ] \
+         && __cra_policy_json=$(policy_yaml_to_json "$__cra_base_cfg" 2>/dev/null) \
+         && printf '%s' "$__cra_policy_json" | jq -e 'type == "object"' >/dev/null 2>&1 \
+         && __cra_cr_bot=$(printf '%s' "$__cra_policy_json" | jq -r '.coderabbit.bot_login // empty' 2>/dev/null) \
+         && __cra_ghas_bot=$(printf '%s' "$__cra_policy_json" | jq -r '.code_scanning.bot_login // empty' 2>/dev/null) \
+         && __cra_codex_bot=$(printf '%s' "$__cra_policy_json" | jq -r '.codex.bot_login // empty' 2>/dev/null) \
+         && __cra_author_id=$(printf '%s' "$__cra_policy_json" | jq -r '.author_identity // empty' 2>/dev/null) \
+         && __cra_reviewers=$(printf '%s' "$__cra_policy_json" | jq -r '.available_reviewers[]? // empty' 2>/dev/null); then
         __cra_relax=$(printf '%s\n%s\n' \
-          "$(policy_block_field_parsed coderabbit bot_login "$__cra_base_cfg" 2>/dev/null || true)" \
-          "$(policy_block_field_parsed code_scanning bot_login "$__cra_base_cfg" 2>/dev/null || true)" \
+          "${__cra_cr_bot:-coderabbitai[bot]}" \
+          "${__cra_ghas_bot:-github-advanced-security[bot]}" \
           | LC_ALL=C tr '[:upper:]' '[:lower:]' | grep -v '^$' || true)
         # Sourcing the relax set from the BASE policy stops a PR nominating its
         # own skippable providers, but it does not stop a COLLISION.
@@ -1976,17 +1992,12 @@ run_feedback_accounting_gate() {
         # not named either of them, and the safe reading of an ambiguous
         # skippable set is that nothing is skippable.
         #
-        # Defaults are ${x:-...} rather than `|| ...` because
-        # policy_block_field_parsed exits 0 and prints nothing for an absent
-        # field -- the exact shape that leaves the Codex bot out of the gating
-        # set. They match review-feedback-accounting.sh:162-168.
-        __cra_policy_json=$(policy_yaml_to_json "$__cra_base_cfg" 2>/dev/null || true)
-        __cra_codex_bot=$(policy_block_field_parsed codex bot_login "$__cra_base_cfg" 2>/dev/null || true)
-        __cra_author_id=$(printf '%s' "$__cra_policy_json" | jq -r '.author_identity // empty' 2>/dev/null || true)
+        # Empty and absent values share accounting's established defaults;
+        # every parse/extraction failure took the empty-relax branch instead.
         __cra_gating=$(printf '%s\n%s\n%s\n' \
           "${__cra_codex_bot:-chatgpt-codex-connector[bot]}" \
           "${__cra_author_id:-nathanjohnpayne}" \
-          "$(printf '%s' "$__cra_policy_json" | jq -r '.available_reviewers[]? // empty' 2>/dev/null || true)" \
+          "$__cra_reviewers" \
           | LC_ALL=C tr '[:upper:]' '[:lower:]' | grep -v '^$' || true)
         if [ -n "$__cra_relax" ] && [ -n "$__cra_gating" ] \
            && printf '%s\n' "$__cra_relax" | grep -xF "$__cra_gating" >/dev/null; then
@@ -1995,7 +2006,7 @@ run_feedback_accounting_gate() {
         fi
       else
         __cra_relax=""
-        log "review feedback accounting: could not resolve the governing base policy; no provider is skippable (#1100)"
+        log "review feedback accounting: could not resolve or parse the governing base policy; no provider is skippable (#1100)"
       fi
       __cra_blocking=$(printf '%s' "$output" | jq -r --arg relax "$__cra_relax" '
         ($relax | split("\n") | map(select(length > 0))) as $ok
@@ -2013,6 +2024,62 @@ run_feedback_accounting_gate() {
       die 3 "review feedback accounting gate failed with exit $rc"
       ;;
   esac
+}
+
+# #2657: five-request checkpoint. Once a PR already counts
+# CODEX_REQUEST_CHECKPOINT_AFTER counted requests (the same crqe_count_triggers
+# count the ceiling uses; failover triggers excluded), record ONE author-owned
+# marker comment once the next new request has posted, so a restarted session
+# sees it.
+# It asks the agent to reassess scope and recurring findings, batch the
+# remaining fixes and strengthen tests before continuing. It is informational:
+# it never blocks, never spends or refunds a request, and a failed write only
+# warns. The body must never contain the Codex trigger phrase.
+CODEX_REQUEST_CHECKPOINT_AFTER=5
+CODEX_REQUEST_CHECKPOINT_MARKER='<!-- mergepath-codex-request-checkpoint:v1'
+REQUEST_CHECKPOINT_JSON=null
+record_request_checkpoint() { # <request-comments-json> <counted> <ceiling>
+  local comments="$1" counted="$2" ceiling="$3" existing body body_file
+  [ "$counted" -ge "$CODEX_REQUEST_CHECKPOINT_AFTER" ] || return 0
+  # Only a generated marker line opening the comment counts, never a quote
+  # of the marker text in an ordinary comment.
+  existing=$(printf '%s' "$comments" | jq -r --arg who "$AUTHOR_IDENTITY" \
+    '[.[] | select((.user.login // "" | ascii_downcase) == ($who | ascii_downcase))
+          | select((.body // "") | test("\\A<!-- mergepath-codex-request-checkpoint:v1 counted=[0-9]+ head=[0-9a-f]{40,64} -->(\\n|\\z)")) | .id] | first // empty' 2>/dev/null) || existing=""
+  if [ -n "$existing" ]; then
+    REQUEST_CHECKPOINT_JSON=$(jq -nc --argjson n "$counted" --arg id "$existing" \
+      '{after:5,counted_requests:$n,recorded:"existing",comment_id:($id|tonumber? // null)}')
+    return 0
+  fi
+  # Every staging failure is nonblocking too: under `set -e` an unguarded
+  # write error would end the request before it posts.
+  # The comment is posted to whichever repository runs this propagated
+  # script, so the hub issue is fully qualified. The body is one simple
+  # command's write: a redirect failure on a `{ }` group is not reliably seen.
+  body=$(
+    printf '%s counted=%s head=%s -->\n' "$CODEX_REQUEST_CHECKPOINT_MARKER" "$counted" "$HEAD_SHA"
+    printf '**Codex request checkpoint (nathanjohnpayne/mergepath#2657).** This PR already counts %s Codex requests (request ceiling %s, blocking-review budget %s).\n\n' \
+      "$counted" "$ceiling" "${GOVERNING_BLOCKING_REVIEW_BUDGET:-default}"
+    printf 'Before the next round: reassess the scope and any recurring findings, batch the remaining fixes into one push, and strengthen the tests or shared fixtures that let those findings through. This note is informational. It blocks nothing and changes no budget.'
+  )
+  body_file=$(mktemp "${TMPDIR:-/tmp}/codex-request-checkpoint.XXXXXX") || body_file=""
+  if [ -z "$body_file" ] || ! printf '%s\n' "$body" 2>/dev/null >"$body_file"; then
+    log "WARN: request checkpoint (#2657) body could not be staged; continuing (the checkpoint is informational)"
+    REQUEST_CHECKPOINT_JSON=$(jq -nc --argjson n "$counted" '{after:5,counted_requests:$n,recorded:"failed",comment_id:null}')
+    [ -z "$body_file" ] || rm -rf "$body_file" 2>/dev/null || :
+    return 0
+  fi
+  # A subshell contains post_author_pr_comment's `die`: the checkpoint must
+  # never abort the request it precedes.
+  if ( post_author_pr_comment "$(cat "$body_file")" "Codex request checkpoint" body-file ) >/dev/null 2>&1; then
+    log "request checkpoint (#2657): $counted counted requests; recorded a checkpoint comment — reassess scope, batch fixes, strengthen tests before continuing"
+    REQUEST_CHECKPOINT_JSON=$(jq -nc --argjson n "$counted" '{after:5,counted_requests:$n,recorded:"posted",comment_id:null}')
+  else
+    log "WARN: request checkpoint (#2657) comment could not be posted; continuing (the checkpoint is informational)"
+    REQUEST_CHECKPOINT_JSON=$(jq -nc --argjson n "$counted" '{after:5,counted_requests:$n,recorded:"failed",comment_id:null}')
+  fi
+  rm -f "$body_file" 2>/dev/null || :
+  return 0
 }
 
 post_author_pr_comment() { # <body> <purpose> [body-file|inline]
@@ -2081,6 +2148,25 @@ post_author_pr_comment() { # <body> <purpose> [body-file|inline]
       || rc=$?
   fi
   [ -z "$body_file" ] || rm -f "$body_file"
+  if [ "$rc" -ne 0 ] && [ "$TRIGGER_POSTED" = true ] \
+     && [ "$mode" = inline ] && [ "$body" = '@codex review' ] \
+     && grep -Fqx '[codex-review-request] ERROR: trigger not authorized: existing-trigger' <<< "$output"; then
+    # The real wrapper's canonical authorizer may refuse an ack retry as a
+    # duplicate. Preserve this run's confirmed request and its original poll
+    # clock, but only while fresh evidence still names that exact request.
+    local ack_comments ack_trigger
+    revalidate_request_freshness
+    ack_comments=$(fetch_api_array "repos/$REPO/issues/$PR_NUMBER/comments" "ack retry duplicate evidence") \
+      || die 3 "cannot confirm the refused acknowledgement retry's existing trigger"
+    ack_trigger=$(crqe_select_trigger "$ack_comments" "$AUTHOR_IDENTITY" "") \
+      || die 3 "cannot select the refused acknowledgement retry's existing trigger"
+    if printf '%s' "$ack_trigger" | jq -e --arg id "$TRIGGER_COMMENT_ID" --arg created "$TRIGGER_POST_TIME" \
+         '(.id | tostring) == $id and .created_at == $created' >/dev/null 2>&1; then
+      ACK_RETRY_REFUSED_BY_EXISTING=true
+      log "existing trigger $TRIGGER_COMMENT_ID refused the acknowledgement retry — continuing normal review poll"
+      return 1
+    fi
+  fi
   [ "$rc" -eq 0 ] || die 3 "failed to post $purpose: $output"
   AUTHOR_COMMENT_OUTPUT="$output"
 }
@@ -2540,7 +2626,7 @@ post_codex_trigger() {
   max_review_rounds="$GOVERNING_REQUEST_ATTEMPT_CAP"
   request_comments=$(fetch_api_array "repos/$REPO/issues/$PR_NUMBER/comments" "Codex request-attempt evidence") \
     || die 3 "cannot read Codex request-attempt evidence; refusing a new '@codex review' trigger"
-  request_count=$(crqe_count_triggers "$request_comments" "$AUTHOR_IDENTITY") \
+  request_count=$(crqe_count_triggers "$request_comments" "$AUTHOR_IDENTITY" "$(failover_head_set "$request_comments")") \
     || die 3 "cannot count Codex request attempts; refusing a new '@codex review' trigger"
   # Below the ceiling, a new request is about to be written: the blocking
   # budget gates it. At the ceiling, the check runs only where a stop is about
@@ -2626,11 +2712,29 @@ post_codex_trigger() {
   # GH_TOKEN. This SUPERSEDES the #284 `identity-check --expect-reviewer`
   # guard, which fail-closed on the WRONG identity for this particular
   # write.
+  # A new request names this run's mode for the wrapper's authorization
+  # (#2582). An eyes-ack retry names none: the authorization then refuses it
+  # as the existing trigger, and this run keeps polling the request it
+  # confirmed without spending another (#2631).
+  local caller_mode="$REQUEST_MODE"
+  [ "$TRIGGER_POSTED" != true ] || caller_mode=""
+  # The checkpoint belongs to a new deliberate request, and is recorded only
+  # once that request has actually posted: a requester that loses the
+  # trigger write records nothing, so concurrent requesters at the threshold
+  # cannot each add one (#1362 serializes the write itself). A CodeRabbit
+  # failover stands in for a lost review, not a deliberate round, so it
+  # never records (and so never uses up) the checkpoint.
+  local record_checkpoint=false
+  if [ "$TRIGGER_POSTED" != true ] && [ "$FAILOVER" != true ]; then record_checkpoint=true; fi
   log "posting '@codex review' trigger comment (as author identity $AUTHOR_IDENTITY; request attempts $request_count/$max_review_rounds)"
   MERGEPATH_CODEX_TRIGGER_WRITE=1 MERGEPATH_CODEX_TRIGGER_EXPECTED_HEAD="$HEAD_SHA" \
-    post_author_pr_comment "@codex review" "'@codex review' trigger comment" inline
+    MERGEPATH_CODEX_TRIGGER_CALLER_MODE="$caller_mode" \
+    post_author_pr_comment "@codex review" "'@codex review' trigger comment" inline || return 1
   POST_OUTPUT="$AUTHOR_COMMENT_OUTPUT"
   TRIGGER_POSTED=true
+  if [ "$record_checkpoint" = true ]; then
+    record_request_checkpoint "$request_comments" "$request_count" "$max_review_rounds"
+  fi
 
   # Capture the post time so the poll loop can ignore stale signals
   # that were already on HEAD before the trigger fired. Without this,
@@ -2649,7 +2753,7 @@ post_codex_trigger() {
   # clock minus a 60-second buffer if the comment ID can't be
   # extracted (e.g., gh output format change). Codex caught the
   # wall-clock issue on nathanpaynedotcom propagation PR #180 round 4.
-  TRIGGER_COMMENT_ID=$(echo "$POST_OUTPUT" | grep -oE 'issuecomment-[0-9]+' | head -1 | sed 's/issuecomment-//' || true)
+  TRIGGER_COMMENT_ID=$(printf '%s\n' "$POST_OUTPUT" | grep -oE 'issuecomment-[0-9]+' | head -1 | sed 's/issuecomment-//' || true)
   if [ -n "$TRIGGER_COMMENT_ID" ]; then
     # Keep the newest CONFIRMED trigger separately from the current ack target.
     # A retry whose wrapper output unexpectedly omits the id must not erase an
@@ -2789,7 +2893,7 @@ run_trigger_ack_gate() {
     retries_used=$((retries_used + 1))
     log "re-posting '@codex review' because Codex did not acknowledge the trigger (${retries_used}/${MAX_ACK_RETRIES})"
     if ! post_codex_trigger; then
-      if [ "$ACK_RETRY_REFUSED_BY_CAP" = "true" ]; then
+      if [ "$ACK_RETRY_REFUSED_BY_CAP" = "true" ] || [ "$ACK_RETRY_REFUSED_BY_EXISTING" = true ]; then
         return 0
       fi
       die 3 "acknowledgement retry did not post a Codex trigger"
@@ -2876,6 +2980,56 @@ record_phase4a_timeout_determination() {
   PHASE4A_TERMINAL_RECORDED=true
   PHASE4A_TERMINAL_COMMENT_ID="$post_id"
   log "confirmed Phase 4a timeout marker comment $post_id for $HEAD_SHA"
+}
+
+# #2553: the heads a failover marker may name, read only when one is present.
+# An unreadable read prints [], so every trigger counts. The force-push heads
+# come from GraphQL (#2591); if that read fails, only they are left out.
+failover_head_set() { # <comments-json>
+  local commits timeline forced
+  if ! crqe_failover_markers_present "$1" "$AUTHOR_IDENTITY"; then printf '[]'; return 0; fi
+  forced=$(crqe_force_push_heads "$REPO" "$PR_NUMBER" 2>/dev/null) || forced='[]'
+  if commits=$(fetch_api_array "repos/$REPO/pulls/$PR_NUMBER/commits" "PR commits for failover markers" 2>/dev/null) \
+     && timeline=$(fetch_api_array "repos/$REPO/issues/$PR_NUMBER/timeline" "PR timeline for failover markers" 2>/dev/null) \
+     && crqe_pr_head_set "$commits" "$timeline" "$HEAD_SHA" "$forced"; then
+    return 0
+  fi
+  log "failover markers: the PR's head set is unreadable; every trigger counts toward the request ceiling"
+  printf '[]'
+}
+
+# #2534: record the trigger the CodeRabbit rate-limit failover just posted, so
+# the request ceiling does not count it (crqe_failover_trigger_ids). Runs only
+# for a trigger this run posted with a confirmed id. The marker is best effort:
+# a failed write or readback leaves the trigger counted, which costs a slot
+# and never the ceiling, so it is reported, not fatal. Prints the outcome.
+record_failover_marker() {
+  local body comments
+  if [ "$TRIGGER_POSTED" != true ] || [[ ! "$TERMINAL_TRIGGER_COMMENT_ID" =~ ^[1-9][0-9]*$ ]]; then
+    printf 'not-posted'
+    return 0
+  fi
+  if ! command -v crqe_failover_marker_body crqe_failover_trigger_ids crqe_pr_head_set >/dev/null 2>&1 \
+     || ! body=$(crqe_failover_marker_body "$HEAD_SHA" "$TERMINAL_TRIGGER_COMMENT_ID"); then
+    log "failover marker: helper unavailable or invalid input; the trigger counts toward the request ceiling"
+    printf 'failed'
+    return 0
+  fi
+  if ! ( MERGEPATH_CODEX_FAILOVER_MARKER_WRITE=1 post_author_pr_comment "$body" "Codex failover marker" ) >/dev/null; then
+    log "failover marker: write failed; trigger $TERMINAL_TRIGGER_COMMENT_ID counts toward the request ceiling"
+    printf 'failed'
+    return 0
+  fi
+  # Readback through the same parser the ceiling uses.
+  if comments=$(fetch_api_array "repos/$REPO/issues/$PR_NUMBER/comments" "Codex failover marker readback" 2>/dev/null) \
+     && crqe_failover_trigger_ids "$comments" "$AUTHOR_IDENTITY" "$(failover_head_set "$comments")" 2>/dev/null \
+        | jq -e --argjson id "$TERMINAL_TRIGGER_COMMENT_ID" 'index($id) != null' >/dev/null 2>&1; then
+    log "failover marker: trigger $TERMINAL_TRIGGER_COMMENT_ID is exempt from the request ceiling"
+    printf 'recorded'
+  else
+    log "failover marker: posted, but readback did not validate it; trigger $TERMINAL_TRIGGER_COMMENT_ID counts toward the request ceiling"
+    printf 'failed'
+  fi
 }
 
 # Run a read, retrying transient failures (#1550), and store its output in
@@ -3044,6 +3198,7 @@ TERMINAL_TRIGGER_COMMENT_ID=""
 TRIGGER_POST_TIME=""
 TRIGGER_SIGNAL_THRESHOLD=""
 ACK_RETRY_REFUSED_BY_CAP=false
+ACK_RETRY_REFUSED_BY_EXISTING=false
 CAP_REUSED_TRIGGER=false
 CAP_REQUEST_COUNT=0
 CAP_REQUEST_LIMIT=0
@@ -3058,19 +3213,42 @@ RESUMED_EVER=false
 RESUMED_TRIGGER_ID=""
 REQUEST_BLOCK_TRIGGER_JSON=null
 
+# The no-write decisions below belong to a request mode. A requester applies
+# its own. The wrapper's authorization pass runs as --trigger-only, so it
+# applies the mode the canonical requester names in
+# MERGEPATH_CODEX_TRIGGER_CALLER_MODE (#2582). Polling mode posts a new request
+# while an earlier trigger is on HEAD by design (a pending request with no
+# provider evidence, the replacement for a resumed request that expired), so
+# authorizing that write must not refuse it as a #489 duplicate. Without the
+# variable, the stricter trigger-only decisions apply; the eyes-ack retry
+# relies on that refusal to keep polling without spending a request.
+REQUEST_MODE=poll
+[ "$TRIGGER_ONLY" != true ] || REQUEST_MODE="trigger-only"
+if [ "$AUTHORIZE_TRIGGER_WRITE" = true ]; then
+  case "${MERGEPATH_CODEX_TRIGGER_CALLER_MODE:-trigger-only}" in
+    poll|trigger-only) REQUEST_MODE=${MERGEPATH_CODEX_TRIGGER_CALLER_MODE:-trigger-only} ;;
+    *) die 3 "canonical trigger authorization names an unknown caller mode" ;;
+  esac
+fi
+
 NO_WRITE_REASON=""
 if has_cleared_signal "$INITIAL_SCAN"; then
   NO_WRITE_REASON="already-cleared"
   log "Codex has already cleared on HEAD (no-blocking-tier review or affirmative verdict comment) — skipping trigger comment"
-elif [ "$TRIGGER_ONLY" = "true" ] && existing_codex_trigger_on_head; then
+elif [ "$REQUEST_MODE" = trigger-only ] && existing_codex_trigger_on_head; then
   NO_WRITE_REASON="existing-trigger"
   log "trigger-only: @codex review already requested on HEAD — skipping duplicate trigger (idempotent, #489)"
-elif [ "$TRIGGER_ONLY" = "true" ] && auto_trigger_content_free; then
+elif [ "$REQUEST_MODE" = trigger-only ] && auto_trigger_content_free; then
   NO_WRITE_REASON="content-free-auto-trigger"
   log "auto-trigger: $AUTO_TRIGGER_SKIP_REASON — skipping the automatic @codex review (#798)"
-elif [ "$TRIGGER_ONLY" != "true" ] && [ "${MERGEPATH_CODEX_RESUME_EXPIRED:-}" != 1 ] \
+elif [ "$REQUEST_MODE" = poll ] && [ "${MERGEPATH_CODEX_RESUME_EXPIRED:-}" != 1 ] \
      && resume_pending_codex_request; then
-  log "resuming pending request $RESUMED_TRIGGER_ID: Codex reports a review of HEAD Running since it was posted; no new trigger (#1550), ${ELAPSED}s of ${TIMEOUT_SECONDS}s already elapsed"
+  if [ "$AUTHORIZE_TRIGGER_WRITE" = true ]; then
+    NO_WRITE_REASON="pending-request-running"
+    log "pending request $RESUMED_TRIGGER_ID: Codex reports a review of HEAD Running since it was posted — a new trigger is not authorized (#1550)"
+  else
+    log "resuming pending request $RESUMED_TRIGGER_ID: Codex reports a review of HEAD Running since it was posted; no new trigger (#1550), ${ELAPSED}s of ${TIMEOUT_SECONDS}s already elapsed"
+  fi
 else
   post_codex_trigger
 fi
@@ -3091,6 +3269,8 @@ fi
 # 4a flow and the merge-clearance gate. trigger_posted is false when the
 # idempotency check skipped a duplicate, or when Codex had already cleared.
 if [ "$TRIGGER_ONLY" = "true" ]; then
+  failover_marker=null
+  [ "$FAILOVER" != true ] || failover_marker=$(record_failover_marker | jq -Rc .)
   # Preserve a block already known before this trigger. Posting or deduping
   # a request does not make an unavailable provider usable (#2139).
   trigger_only_blocked_reason=""
@@ -3109,6 +3289,8 @@ if [ "$TRIGGER_ONLY" = "true" ]; then
     --arg head_committer_date "$HEAD_COMMITTER_DATE" \
     --arg bot_login "$BOT_LOGIN" \
     --argjson trigger_posted "$TRIGGER_POSTED" \
+    --argjson failover_marker "$failover_marker" \
+    --argjson request_checkpoint "$REQUEST_CHECKPOINT_JSON" \
     --arg blocked_reason "$trigger_only_blocked_reason" '
     {
       pr_number: $pr_number,
@@ -3125,6 +3307,8 @@ if [ "$TRIGGER_ONLY" = "true" ]; then
       trigger_posted: $trigger_posted,
       trigger_requested: true,
       trigger_only: true,
+      failover_marker: $failover_marker,
+      request_checkpoint: $request_checkpoint,
       rounds_waited_seconds: 0
     }'
   exit 0
@@ -3254,6 +3438,7 @@ jq -n \
   --arg blocked_reason "$BLOCKED_REASON" \
   --argjson terminal_recorded "$PHASE4A_TERMINAL_RECORDED" \
   --arg terminal_comment_id "$PHASE4A_TERMINAL_COMMENT_ID" \
+  --argjson request_checkpoint "$REQUEST_CHECKPOINT_JSON" \
   --argjson elapsed "$ELAPSED" '
   {
     pr_number: $pr_number,
@@ -3274,6 +3459,7 @@ jq -n \
     trigger_posted: $trigger_posted,
     request_resumed: $request_resumed,
     trigger_requested: true,
+    request_checkpoint: $request_checkpoint,
     rounds_waited_seconds: $elapsed
   }
 '
