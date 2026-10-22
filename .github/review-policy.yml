@@ -279,9 +279,10 @@ codex:
 # that clears it would be exactly the self-shaping the rule forbids.
 phase_4b_automation:
   # Master switch. When true, scripts/phase-4b-review.sh runs the reviewer CLI
-  # instead of emitting the manual handoff. Every fail-closed path—
-  # non-conformant verdict, adapter timeout, head drift, same-head required-
-  # finding gate—still falls back to the manual handoff.
+  # instead of emitting the manual handoff. Adapter-side fail-closed paths—a
+  # non-conformant verdict, an adapter timeout—fall back to the manual
+  # handoff; hard stops (head drift, unaccounted feedback, input integrity)
+  # exit without one and need their own remediation.
   enabled: true
 
   # Execution model. 'local' = the authoring agent's session shells out to the
@@ -295,7 +296,9 @@ phase_4b_automation:
   # ledger (refs/mergepath/p4b-rounds/pr-<N>) before any adapter run, and a
   # 4th completed round is refused for an owner decision. Enforcement covers
   # only publishers that reserve through the ledger; the manual handoff does
-  # not. Set to 3 by mergepath#2665 (epic mergepath#2657).
+  # not. A slot stays occupied from its reservation onward, including after a
+  # crash or an uncertain review POST, so fewer than 3 posted reviews can spend
+  # the cap. Set to 3 by mergepath#2665 (epic mergepath#2657).
   # Previously 2.
   max_review_rounds: 3
 
