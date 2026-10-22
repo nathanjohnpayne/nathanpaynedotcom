@@ -115,12 +115,54 @@ if endpoint.endswith('/reviews'):
     emit([reviews] if '--slurp' in args else reviews); sys.exit(0)
 if endpoint.endswith('/issues/123/comments'):
     if state.get('comments_fail'): sys.exit(1)
-    emit([dict(id=n,user=dict(login='nathanjohnpayne'),created_at='2026-09-14T00:04:00Z',body='@codex review') for n in state.get('requests',[123,124])]); sys.exit(0)
+    emit([dict(id=n,user=dict(login='nathanjohnpayne'),created_at='2026-09-14T00:04:00Z',body='@codex review') for n in state.get('requests',[123,124])] + state.get('extra_comments',[])); sys.exit(0)
 if endpoint.endswith('/files'): emit([dict(filename='README.md',additions=1,deletions=0,status='modified')]); sys.exit(0)
 if endpoint.endswith('/comments') or endpoint.endswith('/timeline') or endpoint.endswith('/reactions'):
     emit([]); sys.exit(0)
 print('unexpected API '+repr(args),file=sys.stderr); sys.exit(99)
 '''
+
+
+def link_os_toolchain(system_paths, os_bin):
+    """Model an OS without a system YAML parser, independently of the host's
+    installed Ruby/yq. Keep its other fixed utilities real."""
+    # os.path.isfile, unlike Path.is_file before Python 3.12, reports an
+    # unstattable entry (macOS /usr/sbin/weakpass_edit raises EACCES) as
+    # not a file instead of raising.
+    for directory in system_paths:
+        for executable in Path(directory).iterdir():
+            target = os_bin/executable.name
+            if executable.name not in ('ruby', 'yq', 'python3') and os.path.isfile(executable) \
+                    and os.access(executable, os.X_OK) and not target.exists():
+                target.symlink_to(executable)
+
+
+class ToolchainModelTests(unittest.TestCase):
+    def test_unstattable_system_entry_is_skipped_not_raised(self):
+        with tempfile.TemporaryDirectory(prefix='merge-writer-toolchain-') as temp:
+            root = Path(temp)
+            system, locked, os_bin = root/'sbin', root/'locked', root/'os-bin'
+            for directory in (system, locked, os_bin):
+                directory.mkdir()
+            (locked/'tool').write_text('#!/bin/sh\n')
+            (locked/'tool').chmod(0o755)
+            (system/'real').write_text('#!/bin/sh\n')
+            (system/'real').chmod(0o755)
+            (system/'unstattable').symlink_to(locked/'tool')
+            (system/'ruby').symlink_to(system/'real')
+            locked.chmod(0)
+            try:
+                try:
+                    os.stat(system/'unstattable')
+                except PermissionError:
+                    pass
+                else:
+                    self.skipTest('stat through a mode-000 directory succeeds (root?)')
+                link_os_toolchain((str(system),), os_bin)
+            finally:
+                locked.chmod(0o755)
+            self.assertEqual(sorted(p.name for p in os_bin.iterdir()), ['real'])
+            self.assertEqual(os.readlink(os_bin/'real'), str(system/'real'))
 
 
 class WriterTests(unittest.TestCase):
@@ -219,17 +261,7 @@ class WriterTests(unittest.TestCase):
         system_paths = ast.literal_eval(source[start + len('SYSTEM_PATH = '):end])
         os_bin = self.path/'os-bin'
         os_bin.mkdir()
-        # Model an OS without a system YAML parser, independently of the
-        # host's installed Ruby/yq. Keep its other fixed utilities real.
-        # os.path.isfile, unlike Path.is_file before Python 3.12, reports an
-        # unstattable entry (macOS /usr/sbin/weakpass_edit raises EACCES) as
-        # not a file instead of raising.
-        for directory in system_paths:
-            for executable in Path(directory).iterdir():
-                target = os_bin/executable.name
-                if executable.name not in ('ruby', 'yq', 'python3') and os.path.isfile(executable) \
-                        and os.access(executable, os.X_OK) and not target.exists():
-                    target.symlink_to(executable)
+        link_os_toolchain(system_paths, os_bin)
         writer.write_text(source[:start] + 'SYSTEM_PATH = ' + repr((str(os_bin),)) + source[end:])
         operator_bin = self.path/'bin'
         for name in ('bash', 'git', 'jq', 'node'):
@@ -327,6 +359,26 @@ if pathlib.Path(sys.argv[0]).name in ('owner-admin-override.py', 'merge-writer.p
     def test_caller_python_startup_cannot_clear_stale_generation(self):
         self.assert_blocked(self.run_writer(PYTHONPATH=self.caller_python_startup()))
         self.assertFalse((self.path/'startup-marker').exists())
+
+    def test_unanchored_completed_summary_cannot_replace_current_external_review(self):
+        state = {'code_review': {'commit_sha': None, 'has_any_findings': False,
+                                'has_unresolved_findings': False, 'status': 'completed'},
+                 'security_review': {'commit_sha': None, 'has_any_findings': None,
+                                    'has_unresolved_findings': None, 'status': None}}
+        body = ('<!-- codex-pull-request-review-summary -->\n<!-- codex-review-state:v1 '
+                + json.dumps(state) + ' -->\n| 📝 **Code Review** | ✅ **Completed** '
+                '<relative-time datetime="2026-09-14T00:06:00Z">2026-09-14T00:06:00Z</relative-time> '
+                '| — | PR opened |')
+        policy = self.path/'governing-policy.yml'
+        policy.write_text(POLICY.replace('allow_phase_4b_substitute: true', 'allow_phase_4b_substitute: false'))
+        self.state = {'generation': [123, 124], 'extra_comments': [dict(id=9,
+                      user=dict(login='chatgpt-codex-connector[bot]'),body=body,
+                      created_at='2026-09-14T00:06:00Z',updated_at='2026-09-14T00:06:00Z')]}
+        self.assert_blocked(self.run_writer())
+        self.state['fresh_codex'] = True
+        result = self.run_writer()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(len((self.path/'writes.jsonl').read_text().splitlines()), 1)
 
     def test_current_generation_permitted_without_caller_python_startup(self):
         self.state['generation']=[123,124]

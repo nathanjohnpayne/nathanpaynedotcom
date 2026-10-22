@@ -28,6 +28,9 @@
 #
 #   fixed or rebutted        → --resolve-actioned  (addressed-elsewhere /
 #                                                    rebuttal-recorded)
+#   fixed outside the        → --thread <id> --disposition fixed
+#     anchored file             (addressed-elsewhere; --resolve-actioned
+#                               cannot prove it and warns, #2555)
 #   explicitly deferred      → --auto-resolve-bots (deferred-to-followup)
 #   propagated from upstream → --resolve-verified-propagation
 #                                                   (verified-propagation)
@@ -97,7 +100,12 @@
 #                           addressed-elsewhere (an agent commit touching the
 #                           anchored file, after the latest re-raise) or
 #                           rebuttal-recorded (a substantive agent rebuttal
-#                           after the latest re-raise). Routing-only classes
+#                           after the latest re-raise; a reply that leads
+#                           with "Fixed" is a fix claim, not a rebuttal, so
+#                           without a commit touching the anchored file it
+#                           is left unresolved with a warning naming the
+#                           --thread --disposition fixed mode that records
+#                           a cross-file fix, #2555). Routing-only classes
 #                           — canonical-coverage / templated-render — are
 #                           NOT actioned here: they show WHERE a fix belongs
 #                           (upstream), not that one happened, so a fresh
@@ -331,7 +339,8 @@
 #     nitpick-noted         severity is Nitpick/Trivial/P3 and no
 #                           stronger signal applies
 #     rebuttal-recorded     a substantive agent-authored reply (≥30
-#                           chars) is on the thread
+#                           chars, not leading with "Fixed", #2555) is
+#                           on the thread
 #     deferred-to-followup  default fallback / --rationale override
 #     verified-propagation  consumer content at the anchored path (at the
 #                           compared ref: PR head while open, default
@@ -610,7 +619,7 @@ if [ -n "$TARGET_THREAD" ]; then
   case "$EXPLICIT_DISPOSITION" in
     fixed|addressed-elsewhere) TARGET_CLASS="addressed-elsewhere" ;;
     rebuttal) TARGET_CLASS="rebuttal-recorded" ;;
-    deferred-to-followup) TARGET_CLASS="deferred-to-followup"
+    deferred-to-followup|deferred-to-follow-up) TARGET_CLASS="deferred-to-followup"
       if [ -z "$TARGET_ISSUE" ]; then
         echo "Error: deferred-to-followup requires --issue <number>" >&2
         exit 1
@@ -2546,6 +2555,68 @@ verify_propagation_content() {
   return 1
 }
 
+# reply_is_fix_claim <reply-body> → exit 0 when the reply leads with the word
+# "Fixed" in any case, through any leading Markdown emphasis, with the word
+# ending at whitespace, closing emphasis, sentence punctuation or the end of
+# the reply (#2555; Codex P2 on #2599). "FIXED in abc1234" and
+# "**Fixed** in abc1234" are fix claims; "Fixed-width inputs …" is not.
+reply_is_fix_claim() {
+  # Closing emphasis counts only when it exactly closes the stripped opener
+  # (Codex P2 on #2599): "`fixed_width`" and "fixed_width" are not claims.
+  local lead open rest bt='`' punct=':.,;!?'
+  lead=$(printf '%s' "$1" | LC_ALL=C tr '[:upper:]' '[:lower:]')
+  lead="${lead#"${lead%%[![:space:]]*}"}"
+  open="${lead%%[!*_$bt]*}"
+  lead="${lead#"$open"}"
+  case "$lead" in fixed*) ;; *) return 1 ;; esac
+  rest="${lead#fixed}"
+  if [ -n "$open" ]; then
+    case "$rest" in "$open"*) rest="${rest#"$open"}" ;; esac
+  fi
+  case "$rest" in
+    ''|[[:space:]]*|[$punct]*) return 0 ;;
+  esac
+  return 1
+}
+
+# Finite leading vocabulary only; unknown prose keeps the existing ladder.
+reply_disposition_polarity() {
+  local lead
+  lead=$(printf '%s' "$1" | LC_ALL=C tr '[:upper:]' '[:lower:]')
+  lead="${lead#"${lead%%[![:space:]]*}"}"
+  case "$lead" in
+    disposition:*) lead="${lead#disposition:}"; lead="${lead#"${lead%%[![:space:]]*}"}" ;;
+  esac
+  if reply_is_fix_claim "$lead"; then printf 'fixed'; return; fi
+  if LC_ALL=C grep -Eq '^(defer|deferred|deferring|follow-up|wontfix|deferred-to-followup|deferred-to-follow-up)([[:space:]:.,;!?]|$)|^tracked in ([a-z0-9_.-]+/[a-z0-9_.-]+)?#[0-9]+([[:space:]:.,;!?]|$)' <<<"$lead"; then
+    printf 'deferred'
+  elif [ "${#1}" -ge 30 ] && LC_ALL=C grep -Eq '^(rebuttal|rebutted|disagree)([[:space:]:.,;!?]|$)' <<<"$lead"; then
+    printf 'rebutted'
+  fi
+}
+
+# The caller already found the latest non-agent index over complete comments.
+# Unknown replies and generated markers cannot cancel recognized polarity.
+thread_reply_polarity() {
+  local tj="$1" k=$(($2 + 1)) count login body trimmed current result=""
+  [ "$k" -ge 1 ] || k=1
+  count=$(printf '%s' "$tj" | jq '.all_comments | length')
+  while [ "$k" -lt "$count" ]; do
+    login=$(printf '%s' "$tj" | jq -r ".all_comments[$k].author.login // \"\"")
+    body=$(printf '%s' "$tj" | jq -r ".all_comments[$k].body // \"\"")
+    trimmed="${body#"${body%%[![:space:]]*}"}"
+    case "$trimmed" in
+      "[mergepath-resolve:"*) k=$((k + 1)); continue ;;
+    esac
+    if is_agent_author_local "$login"; then
+      current=$(reply_disposition_polarity "$body")
+      [ -z "$current" ] || result="$current"
+    fi
+    k=$((k + 1))
+  done
+  printf '%s' "$result"
+}
+
 # derive_tag_class — given the thread JSON (one line of UNRESOLVED),
 # return one of the rollup's class strings on stdout.
 #
@@ -2564,6 +2635,7 @@ verify_propagation_content() {
 #   2. addressed-elsewhere    agent-author commit after createdAt
 #                             touching the anchored file
 #   3. rebuttal-recorded      ≥30-char agent-author reply on thread
+#                             that does not lead with "Fixed" (#2555)
 #   4. nitpick-noted          severity is Nitpick/Trivial/P3
 #   5. deferred-to-followup   fallback
 #
@@ -2625,6 +2697,8 @@ derive_tag_class() {
       rc_body=$(printf '%s' "$thread_json" | jq -r ".all_comments[$rc_i].body // \"\"")
       rc_tag=$(printf '%s' "$rc_body" \
         | sed -n 's/.*\[mergepath-resolve:[[:space:]]*\([a-z][a-z-]*\)[[:space:]]*\].*/\1/p' | head -1)
+      # Permanent persisted alias; all downstream class branches emit canonical.
+      [ "$rc_tag" != "deferred-to-follow-up" ] || rc_tag="deferred-to-followup"
       if [ -n "$rc_tag" ]; then recorded_class="$rc_tag"; last_marker_idx=$rc_i; fi
     else
       last_nonagent_idx=$rc_i
@@ -2678,6 +2752,17 @@ derive_tag_class() {
     echo "templated-render"
     return
   fi
+
+  # Preserve recognized finding-bound polarity before incidental file touches.
+  # Marker/routing precedence above and the separate action-evidence gate stay
+  # unchanged. Unreadable ledger state still fails closed in that gate (#1010).
+  local reply_polarity ledger_polarity=""
+  reply_polarity=$(thread_reply_polarity "$thread_json" "$last_nonagent_idx")
+  ledger_polarity=$(thread_ledger_polarity "$thread_json") || ledger_polarity=""
+  case "$reply_polarity:$ledger_polarity" in
+    deferred:*|*:deferred) echo "deferred-to-followup"; return ;;
+    rebutted:*|*:rebutted) echo "rebuttal-recorded"; return ;;
+  esac
 
   # 2. addressed-elsewhere — an agent-authored commit that BOTH (a)
   # post-dates the latest bot/reviewer comment (the #565 staleness guard)
@@ -2771,6 +2856,24 @@ derive_tag_class() {
         "[mergepath-resolve:"*) k=$((k + 1)); continue ;;
       esac
       if [ -n "$r_login" ] && [ "$r_body_len" -ge 30 ] && is_agent_author_local "$r_login"; then
+        # #2555: a reply that leads with "Fixed" is a fix claim, not a
+        # rebuttal. Step 2 found no agent commit after the latest re-raise
+        # touching the anchored file, so the claim is unproven here: record
+        # nothing rather than a rebuttal that never happened, say so, and
+        # keep scanning for a genuine rebuttal. A cross-file fix is recorded
+        # by the explicit --thread <id> --disposition fixed mode (#2196),
+        # which the warning names; the file-touch rule itself is unchanged.
+        if reply_is_fix_claim "$r_body"; then
+          echo "WARN: the agent reply on [$thread_path] leads with 'Fixed' but no agent commit after the latest re-raise touches that file, so it is not recorded as a rebuttal; record a cross-file fix with --thread <id> --disposition fixed --commit <sha> (#2555)" >&2
+          k=$((k + 1))
+          continue
+        fi
+        # A later recognized fix claim supersedes older rebuttal prose, but
+        # still needs step 2's commit proof (or the explicit fixed mode).
+        if [ "$reply_polarity" = fixed ]; then
+          k=$((k + 1))
+          continue
+        fi
         echo "rebuttal-recorded"
         return
       fi
@@ -2991,29 +3094,51 @@ current_round_finding_ids() {
   '
 }
 
-# An explicit current deferral is not fix/rebuttal evidence, even when an
-# older ledger row or a reply would otherwise qualify (#1010). A later
-# superseding fixed/rebutted row restores the normal evidence path.
-thread_has_current_deferral() {
-  local tj="$1" floor ids f rc state
+# Current finding polarity uses newest append order in each ledger, never
+# cross-clock timestamp ordering. Unusable state retains #1010's closed gate.
+thread_ledger_polarity() {
+  local tj="$1" floor ids f rc state result=none
   floor=$(latest_nonagent_created "$tj")
   ids=$(current_round_finding_ids "$tj" "$floor") || return 2
   while IFS= read -r f; do
     [ -f "$f" ] || continue
     if state=$(jq -r -s --argjson ids "$ids" --arg repo "$REPO" '
+      # Both recorder writers preserve raw verdict aliases; Codex adds
+      # reaction without disposition, CodeRabbit adds canonical disposition.
+      def verdict_polarity:
+        if type != "string" then "unusable" else
+          ascii_downcase as $v
+          | if (["fixed", "real", "useful", "+1", "thumbsup", "thumbs-up", "up"] | index($v)) != null then "fixed"
+            elif (["rebutted", "false-positive", "false_positive", "falsepositive", "not-useful", "not_useful", "notuseful", "-1", "thumbsdown", "thumbs-down", "down"] | index($v)) != null then "rebutted"
+            elif (["deferred", "tracked", "split", "deferred-to-followup", "deferred-to-follow-up"] | index($v)) != null then "deferred"
+            else "unusable" end
+        end;
       [.[] | select(.repo == $repo)
              | select(.comment_id as $id | ($ids | index($id)) != null)]
       | group_by(.comment_id) | map(last)
-      | if any(.[];
-          ((.recorded_at | type == "string" and length > 0)
-           and (.disposition == "deferred-to-followup"
-                or (.verdict | type == "string" and length > 0))) | not)
-        then "unusable"
-        elif any(.[]; .disposition == "deferred-to-followup") then "deferred"
-        else "clear" end
+      | map(
+          (.verdict | verdict_polarity) as $v
+          | (if .disposition == null or .disposition == "" then $v
+             elif .disposition == "fixed" then "fixed"
+             elif .disposition == "rebutted" then "rebutted"
+             elif .disposition == "deferred-to-followup" or .disposition == "deferred-to-follow-up" then "deferred"
+             else "unusable" end) as $d
+          | if (.recorded_at | type != "string" or length == 0) then "unusable"
+            # Preserve the existing metadata-only explicit deferral rows.
+            elif $d == "deferred" and (.verdict == null or .verdict == "") and (.reaction == null or .reaction == "") then "deferred"
+            elif $v == "unusable" or $d == "unusable" or $v != $d then "unusable"
+            elif .reaction == null or .reaction == "" then $d
+            elif (.reaction == "+1" and $v == "fixed") or (.reaction == "-1" and $v == "rebutted") then $d
+            else "unusable" end)
+      | if any(.[]; . == "unusable") then "unusable"
+        elif any(.[]; . == "deferred") then "deferred"
+        elif any(.[]; . == "rebutted") then "rebutted"
+        elif any(.[]; . == "fixed") then "fixed" else "none" end
     ' "$f" 2>/dev/null); then
       case "$state" in
-        deferred) return 0 ;;
+        deferred) result=deferred ;;
+        rebutted) [ "$result" = deferred ] || result=rebutted ;;
+        fixed) [ "$result" != none ] || result=fixed ;;
         unusable)
           echo "WARN: ledger $f has an unusable newest row for the current finding; refusing actioned classification (#1010)" >&2
           return 2 ;;
@@ -3028,7 +3153,13 @@ thread_has_current_deferral() {
   done <<EOF
 $(ledger_paths)
 EOF
-  return 1
+  printf '%s' "$result"
+}
+
+thread_has_current_deferral() {
+  local polarity
+  polarity=$(thread_ledger_polarity "$1") || return 2
+  [ "$polarity" = deferred ]
 }
 
 # finding_dispositioned <thread_json> → prints the evidence description,
@@ -3148,7 +3279,11 @@ synth_rationale() {
       echo "nitpick/trivial severity; noted, no code change."
       ;;
     rebuttal-recorded)
-      echo "agent rebuttal posted on thread; resolving."
+      if [ "$(thread_ledger_polarity "$thread_json")" = rebutted ]; then
+        echo "negative/rebutted verdict recorded for this finding; resolving."
+      else
+        echo "agent rebuttal posted on thread; resolving."
+      fi
       ;;
     deferred-to-followup|*)
       echo "deferred to follow-up; resolving for branch-protection conversation gate."

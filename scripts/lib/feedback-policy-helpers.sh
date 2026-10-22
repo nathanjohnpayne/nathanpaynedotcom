@@ -75,11 +75,15 @@ feedback_policy_field() (
 # back to the default login. Two readers of the same file is the bug; this is
 # the shared one.
 policy_yaml_to_json() {
-  local cfg="${1:-}"
+  local cfg="${1:-}" docs json
   [ -r "$cfg" ] || return 1
   if command -v yq >/dev/null 2>&1 \
      && yq --version 2>/dev/null | grep -qi 'mikefarah'; then
-    yq eval -o=json '.' "$cfg" 2>/dev/null || return 1
+    # shellcheck disable=SC2016 # $d belongs to yq, not the shell.
+    docs=$(yq eval-all -o=json '[.] as $d ireduce ([]; . + $d) | length' "$cfg" 2>/dev/null) || return 1
+    [ "$docs" = 1 ] || return 1
+    json=$(yq eval -o=json '.' "$cfg" 2>/dev/null) || return 1
+    printf '%s\n' "$json"
   elif command -v python3 >/dev/null 2>&1 \
        && python3 -c 'import yaml' >/dev/null 2>&1; then
     python3 -c '
@@ -417,6 +421,14 @@ coderabbit_tiers_of() {
   # either whole bodies or numbered lines, and retain their original text for
   # fingerprints and reporting. Extra finding text on a heading line must not
   # disappear along with its structural markers.
+  #
+  # The `⚠️ **Unverified finding**` status banner (#2560) is excluded on the
+  # same terms: CodeRabbit prefixes a finding it could not verify with it, and
+  # the banner states a verification status, not a severity, while its bare
+  # glyph matched the p1 marker and promoted a 🟡 Minor finding to a required
+  # p1. Only the complete banner line is dropped, so a `⚠️ Potential issue`
+  # under it still grades p1 and a banner sharing its line with other text
+  # stays classified.
   body=$(printf '%s\n' "$body" | awk '
     {
       heading = $0
@@ -424,7 +436,8 @@ coderabbit_tiers_of() {
       sub(/^[ \t]*(>[ \t]*)*/, "", heading)
       sub(/[ \t]+$/, "", heading)
       if (heading ~ /^\*\*(⚠️ )?Outside diff range comments \([0-9]+\)\*\*$/ \
-          || heading ~ /^<summary>(⚠️ )?Outside diff range comments \([0-9]+\)<\/summary>(<blockquote>)?$/) next
+          || heading ~ /^<summary>(⚠️ )?Outside diff range comments \([0-9]+\)<\/summary>(<blockquote>)?$/ \
+          || heading ~ /^(\*\*)?⚠️ (\*\*)?Unverified finding(\*\*)?$/) next
       print
     }
   ') || {

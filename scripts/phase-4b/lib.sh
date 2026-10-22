@@ -549,8 +549,8 @@ p4b_codex_timeout_determination() {
 # Read the PR tuple that binds both the reviewed head and the policy source.
 p4b_pr_policy_tuple() { # <repo> <pr>
   local out
-  out=$(gh api "repos/$1/pulls/$2" --jq \
-    '{head_sha:.head.sha,base_ref:.base.ref,base_sha:.base.sha,default_branch:.base.repo.default_branch}' 2>/dev/null) \
+  out=$(gh_api_scalar "PR policy tuple for $1#$2" "repos/$1/pulls/$2" --jq \
+    '{head_sha:.head.sha,base_ref:.base.ref,base_sha:.base.sha,default_branch:.base.repo.default_branch}') \
     || return 1
   printf '%s' "$out" | jq -ce '
     type == "object"
@@ -567,7 +567,7 @@ p4b_pr_policy_tuple() { # <repo> <pr>
 # request freshness anchor. `final-request-pending` preserves the last
 # request's legitimate wait; it never manufactures a timeout determination.
 p4b_codex_request_budget_state() {
-  local repo="$1" pr="$2" head="$3" config author resolver budget comments generation count cap
+  local repo="$1" pr="$2" head="$3" config author resolver budget comments generation count cap heads
   local initial_tuple final_tuple base_ref base_sha default_branch committed timeline threshold seconds epoch anchor selected select_rc=0
   if [ "$P4B_CODEX_REQUEST_BUDGET_OK" != true ] \
      || ! command -v crqe_governing_budget crqe_trigger_generation crqe_count_triggers crqe_select_trigger >/dev/null 2>&1 \
@@ -596,7 +596,22 @@ p4b_codex_request_budget_state() {
     || { jq -nc '{state:"unreadable",reason:"comments-read-failed"}'; return 2; }
   generation=$(crqe_trigger_generation "$comments" "$author") \
     || { jq -nc '{state:"unreadable",reason:"request-generation-invalid"}'; return 2; }
-  count=$(crqe_count_triggers "$comments" "$author") \
+  # A CodeRabbit failover marker exempts its trigger only when it names a head
+  # this PR had (#2553); the head set is read only when a marker is present,
+  # and an unreadable one exempts nothing.
+  heads='[]'
+  if command -v crqe_failover_markers_present crqe_pr_head_set >/dev/null 2>&1 \
+     && crqe_failover_markers_present "$comments" "$author"; then
+    local fo_commits fo_timeline fo_forced
+    # Force-push heads come from GraphQL (#2591); a failed read leaves only
+    # them out.
+    fo_forced=$(crqe_force_push_heads "$repo" "$pr" 2>/dev/null) || fo_forced='[]'
+    if fo_commits=$(gh_api_array "repos/$repo/pulls/$pr/commits" "PR commits for failover markers" 2>/dev/null) \
+       && fo_timeline=$(gh_api_array "repos/$repo/issues/$pr/timeline" "PR timeline for failover markers" 2>/dev/null); then
+      heads=$(crqe_pr_head_set "$fo_commits" "$fo_timeline" "$head" "$fo_forced") || heads='[]'
+    fi
+  fi
+  count=$(crqe_count_triggers "$comments" "$author" "$heads") \
     || { jq -nc '{state:"unreadable",reason:"request-count-invalid"}'; return 2; }
   cap=$(printf '%s' "$budget" | jq -r '.max_request_attempts')
   final_tuple=$(p4b_pr_policy_tuple "$repo" "$pr") \
@@ -669,6 +684,144 @@ p4b_governing_policy_json() {
   [ "$base_cfg" = "$config" ] || rm -f "$base_cfg" 2>/dev/null || true
   [ "$rc" -eq 0 ] && [ -n "$base_json" ] || return 2
   printf '%s' "$base_json" | jq -ce 'select(type == "object")' 2>/dev/null || return 2
+}
+
+# The run id a Phase 4b review carries (#2663): the marker the orchestrator
+# writes on its own line directly before its footer. A marker-shaped example
+# quoted earlier in the review text (a finding about this very ledger, say)
+# is not it. Prints null when the body has no such marker.
+P4B_RUN_MARKER_JQ='def p4b_run_marker:
+  [(. // "") | capture("<!-- mergepath-p4b-run: (?<r>[A-Za-z0-9._-]+) -->\\s+_Posted by scripts/phase-4b-review\\.sh"; "g") | .r]
+  | last;'
+
+# p4b_completed_rounds_from_reviews <reviews-json> <author-login>
+# Pure (#2663). Count the completed automated Phase 4b rounds on a PR from its
+# GitHub reviews, the only store every machine, session and restart shares. A
+# round is a non-author review whose body opens with the orchestrator's
+# `**Automated Phase 4b review**` heading, carries its `_Posted by
+# scripts/phase-4b-review.sh` footer, and records a verdict: APPROVED,
+# CHANGES_REQUESTED, or DISMISSED (a dismissed verdict was still delivered).
+# The login is deliberately NOT checked against the current available_reviewers,
+# so rotating or removing a reviewer never erases its historical rounds. A
+# forged review can only inflate the count, which stops rounds early (a
+# liveness risk), never lets one past the cap. Holds, polls and attempts that
+# published nothing leave no review and are never counted. Each round reports
+# the run nonce it carries, which marks its reservation consumed. Prints
+# {completed, rounds:[{id,head,state,run}]}; returns 1 on a non-array or on
+# any record that is not a review object with a numeric id and a string state
+# (fail closed: malformed history never reads as empty history).
+p4b_completed_rounds_from_reviews() {
+  printf '%s' "${1:-}" | jq -ce --arg author "${2:-}" "$P4B_RUN_MARKER_JQ"'
+    if type != "array" then error("reviews are not an array") else . end
+    # Every record must look like a GitHub review before any is filtered out:
+    # silently skipping junk would read malformed history as empty history.
+    | if all(.[]; type == "object" and (.id | type) == "number" and (.state | type) == "string"
+                  and ((.body | type) as $t | $t == "string" or $t == "null")
+                  and ((.user | type) as $t | $t == "object" or $t == "null"))
+      then . else error("malformed review record") end
+    | [ .[]
+        | select(((.user.login // "") | ascii_downcase) != ($author | ascii_downcase))
+        | select(.state as $s | ["APPROVED","CHANGES_REQUESTED","DISMISSED"] | index($s) != null)
+        | select((.body // "") | startswith("**Automated Phase 4b review**"))
+        | select((.body // "") | contains("_Posted by scripts/phase-4b-review.sh"))
+        | {id, head:(.commit_id // null), state,
+           run:(.body | p4b_run_marker)} ]
+    | unique_by(.id)
+    | {completed: length, rounds: .}' 2>/dev/null
+}
+
+# --- #2663 round ledger ------------------------------------------------------
+# The authoritative per-PR slot ledger is a git ref,
+#   refs/mergepath/p4b-rounds/pr-<N>
+# whose tip commit message carries the whole ledger as one JSON line:
+#   {"schema":"p4b-round-ledger/v1","pr":N,"entries":[{"run","head","state"}]}
+# state is "reserved" or "released" (released only by its own writer, before
+# it attempted any review POST). Every update is a single-parent commit on the
+# observed tip, published with force:false, so GitHub accepts it only as a
+# fast-forward: of two writers building on one tip exactly one wins, and the
+# other must re-read and re-evaluate. The ref is organisational state, not a
+# security boundary: anyone who can push can rewrite it, as they can a review.
+
+# p4b_round_ledger_parse <commit-message> -> entries JSON array, or rc 1.
+p4b_round_ledger_parse() {
+  # One jq pass, no early-exit pipeline: `grep | head` under pipefail can
+  # SIGPIPE the producer and read a valid ledger as malformed.
+  jq -cen --arg msg "${1:-}" '
+    [$msg | split("\n")[] | select(startswith("{\"schema\":\"p4b-round-ledger/v1\""))]
+    | if length != 1 then error("ledger line missing or repeated") else .[0] | fromjson end
+    | if .schema == "p4b-round-ledger/v1" and (.entries | type) == "array"
+         and all(.entries[]; (.run | type) == "string" and (.run | test("^[A-Za-z0-9._-]+$"))
+                            and (.state == "reserved" or .state == "released"))
+      then .entries else error("malformed ledger") end' 2>/dev/null
+}
+
+# p4b_round_ledger_message <pr> <entries-json> -> the commit message.
+p4b_round_ledger_message() {
+  local line
+  line=$(jq -nce --argjson pr "$1" --argjson e "$2" '{schema:"p4b-round-ledger/v1",pr:$pr,entries:$e}' 2>/dev/null) || return 1
+  printf 'mergepath Phase 4b round ledger (#2663)\n\n%s\n' "$line"
+}
+
+# p4b_round_occupancy <entries-json> <rounds-json> <cap>
+# Pure. A slot is occupied by every reserved ledger entry (consumed or still
+# in flight, and including an uncertain POST, which never frees its slot) and
+# by every completed round no reserved entry accounts for: a legacy review, a
+# review with no run id, or a review by a run whose entry reads released (a
+# writer that published anyway is counted, never dropped). Released entries
+# free their slot only while no review carries their run id. A reserved run
+# occupies max(its entries, its reviews): duplicate entries each keep a slot,
+# and several reviews carrying one run id each count, so one reservation
+# never absorbs a surplus publication. Prints {occupied, in_flight,
+# completed, legacy, cap}.
+p4b_round_occupancy() {
+  local rounds_default='{"rounds":[]}'
+  jq -nce --argjson e "${1:-[]}" --argjson r "${2:-$rounds_default}" --argjson cap "${3:-0}" '
+    ([$e[] | select(.state == "reserved")]) as $res
+    | ([$res[].run] | unique) as $ledger_runs
+    | ([$r.rounds[] | .run as $rr | select($rr == null or (($ledger_runs | index($rr)) == null))]) as $legacy
+    | ([$r.rounds[].run | strings]) as $done
+    # A reserved run occupies one slot per entry or per review carrying its
+    # id, whichever is more: one reservation never absorbs a second review.
+    | ([$ledger_runs[] as $u
+          | [([$res[] | select(.run == $u)] | length), ([$done[] | select(. == $u)] | length)] | max]
+       | add // 0) as $reserved_slots
+    | {occupied: ($reserved_slots + ($legacy | length)),
+       in_flight: ([$res[] | .run as $rr | select(($done | index($rr)) == null)] | length),
+       completed: ($r.rounds | length), legacy: ($legacy | length), cap: $cap}' 2>/dev/null
+}
+
+# p4b_reconcile_posted_review <reviews-json> <reviewer-login> <head-sha> <run-id>
+# Pure (#2663). After a review POST with an uncertain outcome, find THIS run's
+# publication: a review by the actual reviewer, on this head, whose run
+# marker (p4b_run_marker, the one before the footer) is this run's unique id.
+# A quoted example of the marker elsewhere in a body never matches. Prints it
+# only when exactly one matches; zero (not landed, or not yet visible) or
+# several (ambiguous) print nothing, and the caller then neither adopts nor
+# reposts.
+p4b_reconcile_posted_review() {
+  [ -n "${4:-}" ] || return 0
+  printf '%s' "${1:-[]}" | jq -c --arg who "${2:-}" --arg head "${3:-}" --arg run "${4:-}" "$P4B_RUN_MARKER_JQ"'
+    if type != "array" then empty else
+    [ .[] | select(type == "object")
+      | select(((.user.login // "") | ascii_downcase) == ($who | ascii_downcase))
+      | select(.commit_id == $head and ((.body | p4b_run_marker) == $run)) ]
+    | if length == 1 then .[0] else empty end end' 2>/dev/null
+}
+
+# p4b_governing_round_cap <governing-policy-json>
+# Pure (#2663). Print phase_4b_automation.max_review_rounds from the PR's
+# GOVERNING base policy, so a PR cannot raise its own cap, or "none" when the
+# key is absent (the cap is then unenforced, as before). Returns 2 when the
+# value is present but is not a positive integer.
+p4b_governing_round_cap() {
+  printf '%s' "${1:-}" | jq -er '
+    if (.phase_4b_automation | type) != "object" then "none"
+    elif (.phase_4b_automation | has("max_review_rounds") | not) then "none"
+    elif (.phase_4b_automation.max_review_rounds | type) == "number"
+         and .phase_4b_automation.max_review_rounds >= 1
+         and (.phase_4b_automation.max_review_rounds | floor) == .phase_4b_automation.max_review_rounds
+      then (.phase_4b_automation.max_review_rounds | tostring)
+    else error("invalid") end' 2>/dev/null || return 2
 }
 
 # p4b_governing_codex_enabled <repo> <pr>
@@ -1766,7 +1919,8 @@ p4b_barrier_maybe_resume() {
 # The human-stop conditions a spent request ceiling must clear before it may
 # dispatch the automated adapter (#1560 slice 3, S3-4): the blocking-review
 # budget, a runaway, an untested rebuttal, and a disagreement, as crl_human_stops defines
-# them over the Codex review ledger. Prints {state: "clear"|"stop", stops,
+# them over the Codex review ledger, with the owner's tiebreak markers applied
+# through crl_resolved_human_stops (#2558). Prints {state: "clear"|"stop", stops,
 # blocking_reviews, max_blocking_reviews, untested_rebuttals, disagreements,
 # governing_tuple} and returns 0, or {state: "unsafe", reason} and returns 2
 # when any input is missing, unreadable, malformed, or moved during the read.
@@ -1775,7 +1929,8 @@ p4b_codex_human_stops() {
   local repo="$1" pr="$2" head="$3" config author resolver tuple final_tuple budget max
   local ledger_cmd ledger stops base_ref base_sha default_branch fp ceiling
   if [ "$P4B_CODEX_REQUEST_BUDGET_OK" != true ] || [ "$P4B_CODEX_LEDGER_OK" != true ] \
-     || ! command -v crqe_governing_budget crl_human_stops crl_owner_tiebreaks crl_apply_owner_tiebreaks >/dev/null 2>&1; then
+     || ! command -v crqe_governing_budget crl_human_stops crl_owner_tiebreaks crl_apply_owner_tiebreaks \
+                     crl_resolved_human_stops >/dev/null 2>&1; then
     jq -nc '{state:"unsafe",reason:"human-stop-helper-unavailable"}'
     return 2
   fi
@@ -1816,19 +1971,13 @@ p4b_codex_human_stops() {
   # still reads a ceiling of blocking reviews as a runaway (#1560 canary).
   ceiling=$(printf '%s' "$budget" | jq -r '.max_request_attempts // empty')
   case "$ceiling" in ''|*[!0-9]*) jq -nc '{state:"unsafe",reason:"request-ceiling-invalid"}'; return 2 ;; esac
-  stops=$(crl_human_stops "$ledger" "$head" "$author" "$max" "$ceiling") \
+  # The one consumer-facing stop calculation, shared with Cockpit (#2558): an
+  # owner tiebreak settles a dispute stop (#2511) or a runaway (#2534) for this
+  # head. The markers are read only when one of those holds, and a failed read
+  # leaves the stop standing: missing evidence never reads as a decision.
+  stops=$(crl_resolved_human_stops "$ledger" "$head" "$author" "$max" "$ceiling" \
+      "https://github.com/$repo/pull/$pr" gh_api_array "repos/$repo/issues/$pr/comments" "owner tiebreak markers") \
     || { jq -nc '{state:"unsafe",reason:"ledger-malformed"}'; return 2; }
-  # An owner tiebreak settles a dispute stop for this head (#2511). It is read
-  # only when a dispute stop holds, and a failed read leaves the stop standing:
-  # missing evidence never reads as a decision.
-  if printf '%s' "$stops" | jq -e '(.untested_rebuttals | length) + (.disagreements | length) > 0' >/dev/null 2>&1; then
-    local tb_comments tb_marks tb_applied
-    if tb_comments=$(gh_api_array "repos/$repo/issues/$pr/comments" "owner tiebreak markers" 2>/dev/null) \
-       && tb_marks=$(crl_owner_tiebreaks "$tb_comments" "$author" "https://github.com/$repo/pull/$pr" "$head") \
-       && tb_applied=$(crl_apply_owner_tiebreaks "$stops" "$(printf '%s' "$ledger" | jq -sc '.[0]')" "$tb_marks"); then
-      stops="$tb_applied"
-    fi
-  fi
   final_tuple=$(p4b_pr_policy_tuple "$repo" "$pr") \
     || { jq -nc '{state:"unsafe",reason:"pr-policy-tuple-reread-failed"}'; return 2; }
   if [ "$final_tuple" != "$tuple" ]; then
