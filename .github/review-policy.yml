@@ -132,8 +132,11 @@ coderabbit:
 #      comment and poll for the Codex review.
 #   2. Parse the returned JSON. Address each P0/P1 finding with a fix OR
 #      a reply explaining why the finding does not apply.
-#   3. Repeat up to `max_review_rounds`. On runaway (round > max), escalate
-#      to the human per REVIEW_POLICY.md § Disagreements and Tiebreaking.
+#   3. Repeat while the request ceiling (`max_review_rounds`) and the
+#      blocking-review budget allow. A spent blocking budget escalates to the
+#      human; a spent ceiling runs automated Phase 4b, which stops for the
+#      human on a runaway, untested rebuttal or disagreement (REVIEW_POLICY.md
+#      § Disagreements and Tiebreaking).
 #   4. On timeout (silence within `review_timeout_seconds`), the script
 #      exits with code 4 (FALLBACK_REQUIRED). The agent then falls back
 #      to the manual handoff in REVIEW_POLICY.md § Phase 4b, targeting

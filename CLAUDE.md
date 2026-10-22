@@ -122,8 +122,8 @@ explicitly authorizes a break-glass override in chat.
       👍 reaction on the PR issue.
    d. On exit code `4` (FALLBACK_REQUIRED, timeout), stop 4a and drop to
       Phase 4b below.
-   e. On disagreement (repeat-after-rebuttal) or runaway (round counter
-      exceeds `codex.max_review_rounds`), escalate per REVIEW_POLICY.md
+   e. On disagreement (repeat-after-rebuttal) or a spent blocking-review
+      budget (`codex.max_blocking_reviews`), escalate per REVIEW_POLICY.md
       § Disagreements and Tiebreaking: stop the loop, post a summary
       comment on the PR with both positions, alert the human, do NOT merge.
    f. On clearance, run `scripts/codex-review-check.sh <PR#>` to verify
