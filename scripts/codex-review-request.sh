@@ -198,12 +198,24 @@
 #     # or more counted requests. recorded is "posted", "existing" or "failed";
 #     # it is informational and never changes the exit code.
 #     "request_resumed": true | false,
-#     # true when this invocation resumed an earlier in-flight request
-#     # instead of posting one (#1550), including one that expired and was
-#     # replaced by the fresh re-run (which reports it). Present only on this terminal JSON (exit 0
-#     # / 4); the --trigger-only, exit 5, exit 7 and timeout-reuse outputs
-#     # omit it. On a resume, rounds_waited_seconds counts from the resumed
-#     # request's posting, so it includes time before this run started.
+#     # true when this invocation waited on an earlier unanswered request on
+#     # the current head instead of posting one (#1550, #2664). Present only
+#     # on this terminal JSON (exit 0 / 4); the --trigger-only, exit 5, exit 7
+#     # and timeout-reuse outputs omit it. On a resume, rounds_waited_seconds
+#     # counts from the resumed request's posting, so it includes time before
+#     # this run started.
+#     "codex_run": {request_comment_id, diagnostic, final_state,
+#                   overlapping_request, handoff, provider_window},
+#     # #2664, polling runs only: what Codex's Review Summary row said about
+#     # the waited-on request. diagnostic is the state recorded at 300 s (or
+#     # null); final_state is the state at the end of the wait (active,
+#     # unknown, failed, canceled, completed, ambiguous, or answered).
+#     # "ambiguous" means another request on this head overlaps, so the row
+#     # cannot be tied to this one. provider_window is a retry window Codex
+#     # stated, as {seconds, not_before}. All of it is reporting only: no
+#     # state here posts, retries, cancels or clears anything. handoff is
+#     # "timeout-recorded" or "unattributed" when the wait ended unanswered:
+#     # a held request without a strong head tie records no determination.
 #     "trigger_requested": true | false,
 #     "rounds_waited_seconds": N
 #   }
@@ -1683,10 +1695,37 @@ scan_codex_state() {
   request=$(crqe_select_trigger "$issue_comments" "$AUTHOR_IDENTITY" "") || return 3
   summary=$(crqe_select_codex_review_summary "$issue_comments" "$BOT_LOGIN" "$HEAD_SHA") || return 3
   blocked=$(crqe_filter_provider_block "$blocked" "$request" "$summary") || return 3
+  # #1362: the request generation this scan saw. The pre-flight scan's copy is
+  # the evidence a new request is decided on; null when it cannot be read.
+  local generation
+  generation=$(crqe_trigger_generation "$issue_comments" "$AUTHOR_IDENTITY" 2>/dev/null) || generation=null
 
-  printf '%s\n' "$review" "$findings" "$reaction" "$verdict" "$blocked" "$request" | jq -s --arg approval_time "$approval_time" '
-    if length != 6 then error("incomplete Codex scan components") else
-      { review: .[0], findings: .[1], reaction: .[2], verdict: .[3], blocked: .[4], request: .[5], review_approval_eligible: ($approval_time != "") }
+  # #2664: what the Review Summary row says about the latest request, for
+  # reporting only. The row names no request, so another request on this
+  # head whose window overlaps makes it ambiguous. "On this head" uses only
+  # the proven head transition (HEAD_TRANSITION_AT), never the committer date
+  # or a workflow run; with none, every overlapping author request counts,
+  # since none can be ruled out (#2779 review).
+  local run='{"state":"none","observed_at":null,"comment_id":null,"retry_after_seconds":null}'
+  if [ "$request" != null ]; then
+    run=$(crqe_select_codex_run_state "$issue_comments" "$BOT_LOGIN" "$HEAD_SHA" \
+      "$(printf '%s' "$request" | jq -r '.created_at // ""')") || return 3
+    run=$(printf '%s' "$issue_comments" | jq -c --argjson run "$run" --argjson req "$request" \
+      --arg author "$AUTHOR_IDENTITY" --arg head_at "${HEAD_TRANSITION_AT:-}" --argjson window "${TIMEOUT_SECONDS:-0}" '
+      def epoch: sub("\\.[0-9]+"; "") | fromdateiso8601;
+      ($req.created_at | epoch) as $mine
+      | [ .[] | select((.user.login // "") == $author)
+          | select((.body // "") | test("\\A@codex review\\z"; "i"))
+          | select(.id != $req.id)
+          | select($head_at == "" or .created_at >= $head_at)
+          | (.created_at | epoch) as $t
+          | select($t <= $mine + $window and $t + $window >= $mine) ] as $others
+      | $run + {overlapping_request: (($others | length) > 0)}') || return 3
+  fi
+
+  printf '%s\n' "$review" "$findings" "$reaction" "$verdict" "$blocked" "$request" "$generation" "$run" | jq -s --arg approval_time "$approval_time" '
+    if length != 8 then error("incomplete Codex scan components") else
+      { review: .[0], findings: .[1], reaction: .[2], verdict: .[3], blocked: .[4], request: .[5], generation: .[6], run: .[7], review_approval_eligible: ($approval_time != "") }
     end
   '
 }
@@ -2166,6 +2205,10 @@ post_author_pr_comment() { # <body> <purpose> [body-file|inline]
       log "existing trigger $TRIGGER_COMMENT_ID refused the acknowledgement retry — continuing normal review poll"
       return 1
     fi
+  fi
+  if [ "$rc" -ne 0 ] && [ "$mode" = inline ] && [ "$body" = '@codex review' ] && [ "$TRIGGER_POSTED" != true ] \
+     && grep -Eqx '\[codex-review-request\] ERROR: trigger not authorized: (concurrent-request|existing-trigger|pending-request-unanswered|pending-request-running)' <<< "$output"; then
+    die 3 "another guarded Codex request for $REPO#$PR_NUMBER posted first (#1362); this run posted nothing. A polling rerun waits on that request rather than posting another, and hands it to Phase 4b if it times out (#2664): $output"
   fi
   [ "$rc" -eq 0 ] || die 3 "failed to post $purpose: $output"
   AUTHOR_COMMENT_OUTPUT="$output"
@@ -2697,6 +2740,19 @@ post_codex_trigger() {
     live=$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .head.sha) \
       || die 3 "cannot fence the authorized trigger head"
     [ "$live" = "$expected" ] || die 3 "trigger head moved during authorization"
+    # #1362: this pass runs inside the wrapper's per-PR claim. The canonical
+    # requester names the request generation it decided to post against; a
+    # request that landed since (a concurrent requester that won the claim,
+    # or one typed in the web UI) refuses this one rather than adding a
+    # second. An absent or unreadable generation fails closed.
+    local observed="${MERGEPATH_CODEX_TRIGGER_OBSERVED_GENERATION:-}" current
+    current=$(crqe_trigger_generation "$request_comments" "$AUTHOR_IDENTITY") \
+      || die 3 "cannot read the Codex request generation for authorization"
+    if ! jq -en --argjson observed "${observed:-null}" --argjson current "$current" \
+         '($observed | type) == "array" and $observed == $current' >/dev/null 2>&1; then
+      jq -n '{authorized:false,reason:"concurrent-request"}'
+      die 3 "trigger not authorized: concurrent-request"
+    fi
     jq -n --arg repo "$REPO" --argjson pr "$PR_NUMBER" --arg head "$HEAD_SHA" --arg author "$AUTHOR_IDENTITY" \
       '{authorized:true,repo:$repo,pr_number:$pr,head_sha:$head,author_identity:$author}'
     exit 0
@@ -2726,9 +2782,25 @@ post_codex_trigger() {
   # never records (and so never uses up) the checkpoint.
   local record_checkpoint=false
   if [ "$TRIGGER_POSTED" != true ] && [ "$FAILOVER" != true ]; then record_checkpoint=true; fi
+  # #1362: the wrapper's claimed recount refuses this write if the request
+  # generation it was decided against has changed. A new request is decided
+  # on the pre-flight scan, so it names that scan's generation: a request
+  # another caller posted after it, even one this run's later reads already
+  # include, refuses this write. An acknowledgement retry names this read,
+  # which holds the run's own confirmed trigger.
+  local observed_generation
+  if [ "$TRIGGER_POSTED" != true ]; then
+    observed_generation=$(printf '%s' "$INITIAL_SCAN" | jq -c '.generation // null' 2>/dev/null) || observed_generation=null
+    [ "$observed_generation" != null ] \
+      || die 3 "cannot read the Codex request generation the request was decided on; refusing a new '@codex review' trigger"
+  else
+    observed_generation=$(crqe_trigger_generation "$request_comments" "$AUTHOR_IDENTITY") \
+      || die 3 "cannot read the Codex request generation; refusing a new '@codex review' trigger"
+  fi
   log "posting '@codex review' trigger comment (as author identity $AUTHOR_IDENTITY; request attempts $request_count/$max_review_rounds)"
   MERGEPATH_CODEX_TRIGGER_WRITE=1 MERGEPATH_CODEX_TRIGGER_EXPECTED_HEAD="$HEAD_SHA" \
     MERGEPATH_CODEX_TRIGGER_CALLER_MODE="$caller_mode" \
+    MERGEPATH_CODEX_TRIGGER_OBSERVED_GENERATION="$observed_generation" \
     post_author_pr_comment "@codex review" "'@codex review' trigger comment" inline || return 1
   POST_OUTPUT="$AUTHOR_COMMENT_OUTPUT"
   TRIGGER_POSTED=true
@@ -2915,8 +2987,10 @@ record_phase4a_timeout_determination() {
     && command -v codex_phase4a_timeout_marker_body >/dev/null 2>&1 \
     && command -v codex_phase4a_timeout_marker_state >/dev/null 2>&1 \
     || die 3 "cannot persist Phase 4a timeout: shared terminal-marker helper unavailable"
-  [ "$TRIGGER_POSTED" = true ] \
-    || die 3 "cannot persist Phase 4a timeout: no trigger was posted in this request run"
+  # #2664: the request is this run's own confirmed trigger, or the same-head
+  # request it resumed and waited out to that request's own deadline.
+  [ "$TRIGGER_POSTED" = true ] || [ "$RESUMED_TRIGGER" = true ] \
+    || die 3 "cannot persist Phase 4a timeout: this run neither posted nor resumed a request"
   codex_phase4a_comment_id_ok "$TERMINAL_TRIGGER_COMMENT_ID" \
     || die 3 "cannot persist Phase 4a timeout: trigger comment id was not confirmed"
 
@@ -3106,6 +3180,57 @@ resume_pending_codex_request() {
     || die 3 "cannot parse the pending Codex request's timestamp '$created'"
   [[ "$created_epoch" =~ ^[0-9]+$ ]] || die 3 "cannot parse the pending Codex request's timestamp '$created'"
 
+  # #2664: only a request tied to the current head can hold it, and neither
+  # the committer date nor a workflow run proves that tie (#2779 Phase 4b). It
+  # holds on a strong tie: it was posted strictly after the PR's latest
+  # force-push, and that force-push put HEAD in place
+  # (crqe_head_force_push_tie_at). It also holds on the exact-head Running
+  # summary since the request (#1550), but only while it is within its own
+  # wait. Otherwise a new counted request posts, as before #2664: an
+  # unprovable tie costs a slot, never a deadlock or a waiver.
+  local tie_at tie_epoch
+  RESUME_STRONG_TIE=false
+  # Unreadable evidence is not absent evidence: a failed read is retried once
+  # and then exits 3, rather than posting beside a request that may be
+  # strongly tied and still running (CodeRabbit on #2779).
+  if ! tie_at=$(crqe_head_force_push_tie_at "$REPO" "$PR_NUMBER" "$HEAD_SHA" 2>/dev/null); then
+    sleep 2
+    tie_at=$(crqe_head_force_push_tie_at "$REPO" "$PR_NUMBER" "$HEAD_SHA" 2>/dev/null) \
+      || die 3 "cannot read the PR's force-push timeline for the same-head hold"
+  fi
+  tie_epoch=$(jq -rn --arg t "$tie_at" '$t | sub("\\.[0-9]+"; "") | fromdateiso8601' 2>/dev/null) || tie_epoch=""
+  if [[ "$tie_epoch" =~ ^[0-9]+$ ]] && [ "$created_epoch" -gt "$tie_epoch" ]; then
+    RESUME_STRONG_TIE=true
+  fi
+  # An edited comment is no request evidence for its own wait: the selector
+  # reads its current body, but the deadline runs from created_at, so a
+  # comment edited into the command long after it was posted would expire at
+  # once and record a timeout for a wait that never happened (direct adapter
+  # review of #2779). It is not held; a new counted request posts.
+  if printf '%s' "$pending" | jq -e '(.updated_at // .created_at) != .created_at' >/dev/null 2>&1; then
+    log "pending request $(printf '%s' "$pending" | jq -r .id) was edited after it was posted — not resuming; a new counted request posts"
+    return 1
+  fi
+  # The timeout handoff binds only the exact lowercase command
+  # (codex_phase4a_trigger_comment_is_latest), so a case-varied request could
+  # be held but never handed off. It is not held; a new request posts.
+  if ! printf '%s' "$pending" | jq -e '(.body // "") == "@codex review"' >/dev/null 2>&1; then
+    log "pending request $(printf '%s' "$pending" | jq -r .id) is not the exact lowercase command the timeout handoff binds — not resuming"
+    return 1
+  fi
+  # At the request ceiling the #813 cap path keeps precedence: it polls the
+  # final request without timeout authority and reports the ceiling. This is
+  # a no-spend path, so a cap that cannot be read only skips the check
+  # (#1567); the write boundary still validates the cap before any post.
+  if [ "$AUTHORIZE_TRIGGER_WRITE" != true ]; then
+    local cap_limit cap_count
+    cap_limit=$( { governing_request_attempt_cap && printf '%s' "$GOVERNING_REQUEST_ATTEMPT_CAP"; } 2>/dev/null ) || cap_limit=""
+    cap_count=$(crqe_count_triggers "$comments" "$AUTHOR_IDENTITY" "$(failover_head_set "$comments")" 2>/dev/null) || cap_count=""
+    if [[ "$cap_limit" =~ ^[0-9]+$ ]] && [[ "$cap_count" =~ ^[0-9]+$ ]] && [ "$cap_count" -ge "$cap_limit" ]; then
+      return 1
+    fi
+  fi
+
   # Answered or provider-blocked since the pending trigger: a new round needs
   # a new request, so do not resume.
   TRIGGER_SIGNAL_THRESHOLD=$created
@@ -3147,6 +3272,9 @@ resume_pending_codex_request() {
     current)
       if printf '%s' "$marker_json" | jq -e --argjson trigger "$pending" \
            '.trigger_comment_id == $trigger.id' >/dev/null 2>&1; then
+        # #2664: its timeout is recorded and handed to Phase 4b, so it is not
+        # in flight. A later run on this head is a new round: it posts a new
+        # counted request, which supersedes that determination (#1085).
         log "pending request $(printf '%s' "$pending" | jq -r .id) has a current Phase 4a timeout marker — not resuming"
         return 1
       fi
@@ -3160,21 +3288,39 @@ resume_pending_codex_request() {
     || die 3 "cannot read the Codex Review Summary for the resume check"
   observed=$(printf '%s' "$summary" | jq -r 'if . == null then "" else .observed_at end') \
     || die 3 "cannot read the Codex Review Summary for the resume check"
-  if [ "$status" != running ] || [ -z "$observed" ] || [[ "$observed" < "$created" ]]; then
-    log "pending request $(printf '%s' "$pending" | jq -r .id) has no Codex Running summary on HEAD since it was posted (status '${status:-none}') — not resuming"
-    return 1
+  # #2664: a Running summary no longer gates the resume. An unanswered
+  # request on this head is uncertain whatever the row says (the row names
+  # no request), and posting another would treat it as never sent. It only
+  # chooses the reason the wrapper's authorization reports.
+  RESUME_PENDING_RUNNING=false
+  if [ "$status" = running ] && [ -n "$observed" ] && ! [[ "$observed" < "$created" ]]; then
+    RESUME_PENDING_RUNNING=true
   fi
-
   now=$(date +%s)
   deadline=$((created_epoch + TIMEOUT_SECONDS))
+  if [ "$RESUME_STRONG_TIE" != true ]; then
+    if [ "$RESUME_PENDING_RUNNING" != true ]; then
+      log "pending request $(printf '%s' "$pending" | jq -r .id) has no strong tie to the current head and no Running summary — not resuming; a new counted request posts"
+      return 1
+    fi
+    if [ "$now" -ge "$deadline" ]; then
+      log "pending request $(printf '%s' "$pending" | jq -r .id) is tied only by a Running summary and is past its wait — not resuming; a new counted request posts"
+      return 1
+    fi
+  fi
+  RESUME_PENDING_STATE=pending
   if [ "$now" -ge "$deadline" ]; then
-    log "pending request $(printf '%s' "$pending" | jq -r .id) is past its ${TIMEOUT_SECONDS}s wait — not resuming"
-    return 1
+    # Past its own wait: the wait below ends at once, and the request's
+    # timeout determination is recorded as for any expired request.
+    RESUME_PENDING_STATE=expired
+    deadline=$now
   fi
 
   RESUMED_TRIGGER=true
   RESUMED_EVER=true
   RESUMED_TRIGGER_ID=$(printf '%s' "$pending" | jq -r .id)
+  # The timeout writer binds its determination to this request.
+  TERMINAL_TRIGGER_COMMENT_ID=$RESUMED_TRIGGER_ID
   REQUEST_BLOCK_TRIGGER_JSON=$pending
   TRIGGER_SIGNAL_THRESHOLD=$created
   START_TS=$created_epoch
@@ -3185,6 +3331,13 @@ resume_pending_codex_request() {
 }
 
 # --- pre-flight: is Codex already working on HEAD? --------------------------
+
+# #2664: read once per run, before any scan; scans run in subshells.
+# The overlap report's cutoff is the proven head transition only: the latest
+# force-push, when it put HEAD in place. A workflow run can be created after
+# requests already posted on this head, so it never excludes one. With no
+# proven transition, or an unreadable one, every author request counts.
+HEAD_TRANSITION_AT=$(crqe_head_force_push_tie_at "$REPO" "$PR_NUMBER" "$HEAD_SHA" 2>/dev/null) || HEAD_TRANSITION_AT=""
 
 log "checking for existing Codex signal on HEAD"
 if ! INITIAL_SCAN=$(scan_codex_state); then
@@ -3209,7 +3362,14 @@ RESUMED_TRIGGER=false
 # A run re-executed after a resumed request expired (#1550) reports that the
 # invocation resumed first, although this process posts normally.
 RESUMED_EVER=false
-[ "${MERGEPATH_CODEX_RESUME_EXPIRED:-}" != 1 ] || RESUMED_EVER=true
+RESUME_PENDING_RUNNING=false
+RESUME_STRONG_TIE=false
+RESUME_PENDING_STATE=""
+# #2664 reporting of the waited-on request's run (see codex_run_tick).
+CODEX_RUN_DIAGNOSTIC_JSON=null
+CODEX_RUN_WINDOW_JSON=null
+CODEX_RUN_FINAL_STATE=""
+CODEX_RUN_OVERLAP=false
 RESUMED_TRIGGER_ID=""
 REQUEST_BLOCK_TRIGGER_JSON=null
 
@@ -3241,13 +3401,20 @@ elif [ "$REQUEST_MODE" = trigger-only ] && existing_codex_trigger_on_head; then
 elif [ "$REQUEST_MODE" = trigger-only ] && auto_trigger_content_free; then
   NO_WRITE_REASON="content-free-auto-trigger"
   log "auto-trigger: $AUTO_TRIGGER_SKIP_REASON — skipping the automatic @codex review (#798)"
-elif [ "$REQUEST_MODE" = poll ] && [ "${MERGEPATH_CODEX_RESUME_EXPIRED:-}" != 1 ] \
-     && resume_pending_codex_request; then
+elif [ "$REQUEST_MODE" = poll ] && resume_pending_codex_request; then
   if [ "$AUTHORIZE_TRIGGER_WRITE" = true ]; then
-    NO_WRITE_REASON="pending-request-running"
-    log "pending request $RESUMED_TRIGGER_ID: Codex reports a review of HEAD Running since it was posted — a new trigger is not authorized (#1550)"
+    if [ "$RESUME_PENDING_RUNNING" = true ]; then
+      NO_WRITE_REASON="pending-request-running"
+      log "pending request $RESUMED_TRIGGER_ID: Codex reports a review of HEAD Running since it was posted — a new trigger is not authorized (#1550)"
+    else
+      NO_WRITE_REASON="pending-request-unanswered"
+      log "pending request $RESUMED_TRIGGER_ID on this head is unanswered ($RESUME_PENDING_STATE) — a new trigger is not authorized (#2664)"
+    fi
   else
-    log "resuming pending request $RESUMED_TRIGGER_ID: Codex reports a review of HEAD Running since it was posted; no new trigger (#1550), ${ELAPSED}s of ${TIMEOUT_SECONDS}s already elapsed"
+    case "$RESUME_PENDING_STATE" in
+      pending) log "resuming pending request $RESUMED_TRIGGER_ID on this head (unanswered; Codex Running: $RESUME_PENDING_RUNNING); no new trigger (#1550, #2664), ${ELAPSED}s of ${TIMEOUT_SECONDS}s already elapsed" ;;
+      expired) log "pending request $RESUMED_TRIGGER_ID on this head is unanswered past its ${TIMEOUT_SECONDS}s wait — handing it off, not posting a fresh request (#2664)" ;;
+    esac
   fi
 else
   post_codex_trigger
@@ -3324,6 +3491,68 @@ else
   FINAL_SCAN=$INITIAL_SCAN
 fi
 
+# #2664: report what Codex's Review Summary row says about the waited-on
+# request, with no automatic retry. Codex publishes nothing that ties a
+# terminal state to one request: the row names no request and can be updated
+# by any run on this head, and the eyes reaction shows only while a run is
+# live. So a "failed" row can belong to another run, and no retry is posted on
+# it. At 300 s the state is recorded as a diagnostic; at the end of the wait
+# it is reported, and an unanswered request takes the ordinary timeout
+# handoff to Phase 4b, which clears nothing and cancels nothing. A window the
+# provider states is reported as a not-before time; a restated window moves
+# it when its deadline is later, whatever its duration.
+CODEX_RUN_DIAGNOSTIC_SECONDS=300
+codex_run_state_now() { # the waited-on request's reported state
+  local scan_request watched state
+  watched=${TERMINAL_TRIGGER_COMMENT_ID:-${RESUMED_TRIGGER_ID:-}}
+  scan_request=$(printf '%s' "$FINAL_SCAN" | jq -r '.request.id // empty' 2>/dev/null) || scan_request=""
+  state=$(printf '%s' "$FINAL_SCAN" | jq -r '.run.state // "none"' 2>/dev/null) || state=unknown
+  if [ -z "$watched" ] || [ "$scan_request" != "$watched" ]; then state=none; fi
+  if [ "$(printf '%s' "$FINAL_SCAN" | jq -r '.run.overlapping_request // false' 2>/dev/null)" = true ]; then
+    case "$state" in failed|canceled|completed|running) state=ambiguous ;; esac
+  fi
+  case "$state" in running) state=active ;; none) state=unknown ;; esac
+  printf '%s' "$state"
+}
+
+codex_run_tick() {
+  [ "$TRIGGER_POSTED" = true ] || [ "$RESUMED_TRIGGER" = true ] || return 0
+  local state window observed not_before
+  state=$(codex_run_state_now)
+  # Set here, not in codex_run_state_now, which runs in a subshell. Once seen,
+  # an overlap stays reported.
+  if [ "$(printf '%s' "$FINAL_SCAN" | jq -r '.run.overlapping_request // false' 2>/dev/null)" = true ]; then
+    CODEX_RUN_OVERLAP=true
+  fi
+  if [ "$CODEX_RUN_DIAGNOSTIC_JSON" = null ] && [ "$ELAPSED" -ge "$CODEX_RUN_DIAGNOSTIC_SECONDS" ]; then
+    CODEX_RUN_DIAGNOSTIC_JSON=$(jq -nc --argjson at "$ELAPSED" --arg state "$state" '{after_seconds: $at, run_state: $state}')
+    log "diagnostic (#2664): no Codex result after ${ELAPSED}s; the Review Summary reads '$state' for this request — reported only, no request is posted"
+  fi
+  window=$(printf '%s' "$FINAL_SCAN" | jq -r '.run.retry_after_seconds // empty' 2>/dev/null) || window=""
+  observed=$(printf '%s' "$FINAL_SCAN" | jq -r '.run.observed_at // empty' 2>/dev/null) || observed=""
+  if [[ "$window" =~ ^[0-9]+$ ]] && [ -n "$observed" ]; then
+    not_before=$(jq -rn --arg t "$observed" --argjson w "$window" '($t | sub("\\.[0-9]+"; "") | fromdateiso8601) + $w | todateiso8601' 2>/dev/null) || not_before=""
+    if [ -n "$not_before" ] && { [ "$CODEX_RUN_WINDOW_JSON" = null ] \
+         || [[ "$not_before" > "$(printf '%s' "$CODEX_RUN_WINDOW_JSON" | jq -r .not_before)" ]]; }; then
+      CODEX_RUN_WINDOW_JSON=$(jq -nc --argjson w "$window" --arg nb "$not_before" '{seconds: $w, not_before: $nb}')
+      log "Codex states a retry window of ${window}s; not before $not_before (#2664, reported only)"
+    fi
+  fi
+}
+
+codex_run_json() {
+  local watched=${TERMINAL_TRIGGER_COMMENT_ID:-${RESUMED_TRIGGER_ID:-}}
+  jq -nc --arg id "$watched" --argjson diagnostic "$CODEX_RUN_DIAGNOSTIC_JSON" --arg final "$CODEX_RUN_FINAL_STATE" \
+    --arg handoff "${CODEX_RUN_HANDOFF:-}" \
+    --argjson overlap "$CODEX_RUN_OVERLAP" --argjson window "$CODEX_RUN_WINDOW_JSON" '
+    { request_comment_id: (if $id == "" then null else ($id | tonumber? // null) end),
+      diagnostic: $diagnostic,
+      final_state: (if $final == "" then null else $final end),
+      overlapping_request: $overlap,
+      handoff: (if $handoff == "" then null else $handoff end),
+      provider_window: $window }'
+}
+
 # --- poll loop --------------------------------------------------------------
 
 run_review_poll() {
@@ -3356,6 +3585,9 @@ while :; do
     break
   fi
 
+  # #2664: the 300 s diagnostic and the provider's stated window (reporting).
+  codex_run_tick
+
   NOW=$(date +%s)
   if [ "$NOW" -ge "$DEADLINE" ]; then
     # Final scan at the deadline (#465): a Codex signal that arrived between
@@ -3378,23 +3610,10 @@ done
 
 run_review_poll
 
-# A resumed request that expired unanswered is a request Codex never answered
-# for this head within its bound, but this run did not post it, so it cannot
-# mint a timeout marker (#1550). Fall back to exactly what an invocation
-# without resuming does by re-running this script as a fresh invocation with
-# resume disabled. The fresh run re-reads the live head, starts its own clock,
-# and reaches post_codex_trigger (cap check, idempotent reuse, accounting gate)
-# through the ordinary path. Continuing in this process instead would carry
-# this run's captured HEAD_SHA and its expired deadline into the replacement.
-# Nothing has been written to stdout yet, so the fresh run's JSON is the only
-# result.
-RESUMED_BLOCK_REASON=$(current_blocked_reason "$FINAL_SCAN") || die 3 "cannot order the resumed provider refusal"
-if [ "$RESUMED_TRIGGER" = true ] && ! has_post_trigger_signal "$FINAL_SCAN" \
-   && [ -z "$RESUMED_BLOCK_REASON" ]; then
-  log "resumed request $RESUMED_TRIGGER_ID drew no Codex response within ${TIMEOUT_SECONDS}s of its posting — re-running as a fresh request with resume disabled (#1550)"
-  export MERGEPATH_CODEX_RESUME_EXPIRED=1
-  exec bash "$0" ${__CRR_ORIGINAL_ARGS[@]+"${__CRR_ORIGINAL_ARGS[@]}"}
-fi
+# #2664: a resumed request that expires unanswered is not replaced by a fresh
+# request (the earlier #1550 re-run did that). Its timeout determination is
+# recorded below like any expired request on this head, and Phase 4b takes
+# over. A timeout grants no clearance and cancels nothing.
 
 # A reused trigger grants no new timeout/fallback authority. If its bounded
 # wait returns no response, report the cap with the final observations. Only
@@ -3421,9 +3640,39 @@ BLOCKED_REASON=$(current_blocked_reason "$FINAL_SCAN") || die 3 "cannot order th
 # --diagnostic-signal-only probe maps them to its Phase 4b exit-2 waiver.
 PHASE4A_TERMINAL_RECORDED=false
 PHASE4A_TERMINAL_COMMENT_ID=""
-if [ "$TRIGGER_POSTED" = true ] && [ -z "$BLOCKED_REASON" ] \
+if [ "$TRIGGER_POSTED" = true ] || [ "$RESUMED_TRIGGER" = true ]; then
+  if has_post_trigger_signal "$FINAL_SCAN"; then
+    CODEX_RUN_FINAL_STATE=answered
+  else
+    codex_run_tick
+    CODEX_RUN_FINAL_STATE=$(codex_run_state_now)
+    log "request ${TERMINAL_TRIGGER_COMMENT_ID:-?} unanswered at the end of its ${TIMEOUT_SECONDS}s wait; the Review Summary reads '$CODEX_RUN_FINAL_STATE' — reported, not retried or cancelled (#2664)"
+  fi
+fi
+# #2664: a timeout determination is minted only from a strong head tie:
+# this run's own request, or a held request posted after the PR's latest
+# force-push, when that force-push put HEAD in place
+# (crqe_head_force_push_tie_at), strictly later. The hold's weaker tie (a
+# Running summary) only keeps a rerun from posting beside the request while
+# it is within its wait. It cannot tie an older head's request to this head
+# well enough to hand this head to Phase 4b (#2779 Phase 4b P1s). Without a
+# strong tie the run exits 4 with no marker and reports the request as
+# unattributed, and a rerun posts a new counted request.
+CODEX_RUN_HANDOFF=""
+if { [ "$TRIGGER_POSTED" = true ] || [ "$RESUMED_TRIGGER" = true ]; } && [ -z "$BLOCKED_REASON" ] \
    && ! has_post_trigger_signal "$FINAL_SCAN"; then
-  record_phase4a_timeout_determination
+  strong_tie=$TRIGGER_POSTED
+  if [ "$strong_tie" != true ] && [ "$RESUMED_TRIGGER" = true ] && [ "$RESUME_STRONG_TIE" = true ]; then
+    strong_tie=true
+    log "held request ${TERMINAL_TRIGGER_COMMENT_ID:-?} was posted after the force-push that put HEAD in place — recording its timeout"
+  fi
+  if [ "$strong_tie" = true ]; then
+    record_phase4a_timeout_determination
+    CODEX_RUN_HANDOFF=timeout-recorded
+  else
+    CODEX_RUN_HANDOFF=unattributed
+    log "held request ${TERMINAL_TRIGGER_COMMENT_ID:-?} is unanswered and tied only by a Running summary: unattributed; a rerun posts a new counted request. No timeout determination is recorded (#2664)"
+  fi
 fi
 
 jq -n \
@@ -3439,6 +3688,7 @@ jq -n \
   --argjson terminal_recorded "$PHASE4A_TERMINAL_RECORDED" \
   --arg terminal_comment_id "$PHASE4A_TERMINAL_COMMENT_ID" \
   --argjson request_checkpoint "$REQUEST_CHECKPOINT_JSON" \
+  --argjson codex_run "$(codex_run_json)" \
   --argjson elapsed "$ELAPSED" '
   {
     pr_number: $pr_number,
@@ -3460,6 +3710,7 @@ jq -n \
     request_resumed: $request_resumed,
     trigger_requested: true,
     request_checkpoint: $request_checkpoint,
+    codex_run: $codex_run,
     rounds_waited_seconds: $elapsed
   }
 '

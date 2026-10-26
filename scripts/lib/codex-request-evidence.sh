@@ -170,6 +170,35 @@ crqe_force_push_heads() { # repo pr
     | unique' 2>/dev/null
 }
 
+# #2664: the time of the PR's latest force-push when that force-push put
+# <head> in place, else empty. Every later change of head is a push that
+# either moves away from <head> (the head is then no longer <head>) or
+# returns to it from a descendant, which is itself a force-push. So when the
+# latest force-push's afterCommit is <head>, <head> has been the head without
+# a break since then. Fails when the GraphQL read fails or a page has no
+# timeline; callers treat that as no tie.
+crqe_head_force_push_tie_at() { # repo pr head
+  local out
+  out=$(gh api graphql --paginate -f owner="${1%%/*}" -f name="${1#*/}" -F number="$2" -f query='
+    query($owner: String!, $name: String!, $number: Int!, $endCursor: String) {
+      repository(owner: $owner, name: $name) {
+        pullRequest(number: $number) {
+          timelineItems(itemTypes: [HEAD_REF_FORCE_PUSHED_EVENT], first: 100, after: $endCursor) {
+            pageInfo { hasNextPage endCursor }
+            nodes { ... on HeadRefForcePushedEvent { createdAt afterCommit { oid } } }
+          }
+        }
+      }
+    }' 2>/dev/null) || return 1
+  printf '%s\n' "$out" | jq -sre --arg head "$3" '
+    if length == 0 or any(.[]; (.data.repository.pullRequest.timelineItems.nodes | type) != "array")
+    then error("force-push timeline") else . end
+    | [ .[].data.repository.pullRequest.timelineItems.nodes[]
+        | select((.createdAt | type) == "string" and (try (.createdAt | fromdateiso8601) catch null) != null) ]
+    | (max_by(.createdAt) // null) as $latest
+    | if $latest != null and (($latest.afterCommit.oid // "") | ascii_downcase) == ($head | ascii_downcase)
+      then $latest.createdAt else "" end' 2>/dev/null
+}
 
 # Prints the sorted ids of the exempt failover triggers. <heads-json> is
 # crqe_pr_head_set's output; absent or [] exempts nothing.
@@ -448,6 +477,66 @@ crqe_select_codex_review_summary() { # issue-comments-json bot-login head-sha
           comment_id: ($comment.id // 0) }
     ]
     | max_by([.observed_at, .comment_id]) // null
+  '
+}
+
+# #2664: the provider-run state of the request posted at <request-created-at>
+# on <head>, read from Codex's Review Summary row and nothing else (never a
+# check-run or status publisher). A row last updated before the request is an
+# old placeholder and proves nothing about this request, so it reads as
+# "none". "running" is an active run. "completed" says the run ended; with no
+# qualifying result the caller treats it as inactive. "failed" and
+# "canceled" are confirmed terminal failures. Any other status text is
+# "unknown", which never authorizes a retry. retry_after_seconds is a retry
+# window the provider states in that comment ("retry after N seconds", "try
+# again in N minutes", hours or days, decimals rounded up), else null; a stated
+# window it cannot read is a year, never a shorter guess.
+#
+# Pure: jq over the passed strings only, no globals and no I/O.
+crqe_select_codex_run_state() { # issue-comments-json bot-login head-sha request-created-at
+  printf '%s\n' "${1:-[]}" | jq -c \
+    --arg bot "${2:-}" --arg sha "${3:-}" --arg since "${4:-}" '
+    ($sha | ascii_downcase) as $head
+    | if $since == "" then error("request time required") else . end
+    | [ .[]
+      | select((.user.login // "") == $bot)
+      | select((.body // "") | startswith("<!-- codex-pull-request-review-summary -->"))
+      | . as $comment
+      | ((.body // "")
+          | capture("(?m)^\\|[[:space:]]*📝[[:space:]]*\\*\\*Code Review\\*\\*[[:space:]]*\\|[[:space:]]*(?<status>[^|]+)[[:space:]]*\\|[[:space:]]*`(?<commit>[0-9A-Fa-f]{7,40})`[[:space:]]*\\|[[:space:]]*(?<trigger>[^|]+)[[:space:]]*\\|[[:space:]]*$")?
+          // null) as $row
+      | select($row != null)
+      | select($head | startswith($row.commit | ascii_downcase))
+      | ($comment.updated_at // $comment.created_at // "") as $observed
+      | select($observed != "" and $observed >= $since)
+      # A stated window whose length cannot be read (an unknown unit, or
+      # words such as "a few minutes") reads as a year: longer than any
+      # review deadline, so it never lets a retry post early.
+      | ((.body // "")
+          | [match("(?i)(?:retry[- ]after|try again in)[:[:space:]]*(?<rest>[^\\n]{0,40})"; "g")
+             | .captures[0].string
+             | (capture("^(?<n>[0-9]+(?:\\.[0-9]+)?)[[:space:]]*(?<u>[[:alpha:]]*)") // null) as $d
+             | if $d == null then 31536000
+               else ($d.u | ascii_downcase) as $u
+                 | (if $u == "" or ($u | test("^(s|secs?|seconds?)$")) then 1
+                    elif ($u | test("^(m|mins?|minutes?)$")) then 60
+                    elif ($u | test("^(h|hrs?|hours?)$")) then 3600
+                    elif ($u | test("^(d|days?)$")) then 86400
+                    else null end) as $unit
+                 | if $unit == null then 31536000 else ($d.n | tonumber) * $unit | ceil end
+               end]
+          | max // null) as $retry_after
+      | { state:
+            (if ($row.status | test("\\*\\*Completed\\*\\*"; "i")) then "completed"
+             elif ($row.status | test("\\*\\*Running\\*\\*"; "i")) then "running"
+             elif ($row.status | test("\\*\\*(Failed|Error|Errored)\\*\\*"; "i")) then "failed"
+             elif ($row.status | test("\\*\\*Cancell?ed\\*\\*"; "i")) then "canceled"
+             else "unknown" end),
+          observed_at: $observed,
+          comment_id: ($comment.id // 0),
+          retry_after_seconds: $retry_after }
+    ]
+    | max_by([.observed_at, .comment_id]) // {state: "none", observed_at: null, comment_id: null, retry_after_seconds: null}
   '
 }
 
