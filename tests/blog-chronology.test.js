@@ -28,6 +28,7 @@ describe('blog chronology-only surfaces', () => {
     );
 
     expect(links).toEqual([
+      'https://nathanpayne.com/blog/the-subagent-said-it-was-unsafe/',
       'https://nathanpayne.com/blog/silence-is-not-an-approval/',
       'https://nathanpayne.com/blog/the-product-did-not-travel/',
       'https://nathanpayne.com/blog/every-reviewer-was-right/',
