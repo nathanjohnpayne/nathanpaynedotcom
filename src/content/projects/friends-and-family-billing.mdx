@@ -7,7 +7,7 @@ cardDescription: "Shared billing for nine people, with no recipient accounts. It
 kicker: "AI × Utility × Finance"
 order: 6
 screenshotAspect: "wide"
-screenshotSrc: "/images/projects/friends-and-family-billing-hero-v2.png"
+screenshotSrc: "/images/projects/friends-and-family-billing-hero-v3.png"
 accent: "yellow"
 liveUrl: "https://friends-and-family-billing.web.app"
 githubUrl: "https://github.com/nathanjohnpayne/friends-and-family-billing"
@@ -44,9 +44,9 @@ decisions:
     rationale: "If I can call a balance settled but can't say that I owe someone money, I can turn the household's error into my gain and call it even. Between people sharing a phone plan, returning the money matters to whether the arrangement feels fair."
     cost: "The fourth state doesn't clear itself. I have to close it by deciding where the money goes. Behind the badge came credit adjustments, refund events, a refund-notice service, a refunds scope on share links, a Cloud Function for the recipient to confirm receipt, and five ADRs about how credit moves."
     evidence: |
-      I got the state into the model before I made it easy to find. The board has an Owed to members tile, so I can see that I owe money. Its filters are All, Outstanding, Partial, Settled. There's no Overpaid chip; I have to scroll All to find the household.
+      I got the state into the model months before I made it easy to find. The board gained an Owed to members tile in June, so I could see that I owed money, but its filters were All, Outstanding, Partial, Settled; I had to scroll All to find the household. The Credit chip that takes me straight to it arrived only on 2026-10-22, when the badge's Overpaid label became Credit.
 
-      The share page doesn't import the status badge. The person whose money I'm holding sees green settled or a red amount due. I made the debt visible in the headline and left both people who need to act without the view they need.
+      The share page doesn't import the status badge. The person whose money I'm holding sees green settled or a red amount due. I made the debt visible in the headline and, for seven months, left both people who need to act without the view they need. I've since built mine. The recipient still doesn't have theirs.
     status: "mixed"
   - title: "Fix the rendering model, not the preview"
     lens: "Parity"
@@ -95,7 +95,7 @@ An expired link has a "Request New Link" control. The system emails me the reque
 
 Sending is still my job too. There's no scheduler in this codebase. Once a year, I open a dialog and press Send for each member. I removed the explaining and the checking, and moved the request for a replacement into the product. I didn't automate the sending.
 
-![My own share of the 2026 bills, from the live product. Each line shows its derivation and not just its result—`$300.00 / month × 12 ÷ 8 members = $450.00`—and every figure is read from the field the billing math wrote, not recomputed for display, so the page cannot imply a rounding the calculation never took. This is the same derivation a recipient's link renders. The capture stops at my own subtotal: the rows below it belong to another member, and my approval to publish covers my data and nobody else's.](/images/projects/friends-and-family-billing-household.png)
+![My own share of the 2026 bills, re-created in the current design. The bills, member counts and amounts match my live account; the capture comes from the app's test build seeded with them, because the live product sits behind my sign-in. Each line shows its derivation and not just its result—`$300.00 / month × 12 ÷ 8 members = $450.00`—and every figure is read from the field the billing math wrote, not recomputed for display, so the page cannot imply a rounding the calculation never took. This is the same derivation a recipient's link renders. The dashboard at the top of the page is the same re-creation: its payments are seeded, and apart from me and John Payne, every member's name is invented.](/images/projects/friends-and-family-billing-household.png)
 
 <ConstraintStrip constraints={props.constraints} />
 
@@ -110,7 +110,7 @@ All three decisions are mixed. Each has real support and a real limitation. Two 
 I kept getting the model right and stopping before the screen someone needed.
 
 - **Rendering.** From April to September 2026, the preview and test send shared a canonical renderer. The recipient's invoice didn't; its dialog sent plain text with no HTML field. A security change on 2026-09-30 (friends-and-family-billing#459) closed that particular gap by taking every email off the client's HTML. Both sent messages now render server-side from plain-text bodies, which still differ in serialization. Only the preview uses the canonical renderer.
-- **Settlement.** I modeled overpayment and built the subsystem behind it. I can see an `Owed to members` tile, but there's no `Overpaid` filter to take me to the household. The recipient's share page has no badge for the money I owe them.
+- **Settlement.** I modeled overpayment and built the subsystem behind it. For seven months I could see an `Owed to members` tile but had no filter to take me to the household; the `Credit` chip came only on 2026-10-22. The recipient's share page still has no badge for the money I owe them.
 - **Access.** I built expiry, revocation, and pruning into the application. The deployed rules leave an existing cached member view readable to anyone who knows its token hash, without checking expiry or revocation. [The missing backstop is tracked in issue #492](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/492).
 
 The gaps sit at different layers, but I made the same mistake each time: I stopped checking just before the boundary that mattered.
@@ -153,6 +153,6 @@ Splitting a phone plan wasn't mathematically hard. It was always a division. Sho
 
 I routed the asking without automating the sending. That feels like the right place to stop. Nothing here should decide on its own that a friend owes money.
 
-The harder lesson was mine. I modeled overpayment correctly and refused to let the coordinator absorb it, then left myself scrolling to find it and the recipient with no sign of it. I unified the renderer and missed the path into a person's inbox. In both cases, I stopped at correctness before reaching the surface someone actually looks at.
+The harder lesson was mine. I modeled overpayment correctly and refused to let the coordinator absorb it, then left myself scrolling to find it until October and left the recipient with no sign of it. I unified the renderer and missed the path into a person's inbox. In both cases, I stopped at correctness before reaching the surface someone actually looks at.
 
 The household doesn't experience a balance state or a canonical renderer. It experiences an amount, an explanation, and whether the arrangement still feels fair a year later. In a product moving money between people who know each other, that is the whole job.

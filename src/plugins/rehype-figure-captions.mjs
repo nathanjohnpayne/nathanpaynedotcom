@@ -103,15 +103,15 @@ const imageDimensions = {
     width: 926,
     height: 490,
   },
-  // The coordinator's per-bill derivation on the live product, cropped to the
-  // author's OWN share only. The board names four other members beside what each
-  // owes, and the household block names a linked member: owner approval covers
-  // the owner's data and nobody else's, so the crop stops at `Total (Nathan
-  // Payne)` — no other person's name, photograph, amount or settlement status
-  // is published (#882, raised independently by both reviewers).
+  // The coordinator's per-bill derivation in the current design, cropped to the
+  // author's OWN share and captured at 2x. Since the October 2026 redesign this
+  // and the hero are re-creations from the product's E2E build, seeded with the
+  // live bills and member counts (the live product needs the owner's sign-in);
+  // every member but the owner and John Payne has an invented name. The crop
+  // still stops at `Total (Nathan Payne)`, as the live capture had to (#882).
   '/images/projects/friends-and-family-billing-household.png': {
-    width: 707,
-    height: 101,
+    width: 1848,
+    height: 286,
   },
   // Device Source of Truth: live captures of the deployed demo instance at a
   // 1316x913 viewport, top-cropped to the region each caption argues about.
