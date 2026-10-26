@@ -104,14 +104,17 @@ const imageDimensions = {
     height: 490,
   },
   // The coordinator's per-bill derivation in the current design, cropped to the
-  // author's OWN share and captured at 2x. Since the October 2026 redesign this
+  // author's OWN share and captured at 3x, so it stays sharp on a 2x screen at
+  // the figure's ~1025 px maximum width. Since the October 2026 redesign this
   // and the hero are re-creations from the product's E2E build, seeded with the
   // live bills and member counts (the live product needs the owner's sign-in);
   // every member but the owner and John Payne has an invented name. The crop
   // still stops at `Total (Nathan Payne)`, as the live capture had to (#882).
-  '/images/projects/friends-and-family-billing-household.png': {
-    width: 1848,
-    height: 286,
+  // A re-capture takes a new filename: /images/** is cached for four hours, so
+  // reusing a path serves the old pixels at the new dimensions.
+  '/images/projects/friends-and-family-billing-household-v2.png': {
+    width: 2772,
+    height: 432,
   },
   // Device Source of Truth: live captures of the deployed demo instance at a
   // 1316x913 viewport, top-cropped to the region each caption argues about.
