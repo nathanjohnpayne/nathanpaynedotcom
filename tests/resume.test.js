@@ -322,7 +322,7 @@ describe('Resume — page structure', () => {
       proj.querySelectorAll('.resume-entry').length,
     );
     for (const status of statuses) {
-      expect(['SHIPPED', 'ARCHIVED', 'PAUSED', 'EXPERIMENT', 'IN PROGRESS']).toContain(status);
+      expect(['SHIPPED', 'ARCHIVED', 'PAUSED', 'EXPERIMENT', 'IN DEVELOPMENT']).toContain(status);
     }
     expect(new Set(statuses).size, 'expected mixed lifecycle states').toBeGreaterThan(1);
 
@@ -621,7 +621,7 @@ describe('Resume — page structure', () => {
     }
     // Deliberately no assertion on WHICH states appear. Every value here is
     // derived from the project pages, and pinning today's mix — four SHIPPED,
-    // one each of ARCHIVED, PAUSED, EXPERIMENT — would be the one
+    // one each of ARCHIVED, IN DEVELOPMENT, EXPERIMENT — would be the one
     // hand-maintained figure in a check whose whole point is that nothing is
     // restated. Flipping a project's lifecycle is a legitimate content edit and
     // must not fail a résumé test. That the résumé shows a mixed set at all is
@@ -1569,7 +1569,7 @@ describe('Resume — PDF reading order and markers', () => {
     ).toBeGreaterThan(0);
 
     // What each variant is drawn as, keyed by the modifier `stateMarkerClass`
-    // emits. PAUSED and IN PROGRESS share the bare outline by design, and a
+    // emits. PAUSED and IN DEVELOPMENT share the bare outline by design, and a
     // status with no modifier falls through to the same outline — so the map is
     // over the four MARKS, and every modifier the vocabulary can emit has to
     // land in it. A fifth variant with a fill of its own would otherwise be
@@ -1579,7 +1579,7 @@ describe('Resume — PDF reading order and markers', () => {
       archived: 'cored',
       experiment: 'half',
       paused: 'hollow',
-      'in-progress': 'hollow',
+      'in-development': 'hollow',
     };
     expect(
       Object.values(STATUS_MARKER).filter((modifier) => !(modifier in SIGNATURE)),

@@ -1,13 +1,13 @@
 ---
 title: "Matchline"
 slug: "matchline"
-description: "I built a career CRM to turn my work history into evidence I could reuse and defend. Claims have to trace to evidence I've approved. I paused before launch, after repairing the measurement system and before running it against the product again."
-seoDescription: "My career CRM traces claims to approved evidence. Paused before launch at 48% extraction and 19% match against an 80% bar, with export still a stub."
-cardDescription: "A career CRM that stops claims I can't trace to approved evidence. Paused before launch at 48% extraction and 19% match against an 80% bar I set before I'd built the ruler to read it with."
-ogDescription: "I built a career CRM around evidence I could defend. Claims have to trace to evidence I've approved. I paused before launch; the export behind the gate is still a stub."
+description: "I built a career CRM to turn my work history into evidence I could reuse and defend. Claims have to trace to evidence I've approved. I paused it before launch and restarted it in October 2026. It still hasn't launched, and matching is still well below the bar I set."
+seoDescription: "My career CRM traces claims to approved evidence. Back in development, still unlaunched, at 48% extraction and 19% match against an 80% bar, with export still a stub."
+cardDescription: "A career CRM that stops claims I can't trace to approved evidence. Back in development and still unlaunched, at 48% extraction and 19% match against an 80% bar I set first."
+ogDescription: "I built a career CRM around evidence I could defend. Claims have to trace to evidence I've approved. I restarted it in October 2026; the export behind the gate is still a stub."
 kicker: "AI × Product × Career Tools"
 order: 4
-status: "PAUSED"
+status: "IN DEVELOPMENT"
 screenshotAspect: "wide"
 screenshotSrc: "/images/projects/matchline-wordmark.svg"
 screenshotDarkSurface: true
@@ -22,8 +22,8 @@ stack: "React · TypeScript · Vite · Tailwind · Firebase · Anthropic · Open
 constraints:
   - value: "1 user"
     label: "me; I deliberately kept V1 to my own job search"
-  - value: "$25/mo"
-    label: "my Anthropic cap, enough for about twelve tuning runs"
+  - value: "$200/mo"
+    label: "Anthropic API credit from my Max plan, up from the $25 cap that held me to about twelve tuning runs"
   - value: "10 × 12"
     label: "résumés by job descriptions in the evaluation corpus on 2026-10-06"
 decisions:
@@ -53,11 +53,11 @@ decisions:
     chosen: "I stopped tuning the matcher and repaired the measurement. I replaced the absolute 0.30 similarity threshold with relative best-match mapping and a 0.10 sanity floor. Later, I built a content-addressed stage cache so unchanged stages could replay for free."
     rejected: "Continuing to tune against the noisy metric and averaging more samples. It would cost less engineering time and was affordable within the cap."
     rationale: "When a metric's run-to-run noise is larger than the effect I'm measuring, I can't tell whether a change helped. Averaging costs another run. At three samples, a run cost $2.06 against my $25 monthly cap, enough for about twelve tuning runs a month."
-    cost: "My final session changed no user-facing feature. I paused with better instruments and the four-pair baseline unchanged. The one run after the mapping repair showed less noise and a mean near 19%. The work someone would have seen in a demo was the work I didn't do."
+    cost: "My last session before the pause changed no user-facing feature. I paused with better instruments and the four-pair baseline unchanged. The one run after the mapping repair showed less noise and a mean near 19%. The work someone would have seen in a demo was the work I didn't do."
     evidence: |
       Both repairs landed, but I measured only the first. In its own pull request, the mapping fix ran once on one fixture at three samples. The range fell from 12.5 points to 4.1, and the mean was 19.4%.
 
-      Eight weeks of product work separated that repair from the cache, which landed in the final session at the end of July. No run under the repaired mapping touched the four-pair corpus, and none followed the cache. I stopped with a better-designed instrument and one fixture's evidence that it was better.
+      Eight weeks of product work separated that repair from the cache, which landed in the last session before the pause, at the end of July. No run under the repaired mapping touched the four-pair corpus, and none followed the cache. I stopped with a better-designed instrument and one fixture's evidence that it was better.
     status: "mixed"
   - title: "A deadline someone else depends on wins"
     lens: "Prioritization"
@@ -102,8 +102,15 @@ This was a hypothesis about my own job search. I did no external user research o
 | Job description into requirements, with gaps surfaced | Built |
 | Fabrication gate blocking export | Built, never user-validated; the export it gates is a Phase 2 stub |
 | Latency and cost targets | Measured once (2026-04-27): cost met, latency 11.8× over |
+| Pipeline board, with drag and keyboard stage moves | Built and deployed October 2026 |
+| Follow-up tasks and a next action on each card | Built and deployed October 2026 |
+| Fit-brief generator and private-corpus eval harness | Built October 2026; never run with paid calls |
 
 LinkedIn and long-form ingestion were deferred. Uploaded PRDs, decks, and retrospectives never existed—an earlier version of this page listed them as inputs, incorrectly. They were specified, but never built. I'm keeping the correction here because the earlier page claimed more than the product did.
+
+The last three rows are the October restart. They're the CRM half of the product: where each application stands, and what I owe it next. None of them moves the match score.
+
+![The Pipeline board from the October restart: seven stage columns, each card showing days in stage and its next open task, with the task sidebar sorting what's due today, what's coming up, and which applications have gone quiet. Re-created in the app's test build from the October 2026 code, because the deployed build sits behind my sign-in. Every company, role, person and task here is invented.](/images/projects/matchline-pipeline.png)
 
 ## The evidence model
 
@@ -151,6 +158,8 @@ I kept approval out of the extractor's output. It can't return that field, and t
 
 I can also type a Unit myself. Those arrive pre-approved and marked `user_confirmed`, because I've already made the assertion. Another review would add nothing.
 
+![Unit Review: every extracted Unit arrives Pending and enters matching only after I approve it. The Mergepath Unit was typed by hand, so it arrived approved. Re-created in the app's test build from the October 2026 code, because the deployed build sits behind my sign-in. The Units come from my published résumé; the approval states and confidence scores are seeded.](/images/projects/matchline-unit-review.png)
+
 ```mermaid title="The core loop, and where approval sits in it" description="A pasted resume is extracted into Experience Units, each of which is written to the capability graph already, but unapproved. Human review flips that approval flag in place. The gate is not on the way into the graph but on the way out of it: a server-side filter passes only approved Units into matching, so an unapproved Unit sits in the store and is never read. Units the user types by hand arrive pre-approved instead. Separately, a job description is parsed into requirements. The matching engine scores approved Units against those requirements and surfaces requirements with no qualifying evidence as gaps rather than hiding them. Generation draws only on approved matches, and a traceability check sits between the generated draft and export: a claim that cannot be traced back to an approved Unit is stopped at the gate until the user resolves it."
 flowchart TD
     R["Pasted résumé"]
@@ -184,6 +193,8 @@ flowchart TD
 The two orange nodes are the whole product. The first sits after the graph: unapproved Units are stored immediately, then filtered out when something reads the evidence. The audit calls it a read gate because it doesn't stop a Unit from being written. Those two checks carry the thesis. The rest is plumbing a competent team would build the same way.
 
 I put requirements with no qualifying evidence in a gaps panel above the match list, inside the same tab. I wanted to see the gaps when I looked at the matches. They were the point, not an embarrassment to bury.
+
+![A Role's Matches tab. The ads-monetization requirement has no qualifying Unit, so it sits in the gaps panel above the matches instead of being left out. Each match names its Unit, the reason, and the quoted evidence, and stays out of generation until I approve it. Re-created in the app's test build from the October 2026 code, because the deployed build sits behind my sign-in. The Units come from my published résumé; the company, the job description, and every score are invented.](/images/projects/matchline-matches.png)
 
 ## The decisions
 
@@ -223,7 +234,7 @@ The vocabulary work also moved match accuracy from 4.2% to 16.7%. After that, I 
 
 I could average more runs, but a single run cost $2.06 against my $25 monthly cap. That bought about twelve runs a month.
 
-I spent the last working session on the instrument rather than the product.
+I spent the last session before the pause on the instrument rather than the product.
 
 ## The artifact
 
@@ -245,13 +256,15 @@ On that last one, my first reply to the reviewer was wrong. I cited a test that 
 
 The eval stage cache landed on the evening of 2026-07-31, Pacific. That dates the pause. For the month after it, maintenance continued: dependency bumps, repository-template syncs, and identity and CI tooling. None touched the product.
 
-Product commits resumed on 2026-08-31 and, as of 2026-09-01, were still landing. The fixes below belong to that later work. Paused means I hadn't launched or decided to restart; it doesn't mean the repository stopped receiving product fixes.
+Product commits resumed on 2026-08-31 and, as of 2026-09-01, were still landing. The fixes below belong to that later work. Through September, paused meant I hadn't launched or decided to restart; it didn't mean the repository stopped receiving product fixes. The restart came in October.
 
-A development build is deployed behind a sign-in wall, and the "View Live Product" button above goes to it. It was redeployed on the evening of 2026-08-31, replacing the 2026-05-02 build it had served until then, and again on 2026-10-02. The served build checked for this page carries the June and July work and the fixes that followed.
+A development build is deployed behind a sign-in wall, and the "View Live Product" button above goes to it. It was redeployed on the evening of 2026-08-31, replacing the 2026-05-02 build it had served until then, and again on 2026-10-02. The served build checked for this page carries the June and July work and the fixes that followed. I redeployed it on 2026-10-26 with the October work, so the Pipeline and the follow-up tasks are in it. The screenshots on this page come from the app's test build, seeded with invented data.
 
 Since 2026-09-30, the source rules and callable gates restrict reads and calls to my owner allowlist. The audit read the anonymous sign-in shell and its bundle; it didn't verify the deployed rules or try another account. The link shows that shell, not the corpus.
 
 ## What would restart it
+
+I wrote this section while the project was paused. I've kept it as written, and the end of it says where each criterion stands now that I've restarted.
 
 I hadn't written restart or kill criteria while I was building. The repository had exit criteria for finishing V1, but none for deciding whether to continue. I had criteria for building, not for deciding.
 
@@ -280,7 +293,19 @@ Once those were fixed, résumé extraction and JD parsing ran end to end. That e
 
 The eval harness can now route tuning runs through a subscription CLI. Those runs don't draw on the metered Anthropic cap that had limited me to roughly twelve runs a month.
 
-**The project remains paused.** The infrastructure works, experiments are cheap, and my job search supplies the test. I still need to decide to restart against the criteria above. Continuing to make commits isn't that decision.
+In September I wrote that the infrastructure worked, experiments were cheap, my job search supplied the test, and I still had to decide to restart against the criteria above.
+
+### The restart
+
+I made that decision in October 2026, and the project is back in development. I didn't meet the criteria first. Measured against them:
+
+- **The evaluation corpus** still has four labeled pairs. A harness now scores generated fit briefs against briefs I wrote and approved for real roles, and it keeps that corpus out of the public repository. It has made no paid run. My Max plan now includes $200 a month in API credit, which would pay for one, and that eval window is still waiting on my approval.
+- **The measurement** is no more trustworthy than it was in July. Nothing has rerun the four-pair baseline under the repaired mapping, so I still can't tell an improvement from noise.
+- **A real application end to end** still hasn't happened. The export behind the gate is still a stub.
+
+The work so far went to the CRM half: a Pipeline board, follow-up tasks, and a next action on each card. A job search in progress needs to track applications whether or not matching is ready, and that work doesn't depend on the matcher getting better. It was deployed on 2026-10-26.
+
+The kill criteria still stand. If a full tuning cycle leaves matching fundamentally poor, or I finish this search without reaching for the tool, that answers the question. Restarting puts the project back in development. It doesn't mean the thesis has held up.
 
 ## What I learned
 

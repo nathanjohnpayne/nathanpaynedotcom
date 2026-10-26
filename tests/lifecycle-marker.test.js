@@ -418,7 +418,7 @@ describe('lifecycle marker vocabulary', () => {
       ARCHIVED: 'archived',
       PAUSED: 'paused',
       EXPERIMENT: 'experiment',
-      'IN PROGRESS': 'in-progress',
+      'IN DEVELOPMENT': 'in-development',
     });
     // ARCHIVED (cored ring) and PAUSED (bare outline) must stay distinct: the
     // whole reason the cored variant exists is that a closed history is not a
@@ -630,7 +630,7 @@ describe('lifecycle marker — declarations', () => {
   /**
    * The exact property set each modifier carries, and the exact value of each.
    *
-   * `paused` and `in-progress` carry none: the bare outline the base rule
+   * `paused` and `in-development` carry none: the bare outline the base rule
    * already draws IS their mark, so anything at all is a defect there.
    *
    * Values are compared as whole values, not searched for inside the rule.
@@ -658,7 +658,7 @@ describe('lifecycle marker — declarations', () => {
         /^linear-gradient\(\s*90deg\s*,\s*currentcolor\s+0\s+50%\s*,\s*(?:transparent|#0{4}|#0{8})\s+50%\s*\)$/i,
     },
     paused: {},
-    'in-progress': {},
+    'in-development': {},
   };
 
   /**
@@ -1353,7 +1353,7 @@ describe('lifecycle marker — declarations', () => {
 
     // And no fill. The invariant read from the other side: a fill on the BASE
     // applies to every state, so `background-color: currentcolor` here makes
-    // `--paused` and `--in-progress` solid while their own rules still declare
+    // `--paused` and `--in-development` solid while their own rules still declare
     // nothing and pass (CodeRabbit, PR #964).
     //
     // Stated as the CLOSED set the primitive may declare, not as a list of the
@@ -1707,7 +1707,7 @@ describe('lifecycle marker — declarations', () => {
   });
 
   it('can see a declaration at all', () => {
-    // The control for every negative above. `paused` and `in-progress` assert
+    // The control for every negative above. `paused` and `in-development` assert
     // an EMPTY property set, and an extractor that silently found nothing would
     // satisfy that for entirely the wrong reason — so prove the same lookup
     // returns declarations for a selector that has them.
@@ -2205,7 +2205,7 @@ describe('lifecycle marker — declarations', () => {
       // replaces argument position, so it needs its own must-pass neighbour:
       // a class whose name merely resembles a status still counts.
       expect(surfaces("stateMarkerClass('SHIPPED', 'p-status')")).toEqual(['p-status']);
-      expect(surfaces("stateMarkerClass('IN PROGRESS', 'p-status')")).toEqual(['p-status']);
+      expect(surfaces("stateMarkerClass('IN DEVELOPMENT', 'p-status')")).toEqual(['p-status']);
       expect(surfaces("stateMarkerClass(s, 'shipped')")).toEqual(['shipped']);
 
       // A dynamic surface argument is no longer an error — it contributes

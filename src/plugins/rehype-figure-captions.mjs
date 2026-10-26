@@ -73,6 +73,13 @@ const imageDimensions = {
     width: 1800,
     height: 2250,
   },
+  // Matchline: re-created in the app's test build (emulators, 1440px-wide
+  // viewport, 2x DPR) because the deployed build sits behind the owner's
+  // sign-in. Units from the published résumé;
+  // companies, roles, people and tasks invented.
+  '/images/projects/matchline-pipeline.png': { width: 2880, height: 1280 },
+  '/images/projects/matchline-unit-review.png': { width: 2144, height: 790 },
+  '/images/projects/matchline-matches.png': { width: 2880, height: 1980 },
   // Override: live deal-room captures at a 1280x1000 viewport, 2x DPR. The
   // room is the public no-auth investor route, and the one in production is a
   // demonstration whose own producer note labels every figure a placeholder.

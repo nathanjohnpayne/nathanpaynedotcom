@@ -170,7 +170,7 @@ describe('last-updated: which commits count', () => {
 
   it('counts a frontmatter-only edit for a project page, where frontmatter is page content', () => {
     const repo = makeRepo();
-    repo.write(`${PROJECTS}/app.mdx`, post('title: App\nstatus: IN PROGRESS', 'Case study.\n'));
+    repo.write(`${PROJECTS}/app.mdx`, post('title: App\nstatus: IN DEVELOPMENT', 'Case study.\n'));
     repo.write(`${BLOG}/post.md`, post(FM, 'Body.\n'));
     repo.commit('add', '2026-01-10T09:00:00Z');
     repo.write(`${PROJECTS}/app.mdx`, post('title: App\nstatus: SHIPPED', 'Case study.\n'));

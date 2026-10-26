@@ -304,7 +304,7 @@ describe('Project Pages — routes', () => {
     // keep the single-pair figure off the card.
     expect(matchlineDescription).toContain('48% extraction and 19% match against an 80% bar');
     expect(matchlineDescription).not.toContain('51.3%');
-    expect(matchlineDescription).toContain('Paused');
+    expect(matchlineDescription).toContain('Back in development');
     expect(matchlineDescription).not.toContain('what the user has actually done');
     expect(matchlineDescription).not.toContain('LinkedIn');
   });
@@ -596,7 +596,7 @@ describe('Project Pages — render', () => {
           ARCHIVED: 'state-marker--archived',
           PAUSED: 'state-marker--paused',
           EXPERIMENT: 'state-marker--experiment',
-          'IN PROGRESS': 'state-marker--in-progress',
+          'IN DEVELOPMENT': 'state-marker--in-development',
         };
         const status = readProjectFrontmatter(projectSourceFor(slug)).status;
         const cell = document.querySelector('.metadata-strip__status');
@@ -1319,7 +1319,7 @@ describe('Matchline — audited claims stay retracted (#756)', () => {
     );
   });
 
-  it('says why the pause is expected to end, in the terms the repository sets', () => {
+  it('says why the pause ended, in the terms the repository sets', () => {
     // The restart passage is the only place the page asserts that product
     // work resumed. It has to name what actually broke and what actually runs,
     // or it is a mood rather than a claim.
@@ -1333,9 +1333,13 @@ describe('Matchline — audited claims stay retracted (#756)', () => {
       /missing Cloud Run invoker bindings/,
     );
     expect(surface, 'the credential failure must be named').toMatch(/trailing newlines/);
-    // And the status must not quietly follow the prose — the project stays
-    // PAUSED until a real application has gone through it end to end.
-    expect(frontmatter().status).toBe('PAUSED');
+    // The owner restarted the project in October 2026 without meeting the
+    // restart criteria. The status follows that decision, and the page must
+    // say plainly that the criteria were not met first.
+    expect(frontmatter().status).toBe('IN DEVELOPMENT');
+    expect(surface, 'the restart must not read as the criteria being met').toMatch(
+      /I didn't meet the criteria first/,
+    );
   });
 });
 
