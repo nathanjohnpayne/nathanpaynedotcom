@@ -134,6 +134,7 @@ done
 case "$body" in
   '@codex review') kind=trigger ;;
   '<!-- mergepath-phase-4a-terminal:'*) kind=terminal ;;
+  '<!-- mergepath-codex-request-checkpoint:v1 '*) kind=checkpoint ;;
   *) echo "unexpected author comment body: $body" >&2; exit 98 ;;
 esac
 
@@ -164,6 +165,11 @@ jq -cn --argjson id "$comment_id" --arg who "${GH_AS_AUTHOR_IDENTITY:-nathanjohn
   '{id:$id,user:{login:$who},body:$body,created_at:$created}' >>"$state_dir/comments.jsonl"
 if [ "$kind" = trigger ]; then
   printf '%s\n' "$comment_id" >>"$state_dir/trigger-comments"
+fi
+# #2664: a trigger that lands but whose write reports a failure.
+if [ "$kind" = trigger ] && [ "${CODEX_TEST_AMBIGUOUS_POST:-0}" = 1 ]; then
+  echo "unexpected EOF talking to api.github.com" >&2
+  exit 1
 fi
 if [ "$kind" = trigger ] && [ "${CODEX_TEST_SCENARIO:-}" = "no_comment_id" ]; then
   printf 'https://github.com/owner/repo/pull/999#discussion_r%s\n' "$comment_id"
@@ -211,10 +217,29 @@ shift
 if [ "${1:-}" = "--paginate" ]; then
   shift
 fi
+# #2664: the same-head hold's push-time read is `gh api --paginate -X GET
+# repos/.../actions/runs -f head_sha=... -F per_page=100`. Other -X reads
+# still reach the unexpected-endpoint branch, as before.
+[ "${1:-}" != "-X" ] || shift 2
 
 endpoint=${1:-}
 
 case "$endpoint" in
+  # #2664: a pull_request run dispatched for HEAD, the push time the
+  # same-head hold needs. It is not repo-lint, so the moving-head guard's
+  # CI-pickup read stays unreadable here. CODEX_TEST_PUSH_DISPATCHED_AT=none
+  # lists no run (no push-time proof).
+  repos/owner/repo/actions/runs)
+    if [ "${CODEX_TEST_PUSH_DISPATCHED_AT:-}" = none ]; then
+      printf '{"total_count":0,"workflow_runs":[]}\n'
+    else
+      # CODEX_TEST_PUSH_LATER_RUN_AT adds a later pull_request run on the same
+      # head, as a review_requested or labeled activity would.
+      jq -cn --arg t "${CODEX_TEST_PUSH_DISPATCHED_AT:-2026-06-03T23:59:00Z}" --arg later "${CODEX_TEST_PUSH_LATER_RUN_AT:-}" \
+        '{total_count:1,workflow_runs:([{id:41,name:"CI",event:"pull_request",head_branch:"",created_at:$t}]
+          + (if $later == "" then [] else [{id:42,name:"CI",event:"pull_request",head_branch:"",created_at:$later}] end))}'
+    fi
+    ;;
   repos/owner/repo/pulls/999)
     # The initial HEAD fetch and the governing-policy resolver both need full
     # PR metadata. Only preserve_final_request_timeout's explicit scalar read
@@ -241,8 +266,23 @@ case "$endpoint" in
   repos/owner/repo/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa)
     printf '%s\n' "${CODEX_TEST_COMMIT_DATE:-$now}"
     ;;
+  graphql)
+    # #2664: the strong head tie's force-push read. By default the latest
+    # force-push put HEAD in place before every seeded request, so a held
+    # request may record its timeout. CODEX_TEST_GQL_FORCE_PUSHES replaces the
+    # event nodes ([] = no force-push).
+    nodes_default='[{"createdAt":"2026-06-03T23:58:00Z","afterCommit":{"oid":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}]'
+    if [ "${CODEX_TEST_GQL_FORCE_PUSHES:-}" = fail ]; then echo 'simulated GraphQL failure' >&2; exit 1; fi
+    jq -cn --argjson nodes "${CODEX_TEST_GQL_FORCE_PUSHES:-$nodes_default}" \
+      '{data:{repository:{pullRequest:{timelineItems:{pageInfo:{hasNextPage:false,endCursor:null},nodes:$nodes}}}}}'
+    ;;
   repos/owner/repo/issues/999/timeline)
-    printf '[]\n'
+    # #2664: CODEX_TEST_FORCE_PUSHED_AT adds a head_ref_force_pushed event.
+    if [ -n "${CODEX_TEST_FORCE_PUSHED_AT:-}" ]; then
+      jq -cn --arg t "$CODEX_TEST_FORCE_PUSHED_AT" '[{event:"head_ref_force_pushed",created_at:$t}]'
+    else
+      printf '[]\n'
+    fi
     ;;
   repos/owner/repo/pulls/999/reviews)
     # #1550 scenarios count review reads: read 1 is the pre-flight scan.
@@ -355,6 +395,13 @@ case "$endpoint" in
         fi
         ;;
     esac
+    # #2664: land one comment (CODEX_TEST_INJECT_JSON) once the fake clock is
+    # CODEX_TEST_INJECT_AT seconds past the seeded request time.
+    if [ -n "${CODEX_TEST_INJECT_AT:-}" ] && [ ! -f "$state_dir/injected" ] \
+       && [ "$(cat "$state_dir/fake-time" 2>/dev/null || echo 0)" -ge "$(( $(jq -rn '"2026-06-04T00:00:00Z" | fromdateiso8601') + CODEX_TEST_INJECT_AT ))" ]; then
+      touch "$state_dir/injected"
+      printf '%s\n' "$CODEX_TEST_INJECT_JSON" >>"$state_dir/comments.jsonl"
+    fi
     if [ "$scenario" = "resume-blocked" ]; then
       # Reads 1-2 are the pre-flight scan and the resume check; the account
       # block lands while the resumed request is being polled.
@@ -1194,9 +1241,9 @@ test_secret_descriptor_never_reveals_the_value() {
 
 RESUME_TRIGGER_AT="2026-06-04T00:00:00Z"
 
-seed_codex_summary() { # <fixture-dir> <status-cell> <commit> <updated-at>
+seed_codex_summary() { # <fixture-dir> <status-cell> <commit> <updated-at> [extra-text]
   local dir=$1 status=$2 commit=$3 updated=$4 body
-  body=$(printf '<!-- codex-pull-request-review-summary -->\n\n## Codex Review Summary\n\n| Review | Status | Commit | Review trigger |\n| --- | --- | --- | --- |\n| 📝 **Code Review** | %s | `%s` | Manual request |\n' "$status" "$commit")
+  body=$(printf '<!-- codex-pull-request-review-summary -->\n\n## Codex Review Summary\n\n| Review | Status | Commit | Review trigger |\n| --- | --- | --- | --- |\n| 📝 **Code Review** | %s | `%s` | Manual request |\n%s' "$status" "$commit" "${5:-}")
   jq -cn --arg body "$body" --arg updated "$updated" \
     '{id:3001,user:{login:"chatgpt-codex-connector[bot]"},body:$body,created_at:$updated,updated_at:$updated}' \
     >>"$dir/state/comments.jsonl"
@@ -1225,6 +1272,10 @@ test_resume_running_request_posts_nothing() {
 }
 
 test_resume_requires_provider_evidence() {
+  # #2664: an unanswered request on the current head holds it whatever the
+  # Review Summary says (the row names no request), so no new request is
+  # posted; the request is waited on and, at its own deadline, handed to
+  # Phase 4b through its timeout determination.
   local name summary_status summary_commit summary_updated expect dir rc count
   while IFS='|' read -r name summary_status summary_commit summary_updated expect; do
     dir=$(make_case "resume-$name" 0 0 60)
@@ -1234,11 +1285,12 @@ test_resume_requires_provider_evidence() {
     set_clock_after_request "$dir" 30
     rc=$(run_case "$dir" absent 1)
     count=$(trigger_count "$dir")
-    if [ "$count" != 1 ] || grep -q 'resuming pending request' "$dir/err.log" \
-       || [ "$(jq -r '.request_resumed' "$dir/out.json")" != false ]; then
-      fail "#1550 no-resume ($name): exit $rc, $count trigger(s); expected exactly one new trigger and no resume ($expect); stderr=$(cat "$dir/err.log")"
+    if [ "$count" != 0 ] || ! grep -q 'resuming pending request 900' "$dir/err.log" \
+       || [ "$(jq -r '.request_resumed' "$dir/out.json")" != true ] || [ "$rc" != 4 ] \
+       || ! grep -q 'trigger_comment_id=900' "$dir/state/comments.jsonl"; then
+      fail "#2664 held ($name): exit $rc, $count trigger(s); expected the same-head request held and handed off ($expect); stderr=$(cat "$dir/err.log")"
     else
-      pass "#1550: posts a new request when $expect"
+      pass "#2664: an unanswered same-head request is held, not re-posted, when $expect"
     fi
   done <<'CASES'
 no-summary|none|||no Codex summary ties the pending request to HEAD
@@ -1246,6 +1298,49 @@ other-head|⏳ **Running**|bbbbbbb|2026-06-04T00:00:10Z|Codex is running on a di
 before-request|⏳ **Running**|aaaaaaa|2026-06-03T23:59:00Z|the Running summary predates the pending request
 completed|✅ **Completed**|aaaaaaa|2026-06-04T00:00:10Z|the summary reports Completed rather than Running
 CASES
+  # A request posted before the current head was pushed belongs to an earlier
+  # head, so the ordinary new request is posted. The commit here was made
+  # before the request and pushed after it: its committer date is earlier,
+  # so only the push time can tell (Codex P2 on #2779).
+  local before=$FAIL
+  dir=$(make_case "resume-older-head" 0 0 60)
+  seed_author_trigger "$dir" 900 "$RESUME_TRIGGER_AT"
+  set_clock_after_request "$dir" 30
+  rc=$(CODEX_TEST_COMMIT_DATE=2026-06-03T23:00:00Z CODEX_TEST_PUSH_DISPATCHED_AT=2026-06-04T00:00:20Z CODEX_TEST_GQL_FORCE_PUSHES='[]' run_case "$dir" absent 1)
+  [ "$(trigger_count "$dir")" = 1 ] && grep -q "no strong tie to the current head" "$dir/err.log" \
+    || fail "#2664 older head: exit $rc, $(trigger_count "$dir") trigger(s); stderr=$(tail -3 "$dir/err.log")"
+  # With no push time, a committer date never ties the request to the head:
+  # without the exact-head Running summary it does not hold.
+  dir=$(make_case "resume-no-push-proof" 0 0 60)
+  seed_author_trigger "$dir" 900 "$RESUME_TRIGGER_AT"
+  set_clock_after_request "$dir" 30
+  rc=$(CODEX_TEST_COMMIT_DATE=2026-06-03T23:00:00Z CODEX_TEST_PUSH_DISPATCHED_AT=none CODEX_TEST_GQL_FORCE_PUSHES='[]' run_case "$dir" absent 1)
+  [ "$(trigger_count "$dir")" = 1 ] && grep -q 'no strong tie to the current head' "$dir/err.log" \
+    || fail "#2664 no push proof: exit $rc, $(trigger_count "$dir") trigger(s); stderr=$(tail -3 "$dir/err.log")"
+  # The exact-head Running summary still ties it (#1550).
+  dir=$(make_case "resume-no-push-proof-running" 0 0 60)
+  seed_author_trigger "$dir" 900 "$RESUME_TRIGGER_AT"
+  seed_codex_summary "$dir" '⏳ **Running**' aaaaaaa "2026-06-04T00:00:10Z"
+  set_clock_after_request "$dir" 30
+  rc=$(CODEX_TEST_PUSH_DISPATCHED_AT=none CODEX_TEST_GQL_FORCE_PUSHES='[]' run_case "$dir" absent 1)
+  [ "$(trigger_count "$dir")" = 0 ] && grep -q 'resuming pending request 900' "$dir/err.log" \
+    || fail "#2664 no push proof, Running: exit $rc, $(trigger_count "$dir") trigger(s); stderr=$(tail -3 "$dir/err.log")"
+  dir=$(make_case "resume-later-activity-run" 0 0 60)
+  seed_author_trigger "$dir" 900 "$RESUME_TRIGGER_AT"
+  set_clock_after_request "$dir" 30
+  # A workflow run alone, even one dispatched before the request, is no tie:
+  # with no force-push and no Running summary, a new request posts.
+  rc=$(CODEX_TEST_PUSH_LATER_RUN_AT=2026-06-04T00:00:20Z CODEX_TEST_GQL_FORCE_PUSHES='[]' run_case "$dir" absent 1)
+  [ "$(trigger_count "$dir")" = 1 ] && grep -q 'no strong tie to the current head' "$dir/err.log" \
+    || fail "#2664 workflow run is no tie: exit $rc, $(trigger_count "$dir") trigger(s); stderr=$(tail -3 "$dir/err.log")"
+  # An unreadable force-push timeline is not absent evidence: exit 3, no post.
+  dir=$(make_case "resume-tie-unreadable" 0 0 60)
+  seed_author_trigger "$dir" 900 "$RESUME_TRIGGER_AT"
+  set_clock_after_request "$dir" 30
+  rc=$(CODEX_TEST_GQL_FORCE_PUSHES=fail run_case "$dir" absent 1)
+  [ "$rc" = 3 ] && [ "$(trigger_count "$dir")" = 0 ] \
+    || fail "#2664 unreadable force-push timeline: exit $rc, $(trigger_count "$dir") trigger(s); stderr=$(tail -2 "$dir/err.log")"
+  [ "$FAIL" -ne "$before" ] || pass "#2664: only a strong force-push tie or the exact-head Running summary ties a request; an unreadable tie read exits 3"
 }
 
 # A request Codex already answered with a required-tier finding needs a new
@@ -1382,8 +1477,8 @@ test_malformed_timeout_marker_fails_closed_on_resume() {
   fi
 }
 
-# The re-run after an expired resume disables resuming outright, so the chain
-# cannot loop even if a pending request still looked resumable.
+# The retired #1550 re-run flag no longer exists, so it cannot release the
+# same-head hold.
 test_expired_rerun_never_resumes() {
   local dir rc count
   dir=$(make_case "resume-rerun-guard" 0 0 60)
@@ -1392,47 +1487,65 @@ test_expired_rerun_never_resumes() {
   set_clock_after_request "$dir" 30
   rc=$(MERGEPATH_CODEX_RESUME_EXPIRED=1 run_case "$dir" absent 1)
   count=$(trigger_count "$dir")
-  if [ "$count" = 1 ] && ! grep -q 'resuming pending request' "$dir/err.log"; then
-    pass "#1550: the post-expiry re-run posts instead of resuming, so the chain cannot loop"
+  if [ "$count" = 0 ] && grep -q 'resuming pending request 900' "$dir/err.log"; then
+    pass "#2664: the retired re-run flag does not release the same-head hold"
   else
-    fail "#1550 re-run guard: exit $rc, $count trigger(s); stderr=$(cat "$dir/err.log")"
+    fail "#2664 re-run flag: exit $rc, $count trigger(s); stderr=$(cat "$dir/err.log")"
   fi
 }
 
 # A current marker bound to an OLDER lowercase request does not settle a newer
 # case-variant request the selector picked.
 test_marker_for_older_request_does_not_block_resume() {
-  local dir rc count
-  dir=$(make_case "resume-marker-older" 0 0 60)
-  jq -cn '{id:899,user:{login:"nathanjohnpayne"},body:"@codex review",created_at:"2026-06-03T23:59:00Z"}' >>"$dir/state/comments.jsonl"
-  jq -cn '{id:901,user:{login:"nathanjohnpayne"},body:"<!-- mergepath-phase-4a-terminal:v1 provider=codex outcome=timeout head=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa trigger_comment_id=899 -->",created_at:"2026-06-03T23:59:30Z"}' >>"$dir/state/comments.jsonl"
-  jq -cn --arg created "$RESUME_TRIGGER_AT" '{id:900,user:{login:"nathanjohnpayne"},body:"@CODEX REVIEW",created_at:$created}' >>"$dir/state/comments.jsonl"
-  seed_codex_summary "$dir" '⏳ **Running**' aaaaaaa "2026-06-04T00:00:10Z"
-  set_clock_after_request "$dir" 30
-  rc=$(run_case "$dir" resume-running 1)
-  count=$(trigger_count "$dir")
-  if [ "$rc" = 0 ] && [ "$count" = 0 ] && grep -q 'resuming pending request 900' "$dir/err.log"; then
-    pass "#1550: a current marker bound to an older request does not block resuming a newer case-variant request"
-  else
-    fail "#1550 older-marker: exit $rc, $count trigger(s); stderr=$(cat "$dir/err.log")"
-  fi
+  local dir rc count variant body before=$FAIL
+  for variant in lowercase case-varied; do
+    body="@codex review"; [ "$variant" = lowercase ] || body="@CODEX REVIEW"
+    dir=$(make_case "resume-marker-older-$variant" 0 0 60)
+    jq -cn '{id:899,user:{login:"nathanjohnpayne"},body:"@codex review",created_at:"2026-06-03T23:59:00Z"}' >>"$dir/state/comments.jsonl"
+    jq -cn '{id:901,user:{login:"nathanjohnpayne"},body:"<!-- mergepath-phase-4a-terminal:v1 provider=codex outcome=timeout head=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa trigger_comment_id=899 -->",created_at:"2026-06-03T23:59:30Z"}' >>"$dir/state/comments.jsonl"
+    jq -cn --arg created "$RESUME_TRIGGER_AT" --arg body "$body" '{id:900,user:{login:"nathanjohnpayne"},body:$body,created_at:$created}' >>"$dir/state/comments.jsonl"
+    seed_codex_summary "$dir" '⏳ **Running**' aaaaaaa "2026-06-04T00:00:10Z"
+    set_clock_after_request "$dir" 30
+    rc=$(run_case "$dir" resume-running 1)
+    count=$(trigger_count "$dir")
+    if [ "$variant" = lowercase ]; then
+      # A current marker bound to an older request does not block holding a
+      # newer one.
+      [ "$rc" = 0 ] && [ "$count" = 0 ] && grep -q 'resuming pending request 900' "$dir/err.log" \
+        || fail "#1550 older-marker ($variant): exit $rc, $count trigger(s); stderr=$(cat "$dir/err.log")"
+    else
+      # #2664 (Phase 4b advisory on #2779): the timeout handoff binds only the
+      # exact lowercase command, so a case-varied request is not held, even
+      # with a Running summary; a new request posts.
+      [ "$count" = 1 ] && grep -q 'not the exact lowercase command' "$dir/err.log" \
+        || fail "#1550 older-marker ($variant): exit $rc, $count trigger(s); stderr=$(cat "$dir/err.log")"
+    fi
+  done
+  [ "$FAIL" -ne "$before" ] || pass "#1550: a marker bound to an older request does not block holding a newer one; a case-varied request is not held (#2664)"
 }
 
+# #2664: a restart after a same-head request's own deadline records its
+# timeout determination and posts nothing; the earlier #1550 behavior posted a
+# fresh request, which treated the expired request as never sent.
 test_resume_past_deadline_posts_new_request() {
-  local dir rc count
-  dir=$(make_case "resume-past-deadline" 0 0 60)
+  local dir rc count before=$FAIL row
+  for row in running none; do
+  dir=$(make_case "resume-past-deadline-$row" 0 0 60)
   seed_author_trigger "$dir" 900 "$RESUME_TRIGGER_AT"
-  seed_codex_summary "$dir" '⏳ **Running**' aaaaaaa "2026-06-04T00:00:10Z"
+  [ "$row" = none ] || seed_codex_summary "$dir" '⏳ **Running**' aaaaaaa "2026-06-04T00:00:10Z"
   set_clock_after_request "$dir" 90
   rc=$(run_case "$dir" absent 1)
   count=$(trigger_count "$dir")
-  if [ "$count" = 1 ] && grep -q 'past its 60s wait' "$dir/err.log"; then
-    pass "#1550: a pending request already past its own deadline is not resumed"
-  else
-    fail "#1550 past deadline: exit $rc, $count trigger(s); stderr=$(cat "$dir/err.log")"
-  fi
+  [ "$count" = 0 ] || fail "#2664 past deadline: $count trigger(s), expected none"
+  grep -q 'past its 60s wait — handing it off' "$dir/err.log" || fail "#2664 past deadline: no handoff log; $(tail -3 "$dir/err.log")"
+  [ "$rc" = 4 ] && [ "$(jq -r '.terminal_determination.outcome // "none"' "$dir/out.json")" = timeout ] \
+    && grep -q 'trigger_comment_id=900' "$dir/state/comments.jsonl" \
+    || fail "#2664 past deadline ($row): exit $rc, expected 4 with request 900's timeout recorded"
+  done
+  [ "$FAIL" -ne "$before" ] || pass "#2664: a restart after a same-head request's deadline hands it off, not a fresh request"
 }
 
+# #2664: a resumed request that expires unanswered is handed off, not replaced.
 test_resumed_request_expiry_posts_new_request() {
   local dir rc count before=$FAIL
   dir=$(make_case "resume-expires" 0 0 60)
@@ -1441,18 +1554,14 @@ test_resumed_request_expiry_posts_new_request() {
   set_clock_after_request "$dir" 30
   rc=$(run_case "$dir" absent 1)
   count=$(trigger_count "$dir")
-  grep -q 'resuming pending request 900' "$dir/err.log" || fail "#1550 resume expiry: request was not resumed first"
-  grep -q 'resumed request 900 drew no Codex response.*re-running as a fresh request' "$dir/err.log" || fail "#1550 resume expiry: no expiry log"
-  [ "$(grep -c 'resuming pending request' "$dir/err.log")" = 1 ] || fail "#1550 resume expiry: the fresh re-run resumed again"
-  [ "$(grep -c 'fetching HEAD commit metadata' "$dir/err.log")" = 2 ] \
-    || fail "#1550 resume expiry: the replacement did not run as a fresh invocation that re-reads the live head"
-  [ "$(jq -r '.request_resumed' "$dir/out.json")" = true ] || fail "#1550 resume expiry: the re-run did not report the invocation's resume"
-  [ "$count" = 1 ] || fail "#1550 resume expiry: $count trigger(s), expected exactly one replacement request"
-  # Only the replacement, which this run posted, may mint the timeout marker.
-  [ "$rc" = 4 ] || fail "#1550 resume expiry: exit $rc, expected 4 after the replacement also timed out; stderr=$(cat "$dir/err.log")"
-  [ "$(jq -r '.terminal_determination.outcome // "none"' "$dir/out.json")" = timeout ] \
-    || fail "#1550 resume expiry: the replacement's timeout was not recorded"
-  [ "$FAIL" -ne "$before" ] || pass "#1550: a resumed request that expires unanswered is replaced, and only the replacement records a timeout"
+  grep -q 'resuming pending request 900' "$dir/err.log" || fail "#2664 resume expiry: request was not resumed first"
+  [ "$(grep -c 'fetching HEAD commit metadata' "$dir/err.log")" = 1 ] || fail "#2664 resume expiry: the run re-executed itself"
+  [ "$count" = 0 ] || fail "#2664 resume expiry: $count trigger(s), expected no replacement"
+  [ "$rc" = 4 ] && [ "$(jq -r '.terminal_determination.outcome // "none"' "$dir/out.json")" = timeout ] \
+    && grep -q 'trigger_comment_id=900' "$dir/state/comments.jsonl" \
+    || fail "#2664 resume expiry: exit $rc, expected 4 with request 900's timeout recorded; stderr=$(tail -3 "$dir/err.log")"
+  [ "$(jq -r '.request_resumed' "$dir/out.json")" = true ] || fail "#2664 resume expiry: request_resumed is not true"
+  [ "$FAIL" -ne "$before" ] || pass "#2664: a resumed request that expires unanswered is handed off, not replaced"
 }
 
 # --- #1550: transient poll-read failures are retried ----------------------
@@ -1535,11 +1644,37 @@ here=$(cd "$(dirname "$0")" && pwd)
 if [ "${1:-}" = pr ] && [ "${2:-}" = comment ]; then
   exec "$here/../scripts/fixture-author-transport.sh" -- gh "$@"
 fi
+# #1362: the wrapper reads its posted comment back by id, inside its claim.
+if [ "${1:-}" = api ] && [ "$#" -eq 2 ] && [[ "$2" =~ ^repos/owner/repo/issues/comments/([0-9]+)$ ]]; then
+  jq -ce --argjson id "${BASH_REMATCH[1]}" 'select(.id == $id) + {issue_url: "https://api.github.com/repos/owner/repo/issues/999"}' \
+    "$CODEX_TEST_STATE_DIR/comments.jsonl" | head -1 | grep .
+  exit
+fi
+# Optionally hold one requester (CODEX_TEST_HANDLER) at its Nth issue-comments
+# read outside the wrapper, until the hold gate exists, recording each read.
+if [ -n "${CODEX_TEST_HOLD_AT_READ:-}" ] && [ -z "${MERGEPATH_CODEX_TRIGGER_OBSERVED_GENERATION:-}" ] \
+   && printf '%s\n' "$@" | grep -qx 'repos/owner/repo/issues/999/comments'; then
+  reads=$(( $(cat "$CODEX_TEST_STATE_DIR/reads.${CODEX_TEST_HANDLER:-x}" 2>/dev/null || echo 0) + 1 ))
+  printf '%s\n' "$reads" >"$CODEX_TEST_STATE_DIR/reads.${CODEX_TEST_HANDLER:-x}"
+  if [ "${CODEX_TEST_HANDLER:-}" = "${CODEX_TEST_HOLD_HANDLER:-}" ] && [ "$reads" -eq "$CODEX_TEST_HOLD_AT_READ" ]; then
+    : >"$CODEX_TEST_STATE_DIR/held"
+    while [ ! -e "$CODEX_TEST_STATE_DIR/hold-gate" ]; do sleep 0.05; done
+  fi
+fi
+# Optionally hold the wrapper's authorization recount (the only reads made
+# with an observed request generation) until the gate file exists.
+if [ -n "${CODEX_TEST_RECOUNT_GATE:-}" ] && [ -n "${MERGEPATH_CODEX_TRIGGER_OBSERVED_GENERATION:-}" ] \
+   && printf '%s\n' "$@" | grep -qx 'repos/owner/repo/issues/999/comments'; then
+  : > "$CODEX_TEST_STATE_DIR/recount.${CODEX_TEST_WRAPPER_ID:-x}"
+  while [ ! -e "$CODEX_TEST_RECOUNT_GATE" ]; do sleep 0.05; done
+fi
 exec "$here/fixture-read-gh" "$@"
 SH
   cat > "$dir/scripts/gh-as-author.sh" <<'SH'
 #!/usr/bin/env bash
 rc=0
+export MERGEPATH_CODEX_REQUEST_CLAIM_DIR="$CODEX_TEST_STATE_DIR/claims" CODEX_TEST_WRAPPER_ID=$$
+: > "$CODEX_TEST_STATE_DIR/wrapper-entered.$$"
 if [ "${CODEX_TEST_SCENARIO:-}" = wrapper-other-failure ] && [ -f "$CODEX_TEST_STATE_DIR/trigger-count" ]; then
   echo 'unrelated wrapper transport failure' >&2
   exit 42
@@ -1587,10 +1722,105 @@ test_real_wrapper_duplicate_ack_retry_keeps_polling() {
 
 test_real_wrapper_duplicate_ack_retry_keeps_polling
 
-# #2582: polling mode posts a new request while an earlier trigger is on HEAD
-# by design. The real wrapper's authorization must apply that mode, not refuse
-# the write as a #489 duplicate: a pending request with no provider evidence,
-# and the replacement for a resumed request that expired.
+# #1362: two requesters for the same PR both decide to post against an empty
+# timeline. The first wrapper is held at its authorization recount; the second
+# must wait for the per-PR claim instead of recounting the same timeline, and
+# then refuse. Exactly one trigger is posted, in either request mode. The PR
+# already counts five requests, so the five-request checkpoint (#2657) is
+# recorded too, and only by the requester whose trigger posted.
+test_real_wrapper_claim_lets_one_of_two_requesters_post() {
+  local mode flag dir before n rc_a rc_b pid_a pid_b i
+  for mode in trigger-only poll; do
+    before=$FAIL
+    dir=$(make_case "wrapper-claim-$mode" 0 0 0)
+    make_real_wrapper_case "$dir"
+    for i in 1 2 3 4 5; do seed_author_trigger "$dir" "$((700 + i))" "2026-06-03T00:00:0${i}Z"; done
+    flag=""; [ "$mode" = poll ] || flag=--trigger-only
+    for n in a b; do
+      (
+        cd "$dir"
+        unset OP_PREFLIGHT_AUTHOR_PAT OP_PREFLIGHT_REVIEWER_PAT
+        # shellcheck disable=SC2086 # flag is empty or one word
+        PATH="$dir/bin:$PATH" GH_TOKEN=ghp_fixture_author CODEX_TEST_STATE_DIR="$dir/state" CODEX_TEST_FAKE_CLOCK=0 \
+          CODEX_TEST_SCENARIO=absent CODEX_TEST_RECOUNT_GATE="$dir/state/recount-gate" MERGEPATH_GH_TRANSPORT=gh \
+          ./scripts/codex-review-request.sh $flag 999 owner/repo >"$dir/out.$n.json" 2>"$dir/err.$n.log"
+      ) &
+      if [ "$n" = a ]; then pid_a=$!; else pid_b=$!; fi
+    done
+    wait_for_count() { # <glob-prefix> <count>
+      local i=0
+      while [ "$(find "$dir/state" -name "$1*" | wc -l | tr -d ' ')" -lt "$2" ] && [ "$i" -lt 600 ]; do sleep 0.05; i=$((i + 1)); done
+    }
+    wait_for_count recount. 1
+    wait_for_count wrapper-entered. 2
+    sleep 1.5
+    [ "$(find "$dir/state" -name 'recount.*' | wc -l | tr -d ' ')" = 1 ] \
+      || fail "#1362 $mode: the second wrapper recounted while the first held the claim"
+    [ "$(find "$dir/state" -name 'wrapper-entered.*' | wc -l | tr -d ' ')" = 2 ] \
+      || fail "#1362 $mode: both requesters must reach the wrapper for the race to be real"
+    touch "$dir/state/recount-gate"
+    rc_a=0; wait "$pid_a" || rc_a=$?
+    rc_b=0; wait "$pid_b" || rc_b=$?
+    [ "$(trigger_count "$dir")" = 1 ] || fail "#1362 $mode: $(trigger_count "$dir") triggers posted, expected exactly one"
+    [ "$(cat "$dir/state/checkpoint-count" 2>/dev/null || echo 0)" = 1 ] \
+      || fail "#1362 $mode: $(cat "$dir/state/checkpoint-count" 2>/dev/null || echo 0) checkpoints recorded, expected exactly one"
+    if [ "$rc_a" != 3 ] && [ "$rc_b" != 3 ]; then
+      fail "#1362 $mode: one requester must refuse (rc a=$rc_a b=$rc_b)"
+    elif ! grep -q 'posted first (#1362)' "$dir/err.a.log" "$dir/err.b.log"; then
+      fail "#1362 $mode: the refused requester must name the concurrent request; $(cat "$dir/err.a.log" "$dir/err.b.log")"
+    fi
+    [ "$FAIL" -ne "$before" ] || pass "#1362 real wrapper ($mode): two requesters held at the recount post exactly one trigger"
+  done
+}
+
+test_real_wrapper_claim_lets_one_of_two_requesters_post
+
+# #1362 staggered interleaving (direct Codex review on #2715): B completes its
+# pre-flight scan and resume check while the PR has no request, A then posts,
+# and only then does B take its write-boundary read, which already includes
+# A's request. B must still refuse: the generation it names is the one its
+# request was decided on, not that later read.
+test_real_wrapper_staggered_requester_refuses() {
+  local dir before rc_a=0 rc_b=0 pid_b i
+  before=$FAIL
+  dir=$(make_case "wrapper-claim-staggered" 0 0 0)
+  make_real_wrapper_case "$dir"
+  run_handler() { # <name>
+    (
+      cd "$dir"
+      unset OP_PREFLIGHT_AUTHOR_PAT OP_PREFLIGHT_REVIEWER_PAT
+      PATH="$dir/bin:$PATH" GH_TOKEN=ghp_fixture_author CODEX_TEST_STATE_DIR="$dir/state" CODEX_TEST_FAKE_CLOCK=0 \
+        CODEX_TEST_SCENARIO=absent MERGEPATH_GH_TRANSPORT=gh CODEX_TEST_HANDLER="$1" \
+        CODEX_TEST_HOLD_HANDLER=b CODEX_TEST_HOLD_AT_READ=3 \
+        ./scripts/codex-review-request.sh 999 owner/repo >"$dir/out.$1.json" 2>"$dir/err.$1.log"
+    )
+  }
+  run_handler b & pid_b=$!
+  i=0; while [ ! -f "$dir/state/held" ] && [ "$i" -lt 600 ]; do sleep 0.05; i=$((i + 1)); done
+  [ -f "$dir/state/held" ] || fail "#1362 staggered: B never reached its write-boundary read"
+  # Held at its third comments read: after the pre-flight scan and the resume
+  # check (which found nothing to resume), at the write-boundary read, before
+  # the moving-head guard and the post that follow that read.
+  [ "$(cat "$dir/state/reads.b")" = 3 ] && grep -q 'checking for existing Codex signal' "$dir/err.b.log" \
+    && ! grep -q "moving-head guard\|posting '@codex review'" "$dir/err.b.log" \
+    || fail "#1362 staggered: B was not held between its decision and its write; $(tail -3 "$dir/err.b.log")"
+  run_handler a || rc_a=$?
+  [ "$(trigger_count "$dir")" = 1 ] || fail "#1362 staggered: A did not post its request"
+  touch "$dir/state/hold-gate"
+  wait "$pid_b" || rc_b=$?
+  [ "$(trigger_count "$dir")" = 1 ] || fail "#1362 staggered: $(trigger_count "$dir") triggers posted, expected exactly one"
+  [ "$rc_b" = 3 ] && grep -q 'posted first (#1362)' "$dir/err.b.log" \
+    || fail "#1362 staggered: B must refuse naming the earlier request (rc b=$rc_b); $(tail -3 "$dir/err.b.log")"
+  grep -q 'waits on that request rather than posting another' "$dir/err.b.log" || fail "#1362 staggered: the refusal must say a rerun waits on that request"
+  [ "$FAIL" -ne "$before" ] || pass "#1362 real wrapper: a requester decided before another posted refuses, even after its later reads see that request"
+}
+
+test_real_wrapper_staggered_requester_refuses
+
+# #2664 (supersedes the #2582 case): a polling run that finds an unanswered
+# request on the current head waits on it instead of posting another, so the
+# real wrapper's authorization is never reached; when that request expires,
+# its timeout determination is recorded and Phase 4b takes over.
 test_real_wrapper_authorizes_polling_mode_new_requests() {
   local scenario dir rc count before
   for scenario in unproven-pending resumed-expiry; do
@@ -1602,20 +1832,12 @@ test_real_wrapper_authorizes_polling_mode_new_requests() {
     set_clock_after_request "$dir" 30
     rc=$(MERGEPATH_GH_TRANSPORT=gh run_case "$dir" absent 1 ghp_fixture_author)
     count=$(trigger_count "$dir")
-    case "$scenario" in
-      unproven-pending)
-        grep -q 'pending request 900 has no Codex Running summary' "$dir/err.log" \
-          || fail "#2582 $scenario: the pending request was not considered for resume" ;;
-      resumed-expiry)
-        grep -q 'resumed request 900 drew no Codex response.*re-running as a fresh request' "$dir/err.log" \
-          || fail "#2582 $scenario: the resumed request did not expire into a fresh run" ;;
-    esac
-    [ ! -f "$dir/state/authorization-refused" ] && ! grep -q 'trigger not authorized' "$dir/err.log" \
-      || fail "#2582 $scenario: the real authorization refused a polling-mode new request; stderr=$(cat "$dir/err.log")"
-    [ "$count" = 1 ] || fail "#2582 $scenario: $count trigger(s), expected exactly one new request"
+    grep -q 'resuming pending request 900' "$dir/err.log" \
+      || fail "#2664 $scenario: the pending request was not held; stderr=$(tail -3 "$dir/err.log")"
+    [ "$count" = 0 ] || fail "#2664 $scenario: $count trigger(s), expected none"
     [ "$rc" = 4 ] && [ "$(jq -r '.terminal_determination.outcome // "none"' "$dir/out.json")" = timeout ] \
-      || fail "#2582 $scenario: exit $rc, expected 4 with the new request's recorded timeout; stderr=$(cat "$dir/err.log")"
-    [ "$FAIL" -ne "$before" ] || pass "#2582 real wrapper: $scenario posts its new request through the canonical authorization"
+      || fail "#2664 $scenario: exit $rc, expected 4 with request 900's recorded timeout; stderr=$(tail -3 "$dir/err.log")"
+    [ "$FAIL" -ne "$before" ] || pass "#2664 real wrapper: $scenario holds the same-head request and hands it off"
   done
 }
 
@@ -1670,6 +1892,297 @@ test_persistent_transient_failure_fails_closed
 test_permanent_poll_failure_is_not_retried
 test_missing_classifier_degrades_to_fail_closed
 test_default_reply_deadline_is_1800
+
+# --- #2664 bounded wait: diagnostics and handoff, no automatic retry ---------
+
+run_fake_clock_case() { # <fixture-dir> <scenario> [VAR=value ...]
+  local dir=$1 scenario=$2 rc=0
+  shift 2
+  (
+    cd "$dir"
+    unset OP_PREFLIGHT_AUTHOR_PAT OP_PREFLIGHT_REVIEWER_PAT
+    env PATH="$dir/bin:$PATH" GH_TOKEN=test-token CODEX_TEST_STATE_DIR="$dir/state" \
+      CODEX_TEST_FAKE_CLOCK=1 CODEX_TEST_SCENARIO="$scenario" "$@" \
+      ./scripts/codex-review-request.sh 999 owner/repo >"$dir/out.json" 2>"$dir/err.log"
+  ) || rc=$?
+  printf '%s\n' "$rc"
+}
+FAILED_ROW='❌ **Failed**'
+
+# Active, unknown and stale-placeholder runs: a 300 s diagnostic, then a
+# report at the 1800 s limit and the ordinary timeout handoff. No new request.
+test_codex_run_diagnostic_and_report() {
+  local label status updated want dir rc before
+  while IFS='|' read -r label status updated want; do
+    before=$FAIL
+    dir=$(make_case "run-report-$label" 0 0 1800)
+    seed_codex_summary "$dir" "$status" aaaaaaa "$updated"
+    set_clock_after_request "$dir" 0
+    rc=$(run_fake_clock_case "$dir" absent)
+    [ "$rc" = 4 ] && [ "$(trigger_count "$dir")" = 1 ] || fail "#2664 $label: exit $rc, $(trigger_count "$dir") triggers"
+    jq -e --arg want "$want" '.codex_run.final_state == $want
+        and .codex_run.diagnostic.after_seconds >= 300 and .codex_run.diagnostic.after_seconds < 315
+        and .rounds_waited_seconds >= 1800 and .terminal_determination.outcome == "timeout"' "$dir/out.json" >/dev/null \
+      || fail "#2664 $label: $(jq -c '{codex_run, rounds_waited_seconds, terminal_determination}' "$dir/out.json" 2>/dev/null)"
+    [ "$FAIL" -ne "$before" ] || pass "#2664: a $label run gets a 300 s diagnostic and is reported at 1800 s, then handed off"
+  done <<'CASES'
+active|⏳ **Running**|2026-06-04T00:00:10Z|active
+stale-placeholder|⏳ **Running**|2026-06-03T23:00:00Z|unknown
+unknown-status|❓ **Queued**|2026-06-04T00:00:10Z|unknown
+failed|❌ **Failed**|2026-06-04T00:00:10Z|failed
+CASES
+}
+
+# #2664, Phase 4b P1s on #2779 (review 5623593261): a held request whose tie
+# to HEAD is weak (a workflow run or a Running summary) is waited on, but at
+# expiry it mints no timeout determination: exit 4, no marker, reported as
+# unattributed. Only a force-push that put HEAD in place before the request
+# is a strong tie.
+test_weak_tie_mints_no_timeout() {
+  local dir rc before=$FAIL label nodes running clock expect
+  local ff='[{"createdAt":"2026-06-03T23:58:00Z","afterCommit":{"oid":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}}]'
+  local rewind='[{"createdAt":"2026-06-03T23:50:00Z","afterCommit":{"oid":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}},{"createdAt":"2026-06-03T23:55:00Z","afterCommit":{"oid":"cccccccccccccccccccccccccccccccccccccccc"}}]'
+  local same='[{"createdAt":"2026-06-04T00:00:00Z","afterCommit":{"oid":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}]'
+  local after='[{"createdAt":"2026-06-04T00:00:20Z","afterCommit":{"oid":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}]'
+  while IFS='|' read -r label nodes running clock expect; do
+    case "$nodes" in ff) nodes=$ff ;; rewind) nodes=$rewind ;; same) nodes=$same ;; after) nodes=$after ;; esac
+    dir=$(make_case "weak-tie-$label" 0 0 60)
+    seed_author_trigger "$dir" 900 "$RESUME_TRIGGER_AT"
+    [ "$running" != yes ] || seed_codex_summary "$dir" '⏳ **Running**' aaaaaaa "2026-06-04T00:00:30Z"
+    set_clock_after_request "$dir" "$clock"
+    rc=$(CODEX_TEST_GQL_FORCE_PUSHES="$nodes" run_case "$dir" absent 1)
+    case "$expect" in
+      fresh)
+        # Not held: one new counted request posts (no deadlock), and request
+        # 900 never gets a timeout determination.
+        [ "$rc" = 4 ] && [ "$(trigger_count "$dir")" = 1 ] \
+          && ! grep -q 'trigger_comment_id=900' "$dir/state/comments.jsonl" \
+          && grep -q 'not resuming; a new counted request posts' "$dir/err.log" \
+          || fail "#2664 weak tie ($label): exit $rc, $(trigger_count "$dir") trigger(s); stderr=$(tail -2 "$dir/err.log")" ;;
+      unattributed)
+        # Held on the Running summary within its wait; at expiry no marker.
+        [ "$rc" = 4 ] && [ "$(trigger_count "$dir")" = 0 ] \
+          && ! grep -q 'mergepath-phase-4a-terminal' "$dir/state/comments.jsonl" \
+          && [ "$(jq -r '.codex_run.handoff' "$dir/out.json")" = unattributed ] \
+          || fail "#2664 weak tie ($label): exit $rc, $(trigger_count "$dir") trigger(s), $(jq -c '{terminal_determination, handoff: .codex_run.handoff}' "$dir/out.json" 2>/dev/null)" ;;
+    esac
+  done <<'CASES'
+no-force-push|[]|no|90|fresh
+fast-forward-after-force-push|ff|no|90|fresh
+rewind-and-return|rewind|no|90|fresh
+same-second-force-push|same|no|90|fresh
+force-push-then-running-expired|after|yes|90|fresh
+force-push-then-running-held|after|yes|30|unattributed
+CASES
+  # The strong tie: the latest force-push put HEAD in place strictly before
+  # the request, so the request is held through its expiry and records it.
+  dir=$(make_case "strong-tie" 0 0 60)
+  seed_author_trigger "$dir" 900 "$RESUME_TRIGGER_AT"
+  set_clock_after_request "$dir" 90
+  rc=$(run_case "$dir" absent 1)
+  [ "$rc" = 4 ] && [ "$(trigger_count "$dir")" = 0 ] && [ "$(jq -r '.codex_run.handoff' "$dir/out.json")" = timeout-recorded ] \
+    && grep -q 'trigger_comment_id=900' "$dir/state/comments.jsonl" \
+    || fail "#2664 strong tie: exit $rc, $(trigger_count "$dir") trigger(s), $(jq -c '{terminal_determination, handoff: .codex_run.handoff}' "$dir/out.json" 2>/dev/null)"
+  [ "$FAIL" -ne "$before" ] || pass "#2664: only a strong head tie holds through expiry and mints a timeout; weak and same-second ties post a fresh counted request or end unattributed"
+}
+
+# Phase 4b advisories on #2779 (ffc83780). Each case fails on that head.
+test_round4_head_tie_edges() {
+  local dir rc before=$FAIL
+  # A case-varied request is selected as the pending request, but the
+  # timeout binding recognizes only the exact lowercase command, so it
+  # cannot be held to a timeout handoff. It is not resumed: a new request
+  # posts and the run hands off normally (exit 4), never exit 3.
+  dir=$(make_case "resume-case-varied" 0 0 60)
+  jq -cn --arg t "$RESUME_TRIGGER_AT" '{id:900,user:{login:"nathanjohnpayne"},body:"@CODEX REVIEW",created_at:$t}' \
+    >>"$dir/state/comments.jsonl"
+  set_clock_after_request "$dir" 90
+  rc=$(run_case "$dir" absent 1)
+  [ "$rc" = 4 ] && [ "$(trigger_count "$dir")" = 1 ] \
+    || fail "#2664 case-varied: exit $rc, $(trigger_count "$dir") trigger(s); stderr=$(tail -3 "$dir/err.log")"
+  # A workflow run dispatched after the request does not reject it: the
+  # exact-head Running summary since the request still ties it to the head.
+  dir=$(make_case "resume-late-dispatch-running" 0 0 60)
+  seed_author_trigger "$dir" 900 "$RESUME_TRIGGER_AT"
+  seed_codex_summary "$dir" '⏳ **Running**' aaaaaaa "2026-06-04T00:00:10Z"
+  set_clock_after_request "$dir" 30
+  rc=$(CODEX_TEST_PUSH_DISPATCHED_AT=2026-06-04T00:00:20Z run_case "$dir" absent 1)
+  [ "$(trigger_count "$dir")" = 0 ] && grep -q 'resuming pending request 900' "$dir/err.log" \
+    || fail "#2664 late dispatch, Running: exit $rc, $(trigger_count "$dir") trigger(s); stderr=$(tail -3 "$dir/err.log")"
+  # A force-push after the request dates the head even when a future
+  # committer date keeps it out of the reaction anchor, and an earlier run
+  # of the same commit (from before the branch moved away) does not.
+  dir=$(make_case "resume-force-push-future-commit" 0 0 60)
+  seed_author_trigger "$dir" 900 "$RESUME_TRIGGER_AT"
+  set_clock_after_request "$dir" 60
+  rc=$(CODEX_TEST_COMMIT_DATE=2099-01-01T00:00:00Z CODEX_TEST_FORCE_PUSHED_AT=2026-06-04T00:00:30Z \
+    CODEX_TEST_GQL_FORCE_PUSHES='[{"createdAt":"2026-06-04T00:00:30Z","afterCommit":{"oid":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}]' \
+    CODEX_TEST_PUSH_DISPATCHED_AT=2026-06-03T23:59:00Z run_case "$dir" absent 1)
+  [ "$(trigger_count "$dir")" = 1 ] && grep -q "no strong tie to the current head" "$dir/err.log" \
+    || fail "#2664 force-push, future commit: exit $rc, $(trigger_count "$dir") trigger(s); stderr=$(tail -3 "$dir/err.log")"
+  # An edited comment is no request evidence for its own wait: posted before
+  # its deadline, edited into the command after it, it is not held, gets no
+  # timeout, and a new counted request posts (direct adapter review, P1).
+  dir=$(make_case "resume-edited-request" 0 0 60)
+  jq -cn --arg t "$RESUME_TRIGGER_AT" '{id:900,user:{login:"nathanjohnpayne"},body:"@codex review",created_at:$t,updated_at:"2026-06-04T00:01:30Z"}' \
+    >>"$dir/state/comments.jsonl"
+  set_clock_after_request "$dir" 100
+  rc=$(run_case "$dir" absent 1)
+  [ "$(trigger_count "$dir")" = 1 ] && ! grep -q 'trigger_comment_id=900' "$dir/state/comments.jsonl" \
+    && grep -q 'was edited after it was posted' "$dir/err.log" \
+    || fail "#2664 edited request: exit $rc, $(trigger_count "$dir") trigger(s); stderr=$(tail -2 "$dir/err.log")"
+  [ "$FAIL" -ne "$before" ] || pass "#2664: case-varied and edited requests, late dispatch with Running and a hidden force-push are handled"
+}
+
+# Overlapping requests on one head: the row cannot be tied to either, so a
+# Failed row reads as ambiguous, and nothing is retried or re-posted.
+test_overlapping_requests_are_ambiguous() {
+  local dir rc before=$FAIL
+  dir=$(make_case "run-overlap" 0 0 400)
+  seed_codex_summary "$dir" "$FAILED_ROW" aaaaaaa "2026-06-04T00:00:10Z"
+  set_clock_after_request "$dir" 0
+  # The head predates both requests, so both are on it.
+  rc=$(run_fake_clock_case "$dir" absent CODEX_TEST_COMMIT_DATE=2026-06-03T23:59:00Z CODEX_TEST_INJECT_AT=30 \
+    CODEX_TEST_INJECT_JSON='{"id":950,"user":{"login":"nathanjohnpayne"},"body":"@codex review","created_at":"2026-06-03T23:59:50Z"}')
+  [ "$(trigger_count "$dir")" = 1 ] || fail "#2664 overlap: $(trigger_count "$dir") triggers posted, expected only the original"
+  jq -e '.codex_run.final_state == "ambiguous" and .codex_run.overlapping_request == true' "$dir/out.json" >/dev/null \
+    || fail "#2664 overlap: exit $rc, $(jq -c .codex_run "$dir/out.json" 2>/dev/null)"
+  # A request from the earlier head does not overlap: its commit is dated
+  # before it but the head was pushed after it (Codex P2 on #2779), so the
+  # Failed row is reported as such.
+  dir=$(make_case "run-overlap-old-head" 0 0 400)
+  seed_codex_summary "$dir" "$FAILED_ROW" aaaaaaa "2026-06-04T00:00:10Z"
+  set_clock_after_request "$dir" 0
+  rc=$(run_fake_clock_case "$dir" absent CODEX_TEST_COMMIT_DATE=2026-06-03T23:59:00Z \
+    CODEX_TEST_GQL_FORCE_PUSHES='[{"createdAt":"2026-06-03T23:59:55Z","afterCommit":{"oid":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}]' CODEX_TEST_INJECT_AT=30 \
+    CODEX_TEST_INJECT_JSON='{"id":950,"user":{"login":"nathanjohnpayne"},"body":"@codex review","created_at":"2026-06-03T23:59:50Z"}')
+  jq -e '.codex_run.final_state == "failed" and .codex_run.overlapping_request == false' "$dir/out.json" >/dev/null \
+    || fail "#2664 overlap, old head: exit $rc, $(jq -c .codex_run "$dir/out.json" 2>/dev/null)"
+  # A workflow run created after both requests does not exclude the earlier
+  # one: only the proven head transition (23:59 here) is a cutoff (direct
+  # adapter review of #2779 on 8483ba27).
+  dir=$(make_case "run-overlap-late-dispatch" 0 0 400)
+  seed_codex_summary "$dir" "$FAILED_ROW" aaaaaaa "2026-06-04T00:00:10Z"
+  set_clock_after_request "$dir" 0
+  rc=$(run_fake_clock_case "$dir" absent CODEX_TEST_PUSH_DISPATCHED_AT=2026-06-04T00:00:20Z \
+    CODEX_TEST_GQL_FORCE_PUSHES='[{"createdAt":"2026-06-03T23:59:00Z","afterCommit":{"oid":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}]' CODEX_TEST_INJECT_AT=30 \
+    CODEX_TEST_INJECT_JSON='{"id":950,"user":{"login":"nathanjohnpayne"},"body":"@codex review","created_at":"2026-06-03T23:59:50Z"}')
+  jq -e '.codex_run.final_state == "ambiguous" and .codex_run.overlapping_request == true' "$dir/out.json" >/dev/null \
+    || fail "#2664 overlap, late dispatch: exit $rc, $(jq -c .codex_run "$dir/out.json" 2>/dev/null)"
+  [ "$FAIL" -ne "$before" ] || pass "#2664: overlapping requests on this head make the row ambiguous; one from the earlier head does not; a late workflow run excludes nothing; nothing is retried"
+}
+
+# A restated provider window moves the reported not-before time by its
+# deadline, even with an unchanged duration.
+test_refreshed_provider_window() {
+  local dir rc before=$FAIL body
+  dir=$(make_case "run-window" 0 0 400)
+  seed_codex_summary "$dir" "$FAILED_ROW" aaaaaaa "2026-06-04T00:00:10Z" 'Please try again in 3 minutes.'
+  body=$(printf '<!-- codex-pull-request-review-summary -->\n\n| Review | Status | Commit | Review trigger |\n| --- | --- | --- | --- |\n| 📝 **Code Review** | ❌ **Failed** | `aaaaaaa` | Manual request |\n\nPlease try again in 3 minutes.\n')
+  set_clock_after_request "$dir" 0
+  rc=$(run_fake_clock_case "$dir" absent CODEX_TEST_INJECT_AT=150 \
+    CODEX_TEST_INJECT_JSON="$(jq -cn --arg b "$body" '{id:3010,user:{login:"chatgpt-codex-connector[bot]"},body:$b,created_at:"2026-06-04T00:02:30Z",updated_at:"2026-06-04T00:02:30Z"}')")
+  [ "$(trigger_count "$dir")" = 1 ] || fail "#2664 window: $(trigger_count "$dir") triggers posted"
+  jq -e '.codex_run.provider_window == {seconds: 180, not_before: "2026-06-04T00:05:30Z"}' "$dir/out.json" >/dev/null \
+    || fail "#2664 window: exit $rc, $(jq -c .codex_run.provider_window "$dir/out.json" 2>/dev/null)"
+  [ "$FAIL" -ne "$before" ] || pass "#2664: a restated provider window refreshes the reported not-before time by its deadline"
+}
+
+# Every stated window unit is read; a window that cannot be read is a year.
+test_retry_window_parser() {
+  local before=$FAIL body got want text
+  # shellcheck source=/dev/null
+  . "$ROOT/scripts/lib/codex-request-evidence.sh"
+  while IFS='|' read -r text want; do
+    body=$(printf '<!-- codex-pull-request-review-summary -->\n\n| Review | Status | Commit | Review trigger |\n| --- | --- | --- | --- |\n| 📝 **Code Review** | ❌ **Failed** | `aaaaaaa` | Manual request |\n\n%s\n' "$text")
+    got=$(crqe_select_codex_run_state "$(jq -nc --arg b "$body" '[{id:1,user:{login:"bot"},body:$b,created_at:"2026-01-01T00:00:10Z",updated_at:"2026-01-01T00:00:10Z"}]')" bot aaaaaaab 2026-01-01T00:00:00Z | jq -r '.retry_after_seconds')
+    [ "$got" = "$want" ] || fail "#2664 window parser: '$text' read as $got, expected $want"
+  done <<'CASES'
+retry after 30 seconds|30
+Retry-After: 120|120
+Please try again in 3 minutes.|180
+Please try again in 1.5 minutes.|90
+try again in 1 hour|3600
+try again in 2 days|172800
+try again in 4 fortnights|31536000
+Please try again in a few minutes.|31536000
+No window stated.|null
+CASES
+  [ "$FAIL" -ne "$before" ] || pass "#2664: the stated retry window reads every unit, and an unreadable one never shortens the wait"
+}
+
+# Uncertain publication: the request lands but its write reports a failure.
+# The rerun finds it on this head and waits on it instead of posting again.
+test_uncertain_publication_is_held_on_rerun() {
+  local dir rc before=$FAIL
+  dir=$(make_case "run-uncertain-post" 0 0 60)
+  set_clock_after_request "$dir" 0
+  rc=$(run_fake_clock_case "$dir" absent CODEX_TEST_AMBIGUOUS_POST=1)
+  [ "$rc" = 3 ] && [ "$(trigger_count "$dir")" = 1 ] || fail "#2664 uncertain post: exit $rc, $(trigger_count "$dir") landed"
+  rc=$(run_fake_clock_case "$dir" absent)
+  [ "$(trigger_count "$dir")" = 1 ] || fail "#2664 uncertain post: the rerun posted again ($(trigger_count "$dir"))"
+  grep -q 'resuming pending request 1001' "$dir/err.log" || fail "#2664 uncertain post: the rerun did not hold request 1001; $(tail -3 "$dir/err.log")"
+  [ "$FAIL" -ne "$before" ] || pass "#2664: a request of uncertain publication is held on the rerun, not re-posted"
+}
+
+# Already retried: an acknowledgement re-post is the latest request on this
+# head. A restart holds it; it is not treated as a fresh original.
+test_already_retried_request_is_held() {
+  local dir rc before=$FAIL
+  dir=$(make_case "run-already-retried" 0 0 60)
+  seed_author_trigger "$dir" 899 "2026-06-03T23:59:59Z"
+  seed_author_trigger "$dir" 900 "$RESUME_TRIGGER_AT"
+  set_clock_after_request "$dir" 20
+  rc=$(run_fake_clock_case "$dir" absent)
+  [ "$(trigger_count "$dir")" = 0 ] && grep -q 'resuming pending request 900' "$dir/err.log" \
+    || fail "#2664 already retried: exit $rc, $(trigger_count "$dir") triggers; $(tail -3 "$dir/err.log")"
+  [ "$FAIL" -ne "$before" ] || pass "#2664: a re-posted request on this head is held on restart, not treated as a fresh original"
+}
+
+# Delayed claim acquisition: B waits for the per-PR claim while A posts, so B
+# refuses (#1362); B's rerun then holds A's request instead of posting.
+test_delayed_claim_then_rerun_holds() {
+  local dir before=$FAIL rc_b=0 pid_b i
+  dir=$(make_case "run-delayed-claim" 0 0 0)
+  make_real_wrapper_case "$dir"
+  run_b() {
+    (
+      cd "$dir"
+      unset OP_PREFLIGHT_AUTHOR_PAT OP_PREFLIGHT_REVIEWER_PAT
+      PATH="$dir/bin:$PATH" GH_TOKEN=ghp_fixture_author CODEX_TEST_STATE_DIR="$dir/state" CODEX_TEST_FAKE_CLOCK=0 \
+        CODEX_TEST_SCENARIO=absent MERGEPATH_GH_TRANSPORT=gh CODEX_TEST_HANDLER="$1" \
+        CODEX_TEST_HOLD_HANDLER=b CODEX_TEST_HOLD_AT_READ=3 \
+        ./scripts/codex-review-request.sh 999 owner/repo >"$dir/out.$1.json" 2>"$dir/err.$1.log"
+    )
+  }
+  run_b b & pid_b=$!
+  i=0; while [ ! -f "$dir/state/held" ] && [ "$i" -lt 600 ]; do sleep 0.05; i=$((i + 1)); done
+  run_b a || :
+  touch "$dir/state/hold-gate"
+  wait "$pid_b" || rc_b=$?
+  [ "$(trigger_count "$dir")" = 1 ] && [ "$rc_b" = 3 ] || fail "#2664 delayed claim: $(trigger_count "$dir") triggers, B exit $rc_b"
+  rm -f "$dir/state/hold-gate" "$dir/state/held" "$dir/state/reads.b"
+  # Drop A's timeout marker (as if A was killed before recording it), so the
+  # rerun is held by the unanswered request itself, not by a settled marker.
+  grep -v 'mergepath-phase-4a-terminal' "$dir/state/comments.jsonl" >"$dir/state/comments.tmp" || :
+  mv "$dir/state/comments.tmp" "$dir/state/comments.jsonl"
+  run_b c || :
+  # On the real clock the fixture's request is long past its wait, so the
+  # rerun records its timeout; either way it holds and posts nothing.
+  [ "$(trigger_count "$dir")" = 1 ] && jq -e '.request_resumed == true and .trigger_posted == false' "$dir/out.c.json" >/dev/null \
+    || fail "#2664 delayed claim: the rerun posted or did not hold; $(tail -3 "$dir/err.c.log")"
+  [ "$FAIL" -ne "$before" ] || pass "#2664: after a delayed claim refuses, the rerun holds the request that posted first"
+}
+
+test_codex_run_diagnostic_and_report
+test_round4_head_tie_edges
+test_weak_tie_mints_no_timeout
+test_overlapping_requests_are_ambiguous
+test_refreshed_provider_window
+test_retry_window_parser
+test_uncertain_publication_is_held_on_rerun
+test_already_retried_request_is_held
+test_delayed_claim_then_rerun_holds
 
 echo
 echo "Results: $PASS passed, $FAIL failed"

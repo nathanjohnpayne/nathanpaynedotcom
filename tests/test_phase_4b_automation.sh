@@ -23,6 +23,92 @@ ORCH="$ROOT/scripts/phase-4b-review.sh"
 AD_CODEX="$ROOT/scripts/phase-4b/adapters/review-via-codex.sh"
 AD_CLAUDE="$ROOT/scripts/phase-4b/adapters/review-via-claude.sh"
 
+# Pure rc-7 description controls (#939): expected under 5s, no orchestrator,
+# adapter, credentials or network. Mutation validation uses only this mode.
+if [ "${1:-}" = --status-description-only ]; then
+  command -v jq >/dev/null 2>&1 || { echo 'ERROR: jq required' >&2; exit 1; }
+  LIB="${P4B_TEST_STATUS_DESCRIPTION_LIB:-$LIB}"
+  # shellcheck disable=SC1090
+  . "$LIB"
+  WORK="$(mktemp -d "${TMPDIR:-/tmp}/p4b-status-description.XXXXXX")"
+  trap 'rm -rf "$WORK"' EXIT
+  head=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  base=$(jq -nc --arg head "$head" '{head_sha:$head,
+    review:{endpoint:"reviews",submitted_at:"2026-06-04T00:00:06Z"},
+    probe:{observed:"awaiting-summary",context_state:"success",
+      context_updated_at:"2026-06-04T00:00:07Z",context_description:"Review completed"}}')
+  n=0
+  status_description_expect() {
+    local want=$1 label=$2 json=$3 rc=0 actual
+    actual=$(p4b_barrier_class_coderabbit "$head" "${4:-7}" "$json") || rc=$?
+    [ "$rc" -eq 0 ] && [ "$actual" = "$want" ] \
+      || { echo "FAIL: #939 $label: rc=$rc actual=$actual want=$want" >&2; exit 1; }
+    n=$((n + 1))
+  }
+  for description in '' ' ' 'Review complete' 'Review completed' '  REVIEW COMPLETED  ' $'\n  \n' $'\n Review completed \n'; do
+    status_description_expect reported "accepted '$description'" "$(jq -c --arg d "$description" '.probe.context_description=$d' <<<"$base")"
+  done
+  for description in 'Review rate limited' 'Review in progress' 'Review queued' \
+      'No review completed' 'Review completely skipped' \
+      'Review complete — 0 files reviewed' 'Review completed.' 'new vendor wording'; do
+    status_description_expect not-yet "rejected '$description'" "$(jq -c --arg d "$description" '.probe.context_description=$d' <<<"$base")"
+  done
+  for value in null true 1 '[]' '{}'; do
+    status_description_expect not-yet "nonstring $value" "$(jq -c --argjson d "$value" '.probe.context_description=$d' <<<"$base")"
+  done
+  status_description_expect not-yet legacy-missing "$(jq -c 'del(.probe.context_description)' <<<"$base")"
+  for observed in paused in_progress unknown ''; do
+    status_description_expect not-yet "observed $observed" "$(jq -c --arg o "$observed" '.probe.observed=$o' <<<"$base")"
+  done
+  status_description_expect rate-limited adverse-refusal "$(jq -c '.probe.observed="rate_limit"' <<<"$base")"
+  status_description_expect reported terminal "$(jq -c '.probe.observed="terminal"' <<<"$base")"
+  for filter in '.head_sha="old"' '.review.endpoint="issues"' 'del(.review)' \
+      '.probe.context_state="pending"' '.probe.context_state=null' \
+      '.probe.context_updated_at="2026-06-04T00:00:05Z"' \
+      '.probe.context_updated_at="invalid"' 'del(.probe.context_updated_at)' \
+      'del(.review.submitted_at)'; do
+    status_description_expect not-yet "$filter" "$(jq -c "$filter" <<<"$base")"
+  done
+  status_description_expect reported same-second "$(jq -c '.probe.context_updated_at=.review.submitted_at' <<<"$base")"
+  status_description_expect not-yet polling "$base" 4
+  status_description_expect escalate infrastructure "$base" 3
+  status_description_expect escalate summary-finding "$base" 2
+  status_description_expect not-yet malformed '{'
+  # Inject only the description projection after successful positive controls.
+  # An extraction error cannot become the optional-empty description escape.
+  real_jq=$(command -v jq)
+  jq() {
+    if [ "${1:-}" = -er ] && [ "${2:-}" = '.probe.context_description | select(type == "string") | . + "."' ]; then
+      case "$description_decode_mode" in
+        failed-empty) return 3 ;;
+        zero-empty) return 0 ;;
+        failed-output) printf 'Review completed.'; return 3 ;;
+        zero-no-suffix) printf 'Review completed'; return 0 ;;
+      esac
+    fi
+    "$real_jq" "$@"
+  }
+  for description_decode_mode in failed-empty zero-empty failed-output zero-no-suffix; do
+    status_description_expect not-yet "description extraction $description_decode_mode" "$base"
+  done
+  unset -f jq
+  status_description_expect reported description-extraction-recovered "$base"
+  # Source fresh shells so a previous helper definition cannot mask absent or
+  # partially propagated helpers. Neither fixture invokes the orchestrator.
+  mkdir -p "$WORK/scripts/phase-4b" "$WORK/scripts/lib"
+  cp "$LIB" "$WORK/scripts/phase-4b/lib.sh"
+  for helper in missing partial; do
+    if [ "$helper" = partial ]; then
+      printf '%s\n' 'crw_status_description_permits_clearance() { return 0; }' >"$WORK/scripts/lib/coderabbit-fence.sh"
+    fi
+    actual=$(bash -c '. "$1"; p4b_barrier_class_coderabbit "$2" 7 "$3"' bash "$WORK/scripts/phase-4b/lib.sh" "$head" "$base")
+    [ "$actual" = not-yet ] || { echo "FAIL: #939 $helper helper granted $actual" >&2; exit 1; }
+    n=$((n + 1))
+  done
+  echo "Results: $n passed, 0 failed (#939 pure status-description controls)"
+  exit 0
+fi
+
 # Focused PR-policy tuple reads (#1523): expected under 2s, no adapter,
 # credentials or network. This mode is also run by the ordinary suite.
 if [ "${1:-}" = --policy-tuple-only ]; then
@@ -303,9 +389,28 @@ if [ "${1:-}" = --heartbeat-only ]; then
   exec bash "$ROOT/tests/test_phase_4b_heartbeat.sh"
 fi
 
+# The full automation suite captures the real Node executable for parser
+# controls below. Fail here, before the default focused test or optional jq
+# skip can hide a missing host prerequisite. The focused modes above remain
+# usable without Node where their own work does not need it.
+NODE_BIN="$(type -P node 2>/dev/null)" || NODE_BIN=''
+if [ -z "$NODE_BIN" ]; then
+  echo 'ERROR: node is required for the Phase 4b automation test suite' >&2
+  exit 1
+fi
+case "$NODE_BIN" in
+  /*) ;;
+  *) NODE_BIN="$PWD/$NODE_BIN" ;;
+esac
+if ! "$NODE_BIN" --version >/dev/null 2>&1; then
+  echo 'ERROR: node is required for the Phase 4b automation test suite' >&2
+  exit 1
+fi
+
 # Keep the focused real-reader controls in the default CI run too.
 if [ "$#" -eq 0 ]; then
   bash "$0" --policy-tuple-only
+  bash "$0" --status-description-only
 fi
 
 command -v jq >/dev/null 2>&1 || { echo "SKIP: jq not available" >&2; exit 0; }
@@ -1563,7 +1668,14 @@ if [ "${P4B_ACK_NOT_VISIBLE:-}" = true ]; then
 fi
 body_json=$(jq -c '.body' "$P4B_ACK_REVIEW")
 [ "${P4B_ACK_EDIT_BODY:-}" != true ] || body_json=$(printf '%s' "$body_json" | jq -c '. + "\nEdited finding"')
-fp=$(printf '%s' "$body_json" | shasum -a 256 | cut -c1-12)
+if command -v sha256sum >/dev/null 2>&1; then
+  fp=$(printf '%s' "$body_json" | sha256sum | cut -c1-12)
+elif command -v shasum >/dev/null 2>&1; then
+  fp=$(printf '%s' "$body_json" | shasum -a 256 | cut -c1-12)
+else
+  printf 'approval-accounting: neither sha256sum nor shasum is available for acknowledgement fingerprints\n' >&2
+  exit 2
+fi
 token="[mergepath-review-ack: 1 $fp]"
 accounted=false
 if [ -s "$P4B_ACK_COMMENT" ]; then
@@ -3089,40 +3201,59 @@ p4b1143_run() {  # p4b1143_run <body-file-or-""> <extra orchestrator args...>
 
 # The validator parses the author once, then the assignment below parses the
 # same body a second time. Intercept only that INNER parser command, identified
-# by its real script path and `--author` mode; node version checks and every
-# other parser mode delegate untouched. This exercises the production caller
+# by its real script path and `--author` mode after the `-e` import boundary;
+# node version checks, the outer watchdog and other modes delegate untouched.
+# This exercises the production caller
 # without encoding incidental outer-node or validation-call counts.
 P4B1143_NODE_DIR="$WORK/p4b1143-node-bin"
 P4B1143_AUTHOR_PARSE_COUNT="$WORK/p4b1143-author-parse-count"
 P4B1143_PARSER_PATH="$ROOT/scripts/lib/pr-body-contract.mjs"
 mkdir -p "$P4B1143_NODE_DIR"
-P4B1143_REAL_NODE="$(command -v node)"
+P4B1143_REAL_NODE="$NODE_BIN"
 cat > "$P4B1143_NODE_DIR/node" <<'SH'
 #!/usr/bin/env bash
-if [ "${1:-}" = "$P4B1143_PARSER_PATH" ] && [ "${2:-}" = "--author" ]; then
+if [ "${1:-}" = -e ] && [ "${3:-}" = "$P4B1143_PARSER_PATH" ] && [ "${4:-}" = --author ]; then
   n=$(( $( [ -f "$P4B1143_AUTHOR_PARSE_COUNT" ] && cat "$P4B1143_AUTHOR_PARSE_COUNT" || echo 0 ) + 1 ))
   printf '%s\n' "$n" > "$P4B1143_AUTHOR_PARSE_COUNT"
   # The first --author parse belongs to pr_body_validate; the second belongs to
   # BODY_AUTHOR extraction and must retain the caller's infrastructure contract.
-  [ "$n" -ne 2 ] || exit 124
+  [ "$n" -ne "$P4B1143_FAIL_AUTHOR_PARSE" ] || exit 124
 fi
 exec "$P4B1143_REAL_NODE" "$@"
 SH
 chmod +x "$P4B1143_NODE_DIR/node"
 printf 'Authoring-Agent: claude\n\n## Self-Review\n\n- ok.\n' > "$P4B1143_BODY"
-rm -f "$P4B1143_AUTHOR_PARSE_COUNT"
-set +e
-out="$(PATH="$P4B1143_NODE_DIR:$PATH" \
-  P4B1143_REAL_NODE="$P4B1143_REAL_NODE" P4B1143_PARSER_PATH="$P4B1143_PARSER_PATH" \
-  P4B1143_AUTHOR_PARSE_COUNT="$P4B1143_AUTHOR_PARSE_COUNT" \
-  MERGEPATH_REVIEW_POLICY_PATH="$POLICY_ON" CODEX_BIN="$BIN/fake-codex-approve" \
-  CLAUDE_BIN="$BIN/fake-claude-approve-usage" P4B_FAKE_PR_BODY_FILE="$P4B1143_BODY" \
-  bash "$ORCH" 124 --repo o/r --author claude --head aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --diff-file "$DIFF" --dry-run 2>&1)"
-rc=$?
-set -e
+p4b1395_run() {  # author-parse number to fail; 0 keeps every real parse
+  rm -f "$P4B1143_AUTHOR_PARSE_COUNT" "$WORK/p4b1395-wrapper.log"
+  rc=0
+  out="$(PATH="$P4B1143_NODE_DIR:$PATH" \
+    P4B1143_REAL_NODE="$P4B1143_REAL_NODE" P4B1143_PARSER_PATH="$P4B1143_PARSER_PATH" \
+    P4B1143_AUTHOR_PARSE_COUNT="$P4B1143_AUTHOR_PARSE_COUNT" P4B1143_FAIL_AUTHOR_PARSE="$1" \
+    P4B_GH_AS_REVIEWER="$BIN/fake-gh-as-reviewer" P4B_WRAPPER_LOG="$WORK/p4b1395-wrapper.log" \
+    MERGEPATH_REVIEW_POLICY_PATH="$POLICY_ON" CODEX_BIN="$BIN/fake-codex-approve" \
+    CLAUDE_BIN="$BIN/fake-claude-approve-usage" P4B_FAKE_PR_BODY_FILE="$P4B1143_BODY" \
+    bash "$ORCH" 124 --repo o/r --author claude --head aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --diff-file "$DIFF" --dry-run 2>&1)" || rc=$?
+}
+
+# Prove the shim observes actual author parses while delegating valid parsing,
+# the version probe and the other modes. Refusal evidence needs this control.
+p4b1395_run 0
+if [ "$rc" = 0 ] \
+   && [ "$(cat "$P4B1143_AUTHOR_PARSE_COUNT" 2>/dev/null || echo 0)" -ge 2 ] \
+   && grep -Fq '[dry-run] would post APPROVED' <<<"$out" \
+   && grep -Fq '"review_posted": false' <<<"$out" \
+   && [ ! -e "$WORK/p4b1395-wrapper.log" ]; then
+  pass "#1395: author-parser shim delegates valid parses and reaches approval preview"
+else
+  fail "#1395: author-parser shim positive control (rc=$rc author-parses=$(cat "$P4B1143_AUTHOR_PARSE_COUNT" 2>/dev/null || true) out=$out)"
+fi
+
+p4b1395_run 2
 if [ "$rc" = 3 ] \
    && [ "$(cat "$P4B1143_AUTHOR_PARSE_COUNT" 2>/dev/null || true)" = 2 ] \
-   && printf '%s' "$out" | grep -Fq 'ERROR: could not parse Authoring-Agent from PR body (parser did not complete)'; then
+   && grep -Fq 'ERROR: could not parse Authoring-Agent from PR body (parser did not complete)' <<<"$out" \
+   && ! grep -Fq 'would post' <<<"$out" \
+   && [ ! -e "$WORK/p4b1395-wrapper.log" ]; then
   pass "#1395: second Authoring-Agent parser failure maps to infrastructure exit 3"
 else
   fail "#1395: second Authoring-Agent parser failure must map to exit 3 (rc=$rc author-parses=$(cat "$P4B1143_AUTHOR_PARSE_COUNT" 2>/dev/null || true) out=$out)"
@@ -4903,11 +5034,11 @@ bad=""
 # the summary publication while coderabbitai[bot] had two COMMENTED reviews
 # on the exact head and a per-SHA success postdating them, and the barrier
 # held not-yet until it escalated.
-[ "$(_cr 7 '{"head_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","review":{"id":9988,"endpoint":"reviews","submitted_at":"2026-06-04T00:00:06Z"},"probe":{"observed":"awaiting-summary","context_state":"success","context_updated_at":"2026-06-04T00:00:07Z"}}')" = reported ] \
+[ "$(_cr 7 '{"head_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","review":{"id":9988,"endpoint":"reviews","submitted_at":"2026-06-04T00:00:06Z"},"probe":{"observed":"awaiting-summary","context_state":"success","context_description":"Review completed","context_updated_at":"2026-06-04T00:00:07Z"}}')" = reported ] \
                                                          || bad="$bad rc7-review-object-ctx"
 # At-or-after is inclusive: a status refreshed the same second as the
 # object still corroborates it.
-[ "$(_cr 7 '{"head_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","review":{"id":9988,"endpoint":"reviews","submitted_at":"2026-06-04T00:00:06Z"},"probe":{"observed":"awaiting-summary","context_state":"success","context_updated_at":"2026-06-04T00:00:06Z"}}')" = reported ] \
+[ "$(_cr 7 '{"head_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","review":{"id":9988,"endpoint":"reviews","submitted_at":"2026-06-04T00:00:06Z"},"probe":{"observed":"awaiting-summary","context_state":"success","context_description":"Review completed","context_updated_at":"2026-06-04T00:00:06Z"}}')" = reported ] \
                                                          || bad="$bad rc7-review-object-eqctx"
 # Observed-state precedence (P1 round 3 on #875): an ACTIVE adverse state
 # named by the probe — a pending rate-limit / pause / in-progress notice
@@ -4920,15 +5051,15 @@ bad=""
 # It still does not OPEN — which is all the #875 precedence rule ever
 # asserted — but it now carries its own class, because a refusal and a delay
 # need different handling and only the composer can choose between them.
-[ "$(_cr 7 '{"head_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","review":{"id":9988,"endpoint":"reviews","submitted_at":"2026-06-04T00:00:06Z"},"probe":{"observed":"rate_limit","context_state":"success","context_updated_at":"2026-06-04T00:00:07Z"}}')" = rate-limited ] \
+[ "$(_cr 7 '{"head_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","review":{"id":9988,"endpoint":"reviews","submitted_at":"2026-06-04T00:00:06Z"},"probe":{"observed":"rate_limit","context_state":"success","context_description":"Review completed","context_updated_at":"2026-06-04T00:00:07Z"}}')" = rate-limited ] \
                                                          || bad="$bad rc7-observed-ratelimit"
-[ "$(_cr 7 '{"head_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","review":{"id":9988,"endpoint":"reviews","submitted_at":"2026-06-04T00:00:06Z"},"probe":{"observed":"paused","context_state":"success","context_updated_at":"2026-06-04T00:00:07Z"}}')" = not-yet ] \
+[ "$(_cr 7 '{"head_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","review":{"id":9988,"endpoint":"reviews","submitted_at":"2026-06-04T00:00:06Z"},"probe":{"observed":"paused","context_state":"success","context_description":"Review completed","context_updated_at":"2026-06-04T00:00:07Z"}}')" = not-yet ] \
                                                          || bad="$bad rc7-observed-paused"
-[ "$(_cr 7 '{"head_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","review":{"id":9988,"endpoint":"reviews","submitted_at":"2026-06-04T00:00:06Z"},"probe":{"observed":"in_progress","context_state":"success","context_updated_at":"2026-06-04T00:00:07Z"}}')" = not-yet ] \
+[ "$(_cr 7 '{"head_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","review":{"id":9988,"endpoint":"reviews","submitted_at":"2026-06-04T00:00:06Z"},"probe":{"observed":"in_progress","context_state":"success","context_description":"Review completed","context_updated_at":"2026-06-04T00:00:07Z"}}')" = not-yet ] \
                                                          || bad="$bad rc7-observed-inprogress"
-[ "$(_cr 7 '{"head_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","review":{"id":9988,"endpoint":"reviews","submitted_at":"2026-06-04T00:00:06Z"},"probe":{"context_state":"success","context_updated_at":"2026-06-04T00:00:07Z"}}')" = not-yet ] \
+[ "$(_cr 7 '{"head_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","review":{"id":9988,"endpoint":"reviews","submitted_at":"2026-06-04T00:00:06Z"},"probe":{"context_state":"success","context_description":"Review completed","context_updated_at":"2026-06-04T00:00:07Z"}}')" = not-yet ] \
                                                          || bad="$bad rc7-observed-missing"
-[ "$(_cr 7 '{"head_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","review":{"id":9988,"endpoint":"reviews","submitted_at":"2026-06-04T00:00:06Z"},"probe":{"observed":"someday-new-state","context_state":"success","context_updated_at":"2026-06-04T00:00:07Z"}}')" = not-yet ] \
+[ "$(_cr 7 '{"head_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","review":{"id":9988,"endpoint":"reviews","submitted_at":"2026-06-04T00:00:06Z"},"probe":{"observed":"someday-new-state","context_state":"success","context_description":"Review completed","context_updated_at":"2026-06-04T00:00:07Z"}}')" = not-yet ] \
                                                          || bad="$bad rc7-observed-unmodelled"
 # A BARE just-posted review object must NOT open the barrier (P1 on #875):
 # the PR-level summary still in flight can carry the ONLY blocking marker
@@ -4948,29 +5079,29 @@ bad=""
 # PREDATES the review object belongs to the PREVIOUS run against this sha —
 # the new object's summary and status refresh are still pending, so the
 # stale success must not open the barrier past them.
-[ "$(_cr 7 '{"head_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","review":{"id":9988,"endpoint":"reviews","submitted_at":"2026-06-04T00:00:06Z"},"probe":{"context_state":"success","context_updated_at":"2026-06-04T00:00:00Z"}}')" = not-yet ] \
+[ "$(_cr 7 '{"head_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","review":{"id":9988,"endpoint":"reviews","submitted_at":"2026-06-04T00:00:06Z"},"probe":{"context_state":"success","context_description":"Review completed","context_updated_at":"2026-06-04T00:00:00Z"}}')" = not-yet ] \
                                                          || bad="$bad rc7-review-object-stalectx"
 # Either half of the correlation missing, or unparseable, fails closed —
 # an old probe emission (no submitted_at / no context_updated_at) keeps
 # the pre-#869 bounded wait.
-[ "$(_cr 7 '{"head_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","review":{"id":9988,"endpoint":"reviews"},"probe":{"context_state":"success","context_updated_at":"2026-06-04T00:00:07Z"}}')" = not-yet ] \
+[ "$(_cr 7 '{"head_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","review":{"id":9988,"endpoint":"reviews"},"probe":{"context_state":"success","context_description":"Review completed","context_updated_at":"2026-06-04T00:00:07Z"}}')" = not-yet ] \
                                                          || bad="$bad rc7-review-object-nosubmitted"
-[ "$(_cr 7 '{"head_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","review":{"id":9988,"endpoint":"reviews","submitted_at":"2026-06-04T00:00:06Z"},"probe":{"context_state":"success"}}')" = not-yet ] \
+[ "$(_cr 7 '{"head_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","review":{"id":9988,"endpoint":"reviews","submitted_at":"2026-06-04T00:00:06Z"},"probe":{"context_state":"success","context_description":"Review completed"}}')" = not-yet ] \
                                                          || bad="$bad rc7-review-object-noctxat"
-[ "$(_cr 7 '{"head_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","review":{"id":9988,"endpoint":"reviews","submitted_at":"not-a-date"},"probe":{"context_state":"success","context_updated_at":"2026-06-04T00:00:07Z"}}')" = not-yet ] \
+[ "$(_cr 7 '{"head_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","review":{"id":9988,"endpoint":"reviews","submitted_at":"not-a-date"},"probe":{"context_state":"success","context_description":"Review completed","context_updated_at":"2026-06-04T00:00:07Z"}}')" = not-yet ] \
                                                          || bad="$bad rc7-review-object-badts"
 # Stale-head evidence must not clear even fully corroborated — the same
 # #794 posture as rc 0.
-[ "$(_cr 7 '{"head_sha":"old999","review":{"id":9988,"endpoint":"reviews","submitted_at":"2026-06-04T00:00:06Z"},"probe":{"context_state":"success","context_updated_at":"2026-06-04T00:00:07Z"}}')" = not-yet ] \
+[ "$(_cr 7 '{"head_sha":"old999","review":{"id":9988,"endpoint":"reviews","submitted_at":"2026-06-04T00:00:06Z"},"probe":{"context_state":"success","context_description":"Review completed","context_updated_at":"2026-06-04T00:00:07Z"}}')" = not-yet ] \
                                                          || bad="$bad rc7-review-object-stale"
 # "issues" evidence on rc 7 is a pending notice or a prior-head summary,
 # never head-anchored terminality — a correlated context success cannot
 # upgrade it.
-[ "$(_cr 7 '{"head_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","review":{"id":9982,"endpoint":"issues","submitted_at":"2026-06-04T00:00:06Z"},"probe":{"context_state":"success","context_updated_at":"2026-06-04T00:00:07Z"}}')" = not-yet ] \
+[ "$(_cr 7 '{"head_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","review":{"id":9982,"endpoint":"issues","submitted_at":"2026-06-04T00:00:06Z"},"probe":{"context_state":"success","context_description":"Review completed","context_updated_at":"2026-06-04T00:00:07Z"}}')" = not-yet ] \
                                                          || bad="$bad rc7-issues-evidence"
 # The channel is probe-only: a polling timeout (rc 4) never carries
 # review-object evidence, and unmodelled shapes must not open the barrier.
-[ "$(_cr 4 '{"head_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","review":{"id":9988,"endpoint":"reviews","submitted_at":"2026-06-04T00:00:06Z"},"probe":{"context_state":"success","context_updated_at":"2026-06-04T00:00:07Z"}}')" = not-yet ] \
+[ "$(_cr 4 '{"head_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","review":{"id":9988,"endpoint":"reviews","submitted_at":"2026-06-04T00:00:06Z"},"probe":{"context_state":"success","context_description":"Review completed","context_updated_at":"2026-06-04T00:00:07Z"}}')" = not-yet ] \
                                                          || bad="$bad rc4-no-channel"
 # rc 5 is only an escalation when the #489 failover did NOT engage. When it
 # did, AGENTS.md step 5 makes the stall a non-blocking note and the Codex arm
