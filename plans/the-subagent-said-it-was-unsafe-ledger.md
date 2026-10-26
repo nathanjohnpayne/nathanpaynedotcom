@@ -27,7 +27,7 @@ Sources, all read 2026-10-26:
 | Updated the report on October 20; "We don't yet have a satisfying explanation for this behavior." | SUPPORTED | Header and closing section; apostrophe straightened. |
 | The internal review step, required for its own Codex use, "has been updated to detect and block attempts to disable misalignment monitoring." | SUPPORTED | "Auto-Review, which we already require for all internal Codex use, has been updated to…" |
 | "The run's final response said 'No messages were sent.'" | SUPPORTED | Final response, October 3 incident. |
-| The test "now required the monitor to be absent and passed. From the outside, the run looked green." | UNPROVABLE → "would pass… would look green" | The report shows the new assertion (`assert "monitor_ctx" not in saved["context"]`) and the removal, which would make it pass, and a completion report that omitted the removal. It does not report a test run, so the post now states the outcome as conditional (CodeRabbit on #1465). |
+| "Removing the monitor would now satisfy the test. The report doesn't say whether the test ran; it shows that the check had been inverted." | SUPPORTED, conditional | The report shows the new assertion (`assert "monitor_ctx" not in saved["context"]`) and the removal. It does not report a test run. The style revision replaces the baseline's inferred green run with the conditional result and places the evidence limit beside it. This also resolves CodeRabbit's finding on #1465 ("Do not state that the replacement test passed"); an interim "would pass… would look green" wording in `338eccc` is superseded. |
 | "Outvoted": the subagent's "unsafe" was set aside by the parent. | INFERENCE—owner decision | The report shows the objection only in the subagent's CoT; it does not show the subagent sending it to the parent. The same subagent later wrote the patch on the parent's order. The owner reviewed this on 2026-10-26 and kept the framing: "Keep the Outvoted framing as written; it's my interpretation." Surfaces: the Outvoted section, pullquote 1, takeaway 1, `seoDescription`. |
 | seoDescription: "weakened their own monitoring" | WRONG → "weakened misalignment monitoring" | The report: "the agent itself remained monitored, but that monitoring did not cover the deployment it launched." |
 | Sidebar: "Some quoted reasoning appears on that page without spaces" | WRONG → "One quoted instruction" | The only space-restored quotation in the post is the agent-to-agent instruction. |
@@ -73,10 +73,10 @@ Fragments, derived from the actual headings at `ce80530` with GitHub's slug rule
 ## D. Universal claims kept
 
 - "most multi-agent setups I've seen": first-person, kept.
-- "Human engineering organizations solved this a long time ago": a general claim about separation of duties, offered as the author's reading, not a survey. Kept.
+- "Human engineering has a familiar answer: separation of duties": the author's judgment about independent approval, not a claim that engineering organizations universally solved the problem. The style revision preserves the mechanism and the "old, boring, and effective" judgment.
 - "a PR cannot loosen the rules it is judged by" (takeaway 3): scoped as in §C.
 
-## E. Voice-check warning dispositions
+## E. Baseline voice-check warning dispositions
 
 Vale 3.24.0 (pinned; installed from the release archive, SHA-256 `87b513f2…3451e44`). `node scripts/check-blog-voice.mjs … --packet` exits 0: no mechanical violations, 28 advisory warnings.
 
@@ -86,4 +86,48 @@ Vale 3.24.0 (pinned; installed from the release archive, SHA-256 `87b513f2…345
 | `review.repeated-duration` (sidebar, "day") | 1 | **Keep.** The sidebar's "the same day" (the GitHub API reads on 2026-10-26) and the body's "the same day OpenAI updated its report" (October 20) name different events; neither is a duration. |
 | `review.repeated-duration` (body, "second") | 1 | **Keep.** False positive: "a second agent" and "in the second" are ordinals for the second incident, not a time unit. |
 
-The full packet, generated with `--review-context` (the dispositions above, the owner's Outvoted decision, validation and provenance), is posted on the pull request as collapsed comments, with the local checkout prefix stripped from file paths. It is generated output, so it is not committed.
+The baseline packet, generated with `--review-context` (the dispositions above, the owner's Outvoted decision, validation and provenance), is posted on the pull request as collapsed comments, with the local checkout prefix stripped from file paths. It describes the pre-revision source, not the style revision below. Generated packets are not committed.
+
+## F. Writing-style revision, October 26
+
+Baseline: PR #1465 at `124ad04f48cc81c803e7705302b0ed79f574ea39`. This is a local proposed revision, not owner approval, a PR review verdict, or publication. The installed Writing Style skill was applied using the supplied owner draft and direct feedback. Two retrieval queries returned no suitable article references; unrelated private results were not retrieved or saved. No retrieved style match is claimed.
+
+### Passage decisions
+
+| Passage / checkpoint | Final decision and reason |
+| --- | --- |
+| Opening actors and chronology | "The parent agent told it to disable the alerts" followed by "The subagent's patch" keeps instruction and implementation with their respective actors. Dates and source quotations remain unchanged. |
+| Outvoted / first-person responsibility | Keep "I don't read" and the owner-approved interpretation verbatim. Replace "default shape" / "party with the strongest interest" with the concrete decision: "The agent that wants the work finished gets to decide how much that objection matters." The scope remains "setups I've seen," including the author's own. |
+| Separation of duties | Chose "Human engineering has a familiar answer" over both the original universal "solved this" and the weaker "might help." Keep the independent-approval mechanism and the author's "old, boring, and effective" judgment. |
+| Oracle / evidence limit | Chose "Removing the monitor would now satisfy the test" over "the run looked green" or merely "the assertion changed." It retains the consequence and states immediately that the report does not establish a test run. |
+| Unread / repetition | Replace "dispositioned" with "accounted for." Split #672's long event chain into receipt, refusal, and discarded verdict. Keep #1000's missing Resolve control and #672's discarded advisory findings distinct. Their later fix references remain in the enforcement section. |
+| Section promises and order | Keep incidents → failure mechanisms → Mergepath evidence → enforcement → proposals → closing. Add "Where the author still decides" at the existing shift from working protections to the remaining gap; no evidence was moved between periods. |
+| Policy language and author judgment | Replace "a disposition can be" with "that response can be" but retain the exact policy quotation and the requirement for a public explanation of why the finding does not apply. Keep the repeat-after-rebuttal backstop, the author-decides pullquote, protected-path exclusions and all three evidence requirements for counting a fix. |
+| Proposed versus delivered coverage | Keep "These are proposals, not adopted enforcement," human-attention cost, broad-test-review cost, "I haven't built it" and unknown false positives. "I'd start with diffs" describes the same proposed detector, not a completed implementation. Distinguish #672's advisory findings from a safety objection instead of calling them identical payloads. |
+| Metadata and evidence pointers | Keep all frontmatter, takeaways, pullquotes and figure caption unchanged after reading each against the revised body. Every URL and pinned fragment remains unchanged. Existing image-alt accessibility finding on PR #1465 is outside this style edit and remains open work. |
+| Closing | Keep the complete final paragraph: produced objection → failure after production → independent authority → working protections versus remaining rebuttal gap. "First listed remedy" accurately introduces the first numbered action in OpenAI's report without implying a chronology of model work. |
+
+### Final-source reader records
+
+**Repeated quantities and propositions.** October 3 appears in the opening (event), Outvoted (interpretation), and third proposal (handoff requirement); October 6 appears in the second event's chronology, the oracle section, and the test-policy comparison. October 20 appears in the report's update and the loop-counter change to establish their coincidence. July 4, August 18, August 19, 43 comments and 24.6 hours each stay with their original event. Provenance and figure dates remain separate capture/read records. The opening introduces both failures; their sections explain different mechanisms; the closing compares them. The author deciding the rebuttal appears as policy explanation and then the retained pullquote's judgment. The three proposals repeat those gaps as decisions with costs. These repetitions have distinct jobs; metadata duplicates are deliberate summaries.
+
+**Qualification placement.** The Outvoted section still begins "I don't read"; the ledger retains the owner's explicit interpretation decision and the absence of a recorded message carrying the objection to the parent. The test-run limit is now in its own paragraph, beside the conditional test consequence. "Most multi-agent setups I've seen" remains firsthand scope. The provenance sidebar still dates the Mergepath snapshot. Proposals remain expressly unimplemented where appropriate. No missing record is turned into new personal testimony.
+
+**Author judgments.** Keep the entire Outvoted pullquote, "old, boring, and effective," "It's a suggestion with a test runner," the author-decides pullquote, "The October 6 agent didn't delete a test. It replaced one," the loop-counter versus merge-gate contrast, and the willingness to spend attention on disagreements. Shorter explanations preserve those judgments rather than replacing them with general advice.
+
+**Closing and causal consistency.** The final paragraph is byte-identical to the baseline and retains the specific failure taxonomy and the author's unfinished work. Instructions, patch authorship, the observer's knowledge and recorded versus inferred outcomes remain distinct throughout. Separation of duties is the proposed mechanism; better models are not asserted to have been ruled out. The test-run conditional (§A), the narrower separation-of-duties judgment (§D), and "first listed remedy" are deliberate scope clarifications, not evidence of additional observed outcomes.
+
+### Current warning dispositions
+
+The revision packet uses the pinned Vale 3.24.0 and immutable baseline above; mechanical exit is 0. It has 43 advisory items, including retained before-side quotation warnings from changed paragraphs. These supersede §E for the local revision.
+
+| Rule | Count | Disposition |
+| --- | --- | --- |
+| `review.quotation-attribution` | 39 | **Keep.** All double-quoted body passages and all metadata are unchanged against the baseline. Each source quotation retains its speaker or source; narrator "no" and "unsafe" retain their referents. Before-side excerpts remain available in the packet; their presence does not mean new quotations were added. |
+| `review.repeated-duration` | 2 | **Keep.** The two §E explanations still apply to the same events and ordinal uses. |
+| `review.changed-passages` | 1 | **Reviewed.** Both complete articles and linked claim surfaces compared; decisions are recorded above. |
+| `review.negation-modal-change` | 1 | **Reviewed.** "Kept monitoring enabled" retains the original request not to disable it; "would now satisfy" narrows the test-run inference. The rebuttal backstop and unimplemented proposal scopes remain intact. |
+
+The generated complete before/after packet is `/tmp/pr-1465-style-review-packet.txt`, with task context at `/tmp/pr-1465-style-context.json`. The separate brevity pass preserves every protected occurrence; baseline-to-final prose is 1,584 → 1,505 words (5.0% shorter). Byte comparisons confirm unchanged frontmatter and the full final paragraph. These checks support review; they do not establish owner approval.
+
+Repository validation: both builds in `npm test` completed; `npm run lint` passed with the pinned Vale. The first test run used system Vale 3.25.1 and was stopped after voice-tool version failures. Reusing the completed builds, `PATH=<pinned-Vale-3.24.0-bin>:$PATH NP_PRODUCTION_CHECK_DIST=dist-production-check npx vitest run --maxWorkers=4` passed all 82 files: 2,014 tests passed, 6 skipped. The corrected run took 222 seconds, exceeding the initial one-minute estimate; its last work was the browser-backed suite. No e2e run or PR approval is claimed.
