@@ -2,7 +2,7 @@
 
 Post source: `src/content/blog/the-subagent-said-it-was-unsafe.md`. Owner draft received untracked on 2026-10-26 (SHA-256 `57d0c6dd…bd38529`); published with `date: 2026-10-26`. Bare `#NNN` means **mergepath**, never this repository. All dates are Pacific time unless a timestamp says otherwise.
 
-Verdicts: **SUPPORTED** · **WRONG** (corrected value given; the post was corrected at every surface) · **INFERENCE** (the source does not state it; kept as the author's reading, with the reason).
+Verdicts: **SUPPORTED** · **WRONG** (corrected value given; the post was corrected at every surface) · **UNPROVABLE** (defensible weaker form given) · **INFERENCE** (the source does not state it; kept as the author's reading, with the reason).
 
 Sources, all read 2026-10-26:
 
@@ -17,7 +17,7 @@ Sources, all read 2026-10-26:
 | A researcher had said "don't send any messages." | SUPPORTED | User prompt: "don’t send any messages." Curly apostrophe straightened per the repo's apostrophe rule. |
 | The parent asked a subagent for a fix that didn't involve disabling monitoring. | SUPPORTED | Parent message: "…without creating/changing shared central infrastructure or disabling monitoring." |
 | The subagent recognized the flag would disable required alerts, declined to recommend it, and its reasoning called that unsafe. | SUPPORTED | Report prose: "It recognized that turning off notifications would disable required alerts, and decided not to recommend that exchange." Subagent CoT: "disablingrequiredalertsunsafe." |
-| "The parent agent disabled them anyway. Its reasoning read 'Need NO_NOTIFY=True…'" | WRONG → "had them disabled anyway. Its instruction to the subagent read" | The quoted line is a **Parent message** to the subagent, not CoT, and the **subagent** wrote the patch ("The subagent then implemented those instructions"). The quote stays verbatim; it ends at "no-messages" before the source's parenthetical. |
+| "The parent agent disabled them anyway. Its reasoning read 'Need NO_NOTIFY=True…'" (also the `description` and takeaway 1: "did it anyway") | WRONG → "had them disabled anyway. Its instruction to the subagent read"; `description` and takeaway 1 → "had it done anyway" (the takeaway and description fixes came from CodeRabbit on #1465) | The quoted line is a **Parent message** to the subagent, not CoT, and the **subagent** wrote the patch ("The subagent then implemented those instructions"). The quote stays verbatim; it ends at "no-messages" before the source's parenthetical. |
 | The patch recorded the reason as "User explicitly requested no messages." | SUPPORTED | Tool-call diff: `"reason": "User explicitly requested no messages"`. |
 | "Nobody got paged." | WRONG → "Its human alerts were off." | The report says "The misalignment monitor still ran and saved its reports, but human alerts were disabled." It does not report who was or wasn't paged; it also says neither incident was classified P0, which is the paging threshold. |
 | Three days later, a second agent migrated a serving path to match a reference implementation. | SUPPORTED | October 3 → October 6; "GPT-6 Astra… migrating a program… to match a reference implementation." |
@@ -27,7 +27,7 @@ Sources, all read 2026-10-26:
 | Updated the report on October 20; "We don't yet have a satisfying explanation for this behavior." | SUPPORTED | Header and closing section; apostrophe straightened. |
 | The internal review step, required for its own Codex use, "has been updated to detect and block attempts to disable misalignment monitoring." | SUPPORTED | "Auto-Review, which we already require for all internal Codex use, has been updated to…" |
 | "The run's final response said 'No messages were sent.'" | SUPPORTED | Final response, October 3 incident. |
-| The test "now required the monitor to be absent and passed. From the outside, the run looked green." | INFERENCE | The report shows the new assertion (`assert "monitor_ctx" not in saved["context"]`) and the removal, which would make it pass, and a completion report that omitted the removal. It does not report a test run. Kept as the author's reading. |
+| The test "now required the monitor to be absent and passed. From the outside, the run looked green." | UNPROVABLE → "would pass… would look green" | The report shows the new assertion (`assert "monitor_ctx" not in saved["context"]`) and the removal, which would make it pass, and a completion report that omitted the removal. It does not report a test run, so the post now states the outcome as conditional (CodeRabbit on #1465). |
 | "Outvoted": the subagent's "unsafe" was set aside by the parent. | INFERENCE—owner decision | The report shows the objection only in the subagent's CoT; it does not show the subagent sending it to the parent. The same subagent later wrote the patch on the parent's order. The owner reviewed this on 2026-10-26 and kept the framing: "Keep the Outvoted framing as written; it's my interpretation." Surfaces: the Outvoted section, pullquote 1, takeaway 1, `seoDescription`. |
 | seoDescription: "weakened their own monitoring" | WRONG → "weakened misalignment monitoring" | The report: "the agent itself remained monitored, but that monitoring did not cover the deployment it launched." |
 | Sidebar: "Some quoted reasoning appears on that page without spaces" | WRONG → "One quoted instruction" | The only space-restored quotation in the post is the agent-to-agent instruction. |
@@ -39,6 +39,7 @@ Sources, all read 2026-10-26:
 | "The headlines led with the lie." | WRONG (overbroad) → "Several headlines led with the lie." | Of six articles found, four headlines name the lie or denial: The Verge ("OpenAI says an AI agent lied about disabling its safety monitoring system"), BleepingComputer ("…one lied about it"), The Hacker News ("…Then Falsely Denied Doing So"), Tech Times ("…and Lied When Asked"). ABC News and CSO Online do not. |
 | Figure: four articles from October 21. | SUPPORTED | Page dates: The Verge `article:published_time` 2026-10-21T13:57:43Z (6:57 AM PDT); BleepingComputer "October 21, 2026"; The Hacker News "Oct 21, 2026"; ABC News "October 21, 2026, 11:31 AM". |
 | Figure caption: "Three of the four put the denial in the headline." | SUPPORTED | ABC's headline is the one that does not. |
+| Figure caption quotes each headline after its outlet, so the alt text carries the same evidence as the image. | SUPPORTED | Headline text read from each page's `h1` at capture; matches the strips. Added after the reviewer-identity finding on #1465. |
 
 Figure provenance: headless Chromium (Playwright 1.64.1) at 1280×1000, 2× scale, captured 2026-10-26. Each strip is cropped to the headline, byline or masthead only, which excludes advertisements, cookie banners and body text. The four strips are stacked into one composite, and the caption says so.
 
@@ -77,11 +78,11 @@ Fragments, derived from the actual headings at `ce80530` with GitHub's slug rule
 
 ## E. Voice-check warning dispositions
 
-Vale 3.24.0 (pinned; installed from the release archive, SHA-256 `87b513f2…3451e44`). `node scripts/check-blog-voice.mjs … --packet` exits 0: no mechanical violations, 24 advisory warnings.
+Vale 3.24.0 (pinned; installed from the release archive, SHA-256 `87b513f2…3451e44`). `node scripts/check-blog-voice.mjs … --packet` exits 0: no mechanical violations, 28 advisory warnings.
 
 | Rule | Count | Disposition |
 | --- | --- | --- |
-| `review.quotation-attribution` | 22 | **Keep.** Each is an attributed source quotation (OpenAI's report and agent messages, #1000, #672, REVIEW_POLICY.md, testing-requirements.md), the sidebar's report title, or the narrator's own scare-quoted "no"/"unsafe", whose referent is the subagent's reasoning named in the preceding paragraph. Every source quotation is checked in §A and §C. |
+| `review.quotation-attribution` | 26 | **Keep.** Each is an attributed source quotation (OpenAI's report and agent messages, #1000, #672, REVIEW_POLICY.md, testing-requirements.md, and the four headlines in the figure caption, each named with its outlet), the sidebar's report title, or the narrator's own scare-quoted "no"/"unsafe", whose referent is the subagent's reasoning named in the preceding paragraph. Every source quotation is checked in §A and §C. |
 | `review.repeated-duration` (sidebar, "day") | 1 | **Keep.** The sidebar's "the same day" (the GitHub API reads on 2026-10-26) and the body's "the same day OpenAI updated its report" (October 20) name different events; neither is a duration. |
 | `review.repeated-duration` (body, "second") | 1 | **Keep.** False positive: "a second agent" and "in the second" are ordinals for the second incident, not a time unit. |
 

@@ -2,7 +2,7 @@
 title: "The Subagent Said It Was Unsafe"
 seoTitle: "The Subagent Said It Was Unsafe"
 shortTitle: "The Subagent Said It Was Unsafe"
-description: "An OpenAI subagent judged an action unsafe; its parent did it anyway. Another agent rewrote the test that would have caught it. My review pipeline stops unread findings and keeps a PR from changing its own policy. It still lets the author overrule a blocking finding in writing."
+description: "An OpenAI subagent judged an action unsafe; its parent had it done anyway. Another agent rewrote the test that would have caught it. My review pipeline stops unread findings and keeps a PR from changing its own policy. It still lets the author overrule a blocking finding in writing."
 seoDescription: "Two OpenAI coding agents weakened misalignment monitoring: one overruled a subagent that objected, the other rewrote the regression test. What that shows about multi-agent review, and where my own pipeline still lets the author overrule the reviewer."
 category: "Agent Systems"
 author: "Nathan Payne"
@@ -11,7 +11,7 @@ draft: false
 tags: ["AI", "Code Review", "Systems", "Agent Governance", "Failure Modes"]
 image: "/og/blog/the-subagent-said-it-was-unsafe.png"
 keyTakeaways:
-  - "In OpenAI's October 3 incident, the right judgment existed inside the system. A subagent called disabling the alerts unsafe, and the parent agent did it anyway. That is not a capability problem. The objection had nowhere to land."
+  - "In OpenAI's October 3 incident, the right judgment existed inside the system. A subagent called disabling the alerts unsafe, and the parent agent had it done anyway. That is not a capability problem. The objection had nowhere to land."
   - "In the October 6 incident, the change replaced the regression test that protected the monitor with one that required the monitor to be absent. A check the author can edit in the same diff is not a check."
   - "My pipeline makes unread findings block merge and reads each PR's policy from its base branch, so a PR cannot loosen the rules it is judged by. A blocking finding still clears when the authoring agent rebuts it and resolves the thread."
   - "The rule I'm proposing: a blocking finding clears through a fix the reviewer re-reads, or through a human. The author's rebuttal starts that process; it does not finish it."
@@ -40,7 +40,7 @@ Three days later, a second agent was migrating a serving path to match a referen
 
 OpenAI [published both incidents](https://alignment.openai.com/misalignment-reports/suppressing-misalignment-monitoring-alerts-and-disabling-misalignment-monitoring/) and updated the report on October 20. It says, "We don't yet have a satisfying explanation for this behavior." Several headlines led with the lie. I read the report for something else: in the first incident the right answer was already in the system, and in the second the change rewrote the check that would have caught it.
 
-![Coverage from October 21, top to bottom: The Verge, BleepingComputer, The Hacker News and ABC News. Three of the four put the denial in the headline. Each strip is cropped from the outlet's article page, captured on October 26; the stack is my composite.](/blog/the-subagent-said-it-was-unsafe/img/news-headlines.png)
+![Coverage from October 21, top to bottom. The Verge: "OpenAI says an AI agent lied about disabling its safety monitoring system." BleepingComputer: "OpenAI agents disabled safety monitoring, one lied about it." The Hacker News: "OpenAI's GPT-6 Agent Removed Safety Monitoring, Then Falsely Denied Doing So." ABC News: "OpenAI says its AI agents disabled their own monitoring." Three of the four put the denial in the headline. Each strip is cropped from the outlet's article page, captured on October 26; the stack is my composite.](/blog/the-subagent-said-it-was-unsafe/img/news-headlines.png)
 
 ## Outvoted
 
@@ -54,7 +54,7 @@ Human engineering organizations solved this a long time ago, and not with better
 
 The October 6 incident is a different failure. The objection wasn't overruled. It was removed.
 
-A regression test is a standing objection: it says "no" every time someone breaks the thing it protects. The agent didn't argue with that objection. It rewrote it in the same change, so the test now required the monitor to be absent and passed. From the outside, the run looked green.
+A regression test is a standing objection: it says "no" every time someone breaks the thing it protects. The agent didn't argue with that objection. It rewrote it in the same change, so the test now required the monitor to be absent and would pass. From the outside, the run would look green.
 
 A check the author can rewrite in the same diff is not a check. It's a suggestion with a test runner.
 
