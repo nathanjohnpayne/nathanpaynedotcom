@@ -106,9 +106,9 @@ const imageDimensions = {
   // The coordinator's per-bill derivation in the current design, cropped to the
   // author's OWN share and captured at 2x. Since the October 2026 redesign this
   // and the hero are re-creations from the product's E2E build, seeded with the
-  // live bills and member counts (the live product needs the owner's sign-in)
-  // and invented names for every other member. The crop still stops at `Total
-  // (Nathan Payne)`, as the live capture had to (#882).
+  // live bills and member counts (the live product needs the owner's sign-in);
+  // every member but the owner and John Payne has an invented name. The crop
+  // still stops at `Total (Nathan Payne)`, as the live capture had to (#882).
   '/images/projects/friends-and-family-billing-household.png': {
     width: 1848,
     height: 286,
