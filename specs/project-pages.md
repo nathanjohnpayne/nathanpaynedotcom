@@ -40,7 +40,7 @@ accent: "red"                      # = RAMP[order % 5]; order 5 → red. See Acc
 liveUrl: "https://example.com"     # optional—omit on pre-launch projects
 githubUrl: "https://github.com/you/repo"  # optional—omit when the repository is private
 tags: ["Tag1", "Tag2", "Tag3"]
-status: "SHIPPED"                  # one of: SHIPPED | EXPERIMENT | IN PROGRESS | PAUSED | ARCHIVED
+status: "SHIPPED"                  # one of: SHIPPED | EXPERIMENT | IN DEVELOPMENT | PAUSED | ARCHIVED
 metadata:
   format: "Product-type label (e.g., Financial operating system)"
   focus: "What it does in a few words"
@@ -70,11 +70,11 @@ draft: false
 | `screenshotSecondary` | object | no | A companion capture rendered beside `screenshotSrc`—see § Paired screenshots. All four keys are required when the field is present: `src`, `alt`, `width`, `height` |
 | `screenshotDarkSurface` | boolean | no | Opt in when the hero art itself needs a dark figure surface to be legible—see § Dark screenshot surface. A property of the artwork, not of `accent` |
 | `accent` | enum | yes | Semantic accent token for the project. One of `red`, `yellow`, `paper`, `blue`, `black`. Not a free choice—it must be `RAMP[order % 5]` per the Accent ramp below, enforced by `tests/project-pages.test.js`. CSS derives the actual palette values, text-safe color, page wash, and metadata gradient from this token |
-| `liveUrl` | non-empty string | no | URL for the live CTA, labelled "View Live Product" unless `liveLabel` overrides it. Omit on pre-launch projects (status `IN PROGRESS`)—the CTA, the index card "View ↗" link, and the `SoftwareApplication` JSON-LD entity are all suppressed when this field is missing (the homepage Builds row has no live link either way) |
+| `liveUrl` | non-empty string | no | URL for the live CTA, labelled "View Live Product" unless `liveLabel` overrides it. Omit on pre-launch projects (status `IN DEVELOPMENT`)—the CTA, the index card "View ↗" link, and the `SoftwareApplication` JSON-LD entity are all suppressed when this field is missing (the homepage Builds row has no live link either way) |
 | `liveLabel` | non-empty string | no | Overrides the live CTA's label. The default "View Live Product" is right when the link opens the product; it is wrong when the link opens a demonstration instead, and the mismatch is loudest beside a non-SHIPPED status. Device Source of Truth is `ARCHIVED` and its live link reaches a synthetic-data demo behind a restricted login, so it sets `View Demo`—which makes `ARCHIVED` read as what it is: development ended, an inspectable demonstration remains. The schema rejects `liveLabel` without `liveUrl`, since it would label a button nothing renders |
 | `githubUrl` | non-empty string | no | URL for "View on GitHub" CTA. **Omit when the repository is private**—a private repo returns GitHub's 404 to every reader but the owner, so the CTA is suppressed rather than published as a dead link. Same suppression mechanics as `liveUrl` above (#874). **One exception:** a project setting `heroRefresh: 'github-social'` must supply it regardless, because that refresh reads this URL's social preview; the schema rejects the pairing rather than letting the hero go silently stale. |
 | `tags` | string[] | yes | Category/technology tags |
-| `status` | enum | yes | Project lifecycle status. One of `SHIPPED`, `EXPERIMENT`, `IN PROGRESS`, `PAUSED`, `ARCHIVED`. Drives the homepage Builds row, the project-card kicker on `/projects/`, the STATUS cell of the detail-page metadata strip, and the résumé Projects kicker—single source of truth, single short-form vocabulary, and one lifecycle mark across all four. See § Lifecycle marker, #274, #285 |
+| `status` | enum | yes | Project lifecycle status. One of `SHIPPED`, `EXPERIMENT`, `IN DEVELOPMENT`, `PAUSED`, `ARCHIVED`. Drives the homepage Builds row, the project-card kicker on `/projects/`, the STATUS cell of the detail-page metadata strip, and the résumé Projects kicker—single source of truth, single short-form vocabulary, and one lifecycle mark across all four. See § Lifecycle marker, #274, #285 |
 | `metadata.format` | string | yes | Metadata strip: product-type label (e.g., "Internal platform tool"). The tech stack lives in the separate `stack` field—this field is for product category |
 | `metadata.focus` | string | yes | Metadata strip: focus area value |
 | `stack` | string | no | Tech stack values separated by ` · ` (e.g., `"React · TypeScript · Vite · Firebase · Vitest"`). Rendered as a figcaption below the screenshot. Optional—projects without a stack field render without the caption |
@@ -317,7 +317,7 @@ The `.metadata-strip--grid-2x2` variant from the previous architecture has been 
 
 ## Lifecycle marker
 
-The STATUS cell of the metadata strip carries a lifecycle mark: `■ SHIPPED`, a cored ring for `ARCHIVED`, `□ PAUSED`, a half-filled square for `EXPERIMENT`, and the bare outline for `IN PROGRESS`.
+The STATUS cell of the metadata strip carries a lifecycle mark: `■ SHIPPED`, a cored ring for `ARCHIVED`, `□ PAUSED`, a half-filled square for `EXPERIMENT`, and the bare outline for `IN DEVELOPMENT`.
 
 **It belongs to that cell and to nothing else on the page.** Not beside the `h1`, not in the breadcrumb, not on the `View Live Product` CTA, not as a kicker above the title, and never in two places at once. Lifecycle is metadata about a project's state; the title is the project's identity, and a mark placed next to the title makes the two compete. The STATUS cell is where lifecycle semantics already live, so putting the mark there completes a grammar the site already speaks—homepage Builds row, `/projects/` card kicker, this cell—rather than adding decoration. It also fills a fourth cell that read under-filled beside its three neighbours. `tests/project-pages.test.js` asserts exactly one `.state-marker` per detail page and that it is not inside the hero, the breadcrumb, or the CTA row.
 

@@ -11,7 +11,7 @@
  * looks like — the residue defect this repo keeps re-finding in review.
  *
  * Keys are the `status` enum in `src/content.config.ts`. `PAUSED` and
- * `IN PROGRESS` map to modifiers that add no declarations of their own: both
+ * `IN DEVELOPMENT` map to modifiers that add no declarations of their own: both
  * render the bare outline, which is the correct mark for "nothing is running
  * yet." They are kept as named hooks rather than dropped so the emitted class
  * still says which state produced the outline.
@@ -23,7 +23,7 @@ export const STATUS_MARKER: Record<string, string> = {
   ARCHIVED: 'archived',
   PAUSED: 'paused',
   EXPERIMENT: 'experiment',
-  'IN PROGRESS': 'in-progress',
+  'IN DEVELOPMENT': 'in-development',
 };
 
 /**

@@ -1289,7 +1289,7 @@ html[data-fonts-pending] .panel-label {
   padding: 0.1em;
 }
 
-/* PAUSED and IN PROGRESS keep the bare outline: nothing is running yet. */
+/* PAUSED and IN DEVELOPMENT keep the bare outline: nothing is running yet. */
 
 /* Print fidelity belongs to the primitive, not to one surface (#950).
    Three of the four marks ARE backgrounds — filled for SHIPPED, cored for
@@ -1316,7 +1316,7 @@ html[data-fonts-pending] .panel-label {
    lives in one module (src/lib/lifecycle-marker.ts).
 
    The 1px border is not a background, so the outline always prints — which is
-   why PAUSED and IN PROGRESS need nothing here, and why /projects/matchline/
+   why PAUSED and IN DEVELOPMENT need nothing here, and why /projects/matchline/
    renders byte-identical with the rule and without it.
 
    Asserted in tests/lifecycle-marker.test.js, not in the résumé PDF: the

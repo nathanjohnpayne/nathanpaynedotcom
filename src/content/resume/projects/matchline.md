@@ -5,9 +5,9 @@ tech: ["React", "TypeScript", "Vite", "Tailwind", "Firebase", "Anthropic", "Open
 repo: "https://github.com/nathanjohnpayne/matchline"
 order: 5
 claimsReviewed:
-  caseStudy: "e7ac805d9b6cabdb6fd3789ea668be98fdc045669aff3452152650b6ca6aac94"
-  resume: "587bd75543cfb9bcfa358cca8d3ff978e176faa80ca0c2105f22a843cb5c2c8e"
-  date: "2026-10-15"
+  caseStudy: "4886bb542fcbe8ed46cbd72d6843e53b07fac5a99e9bb7f03d04fa36fde9ac2a"
+  resume: "0f604ca5681be348342122d8029abc22a8e2db6f5c7b6c7e47ad9f715fb8bf7f"
+  date: "2026-10-26"
 ---
 
-A career CRM that blocks any application claim not traced to approved evidence; the gate was never validated with users, and the export behind it remained a stub. Paused before launch at 48% extraction and 19% match against an 80% bar set before any measurement.
+A career CRM that blocks any application claim not traced to approved evidence; the gate was never user-validated, and its export is still a stub. Back in development since October 2026, unlaunched, at 48% extraction and 19% match against an 80% bar set before any measurement.

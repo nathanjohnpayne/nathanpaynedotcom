@@ -74,7 +74,7 @@ const projects = defineCollection({
       // project's own color still comes through, just darkened for contrast.
       screenshotDarkSurface: z.boolean().optional(),
       accent: z.enum(['red', 'yellow', 'black', 'blue', 'paper']),
-      // Optional: in-progress projects (status "IN PROGRESS") may not have
+      // Optional: in-development projects (status "IN DEVELOPMENT") may not have
       // a deployed app yet. When omitted, the live CTA (see liveLabel) is
       // suppressed on the detail page, the project card, and the homepage
       // Builds section. When present, must be a non-empty string.
@@ -98,7 +98,7 @@ const projects = defineCollection({
       // Status drives both the project-card kicker on /projects/ and the
       // Status column in the detail-page metadata table — single source of
       // truth, single short-form vocabulary across both surfaces. See #274.
-      status: z.enum(['SHIPPED', 'EXPERIMENT', 'IN PROGRESS', 'PAUSED', 'ARCHIVED']),
+      status: z.enum(['SHIPPED', 'EXPERIMENT', 'IN DEVELOPMENT', 'PAUSED', 'ARCHIVED']),
       metadata: z.object({
         format: z.string(),
         focus: z.string(),
