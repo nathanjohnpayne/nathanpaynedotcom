@@ -190,21 +190,45 @@ const imageDimensions = {
   '/blog/the-product-did-not-travel/img/vacay-bodega-ranks.png': { width: 786, height: 1550 },
 };
 
-const TITLE_LINK = /\[([^\]]+)\]\((https:\/\/[^\s)]+)\)/g;
+const TITLE_LINK_START = /\[([^\]]+)\]\((?=https:\/\/)/g;
+
+/**
+ * End of a link destination that starts at `from`: the index of the `)` that
+ * closes it, or -1. Balanced parentheses stay in the URL, as CommonMark allows
+ * (`https://example.com/Foo_(bar)`); whitespace ends the attempt.
+ */
+function destinationEnd(title, from) {
+  let depth = 0;
+  for (let i = from; i < title.length; i += 1) {
+    const char = title[i];
+    if (/\s/.test(char)) return -1;
+    if (char === '(') depth += 1;
+    if (char === ')') {
+      if (depth === 0) return i;
+      depth -= 1;
+    }
+  }
+  return -1;
+}
 
 /** Split an image title into text and link nodes for the caption. */
 export function captionLinkNodes(title) {
   const nodes = [];
   let last = 0;
-  for (const match of title.matchAll(TITLE_LINK)) {
+  TITLE_LINK_START.lastIndex = 0;
+  for (let match = TITLE_LINK_START.exec(title); match; match = TITLE_LINK_START.exec(title)) {
+    const urlStart = match.index + match[0].length;
+    const end = destinationEnd(title, urlStart);
+    if (end === -1) continue;
     if (match.index > last) nodes.push({ type: 'text', value: title.slice(last, match.index) });
     nodes.push({
       type: 'element',
       tagName: 'a',
-      properties: { href: match[2] },
+      properties: { href: title.slice(urlStart, end) },
       children: [{ type: 'text', value: match[1] }],
     });
-    last = match.index + match[0].length;
+    last = end + 1;
+    TITLE_LINK_START.lastIndex = last;
   }
   if (last < title.length) nodes.push({ type: 'text', value: title.slice(last) });
   return nodes;

@@ -56,6 +56,32 @@ describe('figure caption links from the image title', () => {
     expect(figcaption.children).toEqual([{ type: 'text', value: 'Plain caption.' }]);
   });
 
+  it('keeps balanced parentheses inside a link destination', () => {
+    expect(captionLinkNodes('See [Foo](https://example.com/Foo_(bar)).')).toEqual([
+      { type: 'text', value: 'See ' },
+      {
+        type: 'element',
+        tagName: 'a',
+        properties: { href: 'https://example.com/Foo_(bar)' },
+        children: [{ type: 'text', value: 'Foo' }],
+      },
+      { type: 'text', value: '.' },
+    ]);
+  });
+
+  it('leaves an unclosed or space-broken destination as text', () => {
+    expect(captionLinkNodes('[a](https://x.example/(open and [b](https://y.example/ok).')).toEqual([
+      { type: 'text', value: '[a](https://x.example/(open and ' },
+      {
+        type: 'element',
+        tagName: 'a',
+        properties: { href: 'https://y.example/ok' },
+        children: [{ type: 'text', value: 'b' }],
+      },
+      { type: 'text', value: '.' },
+    ]);
+  });
+
   it('links only https URLs and leaves other bracket syntax as text', () => {
     expect(captionLinkNodes('See [x](javascript:alert(1)) and [y](http://plain.example).')).toEqual(
       [{ type: 'text', value: 'See [x](javascript:alert(1)) and [y](http://plain.example).' }],
