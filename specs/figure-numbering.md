@@ -14,7 +14,7 @@ One pass rather than a counter per producer. Two counters that happen to agree a
 
 ## Where the label goes
 
-An image figure is unchanged: `<figcaption><strong class="figure-label">Figure N:</strong> alt text</figcaption>`.
+An image figure is unchanged: `<figcaption><strong class="figure-label">Figure N:</strong> alt text</figcaption>`. When the image's Markdown title carries `[label](https://…)` links, `rehypeFigureCaptions` appends the title to the caption after the alt text, with those spans as links, and drops the `title` attribute; the label still leads.
 
 A diagram gets the same label in the same place and nothing else of the image figure. No frame, no ground, no border:
 
