@@ -12,6 +12,17 @@ import { visit } from 'unist-util-visit';
  *     <figcaption>Alt text</figcaption>
  *   </figure>
  *
+ * Alt text is plain text by the time it reaches rehype: Markdown flattens the
+ * image description and drops any link URLs inside it. A caption that has to
+ * link its sources therefore carries them in the image title, the one string
+ * Markdown passes through verbatim:
+ *
+ *   ![Alt text](/img.png "Articles: [Outlet](https://example.com/story).")
+ *
+ * The title's `[label](https://…)` spans become links appended to the caption,
+ * and the title attribute is dropped so the raw syntax never shows as a
+ * tooltip. Only https URLs become links; anything else stays literal text.
+ *
  * The `Figure N:` label is NOT applied here (#998). It is applied by
  * `rehype-figure-numbers.mjs`, which runs after this plugin and numbers images
  * and Mermaid diagrams in one document-order sequence. A counter local to this
@@ -69,9 +80,12 @@ const imageDimensions = {
     width: 2000,
     height: 1558,
   },
-  '/blog/the-subagent-said-it-was-unsafe/img/news-headlines.png': {
-    width: 1600,
-    height: 1376,
+  // Google News result cards, captured in the browser at 3.08x and stitched
+  // from two exactly abutting halves, timestamps cropped. A re-capture takes a
+  // new filename for the same caching reason as the Five Across images below.
+  '/blog/the-subagent-said-it-was-unsafe/img/news-headlines-google.png': {
+    width: 1480,
+    height: 1378,
   },
   '/images/projects/five-across-final-standings.png': {
     width: 1800,
@@ -176,6 +190,26 @@ const imageDimensions = {
   '/blog/the-product-did-not-travel/img/vacay-bodega-ranks.png': { width: 786, height: 1550 },
 };
 
+const TITLE_LINK = /\[([^\]]+)\]\((https:\/\/[^\s)]+)\)/g;
+
+/** Split an image title into text and link nodes for the caption. */
+export function captionLinkNodes(title) {
+  const nodes = [];
+  let last = 0;
+  for (const match of title.matchAll(TITLE_LINK)) {
+    if (match.index > last) nodes.push({ type: 'text', value: title.slice(last, match.index) });
+    nodes.push({
+      type: 'element',
+      tagName: 'a',
+      properties: { href: match[2] },
+      children: [{ type: 'text', value: match[1] }],
+    });
+    last = match.index + match[0].length;
+  }
+  if (last < title.length) nodes.push({ type: 'text', value: title.slice(last) });
+  return nodes;
+}
+
 export default function rehypeFigureCaptions() {
   return (tree) => {
     visit(tree, 'element', (node, index, parent) => {
@@ -193,10 +227,12 @@ export default function rehypeFigureCaptions() {
 
       const img = children[0];
       const alt = img.properties?.alt || '';
+      const title = img.properties?.title || '';
 
       // Add loading="lazy" and dimensions to the image
       img.properties = img.properties || {};
       img.properties.loading = 'lazy';
+      delete img.properties.title;
 
       const src = img.properties.src || '';
       const dims = imageDimensions[src];
@@ -225,7 +261,9 @@ export default function rehypeFigureCaptions() {
             type: 'element',
             tagName: 'figcaption',
             properties: {},
-            children: [{ type: 'text', value: alt }],
+            children: title
+              ? [{ type: 'text', value: `${alt} ` }, ...captionLinkNodes(title)]
+              : [{ type: 'text', value: alt }],
           },
         ],
       };
