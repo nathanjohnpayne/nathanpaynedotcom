@@ -76,6 +76,7 @@
       "scripts/workflow/report-approval-continuation-failures.sh",
       "tests/test_approval_merge_continuation.sh",
       "tests/test_merge_clearance_gate.sh",
+      "scripts/lib/credential-class.sh",
       "scripts/workflow/installation-budget.sh",
       "scripts/gate-api-lineage-blocking.sh",
       "scripts/merge-clearance-gate.sh",
@@ -134,6 +135,32 @@
       "scripts/audit-credential-isolation.py",
       "scripts/audit-branch-protection.sh",
       "scripts/merge-clearance-gate.sh"
+    ],
+    "check_ci_app_trust": [
+      "scripts/ci/ci_app_trust.py",
+      ".github/chainguard/*",
+      ".github/workflows/agent-review.yml",
+      ".github/workflows/auto-clear-blocking-labels.yml",
+      ".github/workflows/branch-protection-audit.yml",
+      ".github/workflows/coderabbit-severity-gate.yml",
+      ".github/workflows/codex-feedback-archive-relay.yml",
+      ".github/workflows/codex-p1-gate.yml",
+      ".github/workflows/daily-feedback-rollup.yml",
+      ".github/workflows/dependabot-auto-merge.yml",
+      ".github/workflows/md-prose-wrap.yml",
+      ".github/workflows/merge-clearance-gate.yml",
+      ".github/workflows/merge-queue-authorization.yml",
+      ".github/workflows/merge-queue-final-audit.yml",
+      ".github/workflows/onepassword-headless-proof.yml",
+      ".github/workflows/owl-rules-check.yml",
+      ".github/workflows/pr-audit.yml",
+      ".github/workflows/pr-review-policy.yml",
+      ".github/workflows/repo-lint-latency.yml",
+      ".github/workflows/required-check-publisher.yml",
+      ".github/workflows/thread-resolution-lane.yml",
+      ".github/workflows/token-output-oracle-macos.yml",
+      ".github/workflows/weekly-drift-audit.yml",
+      ".github/workflows/weekly-feedback-sweep.yml"
     ],
     "check_cockpit": [
       "scripts/cockpit.sh",
@@ -223,6 +250,7 @@
       "scripts/lib/gh-api-array.sh"
     ],
     "check_codex_scripts": [
+      "scripts/lib/credential-class.sh",
       "scripts/lib/codex-request-evidence.sh",
       "tests/test_codex_request_evidence.sh",
       "scripts/codex-review-ledger.sh",
@@ -304,6 +332,7 @@
       "tests/test_feedback_policy_helpers.sh"
     ],
     "check_gh_as_author": [
+      "scripts/lib/credential-class.sh",
       ".claude/settings.json",
       ".codex/hooks.json",
       ".github/workflows/agent-review.yml",
@@ -376,6 +405,7 @@
       "scripts/lib/reviewers-helpers.sh"
     ],
     "check_merge_group_required_checks": [
+      "scripts/lib/credential-class.sh",
       "tests/test_merge_group_required_checks.sh",
       "scripts/gh-as-author.sh",
       "scripts/identity-check.sh",
@@ -408,6 +438,7 @@
       "scripts/bootstrap/template-mirror.sh"
     ],
     "check_op_preflight_contract": [
+      "scripts/lib/credential-class.sh",
       "tests/test_agent_capability_probe.sh",
       "tests/test_cloud_environment.sh",
       "tests/test_helper_autosource.sh",
@@ -439,6 +470,7 @@
       "tests/test_phase_4b_accounting.sh"
     ],
     "check_phase_4b_automation": [
+      "scripts/lib/credential-class.sh",
       "scripts/lib/coderabbit-fence.sh",
       "scripts/lib/ci-check-modes.sh",
       "scripts/lib/pr-body-contract.mjs",
@@ -478,6 +510,7 @@
     ],
     "check_pipeline_token_checkouts": [
       "scripts/ci/pipeline_token_checkouts.py",
+      "scripts/ci/ci_app_trust.py",
       ".github/workflows/agent-review.yml",
       ".github/workflows/auto-clear-blocking-labels.yml",
       ".github/workflows/branch-protection-audit.yml",
@@ -569,8 +602,10 @@
       "scripts/lib/template-substitution.sh"
     ],
     "check_resolve_pr_threads": [
+      "scripts/lib/credential-class.sh",
       "tests/test_resolve_pr_threads_rationale_tag.sh",
       "tests/test_resolve_pr_threads_read_failure.sh",
+      "tests/test_resolve_pr_threads_bind_head.sh",
       "tests/test_resolve_pr_threads_staleness_pagination.sh",
       "tests/test_resolve_pr_threads_verified_propagation.sh",
       "scripts/identity-check.sh",
@@ -610,7 +645,8 @@
       "tests/test_self_approval_detector.sh",
       "tests/test_approval_independence_check.sh",
       "tests/test_approval_merge_continuation.sh",
-      "tests/test_merge_clearance_gate.sh"
+      "tests/test_merge_clearance_gate.sh",
+      "scripts/lib/credential-class.sh"
     ],
     "check_session_finalization": [
       "tests/test_session_finalization_check.sh",
@@ -653,6 +689,10 @@
       "tests/test_template_substitution.sh",
       "scripts/lib/template-substitution.sh"
     ],
+    "check_trusted_consumer_admission": [
+      "scripts/workflow/trusted-consumer-admission.sh",
+      "tests/test_trusted_consumer_admission.sh"
+    ],
     "check_verify_propagation_pr": [
       "tests/test_match_protected_paths.sh",
       "tests/test_verify_propagation_pr.sh"
@@ -668,6 +708,9 @@
     ],
     "check_workflow_parsers": [
       "tests/test_dependabot_auto_merge_check_wait.sh",
+      "tests/test_author_merge_token.sh",
+      "scripts/lib/credential-class.sh",
+      "tests/test_dependabot_reviewer_environment.sh",
       "tests/test_655_repo_lint_local_observed.sh",
       "tests/test_load_review_config.sh",
       "scripts/ci/fixtures/workflow-parsers/*",
