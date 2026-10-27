@@ -69,6 +69,10 @@ const imageDimensions = {
     width: 2000,
     height: 1558,
   },
+  '/blog/the-subagent-said-it-was-unsafe/img/news-headlines.png': {
+    width: 1600,
+    height: 1376,
+  },
   '/images/projects/five-across-final-standings.png': {
     width: 1800,
     height: 2250,

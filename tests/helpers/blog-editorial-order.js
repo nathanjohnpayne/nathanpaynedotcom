@@ -2,6 +2,7 @@
 // tests can catch regressions in the ordering implementation.
 export const EXPECTED_BLOG_EDITORIAL_ORDER = [
   'the-product-did-not-travel',
+  'the-subagent-said-it-was-unsafe',
   'silence-is-not-an-approval',
   'every-reviewer-was-right',
   'autofix-was-the-whole-cost',
