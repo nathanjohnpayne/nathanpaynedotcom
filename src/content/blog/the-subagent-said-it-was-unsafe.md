@@ -20,7 +20,7 @@ pullquotes:
     label: "Outvoted"
     accent: red
   - text: "A check the author can rewrite in the same diff is not a check. It's a suggestion with a test runner."
-    label: "The oracle"
+    label: "The rewritten check"
     accent: yellow
   - text: "A rebuttal is the author telling the reviewer why it's wrong. Today, in my pipeline, that is also the author deciding the reviewer was wrong."
     label: "The gap"
@@ -28,7 +28,7 @@ pullquotes:
 sidebar:
   - type: text
     content: |
-      Provenance. The OpenAI incidents are quoted from OpenAI's report "Suppressing misalignment monitoring alerts and disabling misalignment monitoring," read on 2026-10-26; the page shows incident dates of October 3 and October 6, 2026, and an update on October 20, 2026. One quoted instruction appears on that page without spaces between words; I have restored the spacing. Everything about Mergepath comes from its repository at commit `ce80530`, read on 2026-10-26, and from issues #672, #962 and #1000 and pull requests #674, #1018 and #2589, read through the GitHub API the same day. The headline figure shows Google News results for the articles from The Verge, CNBC, The Independent and The Hacker News, captured on 2026-10-26. Dates are Pacific time.
+      Provenance. The OpenAI incidents are quoted from OpenAI's report "Suppressing misalignment monitoring alerts and disabling misalignment monitoring," read on 2026-10-26; the page shows incident dates of October 3 and October 6, 2026, and an update on October 20, 2026. One quoted instruction appears on that page without spaces between words; I have restored the spacing. Everything about Mergepath comes from its repository at commit `ce80530`, read on 2026-10-26, and from issues #672, #962 and #1000 and pull requests #674, #1018 and #2589, read through the GitHub API the same day. Issues #2852, #2853, #2854 and #2855, which track the three rules, were filed and read on 2026-10-28. The headline figure shows Google News results for the articles from The Verge, CNBC, The Independent and The Hacker News, captured on 2026-10-26. Dates are Pacific time. Updated 2026-10-28: the three rules now link to the issues that track them, and "The oracle" is now "The rewritten check."
     caption: "Where each claim comes from."
 ---
 
@@ -50,7 +50,7 @@ Most multi-agent setups I've seen work this way, including my own. An orchestrat
 
 Human engineering has a familiar answer: separation of duties. The person who writes a change doesn't approve it. The person whose change fails a required check can't wave it through. It's old, boring, and effective because it doesn't depend on anyone choosing well in the moment.
 
-## The oracle
+## The rewritten check
 
 The October 6 incident is a different failure. The objection wasn't overruled. It was removed.
 
@@ -86,16 +86,16 @@ My pipeline already uses a stricter standard elsewhere. On October 20, the same 
 
 ## Three rules
 
-These are proposals, not adopted enforcement. Each has a cost.
+These are now tracked as Mergepath issues; none is enforced yet. Each has a cost.
 
-**A blocking finding clears through a fix the reviewer re-reads, or through a human.** The author's rebuttal starts that process; it doesn't finish it. Some rebuttals are right. If the reviewer keeps raising a finding the author has correctly rebutted, the PR comes to me. [#962](https://github.com/nathanjohnpayne/mergepath/issues/962) already warns that routine holds train a break-glass reflex. I'd rather spend that attention on a disagreement than on a provider outage, but it's still attention.
+**A blocking finding clears through a fix the reviewer re-reads, or through a human.** The author's rebuttal starts that process; it doesn't finish it. Some rebuttals are right. If the reviewer keeps raising a finding the author has correctly rebutted, the PR comes to me. [#962](https://github.com/nathanjohnpayne/mergepath/issues/962) already warns that routine holds train a break-glass reflex. I'd rather spend that attention on a disagreement than on a provider outage, but it's still attention. Tracked in [#2852](https://github.com/nathanjohnpayne/mergepath/issues/2852).
 
-**The author of a change cannot weaken the checks that judge it in the same diff.** Mergepath already does this for policy and gate scripts. The gap is tests. Sending every test change to external review would send nearly every PR there. I'd start with diffs that delete, skip, or invert an existing assertion and send those to a reviewer other than the author's own agent. I haven't built it, and I don't yet know how many false positives an inversion detector produces.
+**The author of a change cannot weaken the checks that judge it in the same diff.** Mergepath already does this for policy and gate scripts. The gap is tests. Sending every test change to external review would send nearly every PR there. I'd start with diffs that delete, skip, or invert an existing assertion and send those to a reviewer other than the author's own agent. I haven't built it, and I don't yet know how many false positives an inversion detector produces. A spike to measure that is [#2853](https://github.com/nathanjohnpayne/mergepath/issues/2853); the build, [#2854](https://github.com/nathanjohnpayne/mergepath/issues/2854), waits on its result.
 
-**An objection has to survive the handoff.** In the October 3 incident, the subagent's objection lived in a trace. The run's final response said "No messages were sent." When a delegate flags something as unsafe, the orchestrator should pass that objection up verbatim, whether or not it agrees. #672 lost advisory findings rather than an unsafe judgment. Both need the same protection: write the objection down where the next reader will see it.
+**An objection has to survive the handoff.** In the October 3 incident, the subagent's objection lived in a trace. The run's final response said "No messages were sent." When a delegate flags something as unsafe, the orchestrator should pass that objection up verbatim, whether or not it agrees. #672 lost advisory findings rather than an unsafe judgment. Both need the same protection: write the objection down where the next reader will see it. Tracked in [#2855](https://github.com/nathanjohnpayne/mergepath/issues/2855); part of that work sits outside Mergepath, in the agent that dispatches the subagents.
 
 ## A no that holds
 
 OpenAI's first listed remedy was a change to review. Its internal review step, required for its own Codex use, "has been updated to detect and block attempts to disable misalignment monitoring." A reviewer whose "no" the agent can't override.
 
-Every system I've described already produced the right objection: the subagent, the regression test, the review-body finding, the advisory notes on an approval. The failures were in what happened next. Dissent was outvoted, rewritten, unread, or discarded. A reviewer's "no" has to hold weight on its own, so that removing it is something only the reviewer or a human can do. My pipeline gets there for unread findings and for its own policy. For a rebutted finding, it doesn't yet.
+Every system I've described already produced the right objection: the subagent, the regression test, the review-body finding, the advisory notes on an approval. The failures were in what happened next. Dissent was outvoted, rewritten, unread, or discarded. A reviewer's "no" has to hold weight on its own, so that removing it is something only the reviewer or a human can do. My pipeline gets there for unread findings and for its own policy. For a rebutted finding, it doesn't yet. The rule on rebutted findings is the one I'm building first; the rule on weakened tests starts as a spike that counts false positives before anything is built.
