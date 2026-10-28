@@ -37,6 +37,8 @@ decisions:
     evidence: |
       The gate exists in code, with a fixture designed to break it. That test proves the orchestration blocks a known fabricated claim. The language-model checks are mocked, so it doesn't measure whether the detector reliably catches a new one.
 
+      The first live run, on 2026-10-27, checked a draft generated from my approved evidence for a test role and flagged five claims it couldn't trace. One was invented: a job title taken from the role, not from anything I'd approved. Two were true but cited the wrong evidence. Two drew partly on skill tags I'd approved, which the generator reads and the validator never sees. One run isn't a detection rate, but it caught a real fabrication, and it showed that the generator and the validator don't read the same evidence.
+
       The product records no use of a generated output by a user. The export behind the gate remains a stub.
     status: "pending"
   - title: "Build for one user and refuse to generalize"
@@ -100,13 +102,15 @@ This was a hypothesis about my own job search. I did no external user research o
 | Résumé into Experience Units | Built |
 | Approved evidence only, into matching | Built |
 | Job description into requirements, with gaps surfaced | Built |
-| Fabrication gate blocking export | Built, never user-validated; the export it gates is a Phase 2 stub |
-| Latency and cost targets | Measured once (2026-04-27): cost met, latency 11.8× over |
+| Fabrication gate blocking export | Built; first live verdict 2026-10-27, never user-validated; the export it gates is a Phase 2 stub |
+| Latency and cost targets | Full flow timed once to a verdict (2026-10-27): cost met, latency about 4.4× over |
 | Pipeline board, with drag and keyboard stage moves | Built and deployed October 2026 |
 | Follow-up tasks and a next action on each card | Built and deployed October 2026 |
 | Fit-brief generator and private-corpus eval harness | Built October 2026; never run with paid calls |
 
 LinkedIn and long-form ingestion were deferred. Uploaded PRDs, decks, and retrospectives never existed—an earlier version of this page listed them as inputs, incorrectly. They were specified, but never built. I'm keeping the correction here because the earlier page claimed more than the product did.
+
+The latency row needed a correction too. It used to say latency was 11.8× over, from an April run. That run included résumé extraction, which the 20-second target leaves out, and stopped before generation and validation, which it includes. The first timing of the real flow, from a pasted job description to a validated résumé, couldn't finish: validation made its model calls one at a time and ran into the server's 300-second limit, so the gate could never pass. After a fix that runs those calls six at a time, the same flow took about 88 seconds against the 20-second target and cost $0.87, inside the $0.50-to-$1.00 target. That's one run.
 
 The last three rows are the October restart. They're the CRM half of the product: where each application stands, and what I owe it next. None of them moves the match score.
 
@@ -242,7 +246,7 @@ A validator that says "looks fine" can score well if every input is honest. I ne
 
 Both claims carry a number. The 7.4-to-4-day cycle time traces to the Unit above. I've never worked on SAP HANA, so a 40% throughput gain on it is a claim I couldn't defend, however plausible the sentence sounds. None of those four claims traces to an Experience Unit. The fixture lists all four, explains why each fails, and expects validation to fail.
 
-That test runs in continuous integration against the Firestore emulator. Passing means the gate blocked the Export control, whose handler is still a stub. It proves the orchestration refuses a known untraceable claim. The model checks are mocked, so it doesn't establish that the model catches a new one. The integration reaches the database, not the model API.
+That test runs in continuous integration against the Firestore emulator. Passing means the gate blocked the Export control, whose handler is still a stub. It proves the orchestration refuses a known untraceable claim. The model checks are mocked, so it doesn't establish that the model catches a new one. The integration reaches the database, not the model API. The one live run, under the first decision above, is a single data point, not a rate.
 
 ## How it was built
 
@@ -258,7 +262,7 @@ The eval stage cache landed on the evening of 2026-07-31, Pacific. That dates th
 
 Product commits resumed on 2026-08-31 and, as of 2026-09-01, were still landing. The fixes below belong to that later work. Through September, paused meant I hadn't launched or decided to restart; it didn't mean the repository stopped receiving product fixes. The restart came in October.
 
-A development build is deployed behind a sign-in wall, and the "View Live Product" button above goes to it. It was redeployed on the evening of 2026-08-31, replacing the 2026-05-02 build it had served until then, and again on 2026-10-02. The served build checked for this page carries the June and July work and the fixes that followed. I redeployed it on 2026-10-26 with the October work, so the Pipeline and the follow-up tasks are in it. The screenshots on this page come from the app's test build, seeded with invented data.
+A development build is deployed behind a sign-in wall, and the "View Live Product" button above goes to it. It was redeployed on the evening of 2026-08-31, replacing the 2026-05-02 build it had served until then, and again on 2026-10-02. The served build checked for this page carries the June and July work and the fixes that followed. I redeployed it on 2026-10-26 with the October work, so the Pipeline and the follow-up tasks are in it, and again on the evening of 2026-10-27 with the validation fix. The screenshots on this page come from the app's test build, seeded with invented data.
 
 Since 2026-09-30, the source rules and callable gates restrict reads and calls to my owner allowlist. The audit read the anonymous sign-in shell and its bundle; it didn't verify the deployed rules or try another account. The link shows that shell, not the corpus.
 
@@ -299,11 +303,13 @@ In September I wrote that the infrastructure worked, experiments were cheap, my 
 
 I made that decision in October 2026, and the project is back in development. I didn't meet the criteria first. Measured against them:
 
-- **The evaluation corpus** still has four labeled pairs. A harness now scores generated fit briefs against briefs I wrote and approved for real roles, and it keeps that corpus out of the public repository. It has made no paid run. My Max plan now includes $200 a month in API credit, which would pay for one, and that eval window is still waiting on my approval.
+- **The evaluation corpus** still has four labeled pairs. A harness now scores generated fit briefs against briefs I wrote and approved for real roles, and it keeps that corpus out of the public repository. It has made no paid run. My Max plan now includes $200 a month in API credit, and I've approved spending it on runs I track; the two timed flows above used $1.61 of it. The fit-brief eval still hasn't run.
 - **The measurement** is no more trustworthy than it was in July. Nothing has rerun the four-pair baseline under the repaired mapping, so I still can't tell an improvement from noise.
-- **A real application end to end** still hasn't happened. The export behind the gate is still a stub.
+- **A real application end to end** still hasn't happened. The pipeline now runs from a pasted job description to a validation verdict, but only on a test role, and the export behind the gate is still a stub.
 
 The work so far went to the CRM half: a Pipeline board, follow-up tasks, and a next action on each card. A job search in progress needs to track applications whether or not matching is ready, and that work doesn't depend on the matcher getting better. It was deployed on 2026-10-26.
+
+The one exception was on the evidence side. Timing the full flow showed that validation couldn't finish on a normal résumé, so the gate could never pass. That fix was deployed on 2026-10-27. It made the flow complete; it didn't make it fast, and it didn't touch matching.
 
 The kill criteria still stand. If a full tuning cycle leaves matching fundamentally poor, or I finish this search without reaching for the tool, that answers the question. Restarting puts the project back in development. It doesn't mean the thesis has held up.
 
