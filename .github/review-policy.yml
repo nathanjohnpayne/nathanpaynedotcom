@@ -42,6 +42,15 @@ available_reviewers:
   - nathanpayne-cursor
   - nathanpayne-codex
 
+# Dependabot-only approver identities (mergepath#2874). The account behind
+# DEPENDABOT_REVIEWER_TOKEN in the dependabot-reviewer environment. Its
+# approval counts on the Dependabot lane only (dependabot-auto-merge.yml, the
+# Merge clearance gate's Dependabot arm, pr-audit Check 2); it is deliberately
+# NOT in available_reviewers, so it cannot clear any other PR. See
+# REVIEW_POLICY.md § Dependabot-only approver identities in mergepath.
+dependabot_reviewer_identities:
+  - nathanpayne-deps
+
 # ---------------------------------------------------------------------------
 # Retained Feedback Archive Identities
 # ---------------------------------------------------------------------------
