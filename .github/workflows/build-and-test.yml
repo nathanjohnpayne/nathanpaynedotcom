@@ -64,8 +64,10 @@ jobs:
           # an explicit one-line change here, not something CI adopts on
           # its own. `engines.node` in package.json separately records the
           # range the dependency tree actually supports
-          # (^22.22.3 || ^24.16.0 || >=26.3.0 — the tightest constraint is
-          # astro-eslint-parser / eslint-plugin-astro), so a bump that
+          # (^22.23.4 || ^24.16.0 || >=26.3.0 — astro 7.4, @astrojs/mdx,
+          # @astrojs/prism and @astrojs/telemetry set the Node 22 floor;
+          # astro-eslint-parser / eslint-plugin-astro set the 24 and 26
+          # floors), so a bump that
           # raises that floor past the pin shows up as an EBADENGINE
           # warning in the `npm ci` step below.
           node-version-file: .nvmrc
