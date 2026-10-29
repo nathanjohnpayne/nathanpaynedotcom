@@ -59,9 +59,9 @@ These are pinned deliberately. Read this before bumping either one—including a
 {
   "devDependencies": {
     "typescript": ">=6.0.3 <6.1.0",
-    "astro": "7.3.1",
-    "@astrojs/markdown-remark": "7.3.0",
-    "@astrojs/mdx": "8.0.0"
+    "astro": "7.4.4",
+    "@astrojs/markdown-remark": "7.3.5",
+    "@astrojs/mdx": "8.1.2"
   },
   "typescriptPeerCeilingSources": ["@astrojs/check", "typescript-eslint"],
   "markdownProcessorLockstep": ["astro", "@astrojs/markdown-remark", "@astrojs/mdx"]
