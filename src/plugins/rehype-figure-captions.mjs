@@ -137,7 +137,7 @@ const imageDimensions = {
   // still stops at `Total (Nathan Payne)`, as the live capture had to (#882).
   // A re-capture takes a new filename: /images/** is cached for four hours, so
   // reusing a path serves the old pixels at the new dimensions.
-  '/images/projects/friends-and-family-billing-household-v2.png': {
+  '/images/projects/friends-and-family-billing-household-v3.png': {
     width: 2772,
     height: 432,
   },

@@ -18,7 +18,7 @@ The collection accepts `.md` or `.mdx`. A page only needs `.mdx` if its body pla
 ### Required files
 
 1. **Markdown source**: `src/content/projects/<slug>.md` (or `<slug>.mdx`, if the body places a case-study component)
-2. **Hero image**: any path under `public/` named by `screenshotSrc`; the convention is `public/images/projects/<slug>-hero.png` (or `.gif` for animated), though current heroes include `mergepath.png`, `matchline-wordmark.svg`, and `friends-and-family-billing-hero-v4.png`
+2. **Hero image**: any path under `public/` named by `screenshotSrc`; the convention is `public/images/projects/<slug>-hero.png` (or `.gif` for animated), though current heroes include `mergepath.png`, `matchline-wordmark.svg`, and `friends-and-family-billing-hero-v5.png`
 
 ### Frontmatter template
 
