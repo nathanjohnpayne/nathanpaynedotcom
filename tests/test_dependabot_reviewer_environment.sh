@@ -16,7 +16,8 @@
 # secret, an unresolvable or wrong identity, self-approval, human-hold, a
 # changed head (the approval reads back on another SHA, or the head moved
 # before the merge), a base retargeted off the default branch, an empty head
-# read, a dismissed approval (also across review pages), and the happy paths.
+# read, a dismissed approval (also across review pages), an exact-head
+# approval held only by another allowlisted login, and the happy paths.
 
 set -euo pipefail
 
@@ -216,12 +217,15 @@ done
 # ---------------------------------------------------------------------------
 BOX="$WORK/box"
 mkdir -p "$BOX/bin" "$BOX/scripts/lib" "$BOX/.github"
-cp "$ROOT/scripts/lib/gh-api-array.sh" "$ROOT/scripts/lib/dependabot-commit-provenance.sh" "$BOX/scripts/lib/"
+cp "$ROOT/scripts/lib/gh-api-array.sh" "$ROOT/scripts/lib/dependabot-commit-provenance.sh" "$ROOT/scripts/lib/reviewers-helpers.sh" "$BOX/scripts/lib/"
 cat >"$BOX/.github/review-policy.yml" <<'YAML'
 author_identity: nathanjohnpayne
 available_reviewers:
   - nathanpayne-claude
   - nathanpayne-codex
+# #2874: a quoted, commented entry, which the shared reader normalizes.
+dependabot_reviewer_identities:
+  - "nathanpayne-deps"   # Dependabot-only approver
 YAML
 
 HEAD_SHA=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
@@ -343,6 +347,21 @@ if [ "$rc" -eq 0 ] \
   pass "approve: patch bump approved on the exact head, read back, merge=true; the PAT ran exactly two calls"
 else
   fail "approve: happy path rc=$rc reviewer_calls=$reviewer_calls output=$(cat "$BOX/output") log=$(cat "$BOX/gh.log"): $out"
+fi
+
+# #2874: the Dependabot-only approver, declared as a quoted and commented
+# block entry, is accepted by the approve step's allowlist exactly as the
+# Merge clearance gate's shared reader accepts it.
+set +e
+out=$(run_approve reviewer-pat nathanpayne-deps 2>&1); rc=$?
+set -e
+if [ "$rc" -eq 0 ] \
+   && grep -Fq "reviewer-pat|api -X POST repos/owner/repo/pulls/1/reviews -f commit_id=$HEAD_SHA -f event=APPROVE" "$BOX/gh.log" \
+   && grep -Fxq 'approved_by=nathanpayne-deps' "$BOX/output" \
+   && grep -Fxq 'merge=true' "$BOX/output"; then
+  pass "approve: a quoted, commented dependabot_reviewer_identities entry is accepted (#2874)"
+else
+  fail "approve: Dependabot-only approver rc=$rc output=$(cat "$BOX/output") log=$(cat "$BOX/gh.log"): $out"
 fi
 
 set +e
@@ -483,6 +502,21 @@ else
   fail "merge: non-allowlisted approver rc=$rc: $out"
 fi
 
+# The approval is bound to APPROVED_BY, not to any allowlisted login (#2822
+# item 4): when the approve job reported nathanpayne-claude, an exact-head
+# APPROVED held only by nathanpayne-codex (also in available_reviewers) must
+# not stand in for it.
+set +e
+out=$(run_exact "$HEAD_SHA" nathanpayne-claude \
+  "[$(review nathanpayne-codex APPROVED "$HEAD_SHA"),$(review nathanpayne-claude COMMENTED "$HEAD_SHA")]" 2>&1); rc=$?
+set -e
+if [ "$rc" -eq 1 ] && [[ "$out" != *CONTINUED* ]] \
+   && [[ "$out" == *"nathanpayne-claude's latest review reads ' ', expected 'APPROVED $HEAD_SHA'"* ]]; then
+  pass "merge: another allowlisted login's exact-head approval does not satisfy APPROVED_BY"
+else
+  fail "merge: APPROVED_BY mismatch rc=$rc: $out"
+fi
+
 set +e
 out=$(run_exact "$HEAD_SHA" nathanpayne-claude '[]' 1 2>&1); rc=$?
 set -e
@@ -550,6 +584,37 @@ if [ "$rc" -eq 1 ] && [[ "$out" != *CONTINUED* ]] && [[ "$out" == *"Missing head
   pass "merge: an empty approved SHA from the approve job fails closed"
 else
   fail "merge: empty approved SHA rc=$rc: $out"
+fi
+
+# ---------------------------------------------------------------------------
+# #2874 (Codex P1 on #2877): codex-review-check.sh widens its reviewer set to
+# the Dependabot-only approvers only on proven Dependabot commits, so that
+# approval can clear `needs-external-review` on a Dependabot PR and nowhere
+# else. The block is lifted from the script and run against stubbed helpers.
+# ---------------------------------------------------------------------------
+awk '/^# #2874: on a provenance-verified Dependabot PR/{p=1} /^# Build a JSON array of reviewer logins/{p=0} p' \
+  "$ROOT/scripts/codex-review-check.sh" >"$WORK/crc-dep.sh"
+mkdir -p "$WORK/crc/lib"
+cat >"$WORK/crc/lib/dependabot-commit-provenance.sh" <<'SH'
+dependabot_commit_provenance() { return "${STUB_PROVENANCE_RC:-0}"; }
+SH
+crc_reviewers() {  # <pr_author> <provenance_rc>
+  ( __CODEX_CHECK_DIR="$WORK/crc" PR_AUTHOR=$1 STUB_PROVENANCE_RC=$2 \
+    REPO=owner/repo PR_NUMBER=1 HEAD_SHA=$HEAD_SHA REVIEWERS=nathanpayne-claude
+    log() { :; }
+    read_dependabot_reviewer_identities() { echo nathanpayne-deps; }
+    read_dependabot_approvers() { printf 'nathanpayne-claude\nnathanpayne-deps\n'; }
+    . "$WORK/crc-dep.sh"
+    printf '%s\n' "$REVIEWERS" | tr '\n' ' ' )
+}
+if [ -s "$WORK/crc-dep.sh" ] \
+   && [ "$(crc_reviewers 'dependabot[bot]' 0)" = "nathanpayne-claude nathanpayne-deps " ] \
+   && [ "$(crc_reviewers 'dependabot[bot]' 1)" = "nathanpayne-claude " ] \
+   && [ "$(crc_reviewers 'dependabot[bot]' 3)" = "nathanpayne-claude " ] \
+   && [ "$(crc_reviewers nathanjohnpayne 0)" = "nathanpayne-claude " ]; then
+  pass "codex-review-check: Dependabot-only approvers count only on a provenance-verified Dependabot PR (#2874)"
+else
+  fail "codex-review-check: Dependabot-only widening: block=$(wc -l <"$WORK/crc-dep.sh") verified='$(crc_reviewers 'dependabot[bot]' 0)' rc1='$(crc_reviewers 'dependabot[bot]' 1)' rc3='$(crc_reviewers 'dependabot[bot]' 3)' human='$(crc_reviewers nathanjohnpayne 0)'"
 fi
 
 echo
