@@ -37,7 +37,11 @@ PART A: WHO MAY REQUEST `id-token: write` (ADR "Who may request")
         would run checkout under another spelling) pinned to a full 40-hex
         commit SHA;
       * no artifact download and no cache restore (`actions/cache*`, or a
-        `cache` input on any action).
+        `cache` / `package-manager-cache` input on any action whose value is
+        not the literal `false`). A setup action that caches by default
+        (CACHE_DEFAULT_ON: `actions/setup-go` `cache`, `actions/setup-node`
+        `package-manager-cache`) must turn it off explicitly; an absent input,
+        or no `with:` block at all, restores a cache.
 
     An allow-list entry whose job no longer exists, or no longer requests the
     grant, fails as stale.
@@ -115,11 +119,12 @@ HUB_REPOSITORY_ID = "1190939344"
 ISSUER = "https://token.actions.githubusercontent.com"
 
 # The numeric ID (or, on a self-hosted deployment, the configured name) of the
-# one app every policy pins. None until the #2732 pilot records it; while None,
-# any committed policy fails. Hosted Octo STS is app 801323 (`octo-sts[bot]`)
-# per the public `GET /apps/octo-sts` on 2026-10-26, but the pin is the pilot's
-# to confirm and the hosting choice is the owner's.
-APP_PIN = None
+# one app every policy pins. Set by the #2732 pilot PR to the hosted Octo STS
+# app (`octo-sts`, bot `octo-sts[bot]`; public `GET /apps/octo-sts`,
+# 2026-10-26), which the owner confirms on the install screen before that PR
+# merges. Every committed policy must pin exactly this value; changing it is a
+# Phase 4 change that re-pins every policy in the tree.
+APP_PIN = "801323"
 
 # ADR 0004 "Policies per repository". `repo` is whose workflow presents the
 # token: "self" for the four fleet-wide identities, "hub" for the two
@@ -171,6 +176,10 @@ ALLOWED_ID_TOKEN_JOBS = {
     # C17, the #2732 pilot vehicle: runs only once the lane's trust policy is
     # committed (its `route` job keys on the file), which needs APP_PIN.
     ("thread-resolution-lane.yml", "resolve-app"): "thread-resolution",
+    # C6 and C7 (#2727 slice 3c): inert until the owner sets the repository
+    # variable CI_APP_POLICY_MUTATIONS and commits the policy-mutations trust
+    # policy at cutover (#2730).
+    ("trusted-policy-mutations.yml", "mutate"): "policy-mutations",
 }
 
 # OIDC jobs that are not CI app consumers, reviewed one by one:
@@ -368,6 +377,21 @@ def action_ref(uses):
     return m.group(1).lower(), m.group(2)
 
 
+# Inputs that restore a cache when set, and the setup actions whose cache is
+# on by default: those must name the input with a literal `false`, since
+# leaving it out (or the whole `with:` block) restores the action's cache.
+CACHE_INPUTS = ("cache", "package-manager-cache")
+CACHE_DEFAULT_ON = {
+    "actions/setup-go": "cache",
+    "actions/setup-node": "package-manager-cache",
+}
+
+
+def _off(value):
+    """True only for a literal false (YAML boolean or the string)."""
+    return str(value).strip().lower() == "false"
+
+
 def action_violations(uses, where):
     """Violations for one step `uses:` value; also returns its canonical name."""
     low = uses.lower()
@@ -414,8 +438,12 @@ def execution_violations(job, events, identity):
         inputs = _with(step)
         if name in ("actions/download-artifact",) or name.startswith("actions/cache"):
             out.append("%s: artifacts and caches are not allowed" % where)
-        if "cache" in inputs:
-            out.append("%s: a cache input is not allowed" % where)
+        for key in CACHE_INPUTS:
+            if key in inputs and not _off(inputs[key]):
+                out.append("%s: a %s input other than false is not allowed" % (where, key))
+        default_on = CACHE_DEFAULT_ON.get(name)
+        if default_on and default_on not in inputs:
+            out.append("%s: caches by default; set %s: false" % (where, default_on))
         if name == "actions/checkout":
             unknown = sorted(set(inputs) - TRUSTED_CHECKOUT_INPUTS)
             if unknown:
@@ -627,8 +655,36 @@ WORKFLOW_CASES = [
     ("a cache restore fails", WF,
      _wf(GOOD_CHECKOUT + "      - uses: actions/cache/restore@%s\n" % SHA + EXCHANGE), ALLOW, 1),
     ("a setup cache input fails", WF,
-     _wf(GOOD_CHECKOUT + "      - uses: actions/setup-node@%s\n        with:\n          cache: npm\n" % SHA
+     _wf(GOOD_CHECKOUT + "      - uses: actions/setup-node@%s\n        with:\n          cache: npm\n"
+         "          package-manager-cache: false\n" % SHA + EXCHANGE), ALLOW, 1),
+    ("setup-go with no with: block fails (cache defaults on)", WF,
+     _wf(GOOD_CHECKOUT + "      - uses: actions/setup-go@%s\n" % SHA + EXCHANGE), ALLOW, 1),
+    ("setup-go without a cache input fails", WF,
+     _wf(GOOD_CHECKOUT + "      - uses: actions/setup-go@%s\n        with:\n          go-version: '1.22'\n" % SHA
          + EXCHANGE), ALLOW, 1),
+    ("setup-go with cache: true fails", WF,
+     _wf(GOOD_CHECKOUT + "      - uses: actions/setup-go@%s\n        with:\n          cache: true\n" % SHA
+         + EXCHANGE), ALLOW, 1),
+    ("setup-go with an expression cache fails", WF,
+     _wf(GOOD_CHECKOUT + "      - uses: actions/setup-go@%s\n        with:\n          cache: ${{ false }}\n" % SHA
+         + EXCHANGE), ALLOW, 1),
+    ("setup-go with cache: false passes", WF,
+     _wf(GOOD_CHECKOUT + "      - uses: actions/setup-go@%s\n        with:\n          cache: false\n" % SHA
+         + EXCHANGE), ALLOW, 0),
+    ("mixed-case setup-go with Cache: 'False' passes", WF,
+     _wf(GOOD_CHECKOUT + "      - uses: Actions/Setup-Go@%s\n        with:\n          Cache: 'False'\n" % SHA
+         + EXCHANGE), ALLOW, 0),
+    ("setup-node with no with: block fails (package-manager-cache defaults on)", WF,
+     _wf(GOOD_CHECKOUT + "      - uses: actions/setup-node@%s\n" % SHA + EXCHANGE), ALLOW, 1),
+    ("setup-node with package-manager-cache: true fails", WF,
+     _wf(GOOD_CHECKOUT + "      - uses: actions/setup-node@%s\n        with:\n"
+         "          package-manager-cache: true\n" % SHA + EXCHANGE), ALLOW, 1),
+    ("setup-node with package-manager-cache: false passes", WF,
+     _wf(GOOD_CHECKOUT + "      - uses: actions/setup-node@%s\n        with:\n"
+         "          node-version: 22\n          package-manager-cache: false\n" % SHA + EXCHANGE), ALLOW, 0),
+    ("a package-manager-cache input on another action fails", WF,
+     _wf(GOOD_CHECKOUT + "      - uses: example/setup-x@%s\n        with:\n"
+         "          package-manager-cache: yes\n" % SHA + EXCHANGE), ALLOW, 1),
     ("a reusable-workflow call fails", WF,
      "on: workflow_run\njobs:\n  consume:\n    permissions:\n      id-token: write\n"
      "    uses: ./.github/workflows/x.yml\n", ALLOW, 1),

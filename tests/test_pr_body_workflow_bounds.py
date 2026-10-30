@@ -34,6 +34,9 @@ ROUTES = (
     Route(WORKFLOWS+'pr-audit.yml', 'audit', 'Audit merged PRs for review policy compliance', 1, 'audit', ('parser',)),
     Route(WORKFLOWS+'pr-review-policy.yml', 'self-review-check', 'Validate the PR body against the contract', 1, signature=('validate',)),
     Route(WORKFLOWS+'pr-review-policy.yml', 'external-review-labeling', 'Check for external review triggers from review-policy.yml', 2, signature=('checker',)),
+    # The C6/C7 trusted consumer runs the same classifier (#2727 slice 3c). Its
+    # EVENT_ACTION never takes the checker branch, but the route is counted.
+    Route(WORKFLOWS+'trusted-policy-mutations.yml', 'classify', "Classify with the default branch's classifier", 2, signature=('checker',)),
     Route(WORKFLOWS+'auto-clear-blocking-labels.yml', 'evaluate-and-clear', 'Re-evaluate gate per PR + remove label on pass', 2, 'batch', ('checker', 'continuation')),
     Route(WORKFLOWS+'auto-clear-blocking-labels.yml', 'evaluate-and-clear', 'Continue approved PRs after completed checks', 4, 'batch', ('continuation', 'continuation')),
     Route(WORKFLOWS+'auto-clear-blocking-labels.yml', 'scheduled-sweep', 'Re-evaluate gate per PR', 2, 'batch', ('checker', 'continuation')),
@@ -49,6 +52,23 @@ ROUTES = (
 
 class InventoryError(ValueError):
     pass
+
+
+# Scripts a step runs whose text the inventory must see as the step's own.
+# The External Review Check runs the default branch's copy of the classifier
+# (#2727 slice 3b); its codex-review-check.sh call is still the step's route.
+DELEGATED_STEP_SCRIPTS = ('scripts/workflow/external_review_classify.sh',)
+
+
+def delegated_text(text, root=ROOT):
+    """Append the source of every reviewed script the step text names."""
+    for path in DELEGATED_STEP_SCRIPTS:
+        if path in text:
+            source = root / path
+            if not source.is_file():
+                raise InventoryError(f'{path}: a step runs it but it is missing')
+            text += '\n' + source.read_text()
+    return text
 
 
 def code_lines(text):
@@ -146,7 +166,7 @@ def audit_documents(documents, routes, seconds):
             if not isinstance(job, dict):
                 raise InventoryError(f'{file}/{job_id}: unsupported job')
             for step in job.get('steps', []):
-                text = step.get('run', '') + '\n' + step.get('with', {}).get('script', '')
+                text = delegated_text(step.get('run', '') + '\n' + step.get('with', {}).get('script', ''))
                 signature = invocation_signature(text)
                 identity = (file, job_id, step.get('name', ''))
                 route = expected.get(identity)

@@ -17,7 +17,8 @@
 #   scripts/phase-4b-review.sh <PR#> [--repo owner/repo]
 #       [--reviewer nathanpayne-<agent>] [--author <agent>]
 #       [--head <sha>] [--expected-base-sha <sha>] [--diff-file <path>]
-#       [--dry-run] [--force-enabled]
+#       [--wave-scope-file <path>] [--offline-diff] [--dry-run]
+#       [--force-enabled]
 #
 # Overrides (mostly for tests / non-git contexts):
 #   --author         PR's authoring agent (claude|codex|...). NOT an override
@@ -29,7 +30,11 @@
 #                    make Phase 4b act on an identity the body does not carry.
 #   --reviewer       force the external reviewer login (skips selection, but
 #                    still must differ from the authoring agent).
-#   --head           HEAD sha. Default: gh api pulls/<n> .head.sha.
+#   --head           expected live PR HEAD sha. Default: gh api pulls/<n>
+#                    .head.sha. A supplied SHA must equal the live PR head;
+#                    mismatch fails closed with exit 3 before capture,
+#                    adapter dispatch, or review POST. For --offline-diff it
+#                    is display context only and carries no posting authority.
 #   --expected-base-sha
 #                    Optional 40-hex base SHA fence for a caller that already
 #                    captured the PR's base with its head. When supplied, the
@@ -37,9 +42,20 @@
 #                    before post-review issue filing, and immediately before
 #                    the review POST. A moved or unreadable base fails closed.
 #   --diff-file      compatibility assertion of the object-derived diff bytes.
-#   --wave-scope-file structured canonical range; trusted wave code regenerates
-#                    the curated bytes after live canary byte verification.
-#   --offline-diff   preview supplied bytes with --dry-run; never posts.
+#   --wave-scope-file <path>
+#                    structured canonical range pinned by the operator;
+#                    trusted wave code regenerates curated bytes after live
+#                    canary byte verification. Do not replace its canonical
+#                    bases with the moving live PR base.
+#   --wave-codex-request <comment-id>
+#                    with --wave-scope-file only: the Codex request comment
+#                    scripts/wave-audit.sh created or bound on the canary. The
+#                    barrier's Codex arm then clears only on the answer to
+#                    that request (#2771; p4b_wave_codex_binding_state). It
+#                    only removes ways to clear, never adds one.
+#   --offline-diff   display-only preview of supplied bytes. Requires
+#                    --dry-run, --diff-file, and --head; never posts and has
+#                    no live immutable-input binding.
 #   --retain-evidence require tripwires for a bound --dry-run whose verdict
 #                     the caller will retain (historical prefix receipts).
 #   --dry-run        do everything EXCEPT post the review; print intended
@@ -128,6 +144,35 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=phase-4b/lib.sh
 . "$ROOT/phase-4b/lib.sh"
+# Raw adapter evidence is independent of the presentation rewritten for GitHub.
+P4B_VALIDATED_VERDICT=""
+P4B_VERDICT_EVIDENCE_FILE=""
+P4B_VERDICT_EVIDENCE_ERROR=""
+p4b_unposted_verdict_summary() {
+  if [ -n "$P4B_VALIDATED_VERDICT" ] && [ "${REVIEW_POSTED:-false}" != true ] && [ "${DRY_RUN:-false}" != true ]; then
+    printf '%s\n' "$P4B_VALIDATED_VERDICT" | jq -cs --arg path "$P4B_VERDICT_EVIDENCE_FILE" \
+      --arg error "$P4B_VERDICT_EVIDENCE_ERROR" \
+      'if length == 1 and (.[0] | type == "object") then
+         {validated_verdict:.[0],validated_verdict_path:(if $path == "" then null else $path end)}
+         + if $error == "" then {} else {validated_verdict_retention_error:$error} end
+       else error("expected exactly one validated verdict object") end'
+  else
+    printf '{}\n'
+  fi
+}
+p4b_die_diagnostic() {
+  shift # The caller owns the exit code and error message.
+  local extra
+  if [ -n "$P4B_VALIDATED_VERDICT" ] && [ "${REVIEW_POSTED:-false}" != true ] && [ "${DRY_RUN:-false}" != true ]; then
+    extra="$(admin_override_summary)" || return 1
+    printf '%s\n' "$extra" | jq -s --argjson pr "$PR" --arg repo "$REPO" --arg head "$HEAD" --arg reviewer "$REVIEWER" \
+      --arg reason "$*" \
+      'if length == 1 and (.[0] | type == "object") then .[0] as $extra |
+         {pr_number:$pr,repo:$repo,head_sha:$head,reviewer_identity:$reviewer,
+          review_posted:false,reason:$reason} + $extra
+       else error("expected exactly one admin summary object") end'
+  fi
+}
 # shellcheck source=phase-4b/immutable-input.sh
 . "$ROOT/phase-4b/immutable-input.sh"
 
@@ -250,7 +295,7 @@ GH_AS_AUTHOR="${P4B_GH_AS_AUTHOR:-$ROOT/gh-as-author.sh}"
 ADAPTER_TIMEOUT_ENV="${P4B_ADAPTER_TIMEOUT_SECONDS:-}"
 ADAPTER_TIMEOUT=""
 
-PR="" ; REPO="" ; REVIEWER="" ; AUTHOR="" ; HEAD="" ; EXPECTED_BASE_SHA="" ; EXPECTED_BASE_SHA_SET=false ; DIFF_FILE="" ; DRY_RUN=false ; RETAIN_EVIDENCE=false ; OFFLINE_DIFF=false ; WAVE_SCOPE_FILE=""
+PR="" ; REPO="" ; REVIEWER="" ; AUTHOR="" ; HEAD="" ; EXPECTED_BASE_SHA="" ; EXPECTED_BASE_SHA_SET=false ; DIFF_FILE="" ; DRY_RUN=false ; RETAIN_EVIDENCE=false ; OFFLINE_DIFF=false ; WAVE_SCOPE_FILE="" ; WAVE_CODEX_REQUEST=""
 INPUT_DIR=""
 INPUT_METADATA_DIGEST=""
 FORCE_ENABLED=false
@@ -264,7 +309,7 @@ case "${P4B_FORCE_ENABLED:-}" in
 esac
 
 usage() {
-  echo "usage: phase-4b-review.sh <PR#> [--repo owner/repo] [--reviewer <login>] [--author <agent>] [--head <sha>] [--expected-base-sha <40-hex>] [--diff-file <path>] [--dry-run] [--retain-evidence] [--force-enabled] [--admin-override <owner-quote>]" >&2
+  echo "usage: phase-4b-review.sh <PR#> [--repo owner/repo] [--reviewer <login>] [--author <agent>] [--head <sha>] [--expected-base-sha <40-hex>] [--diff-file <path>] [--wave-scope-file <path>] [--wave-codex-request <comment-id>] [--offline-diff] [--dry-run] [--retain-evidence] [--force-enabled] [--admin-override <owner-quote>]" >&2
   exit 3
 }
 
@@ -279,6 +324,7 @@ while [ $# -gt 0 ]; do
       EXPECTED_BASE_SHA_SET=true; EXPECTED_BASE_SHA="$2"; shift 2 ;;
     --diff-file)     DIFF_FILE="${2:-}"; shift 2 ;;
     --wave-scope-file) WAVE_SCOPE_FILE="${2:-}"; shift 2 ;;
+    --wave-codex-request) WAVE_CODEX_REQUEST="${2:-}"; shift 2 ;;
     --dry-run)       DRY_RUN=true; shift ;;
     --retain-evidence) RETAIN_EVIDENCE=true; shift ;;
     --offline-diff)  OFFLINE_DIFF=true; shift ;;
@@ -310,6 +356,18 @@ fi
 if [ "$RETAIN_EVIDENCE" = true ]; then
   [ "$DRY_RUN" = true ] && [ "$OFFLINE_DIFF" = false ] \
     || p4b_die 3 "--retain-evidence requires a bound, non-offline --dry-run"
+fi
+
+# #2771: the wave audit's Codex arm is bound to the request it created. The
+# library resets the posture when sourced (above), so only this assignment,
+# after validation, can set it.
+if [ -n "$WAVE_CODEX_REQUEST" ]; then
+  [[ "$WAVE_CODEX_REQUEST" =~ ^[1-9][0-9]{0,18}$ ]] \
+    || p4b_die 3 "--wave-codex-request must be a positive comment id; got '$WAVE_CODEX_REQUEST'"
+  [ -n "$WAVE_SCOPE_FILE" ] || p4b_die 3 "--wave-codex-request requires --wave-scope-file"
+  # Read by the sourced library's barrier; deliberately not exported.
+  # shellcheck disable=SC2034
+  P4B_BARRIER_WAVE_CODEX_REQUEST="$WAVE_CODEX_REQUEST"
 fi
 
 if [ "$OFFLINE_DIFF" = true ]; then
@@ -595,6 +653,15 @@ if [ -r "$ROOT/phase-4b/heartbeat.sh" ]; then
 fi
 _p4b_on_exit() {
   local rc="$1"
+  if [ -n "$P4B_VERDICT_EVIDENCE_FILE" ]; then
+    if [ "${REVIEW_POSTED:-false}" = true ] || [ "$rc" = 0 ]; then
+      rm -f "$P4B_VERDICT_EVIDENCE_FILE" || true
+    else
+      p4b_warn "validated adapter verdict retained at $P4B_VERDICT_EVIDENCE_FILE"
+    fi
+  elif [ -n "$P4B_VERDICT_EVIDENCE_ERROR" ] && [ "${REVIEW_POSTED:-false}" != true ]; then
+    p4b_warn "$P4B_VERDICT_EVIDENCE_ERROR; validated verdict is available in terminal JSON only"
+  fi
   if declare -F _p4b_cleanup_tmp >/dev/null 2>&1; then _p4b_cleanup_tmp || true; fi
   # #2663: give back an unspent round reservation. Never after a POST was
   # attempted: an uncertain publication keeps its slot until reconciled.
@@ -735,9 +802,13 @@ refuse_approval_if_request_generation_moved() {
 # #2633: the admin override fields every terminal summary carries, so a run
 # that absorbed a tripwire reports it however it ends.
 admin_override_summary() {
-  jq -nc --argjson overridden "$ADMIN_OVERRIDDEN" --arg quote "$ADMIN_OVERRIDE_QUOTE" \
-    --argjson set "$ADMIN_OVERRIDE_SET" \
-    '{admin_overridden:$overridden,admin_override_quote:(if $set then $quote else null end)}'
+  local evidence
+  evidence="$(p4b_unposted_verdict_summary)" || return 1
+  printf '%s\n' "$evidence" | jq -s --argjson overridden "$ADMIN_OVERRIDDEN" --arg quote "$ADMIN_OVERRIDE_QUOTE" \
+    --argjson set "$ADMIN_OVERRIDE_SET" '
+    if length == 1 and (.[0] | type == "object") then .[0] as $evidence |
+      {admin_overridden:$overridden,admin_override_quote:(if $set then $quote else null end)} + $evidence
+    else error("expected exactly one unpublished verdict summary object") end'
 }
 
 # --- manual-handoff fallback -----------------------------------------------
@@ -794,15 +865,18 @@ fall_back_to_manual() {
   fi
   if [ "$(jq 'length' <<<"$ADMIN_OVERRIDDEN")" -gt 0 ]; then
     p4b_warn "admin override (#2633): the adapter produced no usable verdict ($why); the overridden tripwire still requires human-mediated review"
-    jq -n --argjson pr "$PR" --arg repo "$REPO" --arg head "${HEAD:-}" \
+    local ao
+    ao="$(admin_override_summary)" || exit 8
+    printf '%s\n' "$ao" | jq -s --argjson pr "$PR" --arg repo "$REPO" --arg head "${HEAD:-}" \
           --arg direction "$DIRECTION" --arg reviewer "$REVIEWER" \
-          --arg adapter "$ADAPTER" --arg why "$why" --arg enabled_via "$ENABLED_VIA" \
-          --argjson ao "$(admin_override_summary)" '
+          --arg adapter "$ADAPTER" --arg why "$why" --arg enabled_via "$ENABLED_VIA" '
+      if length == 1 and (.[0] | type == "object") then .[0] as $ao |
       {pr_number:$pr, repo:$repo, head_sha:$head, direction:$direction,
        reviewer_identity:$reviewer, adapter:$adapter, verdict:null,
        review_posted:false, fell_back_to_manual:false, barrier_pending:false,
        human_tiebreaker_required:true, reason:$why,
-       automation_enabled:true, enabled_via:$enabled_via} + $ao'
+       automation_enabled:true, enabled_via:$enabled_via} + $ao
+      else error("expected exactly one admin summary object") end' || exit 8
     exit 8
   fi
   p4b_warn "falling back to the manual Phase 4b handoff: $why"
@@ -816,14 +890,17 @@ fall_back_to_manual() {
       *) p4b_warn "could not render chat-side handoff block (needs gh); brief the human manually" ;;
     esac
   fi
-  jq -n --argjson pr "$PR" --arg repo "$REPO" --arg head "${HEAD:-}" \
+  local ao
+  ao="$(admin_override_summary)" || exit 4
+  printf '%s\n' "$ao" | jq -s --argjson pr "$PR" --arg repo "$REPO" --arg head "${HEAD:-}" \
         --arg direction "$DIRECTION" --arg reviewer "$REVIEWER" \
-        --arg adapter "$ADAPTER" --arg why "$why" --arg enabled_via "$ENABLED_VIA" \
-        --argjson ao "$(admin_override_summary)" '
+        --arg adapter "$ADAPTER" --arg why "$why" --arg enabled_via "$ENABLED_VIA" '
+    if length == 1 and (.[0] | type == "object") then .[0] as $ao |
     {pr_number:$pr, repo:$repo, head_sha:$head, direction:$direction,
      reviewer_identity:$reviewer, adapter:$adapter, verdict:null,
      review_posted:false, fell_back_to_manual:true, reason:$why,
-     automation_enabled:true, enabled_via:$enabled_via} + $ao'
+     automation_enabled:true, enabled_via:$enabled_via} + $ao
+    else error("expected exactly one admin summary object") end' || exit 4
   exit 4
 }
 
@@ -851,16 +928,19 @@ fall_back_to_manual() {
 hold_for_external_review() {
   local payload="$1"
   p4b_warn "external review has not reached the current head; holding without posting (retry_after=$(printf '%s' "$payload" | jq -r '.retry_after // 0')s)"
-  jq -n --argjson pr "$PR" --arg repo "$REPO" --arg head "${HEAD:-}" \
+  local ao
+  ao="$(admin_override_summary)" || exit 6
+  printf '%s\n' "$ao" | jq -s --argjson pr "$PR" --arg repo "$REPO" --arg head "${HEAD:-}" \
         --arg direction "$DIRECTION" --arg reviewer "$REVIEWER" \
-        --arg adapter "$ADAPTER" --argjson b "$payload" --arg enabled_via "$ENABLED_VIA" \
-        --argjson ao "$(admin_override_summary)" '
+        --arg adapter "$ADAPTER" --argjson b "$payload" --arg enabled_via "$ENABLED_VIA" '
+    if length == 1 and (.[0] | type == "object") then .[0] as $ao |
     {pr_number:$pr, repo:$repo, head_sha:$head, direction:$direction,
      reviewer_identity:$reviewer, adapter:$adapter, verdict:null,
      review_posted:false, fell_back_to_manual:false, barrier_pending:true,
      retry_after:($b.retry_after // 0), barrier:$b,
      reason:"external review has not reached the current head",
-     automation_enabled:true, enabled_via:$enabled_via} + $ao'
+     automation_enabled:true, enabled_via:$enabled_via} + $ao
+    else error("expected exactly one admin summary object") end' || exit 6
   exit 6
 }
 
@@ -899,10 +979,12 @@ stop_for_human_tiebreaker() {
   else
     p4b_warn "Codex human stop holds (spent blocking-review budget, runaway, untested rebuttal or disagreement at a spent request ceiling); stopping for a human tiebreaker without adapter dispatch or Phase 4b handoff"
   fi
-  jq -n --argjson pr "$PR" --arg repo "$REPO" --arg head "${HEAD:-}" \
+  local ao
+  ao="$(admin_override_summary)" || exit 8
+  printf '%s\n' "$ao" | jq -s --argjson pr "$PR" --arg repo "$REPO" --arg head "${HEAD:-}" \
         --arg direction "$DIRECTION" --arg reviewer "$REVIEWER" \
-        --arg adapter "$ADAPTER" --argjson b "$payload" --arg enabled_via "$ENABLED_VIA" \
-        --argjson ao "$(admin_override_summary)" '
+        --arg adapter "$ADAPTER" --argjson b "$payload" --arg enabled_via "$ENABLED_VIA" '
+    if length == 1 and (.[0] | type == "object") then .[0] as $ao |
     {pr_number:$pr,repo:$repo,head_sha:$head,direction:$direction,
      reviewer_identity:$reviewer,adapter:$adapter,verdict:null,
      review_posted:false,fell_back_to_manual:false,barrier_pending:false,
@@ -910,7 +992,8 @@ stop_for_human_tiebreaker() {
      automation_enabled:true,enabled_via:$enabled_via}
     # #2663: a spent round cap reports round_cap at the top level, as every
     # other round-cap stop does.
-    + (if $b.round_cap then {round_cap:$b.round_cap} else {} end) + $ao'
+    + (if $b.round_cap then {round_cap:$b.round_cap} else {} end) + $ao
+    else error("expected exactly one admin summary object") end' || exit 8
   exit 8
 }
 
@@ -949,15 +1032,18 @@ round_cap_evidence_error() {
   [ "$P4B_ROUND_WHERE" != pre-post ] || cleanup_pre_post_refusal_side_effects "$reason" true \
     "Phase 4b round cap" "the completed Phase 4b rounds of ${REPO}#${PR}"
   p4b_warn "$reason; stopping without review publication or Phase 4b handoff"
-  jq -n --argjson pr "$PR" --arg repo "$REPO" --arg head "${HEAD:-}" \
+  local ao
+  ao="$(admin_override_summary)" || exit 10
+  printf '%s\n' "$ao" | jq -s --argjson pr "$PR" --arg repo "$REPO" --arg head "${HEAD:-}" \
         --arg direction "$DIRECTION" --arg reviewer "$REVIEWER" \
-        --arg adapter "$ADAPTER" --arg reason "$reason" --arg enabled_via "$ENABLED_VIA" \
-        --argjson ao "$(admin_override_summary)" '
+        --arg adapter "$ADAPTER" --arg reason "$reason" --arg enabled_via "$ENABLED_VIA" '
+    if length == 1 and (.[0] | type == "object") then .[0] as $ao |
     {pr_number:$pr,repo:$repo,head_sha:$head,direction:$direction,
      reviewer_identity:$reviewer,adapter:$adapter,verdict:null,
      review_posted:false,fell_back_to_manual:false,barrier_pending:false,
      infrastructure_error:true,round_cap:{state:"unreadable"},reason:$reason,
-     automation_enabled:true,enabled_via:$enabled_via} + $ao'
+     automation_enabled:true,enabled_via:$enabled_via} + $ao
+    else error("expected exactly one admin summary object") end' || exit 10
   exit 10
 }
 round_cap_stop() { # <exit> <state> <reason> <where>
@@ -970,15 +1056,19 @@ round_cap_stop() { # <exit> <state> <reason> <where>
       '{decision:"human-tiebreaker",reason:$r,round_cap:($rc + {state:$s})}')"
   fi
   p4b_warn "$reason"
-  jq -n --argjson pr "$PR" --arg repo "$REPO" --arg head "${HEAD:-}" \
+  local ao
+  ao="$(admin_override_summary)" || exit 6
+  printf '%s\n' "$ao" | jq -s --argjson pr "$PR" --arg repo "$REPO" --arg head "${HEAD:-}" \
         --arg direction "$DIRECTION" --arg reviewer "$REVIEWER" \
         --arg adapter "$ADAPTER" --arg reason "$reason" --argjson rc "$P4B_ROUND_CAP_JSON" \
-        --arg s "$state" --arg enabled_via "$ENABLED_VIA" --argjson ao "$(admin_override_summary)" '
+        --arg s "$state" --arg enabled_via "$ENABLED_VIA" '
+    if length == 1 and (.[0] | type == "object") then .[0] as $ao |
     {pr_number:$pr,repo:$repo,head_sha:$head,direction:$direction,
      reviewer_identity:$reviewer,adapter:$adapter,verdict:null,
      review_posted:false,fell_back_to_manual:false,barrier_pending:true,retry_after:60,
      round_cap:($rc + {state:$s}),reason:$reason,
-     automation_enabled:true,enabled_via:$enabled_via} + $ao'
+     automation_enabled:true,enabled_via:$enabled_via} + $ao
+    else error("expected exactly one admin summary object") end' || exit 6
   exit 6
 }
 round_api() { # <method> <endpoint> [<payload-json>] -> response on stdout, rc
@@ -1156,15 +1246,18 @@ enforce_phase4b_round_cap() {
 stop_for_barrier_error() {
   local payload="$1"
   p4b_warn "request-budget authority failed; stopping without review publication or Phase 4b handoff"
-  jq -n --argjson pr "$PR" --arg repo "$REPO" --arg head "${HEAD:-}" \
+  local ao
+  ao="$(admin_override_summary)" || exit 10
+  printf '%s\n' "$ao" | jq -s --argjson pr "$PR" --arg repo "$REPO" --arg head "${HEAD:-}" \
         --arg direction "$DIRECTION" --arg reviewer "$REVIEWER" \
-        --arg adapter "$ADAPTER" --argjson b "$payload" --arg enabled_via "$ENABLED_VIA" \
-        --argjson ao "$(admin_override_summary)" '
+        --arg adapter "$ADAPTER" --argjson b "$payload" --arg enabled_via "$ENABLED_VIA" '
+    if length == 1 and (.[0] | type == "object") then .[0] as $ao |
     {pr_number:$pr,repo:$repo,head_sha:$head,direction:$direction,
      reviewer_identity:$reviewer,adapter:$adapter,verdict:null,
      review_posted:false,fell_back_to_manual:false,barrier_pending:false,
      infrastructure_error:true,barrier:$b,reason:$b.reason,
-     automation_enabled:true,enabled_via:$enabled_via} + $ao'
+     automation_enabled:true,enabled_via:$enabled_via} + $ao
+    else error("expected exactly one admin summary object") end' || exit 10
   exit 10
 }
 
@@ -1707,13 +1800,33 @@ fi
 if ! p4b_validate_verdict "$(printf '%s' "$VERDICT_JSON" | jq -c 'del(.review_input)')"; then
   fall_back_to_manual "adapter returned a non-conformant verdict"
 fi
+# Preserve the exact schema-valid, bound adapter result before any presentation
+# normalization or late fence can refuse publication (#2790). This private file
+# survives unsuccessful runs; successful publication removes it at EXIT.
+P4B_VALIDATED_VERDICT="$VERDICT_JSON"
+if [ "$DRY_RUN" != true ]; then
+  evidence_dir="${P4B_ACCT_STATE_DIR:-$(p4b_repo_root)/.mergepath}/unposted-verdicts"
+  if mkdir -p "$evidence_dir" && chmod 700 "$evidence_dir" \
+    && evidence_dir="$(cd "$evidence_dir" && pwd)" \
+    && P4B_VERDICT_EVIDENCE_FILE="$(mktemp "$evidence_dir/pr-${PR}.XXXXXX")" \
+    && printf '%s\n' "$P4B_VALIDATED_VERDICT" > "$P4B_VERDICT_EVIDENCE_FILE"; then
+    :
+  else
+    [ -z "$P4B_VERDICT_EVIDENCE_FILE" ] || rm -f "$P4B_VERDICT_EVIDENCE_FILE" || true
+    P4B_VERDICT_EVIDENCE_FILE=""
+    P4B_VERDICT_EVIDENCE_ERROR="could not retain validated adapter verdict under $evidence_dir"
+  fi
+fi
 # #1598: the approval's request-generation record must be writer-owned. The
 # verdict's text (summary, findings) is rendered into the body and echoed by
 # the accounting block, so neutralize any copy of the record marker in it;
-# the substitute merge gate accepts exactly one marker.
+# the substitute merge gate accepts exactly one marker. Reserved Codex command
+# quotes also receive a zero-width break (Python guard whitespace includes
+# U+001C through U+001F in addition to the regex engine's Unicode whitespace).
 VERDICT_JSON="$(printf '%s' "$VERDICT_JSON" | jq -c '
   walk(if type == "string"
-       then gsub("<!--(?<s>\\s*)mergepath-p4b-request-generation"; "<!--\(.s)(quoted) mergepath-p4b-request-generation")
+       then gsub("@(?<command>codex[\\s\u001c-\u001f]+rev[i\u0130\u0131]ew)"; "@\u200b\(.command)"; "i")
+          | gsub("<!--(?<s>\\s*)mergepath-p4b-request-generation"; "<!--\(.s)(quoted) mergepath-p4b-request-generation")
        else . end)')" || fall_back_to_manual "adapter verdict could not be normalized"
 
 # A Codex trigger can arrive without changing the PR head while the external
@@ -2336,6 +2449,17 @@ post_review() {
   payload_file="$(mktemp "${TMPDIR:-/tmp}/p4b-review-payload.XXXXXX")"
   jq -n --arg commit_id "$HEAD" --arg event "$event" --rawfile body "$BODY_FILE" \
     '{commit_id:$commit_id,event:$event,body:$body}' > "$payload_file"
+  # Run the SAME strict payload guard locally before transport is attempted.
+  # A definitive refusal here cannot publish; only this writer may return its
+  # reservation at EXIT. Once the wrapper is invoked, every failure remains an
+  # uncertain POST and keeps its slot, including a lost response (#2663/#2790).
+  if ! python3 "$ROOT/workflow/gh-comment-trigger-guard.py" --role reviewer -- \
+    gh api "repos/$REPO/pulls/$PR/reviews" --method POST --input "$payload_file" >/dev/null; then # NO_BARE_GH_WRITE_EXEMPT: inert argv to the preceding pure Python payload inspector; actual POST uses the reviewer wrapper below.
+    rm -f "$payload_file"
+    cleanup_pre_post_refusal_side_effects "review payload refused by local comment guard" true \
+      "Review publication" "the review payload for ${REPO}#${PR}"
+    return 1
+  fi
   P4B_ROUND_POST_ATTEMPTED=true
   set +e
   review_response="$(
@@ -2503,7 +2627,7 @@ case "$VERDICT" in
 esac
 
 # --- emit machine-readable summary -----------------------------------------
-jq -n \
+printf '%s\n' "$P4B_VALIDATED_VERDICT" | jq -s \
   --argjson pr "$PR" \
   --arg repo "$REPO" \
   --arg head "${HEAD:-}" \
@@ -2511,7 +2635,6 @@ jq -n \
   --arg reviewer "$REVIEWER" \
   --arg adapter "$ADAPTER" \
   --arg verdict "$VERDICT" \
-  --argjson validated_verdict "$VERDICT_JSON" \
   --argjson review_posted "$REVIEW_POSTED" \
   --arg review_acknowledgment "$REVIEW_ACKNOWLEDGMENT" \
   --argjson dry_run "$DRY_RUN" \
@@ -2523,7 +2646,10 @@ jq -n \
   --argjson ao "$(admin_override_summary)" \
   --argjson round_cap "$P4B_ROUND_CAP_JSON" \
   --arg enabled_via "$ENABLED_VIA" '
-  {
+  if length == 1 and (.[0] | type == "object") then .[0]
+  else error("expected exactly one validated verdict object") end
+  | . as $validated_verdict
+  | {
     pr_number: $pr,
     repo: $repo,
     head_sha: $head,

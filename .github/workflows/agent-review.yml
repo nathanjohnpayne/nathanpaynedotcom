@@ -272,6 +272,11 @@ jobs:
         with:
           github-token: ${{ secrets.CI_ACTOR_TOKEN || secrets.REVIEWER_ASSIGNMENT_TOKEN }}
           script: |
+            const fs = require('fs');
+            const path = require('path');
+            // BEGIN REVIEW TRIAGE BOOTSTRAP
+            // Generated from scripts/workflow/review-triage.cjs. Do not edit.
+            async function evaluateReviewTriage({github, context, core, require, mutate = true}) {
             const childProcess = require('child_process');
             const fs = require('fs');
             const os = require('os');
@@ -411,7 +416,7 @@ jobs:
               try {
                 reviewers = JSON.parse(raw || '[]');
               } catch (error) {
-                throw new Error(`${label} reviewer allow-list is malformed`);
+                throw new Error(`${label} reviewer allow-list is malformed`, {cause: error});
               }
               if (
                 !Array.isArray(reviewers) ||
@@ -527,11 +532,18 @@ jobs:
                 }
                 return {reviewers, authorIdentity};
               } finally {
-                try {
-                  fs.unlinkSync(outputPath);
-                } catch (error) {
-                  if (error && error.code !== 'ENOENT') throw error;
-                }
+                removeOutputFile(outputPath);
+              }
+            }
+
+            // A cleanup failure other than ENOENT still surfaces from the finally block
+            // above, exactly as the inline throw it replaces did; the helper only keeps
+            // the throw out of the finally clause itself (no-unsafe-finally).
+            function removeOutputFile(outputPath) {
+              try {
+                fs.unlinkSync(outputPath);
+              } catch (error) {
+                if (error && error.code !== 'ENOENT') throw error;
               }
             }
             const eventPr = context.payload.pull_request;
@@ -560,16 +572,11 @@ jobs:
               context.eventName === 'pull_request' &&
               context.payload.action === 'labeled' &&
               eventLabelName === 'needs-external-review';
-            const isUnlabeledSettleEvent =
-              context.eventName === 'pull_request' &&
-              context.payload.action === 'unlabeled';
             const mayMutateLabels = triageMayMutateLabels({
               eventName: context.eventName,
               action: context.payload.action,
               labelName: eventLabelName,
             });
-            const threshold = parseInt(process.env.THRESHOLD, 10);
-            const protectedPaths = JSON.parse(process.env.PROTECTED_PATHS);
 
             const files = await retryGithubRead(() => github.paginate(
               github.rest.pulls.listFiles,
@@ -671,43 +678,12 @@ jobs:
               }
             }
 
-            // Exclude lockfiles, minified, and generated files from line count
-            // to match REVIEW_POLICY.md threshold definition
-            const excludePatterns = [
-              /\.lock$/, /lock\.json$/, /\.min\.js$/, /\.min\.css$/,
-              /\.generated\./, /\.g\.dart$/, /\.freezed\.dart$/,
-            ];
-            const countedFiles = files.filter(
-              f => !excludePatterns.some(p => p.test(f.filename))
-            );
-            const totalChanges = countedFiles.reduce(
-              (sum, f) => sum + f.additions + f.deletions, 0
-            );
-
-            // Convert glob patterns to regex for matching
-            function globToRegex(pattern) {
-              let re = pattern
-                .replace(/\./g, '\\.')
-                .replace(/\*\*/g, '___GLOBSTAR___')
-                .replace(/\*/g, '[^/]*')
-                .replace(/___GLOBSTAR___/g, '.*');
-              return new RegExp('^' + re + '$');
-            }
-
-            // Both sides of a rename (#763): GitHub reports the destination in
-            // .filename and the source in .previous_filename, so matching only
-            // .filename would let a PR move a protected file to an unprotected
-            // path without tripping this. Same fix as
-            // external_review_fingerprint.sh, applied to this inline twin.
-            const touchesProtected = files.some(f =>
-              [f.filename, f.previous_filename]
-                .filter(Boolean)
-                .some(name => protectedPaths.some(p => globToRegex(p).test(name)))
-            );
-
-            // Use >= to match REVIEW_POLICY.md definition
-            let needsExternal = totalChanges >= threshold || touchesProtected;
-            let externalReviewFingerprint = '';
+            // Threshold and protected-path requiredness (rename sources included, #763)
+            // come only from scripts/workflow/external_review_fingerprint.sh, judged by
+            // the governing base policy. Every branch below assigns both values; the
+            // former inline threshold/glob twin was always overwritten and is gone.
+            let needsExternal;
+            let externalReviewFingerprint;
             let filesPath = '';
             const repo = `${context.repo.owner}/${context.repo.repo}`;
             if (policyReadFailed) {
@@ -787,6 +763,10 @@ jobs:
               pr,
             });
 
+            // The C2 write is separable (#2727 3d): addsExternalLabel records the
+            // decision, and only a mutate call sends it. The trusted consumer classifies
+            // with mutate false and writes from its own job.
+            let addsExternalLabel = false;
             if (needsExternal && laneVerifiedHead) {
               console.log(
                 `Propagation lane already byte-verified head/base ${pr.head.sha}/${pr.base.sha} ` +
@@ -829,15 +809,18 @@ jobs:
               }
 
               if (!carried && mayMutateLabels && needsExternal) {
-                await retryIdempotentLabelWrite(
-                  () => github.rest.issues.addLabels({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    issue_number: pr.number,
-                    labels: ['needs-external-review'],
-                  }),
-                  {warn: message => core.warning(message)},
-                );
+                addsExternalLabel = true;
+                if (mutate) {
+                  await retryIdempotentLabelWrite(
+                    () => github.rest.issues.addLabels({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: pr.number,
+                      labels: ['needs-external-review'],
+                    }),
+                    {warn: message => core.warning(message)},
+                  );
+                }
               } else if (!mayMutateLabels && needsExternal) {
                 console.log(
                   `Computed Phase 4 applicability for the ` +
@@ -864,6 +847,7 @@ jobs:
               'author_identity',
               governingIdentities.authorIdentity,
             );
+            core.setOutput('adds_external_label', addsExternalLabel.toString());
             if (policyConfigPath !== '.github/review-policy.yml') {
               try {
                 fs.unlinkSync(policyConfigPath);
@@ -871,6 +855,25 @@ jobs:
                 if (error && error.code !== 'ENOENT') throw error;
               }
             }
+            }
+            // END REVIEW TRIAGE BOOTSTRAP
+            // #2727 3d: run the default branch's triage module, so a PR's
+            // edits to the copy above do not change its own classification.
+            // The copy runs only where the module is not on the default branch
+            // yet: the PR that adds it and each consumer's first sync. A
+            // default branch whose workflow already selects the module but
+            // lacks the file fails closed instead of falling back.
+            const reviewTriagePath = path.resolve(process.env.GITHUB_WORKSPACE,
+              'scripts/workflow/review-triage.cjs');
+            let evaluateTriage = evaluateReviewTriage;
+            if (fs.existsSync(reviewTriagePath)) {
+              ({evaluateReviewTriage: evaluateTriage} = require(reviewTriagePath));
+            } else if (fs.readFileSync(path.resolve(process.env.GITHUB_WORKSPACE,
+              '.github/workflows/agent-review.yml'), 'utf8')
+              .includes('const reviewTriagePath = path.resolve(')) {
+              throw new Error('the trusted workflow requires the missing scripts/workflow/review-triage.cjs');
+            }
+            await evaluateTriage({github, context, core, require, mutate: true});
 
   # ──────────────────────────────────────────────
   # Job 3: Assign reviewer (internal self-peer review)
@@ -1115,26 +1118,24 @@ jobs:
             // (scripts/ci/check_disagreement_detector) exercise the
             // exact same code. See #259 for the regression this
             // factoring closes.
-            const { decide } = require(
+            const detector = require(
               path.resolve(process.env.GITHUB_WORKSPACE, 'scripts/disagreement-detector.cjs')
             );
 
-            // An unproven allow-list (resolver failure, missing loader, empty
-            // or malformed list) must neither hide a live conflict nor clear
-            // an escalation (#975). With nobody classified, decide() would
-            // REMOVE an existing label and never apply one. So it classifies
-            // every reviewer on the PR instead, may only APPLY the label, and
-            // fails the job so the policy failure is visible.
-            let reviewerAccounts = [];
-            try {
-              const parsed = JSON.parse(process.env.REVIEWERS_JSON || '[]');
-              if (Array.isArray(parsed)) {
-                reviewerAccounts = parsed.filter(r => typeof r === 'string' && r);
-              }
-            } catch (e) {
-              reviewerAccounts = [];
-            }
-            const allowListProven = reviewerAccounts.length > 0;
+            // The whole decision, including the #975 unproven-allow-list rule,
+            // is resolveDisagreement() in the default branch's module (#2727
+            // 3d), which the trusted consumer also runs. Where the module
+            // predates it (the PR that adds it and each consumer's first
+            // sync), the run treats the allow-list as unproven: it classifies
+            // every reviewer, may only apply the label, and fails visibly.
+            const resolveDisagreement =
+              typeof detector.resolveDisagreement === 'function'
+                ? detector.resolveDisagreement
+                : ({reviews, headSha, hasLabel}) => {
+                  const everyone = [...new Set(reviews.map(r => r && r.user && r.user.login).filter(Boolean))];
+                  const decision = detector.decide({reviews, reviewerAccounts: everyone, headSha, hasLabel});
+                  return {decision: decision === 'remove' ? 'noop' : decision, allowListProven: false};
+                };
 
             // Paginate reviews — long histories (>30) otherwise truncate and
             // mask the latest-on-HEAD signal. Mirrors the pagination
@@ -1157,16 +1158,12 @@ jobs:
             });
             const hasLabel = labels.data.some(l => l.name === 'needs-human-review');
 
-            if (!allowListProven) {
-              reviewerAccounts = [...new Set(reviews.map(r => r.user && r.user.login).filter(Boolean))];
-            }
-            let decision = decide({
+            const {decision, allowListProven} = resolveDisagreement({
               reviews,
-              reviewerAccounts,
+              reviewersJson: process.env.REVIEWERS_JSON,
               headSha: context.payload.pull_request.head.sha,
               hasLabel,
             });
-            if (!allowListProven && decision === 'remove') decision = 'noop';
 
             if (decision === 'apply') {
               await github.rest.issues.addLabels({
