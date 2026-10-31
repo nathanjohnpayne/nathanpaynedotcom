@@ -894,11 +894,13 @@ fall_back_to_manual() {
   ao="$(admin_override_summary)" || exit 4
   printf '%s\n' "$ao" | jq -s --argjson pr "$PR" --arg repo "$REPO" --arg head "${HEAD:-}" \
         --arg direction "$DIRECTION" --arg reviewer "$REVIEWER" \
-        --arg adapter "$ADAPTER" --arg why "$why" --arg enabled_via "$ENABLED_VIA" '
+        --arg adapter "$ADAPTER" --arg why "$why" --arg enabled_via "$ENABLED_VIA" \
+        --argjson barrier "${BARRIER_ESCALATION_JSON:-null}" '
     if length == 1 and (.[0] | type == "object") then .[0] as $ao |
     {pr_number:$pr, repo:$repo, head_sha:$head, direction:$direction,
      reviewer_identity:$reviewer, adapter:$adapter, verdict:null,
      review_posted:false, fell_back_to_manual:true, reason:$why,
+     barrier_escalation:$barrier,
      automation_enabled:true, enabled_via:$enabled_via} + $ao
     else error("expected exactly one admin summary object") end' || exit 4
   exit 4
@@ -1269,6 +1271,10 @@ BARRIER_CODERABBIT_RATE_LIMITED=false
 # (#1335): "<source-commit> <fingerprint>" when set, empty otherwise. Read only
 # by the review-body renderer below.
 BARRIER_CODERABBIT_CARRIED=""
+# The barrier's escalation record (#2879): its reason, Codex evidence and the
+# wave request binding (#2771). fall_back_to_manual carries it in the exit 4
+# summary so the wave audit can say why it holds. Evidence only, no authority.
+BARRIER_ESCALATION_JSON=null
 
 # Run the same-head barrier and act on it. Escalation routes to the existing
 # manual handoff; only the non-terminal case takes the new hold path.
@@ -1321,6 +1327,8 @@ run_same_head_barrier() {
           P4B_PRE_ADAPTER_REQUEST_BUDGET_JSON="$(printf '%s' "$out" | jq -c '.request_budget // null')"
           ;;
       esac
+      BARRIER_ESCALATION_JSON="$(printf '%s' "$out" | jq -c \
+        '{reason, codex, codex_evidence, coderabbit, wave_binding:(.wave_binding // null)}' 2>/dev/null || printf null)"
       fall_back_to_manual "external review barrier ($where): $(printf '%s' "$out" | jq -r '.reason // "escalated"')"
       ;;
   esac
@@ -1533,6 +1541,53 @@ revalidate_phase4a_timeout_generation() {
       fall_back_to_manual "$why"
       ;;
   esac
+}
+
+# #2771 (Phase 4b on #2875): the barrier's wave binding is decided on every
+# request on the PR, not only the configured author's exact commands, so the
+# request-generation fences below cannot see a foreign or prose request that
+# lands during the adapter run. Re-run the same evaluation after the adapter
+# and once more inside the final feedback-accounting fences, and hold (exit
+# 6) unless it still clears. The evaluation makes several reads, so it runs
+# before the last feedback accounting, not after it: a finding that lands
+# during those reads is then still accounted for (Phase 4b on #2888). The
+# POST is preceded only by revalidate_wave_binding_stable, one comment read
+# compared with what this clear saw.
+P4B_WAVE_BINDING_STABILITY=""
+revalidate_wave_binding() {
+  local where="${1:-post-adapter}" out state why
+  [ -n "${P4B_BARRIER_WAVE_CODEX_REQUEST:-}" ] || return 0
+  # Only a dispatch the answered binding authorized is re-checked. The barrier
+  # keeps its account-block waiver for a bound wave (no request can then be
+  # answered); fencing that path would turn the retained fallback into a
+  # repeated exit 6 (Codex on #2888).
+  [ "${P4B_PRE_ADAPTER_CODEX_EVIDENCE:-}" = wave-request-answered ] || return 0
+  out="$(p4b_wave_binding_evaluate "$REPO" "$PR" "$HEAD" "$P4B_BARRIER_WAVE_CODEX_REQUEST")"
+  state="$(printf '%s' "$out" | jq -r '.state // "unreadable"' 2>/dev/null || printf unreadable)"
+  if [ "$state" = clear ]; then
+    P4B_WAVE_BINDING_STABILITY="$(printf '%s' "$out" | jq -c '.stability // null' 2>/dev/null || printf null)"
+    return 0
+  fi
+  why="The wave audit's Codex request $P4B_BARRIER_WAVE_CODEX_REQUEST no longer binds on $HEAD ($where: $(printf '%s' "$out" | jq -r '.reason // "unknown"' 2>/dev/null)); holding"
+  if [ "$where" = "pre-post" ]; then
+    cleanup_pre_post_refusal_side_effects "$why" true
+  fi
+  hold_for_external_review "$(printf '%s' "$out" | jq -c '{decision:"pending",retry_after:0,coderabbit:"unchanged",codex:"not-yet",
+    codex_evidence:("wave-request-" + (.reason // "unknown")),trigger:"skipped",resume:"skipped",wave_binding:(del(.generation, .stability))}' 2>/dev/null \
+    || jq -nc '{decision:"pending",retry_after:0,coderabbit:"unchanged",codex:"not-yet",codex_evidence:"wave-request-unreadable",trigger:"skipped",resume:"skipped"}')"
+}
+
+# The last wave-binding read before the POST: no request moved since the
+# clear revalidate_wave_binding pre-post recorded. Missing evidence holds.
+revalidate_wave_binding_stable() {
+  local why
+  [ -n "${P4B_BARRIER_WAVE_CODEX_REQUEST:-}" ] || return 0
+  [ "${P4B_PRE_ADAPTER_CODEX_EVIDENCE:-}" = wave-request-answered ] || return 0
+  p4b_wave_binding_stable "$REPO" "$PR" "${P4B_WAVE_BINDING_STABILITY:-}" && return 0
+  why="The wave audit's Codex request $P4B_BARRIER_WAVE_CODEX_REQUEST may no longer bind on $HEAD (a request moved after the final binding evaluation); holding"
+  cleanup_pre_post_refusal_side_effects "$why" true
+  hold_for_external_review "$(jq -nc '{decision:"pending",retry_after:0,coderabbit:"unchanged",codex:"not-yet",
+    codex_evidence:"wave-request-requests-changed-before-post",trigger:"skipped",resume:"skipped"}')"
 }
 
 # --- #1143: the body can disagree with ITSELF, later ------------------------
@@ -1835,6 +1890,7 @@ VERDICT_JSON="$(printf '%s' "$VERDICT_JSON" | jq -c '
 # approval-side effect. Keep dry-runs offline.
 if [ "$DRY_RUN" != true ]; then
   revalidate_phase4a_timeout_generation post-adapter
+  revalidate_wave_binding post-adapter
 fi
 
 VERDICT="$(printf '%s' "$VERDICT_JSON" | jq -r '.verdict')"
@@ -2441,11 +2497,17 @@ post_review() {
       "The PR input" "the reviewed input of ${REPO}#${PR}"
     p4b_die 3 "immutable review input changed before POST"
   fi
+  # #2771: the full binding evaluation runs before the final feedback
+  # accounting, so a finding that lands during its reads is still accounted
+  # for (see revalidate_wave_binding).
+  [ "$event" != "APPROVE" ] || revalidate_wave_binding pre-post
   [ "$event" != "APPROVE" ] || refuse_approval_if_feedback_unaccounted
   # #1598: a request can arrive during final accounting. Compare only the live
   # generation with the original authorization; never rebuild the ledger or
   # treat that late request as covered. Drift/unreadability uses pre-POST cleanup.
   [ "$event" != "APPROVE" ] || refuse_approval_if_request_generation_moved final
+  # #2771: the last authority read before the POST, one comment read.
+  [ "$event" != "APPROVE" ] || revalidate_wave_binding_stable
   payload_file="$(mktemp "${TMPDIR:-/tmp}/p4b-review-payload.XXXXXX")"
   jq -n --arg commit_id "$HEAD" --arg event "$event" --rawfile body "$BODY_FILE" \
     '{commit_id:$commit_id,event:$event,body:$body}' > "$payload_file"
