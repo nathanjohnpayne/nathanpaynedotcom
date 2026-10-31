@@ -60,7 +60,10 @@ import noticeSource from './notice.js?raw';
     gap: var(--sp-md) var(--sp-lg);
     max-width: 72rem;
     margin: 0 auto;
-    padding: var(--sp-lg) clamp(1rem, 4vw, var(--page-gutter));
+    /* The notice owns its side padding rather than reading --page-gutter:
+       the phone stack sets that gutter to 0, and clamp() lets a maximum
+       below the minimum win, which collapsed this padding to 0. */
+    padding: var(--sp-lg) clamp(1rem, 4vw, 2rem);
   }
   .privacy-notice__copy {
     min-width: 0;
@@ -149,7 +152,7 @@ import noticeSource from './notice.js?raw';
     }
   }
   .privacy-notice-status {
-    padding: var(--sp-sm) clamp(1rem, 4vw, var(--page-gutter));
+    padding: var(--sp-sm) clamp(1rem, 4vw, 2rem);
     background: var(--paper);
     color: var(--ink);
     border-bottom: var(--line) solid var(--ink);
