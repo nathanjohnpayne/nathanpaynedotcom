@@ -21,7 +21,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
 import Footer from '../components/Footer.astro';
 import Breadcrumbs from '../components/Breadcrumbs.astro';
-import { getIndexGridRow } from '../lib/index-grid';
+import { getIndexGridRow, getMobileRail } from '../lib/index-grid';
 import { getSiteCopy } from '../lib/site-copy';
 import { BOOK_TITLE, CAL_PROFILE_URL, bookingUrl, formatDurations } from '../lib/booking';
 
@@ -74,6 +74,10 @@ const jsonLd = {
     },
   ],
 };
+
+// The page accent, shared by BaseLayout's data-accent and the phone-stack
+// rails (getMobileRail), so the hero rail always matches the page color.
+const PAGE_ACCENT = 'red';
 ---
 
 <BaseLayout
@@ -83,14 +87,14 @@ const jsonLd = {
   ogImage="https://nathanpayne.com/og/book.png"
   ogImageAlt={`${BOOK_TITLE} with Nathan Payne open graph image`}
   bodyClass="project-page blog-page"
-  dataAccent="red"
+  dataAccent={PAGE_ACCENT}
   jsonLd={jsonLd}
 >
   <main class="shell">
     <div class="frame page-canvas">
 
       {/* ── Hero ── */}
-      <header class="hero">
+      <header class="hero" data-rail={getMobileRail(PAGE_ACCENT, 0)}>
         <Breadcrumbs items={[{ label: "Nathan Payne", href: "/" }, { label: BOOK_TITLE }]} />
         <h1>{BOOK_TITLE}</h1>
         <p class="deck">{ogDescription}</p>
@@ -132,7 +136,7 @@ const jsonLd = {
           );
 
           return (
-            <div class={row.rowClass}>
+            <div class={row.rowClass} data-rail={getMobileRail(PAGE_ACCENT, i + 1)}>
               {card}
               {row.accentClasses.map((accentClass) => (
                 <div class={accentClass} aria-hidden="true"></div>
@@ -146,7 +150,7 @@ const jsonLd = {
              profile link for anyone who would rather see Cal.com's own list.
              Plain prose, so nothing here has to be re-mirrored when an event
              type changes. */}
-        <div class="grid-row--book-note">
+        <div class="grid-row--book-note" data-rail={getMobileRail(PAGE_ACCENT, eventTypes.length + 1)}>
           <div class="book-note">
             <p>Times show in your time zone; mine is Pacific. Cal.com asks what you would like to discuss before it confirms, and the invite follows once you verify your email.</p>
             <p>
@@ -166,6 +170,7 @@ const jsonLd = {
       <Footer
         attribution="Nathan Payne"
         variant="grid"
+        rail={getMobileRail(PAGE_ACCENT, eventTypes.length + 2)}
         links={[
           { href: "/resume/", label: "Résumé →" },
           { href: "/", label: "← Back to Homepage" },

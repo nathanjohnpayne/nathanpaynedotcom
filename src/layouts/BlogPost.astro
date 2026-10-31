@@ -23,6 +23,7 @@ import BaseLayout from './BaseLayout.astro';
 import Footer from '../components/Footer.astro';
 import Breadcrumbs from '../components/Breadcrumbs.astro';
 import { BOOK_PAGE_PATH } from '../lib/booking';
+import { getMobileRail } from '../lib/index-grid';
 import { renderSidebarMermaid } from '../lib/render-sidebar-mermaid.mjs';
 import {
   effectiveModified,
@@ -50,6 +51,8 @@ interface Props {
    */
   updated?: Date;
   tags: string[];
+  /** Blog category, shown as the phone-stack kicker above the title. */
+  category?: string;
   image: string;
   readingTime: string;
   headings: { depth: number; slug: string; text: string }[];
@@ -75,6 +78,7 @@ const {
   date,
   updated,
   tags,
+  category,
   image,
   readingTime,
   headings,
@@ -125,6 +129,11 @@ const tocHeadings = headings.filter((h) => h.depth === 2);
 // Determine if sidebar has any content to render
 const hasSidebar = tocHeadings.length > 0 || pullquotes.length > 0 || sidebar.length > 0;
 const renderedSidebarMermaid = await renderSidebarMermaid(sidebar, Astro.url.pathname);
+
+// Shared by BaseLayout's data-accent and the phone-stack rails
+// (getMobileRail): header, content, footer. The metadata panel has no rail
+// because it is hidden in the stack; its facts move into the header.
+const PAGE_ACCENT = 'red';
 
 const jsonLd = {
   "@context": "https://schema.org",
@@ -188,7 +197,7 @@ const jsonLd = {
   ogImage={ogImagePath}
   ogImageAlt={`${title} open graph image`}
   bodyClass="project-page blog-page"
-  dataAccent="red"
+  dataAccent={PAGE_ACCENT}
   jsonLd={jsonLd}
   articleMeta={{
     published: isoDate,
@@ -213,7 +222,7 @@ const jsonLd = {
       {/* No --inset variants here (#455 finding 8): the inset exists to clear
           the project hero's accent bar, which this header doesn't have — the
           h1 is flush left, so breadcrumb and deck must be too. */}
-      <header class="blog-canvas-header">
+      <header class="blog-canvas-header" data-rail={getMobileRail(PAGE_ACCENT, 0)}>
         <Breadcrumbs
           items={[
             { label: "Nathan Payne", href: "/" },
@@ -221,8 +230,25 @@ const jsonLd = {
             { label: shortTitle || 'Article' },
           ]}
         />
+        {/* Phone-stack kicker: the metadata panel below is hidden in the
+            stack, and these lines carry its facts in the same anatomy as the
+            /blog card the reader just tapped. Hidden at --bp-stack and up,
+            where the panel shows them. */}
+        <div class="blog-header-kicker">
+          {category && <p class="post-meta">{category}</p>}
+          <p class="post-meta">
+            <time datetime={isoDate}>{publishedDate}</time>
+            {showUpdated && <> &middot; Updated <time datetime={isoModified}>{updatedMonth}</time></>}
+            {' '}&middot; {readingTime}
+          </p>
+        </div>
         <h1>{title}</h1>
         <p class="deck">{description}</p>
+        <div class="tag-row blog-header-topics">
+          {tags.map((tag) => (
+            <span class="tag">{tag}</span>
+          ))}
+        </div>
       </header>
 
       {/* ── Sidebar: metadata panel ── */}
@@ -249,7 +275,7 @@ const jsonLd = {
       </div>
 
       {/* ── Main content column ── */}
-      <div class="blog-content">
+      <div class="blog-content" data-rail={getMobileRail(PAGE_ACCENT, 1)}>
 
         {/* Key takeaways (#621) — article column, not the sidebar: the
             sidebar already carries ToC + pullquotes + diagrams and is
@@ -426,6 +452,7 @@ const jsonLd = {
       <Footer
         attribution={author}
         variant="canvas"
+        rail={getMobileRail(PAGE_ACCENT, 2)}
         links={[
           { href: "/blog/", label: "← Back to Blog" },
           { href: "/", label: "Back to Homepage →" },

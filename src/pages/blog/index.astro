@@ -2,7 +2,7 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
 import { estimateReadingMinutes } from '../../lib/reading-time';
-import { getIndexGridRow } from '../../lib/index-grid';
+import { getIndexGridRow, getMobileRail } from '../../lib/index-grid';
 import { compareBlogPosts } from '../../lib/blog-order';
 import Footer from '../../components/Footer.astro';
 import Breadcrumbs from '../../components/Breadcrumbs.astro';
@@ -72,6 +72,10 @@ function formatDate(date: Date): string {
 function readingTime(body: string | undefined): string {
   return `${estimateReadingMinutes(body)} min`;
 }
+
+// The page accent, shared by BaseLayout's data-accent and the phone-stack
+// rails (getMobileRail), so the hero rail always matches the page color.
+const PAGE_ACCENT = 'blue';
 ---
 
 <BaseLayout
@@ -80,14 +84,14 @@ function readingTime(body: string | undefined): string {
   ogImage="https://nathanpayne.com/og/blog.png"
   ogImageAlt={`${BLOG_TITLE} open graph image`}
   bodyClass="project-page blog-page"
-  dataAccent="blue"
+  dataAccent={PAGE_ACCENT}
   jsonLd={jsonLd}
 >
   <main class="shell">
     <div class="frame page-canvas">
 
       {/* ── Hero ── */}
-      <header class="hero">
+      <header class="hero" data-rail={getMobileRail(PAGE_ACCENT, 0)}>
         <Breadcrumbs items={[{ label: "Nathan Payne", href: "/" }, { label: "Blog" }]} />
         <h1>{BLOG_TITLE}</h1>
         <p class="deck">{BLOG_DESCRIPTION}</p>
@@ -116,7 +120,7 @@ function readingTime(body: string | undefined): string {
           );
 
           return (
-            <div class={row.rowClass}>
+            <div class={row.rowClass} data-rail={getMobileRail(PAGE_ACCENT, i + 1)}>
               {card}
               {row.accentClasses.map((accentClass, accentIndex) => {
                 const isFeatureCell = i === 0 && accentIndex === row.accentClasses.length - 1;
@@ -133,7 +137,7 @@ function readingTime(body: string | undefined): string {
           );
         })}
 
-        <div class="grid-row--rss">
+        <div class="grid-row--rss" data-rail={getMobileRail(PAGE_ACCENT, posts.length + 1)}>
           <div class="accent-cream">
             <a href="/rss.xml" class="rss-link">Subscribe via RSS &rarr;</a>
           </div>
@@ -145,6 +149,7 @@ function readingTime(body: string | undefined): string {
       <Footer
         attribution="Nathan Payne"
         variant="grid"
+        rail={getMobileRail(PAGE_ACCENT, posts.length + 2)}
         links={[{ href: "/", label: "← Back to Homepage" }]}
       />
     </div>

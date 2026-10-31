@@ -28,6 +28,7 @@ import { RESUME_PDF_PATH } from '../integrations/resume-pdf.mjs';
 import { getSiteCopy } from '../lib/site-copy';
 import { BOOK_PAGE_PATH } from '../lib/booking';
 import { alumniOf, shortLocation } from '../lib/person-json-ld';
+import { getMobileRail } from '../lib/index-grid';
 
 const myself = await getEntry('myself', 'nathan-payne');
 if (!myself) {
@@ -150,6 +151,10 @@ const jsonLd = {
     },
   ],
 };
+
+// Shared by BaseLayout's data-accent and the phone-stack rails
+// (getMobileRail): header, metadata panel, content, footer.
+const PAGE_ACCENT = 'red';
 ---
 
 <BaseLayout
@@ -159,7 +164,7 @@ const jsonLd = {
   ogImage="https://nathanpayne.com/og/resume.png"
   ogImageAlt="Nathan Payne—Résumé"
   bodyClass="resume-page"
-  dataAccent="red"
+  dataAccent={PAGE_ACCENT}
   jsonLd={jsonLd}
 >
   <main class="resume-shell">
@@ -175,7 +180,7 @@ const jsonLd = {
       <div class="resume-canvas-margin resume-canvas-margin--footer" aria-hidden="true"></div>
 
       {/* Header — breadcrumbs, name, title, and contact (kept here so it prints) */}
-      <header class="resume-canvas-header">
+      <header class="resume-canvas-header" data-rail={getMobileRail(PAGE_ACCENT, 0)}>
         <Breadcrumbs
           items={[
             { label: "Nathan Payne", href: "/" },
@@ -227,7 +232,7 @@ const jsonLd = {
       </header>
 
       {/* Metadata panel (top-right; screen-only — contact lives in the header) */}
-      <div class="resume-canvas-meta">
+      <div class="resume-canvas-meta" data-rail={getMobileRail(PAGE_ACCENT, 1)}>
         <dl>
           <div><dt>Location</dt><dd>{location}</dd></div>
           <div><dt>Availability</dt><dd>{m.availability.long}</dd></div>
@@ -244,7 +249,7 @@ const jsonLd = {
       </div>
 
       {/* Main content column */}
-      <div class="resume-canvas-content">
+      <div class="resume-canvas-content" data-rail={getMobileRail(PAGE_ACCENT, 2)}>
         <SummarySection entry={myself} />
         <SkillsSection categories={skills} />
         <ExperienceSection entries={experience} />
@@ -309,6 +314,7 @@ const jsonLd = {
         attribution={m.name}
         variant="canvas"
         class="site-footer--resume"
+        rail={getMobileRail(PAGE_ACCENT, 3)}
         links={[
           { href: "/", label: "← Back to Homepage" },
           { href: "/blog/", label: "Read the Blog →" },

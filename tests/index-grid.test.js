@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getIndexGridRow } from '../src/lib/index-grid';
+import { getIndexGridRow, getMobileRail } from '../src/lib/index-grid';
 
 // `src/lib/index-grid.ts` is a 20-line function shared by /projects/ and
 // /blog/, and it had no tests at all (#910). Both indexes render from it, so a
@@ -59,5 +59,32 @@ describe('index grid geometry', () => {
         OPENING_ROWS[index % CYCLE].accentClasses,
       );
     }
+  });
+});
+
+// Phone-stack rails: the hero shows the page accent, and no two adjacent
+// stacked blocks share a color for any list length.
+describe('phone-stack rails', () => {
+  it('opens on the page accent and walks the stated cycle', () => {
+    expect(
+      ['red', 'blue', 'yellow', 'black', 'red', 'blue'].map((_, i) => getMobileRail('red', i)),
+    ).toEqual(['red', 'blue', 'yellow', 'black', 'red', 'blue']);
+    expect(getMobileRail('blue', 0)).toBe('blue');
+    expect(getMobileRail('blue', 1)).toBe('yellow');
+    expect(getMobileRail('yellow', 1)).toBe('black');
+  });
+
+  it('never repeats a color on adjacent blocks', () => {
+    for (const accent of ['red', 'blue', 'yellow', 'black', 'paper']) {
+      for (let i = 1; i < 40; i += 1) {
+        expect(getMobileRail(accent, i), `${accent} block ${i}`).not.toBe(
+          getMobileRail(accent, i - 1),
+        );
+      }
+    }
+  });
+
+  it('starts a page accent outside the cycle at red after the hero', () => {
+    expect(getMobileRail('paper', 1)).toBe('red');
   });
 });
