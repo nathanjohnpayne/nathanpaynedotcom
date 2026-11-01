@@ -232,7 +232,7 @@
   .app .c-head h1{font-size:clamp(2rem,3cqw,3rem);line-height:1.08}
   .app .c-head .deck{font-family:var(--font-body);font-size:clamp(.85rem,1cqw,1rem);line-height:1.6;max-width:54ch;color:var(--ink-62)}
   .app .c-meta{grid-column:6;grid-row:2;background:var(--accent-gray);padding:clamp(1rem,2cqw,1.6rem);display:flex;flex-direction:column;justify-content:flex-end;gap:.7rem}
-  .app .c-meta dt{font-size:clamp(.58rem,.65cqw,.68rem);letter-spacing:.14em;text-transform:uppercase;color:color-mix(in srgb,var(--ink) 48%,transparent);margin-bottom:.15rem}
+  .app .c-meta dt{font-size:clamp(.58rem,.65cqw,.68rem);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-62);margin-bottom:.15rem}
   .app .c-meta dd{font-family:var(--font-heading);font-weight:500;font-size:clamp(.88rem,1cqw,.98rem);line-height:1.3}
   .app .pills{display:flex;gap:.3rem;flex-wrap:wrap}
   .app .pill{font-family:var(--font-body);font-size:.6rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;background:color-mix(in srgb,var(--ink) 8%,transparent);padding:.2rem .45rem;border-radius:2px}
@@ -1076,7 +1076,7 @@ const TOKENS = [
   ['--blue-ink', '#1a66a2', '--blue darkened for link text: .p-link and the résumé links (#1485). The 1930 homepage maps it to its own --blue', PAPER, [[PAPER, 'link text on paper'], [SURF, 'link text on surface'], ['#dde1e5', 'link text on gray plane']]],
   ['--blue-contrast', '#f0f4ff', 'Light text on the blue plane (CONNECT label, availability line)', '#2080ca', [['#2080ca', 'on blue', 'lg']]],
   ['--accent-black', '#333333', 'Community plane and the “black” accent cells / rail — not --ink', CREAM, [[CREAM, 'cream text on it']]],
-  ['--accent-gray', '#d4d4d4', 'Two homepage blocks; blog / résumé metadata panel; 404 cells', INK, [[INK, 'ink on it'], [mix(INK, '#d4d4d4', .48), '48% ink dt labels on it']]],
+  ['--accent-gray', '#d4d4d4', 'Two homepage blocks; blog / résumé metadata panel; 404 cells', INK, [[INK, 'ink on it'], [mix(INK, '#d4d4d4', .62), '62% ink dt labels on it (#1502)']]],
   ['--gray-plane', '#dde1e5', 'Index-grid gray cells, the RSS / book / brand bands', INK, [[INK, 'ink on it'], [mix(INK, '#dde1e5', .62), '62% ink FEATURED label']]],
   ['--stage-bg', '#c4c3bc', 'The backdrop behind every canvas (blog, résumé, 404, homepage stage)', null, []],
   ['--ink-62', mix(INK, PAPER, .62), 'color-mix 62% ink: muted text, eyebrows, footer attribution — resolved on paper', PAPER, [[PAPER, 'on paper'], [SURF, 'on surface (' + mix(INK, SURF, .62) + ')']]],
