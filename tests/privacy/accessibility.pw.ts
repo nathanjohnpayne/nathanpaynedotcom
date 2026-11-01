@@ -322,7 +322,9 @@ test.describe('notice', () => {
           const r = c.getBoundingClientRect();
           const clear =
             r.top >= n.bottom || r.bottom <= n.top || r.left >= n.right || r.right <= n.left;
-          return r.width > 0 && r.height > 0 && r.bottom <= window.innerHeight && clear;
+          return (
+            r.width > 0 && r.height > 0 && r.top >= 0 && r.bottom <= window.innerHeight && clear
+          );
         });
         if (!el) return null;
         el.setAttribute('data-np-test-target', '');

@@ -137,7 +137,8 @@ for (const width of BREAKPOINTS) {
           expect(Math.abs(result!.leftGap - result!.rightGap)).toBeLessThanOrEqual(2);
           if (stacked) {
             // Edge to edge: the canvas fills its shell and drops the shadow.
-            expect(result!.leftGap).toBeLessThanOrEqual(1);
+            expect(Math.abs(result!.leftGap)).toBeLessThanOrEqual(1);
+            expect(Math.abs(result!.rightGap)).toBeLessThanOrEqual(1);
             expect(result!.shadow).toBe('none');
           } else {
             // The shared ink drop shadow is present. Compare color values,
