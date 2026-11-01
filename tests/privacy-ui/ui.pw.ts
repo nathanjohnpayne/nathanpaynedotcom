@@ -318,7 +318,6 @@ test('the footer link is on every surface, including the homepage and the 404', 
       const link = page.locator('[data-np-privacy-ui="footer-link"]');
       await expect(link, `${route} at ${viewport.width}px`).toHaveCount(1);
       await expect(link).toHaveAttribute('href', '/privacy/');
-      await expect(link).toHaveText(/^Privacy/);
       // The homepage link lives in the Connect panel, whose content shows on
       // the phone stack and, on the desktop composition, once the panel opens
       // (by keyboard here: Enter on the label, the documented path).
@@ -327,6 +326,9 @@ test('the footer link is on every surface, including the homepage and the 404', 
         await page.keyboard.press('Enter');
       }
       await expect(link, `${route} at ${viewport.width}px`).toBeVisible();
+      // Read once visible (a hidden element has no accessible name): the footer
+      // renders an icon labelled "Privacy", the homepage and 404 the word.
+      await expect(link).toHaveAccessibleName(/^Privacy/);
     }
     await context.close();
   }

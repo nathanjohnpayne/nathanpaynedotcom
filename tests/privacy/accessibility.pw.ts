@@ -532,7 +532,9 @@ test.describe('footer link', () => {
         await s.page.keyboard.press('Enter');
         await expect(link).toBeVisible();
       }
-      expect((await link.innerText()).trim().length).toBeGreaterThan(0);
+      // The footer renders it as an icon (aria-label), the homepage and 404 as
+      // text; either way it must carry the name "Privacy".
+      await expect(link).toHaveAccessibleName(/^Privacy/);
       await link.scrollIntoViewIfNeeded();
       await expectFocusIndicator(
         s.page,
