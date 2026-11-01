@@ -183,8 +183,8 @@
   .app .eyebrow,.app .post-meta{font-family:var(--font-body);font-size:clamp(.65rem,.78cqw,.76rem);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-62);font-weight:500}
   /* The footer Privacy link is an icon: Lucide shield-check, as PrivacyLink.astro draws it. */
   .app .nav-button.privacy-link--icon{display:inline-flex;align-items:center;justify-content:center;padding:.55rem}
-  .app .privacy-icon{width:1.2em;height:1.2em}
-  .app .nav-button{display:inline-block;border:1px solid var(--ink);padding:.55rem .85rem;font-size:clamp(.8rem,.9cqw,.92rem);font-weight:600;letter-spacing:.14em;text-transform:uppercase;background:var(--paper);white-space:nowrap}
+  .app .nav-icon{width:1.2em;height:1.2em;flex-shrink:0}
+  .app .nav-button{display:inline-flex;align-items:center;justify-content:center;gap:.35rem;border:1px solid var(--ink);padding:.55rem .85rem;font-size:clamp(.8rem,.9cqw,.92rem);font-weight:600;letter-spacing:.14em;text-transform:uppercase;background:var(--paper);white-space:nowrap}
   .app .site-footer{display:flex;justify-content:space-between;align-items:center;gap:.8rem 1.2rem;flex-wrap:wrap;padding:1.1rem clamp(1.15rem,3cqw,2.5rem);background:var(--paper)}
   .app .site-footer--grid{border-top:var(--line) solid var(--ink)}
   .app .site-footer--detail{border-top:1px solid var(--ink)}
@@ -640,7 +640,7 @@ const RAIL_CYCLE = ['red', 'blue', 'yellow', 'black'];
 const rail = (accent, i) => RAIL_CYCLE[(RAIL_CYCLE.indexOf(accent) + i) % 4];
 const bc = (...parts) => `<div class="breadcrumbs">${parts.map((p, i) => i === parts.length - 1 ? `<span class="cur">${p}</span>` : `<a>${p}</a>`).join('<span class="sep">/</span>')}</div>`;
 const footer = (variant, links, { privacy = true } = {}) =>
-  `<footer class="site-footer site-footer--${variant}" data-rail="${links.rail || ''}"><p class="site-footer__attribution">Nathan Payne · San Francisco</p><nav class="site-footer__nav">${links.items.map(l => `<a class="nav-button">${l}</a>`).join('')}${privacy ? PRIVACY_ICON : ''}</nav></footer>`;
+  `<footer class="site-footer site-footer--${variant}" data-rail="${links.rail || ''}"><p class="site-footer__attribution">Nathan Payne · San Francisco</p><nav class="site-footer__nav">${links.items.map(navItem).join('')}${privacy ? PRIVACY_ICON : ''}</nav></footer>`;
 // src/lib/index-grid.ts: six-row cycle; a later cycle opens yellow + gray instead of red + gray
 const ROWS = [
   { cols: '50fr 22fr 28fr', h: '16rem', acc: ['red', 'paper'] },
@@ -746,7 +746,7 @@ function blogIndex() {
   const rows = gridRows(POSTS.map(postCard), 'blue', { featured: true }) +
     `<div class="grid-row grid-row--rss"><div class="band" data-rail="${rail('blue', POSTS.length + 1)}"><span class="post-meta">Subscribe via RSS →</span></div></div>`;
   return indexShell('blue', '#c4c3bc', `${bc('Nathan Payne', 'Blog')}<h1>Writing</h1><p class="deck">I build products with AI coding agents. I write about what I asked for, what shipped, and what I had to change.</p>`, rows,
-    footer('grid', { rail: rail('blue', POSTS.length + 2), items: ['← Back to Homepage'] }));
+    footer('grid', { rail: rail('blue', POSTS.length + 2), items: ['Back to Homepage'] }));
 }
 function blogPost() {
   const toc = ['Outvoted', 'The rewritten check', 'Unread', 'What my pipeline does today', 'Where the author still decides', 'Three rules', 'A no that holds'];
@@ -769,7 +769,7 @@ function blogPost() {
     <aside class="c-side"><div class="side-h">In this article</div><ol class="side-toc">${toc.map(t => `<li>${t}</li>`).join('')}</ol>
       <blockquote class="pq" style="--pq:var(--yellow)">A check the author can rewrite in the same diff is not a check. It's a suggestion with a test runner.<cite>The rewritten check</cite></blockquote>
       <blockquote class="pq" style="--pq:var(--blue)">A rebuttal is the author telling the reviewer why it's wrong. Today, in my pipeline, that is also the author deciding the reviewer was wrong.<cite>The gap</cite></blockquote></aside>
-    ${footer('detail', { rail: 'yellow', items: ['← Back to Blog', 'Back to Homepage →'] }).replace('site-footer--detail', 'site-footer--canvas c-foot')}
+    ${footer('detail', { rail: 'yellow', items: ['Back to Blog', 'Back to Homepage'] }).replace('site-footer--detail', 'site-footer--canvas c-foot')}
   </article></div></div>`;
 }
 
@@ -787,7 +787,7 @@ const PROJECTS = [
 const projCard = ([st, tags, title, desc]) => `<span class="post-meta">${st}</span><span class="post-meta">${tags}</span><h2 class="post-title">${title}</h2><p class="post-desc">${desc}</p><span class="tag">View ↗</span>`;
 function projectsIndex() {
   return indexShell('yellow', 'color-mix(in srgb,#e3d477 16%,#f5f0e4)', `${bc('Nathan Payne', 'Projects')}<h1>Products—and the decisions behind them</h1><p class="deck">Every one of these began as a real problem—mine, or one I watched up close. The decisions are the part worth reading: what got built, what got refused, and what the evidence said once it was running. Each card says where the project stands, and why. I build with AI agents under a review system I designed and <b>documented here</b>. The agents are leverage; the product decisions are the point.</p>`,
-    gridRows(PROJECTS.map(projCard), 'yellow'), footer('grid', { rail: rail('yellow', PROJECTS.length + 1), items: ['Résumé →', 'Book time →', '← Back to Homepage'] }));
+    gridRows(PROJECTS.map(projCard), 'yellow'), footer('grid', { rail: rail('yellow', PROJECTS.length + 1), items: ['Résumé', 'Book time', 'Back to Homepage'] }));
 }
 function projectDetail() {
   return `<div class="app inner" style="--accent:var(--red)"><div class="page-shell"><article class="page-canvas project-detail">
@@ -803,7 +803,7 @@ function projectDetail() {
         <dl class="dec-dl"><div><dt>Context</dt><dd>I had eight days to build a multiplayer game for an adult friend group. A server-authoritative game would check every claim before it counted, so players couldn't cheat.</dd></div><div><dt>Rejected</dt><dd>Cloud Functions checking every mark. That's the standard multiplayer approach, and the safer choice for an audience of strangers.</dd></div><div class="full"><dt>What I decided</dt><dd>I chose honor-system marking, with no server validation. Players write their own boards, and the client sorts the leaderboard. …</dd></div><div class="full cost"><dt>Cost</dt><dd>The standings are claims, not independently verified results. A player writes their own board, so the record can't distinguish a real mark from an invented one. Any player could demand proof.</dd></div><div class="full ev"><dt>Evidence</dt><dd>The frozen production Firestore holds 845 squares. Analytics recorded seven proof-demand events over ten days, all from the same player. …</dd></div></dl></div>
       <h2>Related</h2><ul class="related"><li>Project: Swipe Watch</li><li>Project: Mergepath</li></ul>
     </div>
-    ${footer('detail', { items: ['← Back to Projects', 'Back to Homepage →'] })}
+    ${footer('detail', { items: ['Back to Projects', 'Back to Homepage'] })}
   </article></div></div>`;
 }
 
@@ -823,7 +823,20 @@ const EXP_COMPACT = [
   ['AJ', 'Director of Information Technology—AJ+', 'San Francisco · 2013–2016'],
   ['CT', 'Senior Systems Architect—Current TV', 'San Francisco · 2012–2013'],
   ['CN', 'Systems Architect / Support Roles—CNN', 'Washington, DC Bureau · 2002–2012']];
-const PRIVACY_ICON = '<a class="nav-button privacy-link--icon" aria-label="Privacy" title="Privacy"><svg class="privacy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg></a>';
+// NavIcon.astro: Lucide content icons leading the footer and 404 buttons.
+const NAV = {
+  'file-user': '<path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M16 22a4 4 0 0 0-8 0"/><circle cx="12" cy="15" r="3"/>',
+  calendar: '<path d="M8 2v3"/><path d="M16 2v3"/><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/>',
+  newspaper: '<path d="M15 18h-5"/><path d="M18 14h-8"/><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-4 0v-9a2 2 0 0 1 2-2h2"/><rect width="8" height="4" x="10" y="6" rx="1"/>',
+  'layout-grid': '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
+  house: '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  'shield-check': '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
+};
+const navIcon = (n) => `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${NAV[n]}</svg>`;
+// A footer label names its icon by its destination word.
+const LABEL_ICON = [[/Résumé/, 'file-user'], [/Book time/, 'calendar'], [/Blog/, 'newspaper'], [/Projects/, 'layout-grid'], [/Homepage/, 'house']];
+const navItem = (label) => { const hit = LABEL_ICON.find(([re]) => re.test(label)); return `<a class="nav-button">${hit ? navIcon(hit[1]) : ''}${label}</a>`; };
+const PRIVACY_ICON = `<a class="nav-button privacy-link--icon" aria-label="Privacy" title="Privacy">${navIcon('shield-check')}</a>`;
 const SEP = '<span class="sep" aria-hidden="true">·</span>';
 const resumeContact = () => `<p class="r-contact r-contact--primary"><span>${ICON.mappin}San Francisco, CA</span>${SEP}<a>${ICON.mail}hire@nathanpayne.com</a></p><p class="r-contact r-contact--profiles"><a>${ICON.globe}nathanpayne.com</a>${SEP}<a>${ICON.linkedin}linkedin.com/in/nathanpayne</a>${SEP}<a>${ICON.github}github.com/nathanjohnpayne</a></p>`;
 const resumeHead = () => `${bc('Nathan Payne', 'Résumé')}<h1>Nathan Payne</h1><p class="r-title">Senior Platform Product Manager</p>${resumeContact()}`;
@@ -846,7 +859,7 @@ function resume() {
       <blockquote class="pq" style="--pq:var(--red)">Conceived NCPv3 and secured approval for an $18.1M investment in a JavaScript/React runtime to run Disney's mature JavaScript app across five device families, so Disney could retire the parallel Rust app and merge two teams into one.</blockquote>
       <blockquote class="pq" style="--pq:var(--yellow)">Led Disney's launch on Amazon's Linux-based Vega OS (Kepler): Disney+, Hulu, and ESPN shipped on schedule with no measurable engagement impact.</blockquote>
       <blockquote class="pq" style="--pq:var(--blue)">Introduced an AI-powered PR review pipeline that cut median PR cycle time from 7.4 to 4 days, beating the 30% Q2 OKR target.</blockquote></aside>
-    ${footer('detail', { rail: 'black', items: ['← Back to Homepage', 'Read the Blog →'] }).replace('site-footer--detail', 'site-footer--canvas c-foot')}
+    ${footer('detail', { rail: 'black', items: ['Back to Homepage', 'Read the Blog'] }).replace('site-footer--detail', 'site-footer--canvas c-foot')}
   </div></div></div>`;
 }
 function resumePrint() {
@@ -860,13 +873,13 @@ function book() {
   const cards = [['15 min · FaceTime, phone, Google Meet, or Zoom', 'Quick Intro'], ['30 min · FaceTime, phone, Google Meet, or Zoom', 'Real Conversation'], ['60, 90, or 120 min · San Francisco', 'Coffee or Lunch']]
     .map(([k, t]) => `<span class="post-meta">${k}</span><h2 class="post-title">${t}</h2><span class="tag">Pick a time ↗</span>`);
   const rows = gridRows(cards, 'red') + `<div class="grid-row grid-row--rss"><div class="band" data-rail="${rail('red', 4)}"><p>Times show in your time zone; mine is Pacific. Cal.com asks what you would like to discuss before it confirms, and the invite follows once you verify your email.<br><a class="blue-link">Everything on Cal.com →</a></p></div></div>`;
-  return indexShell('red', 'color-mix(in srgb,#e8784a 16%,#f5f0e4)', `${bc('Nathan Payne', 'Book time')}<h1>Book time</h1><p class="deck">Pick a time. I’m easy to talk to and hard to surprise.</p>`, rows, footer('grid', { rail: rail('red', 5), items: ['Résumé →', '← Back to Homepage'] }));
+  return indexShell('red', 'color-mix(in srgb,#e8784a 16%,#f5f0e4)', `${bc('Nathan Payne', 'Book time')}<h1>Book time</h1><p class="deck">Pick a time. I’m easy to talk to and hard to surprise.</p>`, rows, footer('grid', { rail: rail('red', 5), items: ['Résumé', 'Back to Homepage'] }));
 }
 function brand() {
   const fam = [['Mark', 'SVG · PNG · 11 files', 'The primary square mark: the NP monogram in the cream field, the red plane at right, and the yellow, charcoal and blue planes along the bottom. …'], ['Small-size tile', 'SVG · 1 file', 'The mark without the monogram, for sizes below 24px such as a 16px favicon, where the letters would blur. …'], ['Keyline mark', 'SVG · PNG · 2 files', 'The mark framed by an ink keyline the weight of its grid lines, only for cream or near-cream surfaces where the field would otherwise vanish. …'], ['One-color mark', 'SVG · PNG · 2 files', 'The mark for one-color reproduction: print, engraving and grayscale interfaces. The planes become tints of the ink.'], ['Horizontal lockup', 'SVG · PNG · 12 files', 'The primary lockup: the mark, the name and NATHANPAYNE.COM beneath. …'], ['Stacked lockup', 'SVG · PNG · 8 files', 'The mark above the name and domain, for square and portrait placements: social posts, slide title cards and print. …'], ['Compact lockup', 'SVG · 2 files', 'The mark and the name, without the domain, for placements between about 160px and 320px wide, where the domain line would be too small to read. …'], ['Wordmark', 'SVG · PNG · 3 files', 'The name and domain without the mark, for places where the mark already appears nearby.'], ['Social images', 'PNG · 2 files', 'A logo-only landscape card for social posts, and a square version with the stacked lockup on white. …'], ['Google Workspace logo', 'PNG · SVG · 4 files', 'Laid out for Google Workspace’s 320×132 organization-logo frame: the full-height mark at left and the name on two lines beside it, so it fills the frame instead of shrinking. …'], ['Profile picture', 'PNG · 2 files', 'The mark as a square avatar for a Google Account, GitHub, LinkedIn, X, Bluesky, Slack or Threads. …'], ['Browser icons', 'ICO · PNG · 2 files', 'The favicon, whose 16px size is the small-size tile and whose 32px and 48px sizes carry the monogram, and the 180px Apple touch icon, which iOS rounds itself.']]
     .map(([t, k, d]) => `<div class="preview"><div class="npmark"><i></i><i></i><i></i><i></i></div></div><span class="post-meta">${k}</span><h2 class="post-title" style="font-size:clamp(1.3rem,1.8cqw,1.9rem)">${t}</h2><p class="post-desc">${d}</p><div class="chips-dl"><span class="tag">SVG</span><span class="tag">PNG</span></div>`);
   const rows = gridRows(fam, 'red').replace(/ data-rail="[a-z]*"/g, '') + `<div class="grid-row grid-row--rss"><div class="band brand-band"><div><span class="post-meta">Colors</span><div class="swatches">${[['Red', '#da2418'], ['Yellow', '#f0c800'], ['Blue', '#0a5c9e'], ['Ink', '#11100d'], ['Cream', '#f5f0e4']].map(([n, h]) => `<span class="swatch"><i style="background:${h}"></i><span>${n}<br><code>${h}</code></span></span>`).join('')}</div></div><div><span class="post-meta">Type</span><p>The name is set in Cormorant Garamond 600 and the domain in Inter 500 small capitals. …</p></div><div><span class="post-meta">Rules</span><p>Keep clear space around any lockup equal to the width of the red plane, one quarter of the mark’s height. Do not recolor the planes, add gradients or shadows, rotate the mark, or set the name in another typeface.</p></div></div></div>`;
-  return indexShell('red', 'color-mix(in srgb,#e8784a 16%,#f5f0e4)', `${bc('Nathan Payne', 'Brand')}<h1>Brand assets</h1><p class="deck">The NP mark, the lockups and the wordmark, ready to download.</p>`, rows, footer('grid', { items: ['Résumé →', '← Back to Homepage'] })).replace(/ data-rail="[a-z]*"/g, '');
+  return indexShell('red', 'color-mix(in srgb,#e8784a 16%,#f5f0e4)', `${bc('Nathan Payne', 'Brand')}<h1>Brand assets</h1><p class="deck">The NP mark, the lockups and the wordmark, ready to download.</p>`, rows, footer('grid', { items: ['Résumé', 'Back to Homepage'] })).replace(/ data-rail="[a-z]*"/g, '');
 }
 function privacyPage() {
   const toc = ['Your choices', 'What is collected', 'Who receives it', 'Why I collect it', 'How long it is kept', 'Global Privacy Control', 'What turning analytics off does not do', 'Contact'];
@@ -877,12 +890,12 @@ function privacyPage() {
       <h2>What is collected</h2><p>Two analytics tools, PostHog and Google Analytics 4, run on every page unless you turn them off here, your browser sends Global Privacy Control, or JavaScript is off. …</p>
       <h2>Who receives it</h2><p>PostHog receives everything in the PostHog list above. Its requests go through d.nathanpayne.com, a reverse proxy PostHog manages and routes through Cloudflare, which PostHog lists as a subprocessor. …</p>
       <h2>How long it is kept</h2><p>PostHog session recordings: 30 days.</p></div>
-    ${footer('detail', { items: ['← Back to Homepage'] })}
+    ${footer('detail', { items: ['Back to Homepage'] })}
   </article></div></div>`;
 }
 function notFound() {
   return `<div class="app inner"><div class="error-shell"><div class="error-mondrian">
-    <div class="e-content">${bc('Nathan Payne', '404')}<h1>Page not found</h1><p class="deck">The page you’re looking for doesn’t exist or has been moved.</p><div class="ctas"><a class="nav-button">Homepage</a><a class="nav-button">Résumé</a><a class="nav-button">Projects</a><a class="nav-button">Blog</a><a class="nav-button">Privacy</a></div></div>
+    <div class="e-content">${bc('Nathan Payne', '404')}<h1>Page not found</h1><p class="deck">The page you’re looking for doesn’t exist or has been moved.</p><div class="ctas">${['Homepage', 'Résumé', 'Projects', 'Blog'].map(navItem).join('')}<a class="nav-button">${navIcon('shield-check')}Privacy</a></div></div>
     <div class="e-r"></div><div class="e-y1"></div><div class="e-b"></div><div class="e-k"></div><div class="e-g1"></div><div class="e-g2"></div><div class="e-y2"></div><div class="e-w"></div>
   </div></div></div>`;
 }
