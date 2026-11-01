@@ -9,21 +9,23 @@
  * the footer and on the 404, .availability-privacy .p-link at the end of the
  * homepage Connect panel's contact line).
  *
- * `icon` swaps the word for Lucide's shield-check (ISC; transcribed verbatim,
- * as ContactIcon.astro does), used in the shared footer. The anchor keeps
+ * `icon` swaps the word for Lucide's shield-check (NavIcon.astro), used in
+ * the shared footer; `icon="label"` leads the word with it, on the 404. The anchor keeps
  * "Privacy" as its accessible name (aria-label) and as a hover tooltip
  * (title). The homepage keeps the text link: it is the site's conspicuous,
  * worded privacy link on the homepage.
  */
 import { privacyControlsEnabled } from '../../../lib/privacy-flag';
+import NavIcon from '../../NavIcon.astro';
 
 interface Props {
   /** Class(es) for the anchor, from the surface's own link vocabulary. */
   class?: string;
   /** Append the site's trailing arrow (the homepage link convention). */
   arrow?: boolean;
-  /** Render the shield-check icon in place of the word (the footer). */
-  icon?: boolean;
+  /** `true`: the shield-check icon in place of the word (the footer).
+   *  `'label'`: the icon leading the word (the 404's button row). */
+  icon?: boolean | 'label';
 }
 
 const { class: className, arrow = false, icon = false } = Astro.props;
@@ -33,11 +35,9 @@ const enabled = privacyControlsEnabled();
 {enabled && !icon && (
   <a class={className} href="/privacy/" data-np-privacy-ui="footer-link">Privacy{arrow && <span class="link-arrow" aria-hidden="true">→</span>}</a>
 )}
-{enabled && icon && (
-  <a class={[className, 'privacy-link--icon'].filter(Boolean).join(' ')} href="/privacy/" data-np-privacy-ui="footer-link" aria-label="Privacy" title="Privacy">
-    <svg class="privacy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path>
-      <path d="m9 12 2 2 4-4"></path>
-    </svg>
-  </a>
+{enabled && icon === 'label' && (
+  <a class={className} href="/privacy/" data-np-privacy-ui="footer-link"><NavIcon name="shield-check" />Privacy</a>
+)}
+{enabled && icon === true && (
+  <a class={[className, 'privacy-link--icon'].filter(Boolean).join(' ')} href="/privacy/" data-np-privacy-ui="footer-link" aria-label="Privacy" title="Privacy"><NavIcon name="shield-check" /></a>
 )}

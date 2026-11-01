@@ -19,10 +19,13 @@ import { getEntry } from "astro:content";
 // #1079: the /privacy/ link on every footer, rendered by the component only
 // when the privacy flag is on (specs/analytics-privacy.md § UI Hooks).
 import PrivacyLink from "./privacy/ui/PrivacyLink.astro";
+import NavIcon, { type NavIconName } from "./NavIcon.astro";
 
 interface FooterLink {
   href: string;
   label: string;
+  /** Lucide content icon that leads the label (NavIcon.astro). */
+  icon?: NavIconName;
   /**
    * Marks an off-site destination. Renders `target="_blank" rel="noopener"`
    * per operating-rules.md § Coding Conventions. The flag is explicit rather
@@ -35,7 +38,7 @@ interface FooterLink {
 interface Props {
   /** Name before the "· <city>" byline. */
   attribution: string;
-  /** Nav actions, left-to-right. Labels may include arrows (←/→). */
+  /** Nav actions, left-to-right. Each leads with a content icon, not an arrow. */
   links: FooterLink[];
   /** Placement/chrome modifier. */
   variant?: "grid" | "canvas" | "detail";
@@ -72,7 +75,7 @@ const classList = [
         class="nav-button"
         href={link.href}
         {...(link.external ? { target: "_blank", rel: "noopener" } : {})}
-      >{link.label}</a>
+      >{link.icon && <NavIcon name={link.icon} />}{link.label}</a>
     ))}
     <PrivacyLink class="nav-button" icon />
   </nav>

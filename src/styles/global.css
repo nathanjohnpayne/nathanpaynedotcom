@@ -2256,7 +2256,10 @@ body.blog-page {
   padding: 0.55rem;
 }
 
-.privacy-icon {
+/* NavIcon.astro: the Lucide content icon leading a footer or 404 button
+   label (and the footer's icon-only Privacy link). One line box tall, so it
+   never changes the button's height. */
+.nav-icon {
   width: 1.2em;
   height: 1.2em;
   flex-shrink: 0;
