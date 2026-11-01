@@ -124,10 +124,19 @@ import noticeSource from './notice.js?raw';
       animation: none;
     }
   }
-  /* The copy, then the two choices side by side under it at every width. */
+  /* The copy, then the two choices side by side under it at every width.
+     A fixed card does not scroll with the page, so in a very short or highly
+     zoomed viewport (400% zoom leaves about 320x225 CSS px) its contents
+     scroll inside it instead, and both choices stay reachable. The cap is the
+     viewport less the top margin, a matching bottom margin, and the 3px
+     borders; the rail stays put on the card's own box. */
   .privacy-notice__inner {
     display: grid;
     gap: var(--sp-md);
+    max-height: calc(100vh - 2 * var(--np-edge) - env(safe-area-inset-top) - 6px);
+    max-height: calc(100dvh - 2 * var(--np-edge) - env(safe-area-inset-top) - 6px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
     padding: var(--sp-lg) var(--sp-lg) var(--sp-lg) calc(var(--np-rail-w) + 3px + var(--sp-lg));
   }
   .privacy-notice__copy {

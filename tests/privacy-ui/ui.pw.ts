@@ -278,6 +278,30 @@ for (const viewport of [DESKTOP, MOBILE, NARROW]) {
   });
 }
 
+test('in a very short viewport the card stays on screen and both choices can be scrolled into reach', async () => {
+  // 400% zoom on a 1280x900 window leaves about 320x225 CSS px. A fixed card
+  // does not move when the page scrolls, so its own contents must scroll.
+  const { context, page } = await open({ width: 320, height: 225 });
+  await page.goto(`${SITE}/blog/`);
+  await expect(notice(page)).toBeVisible();
+  await page.evaluate(() =>
+    Promise.all(
+      (document.getElementById('np-privacy-notice') as HTMLElement)
+        .getAnimations({ subtree: true })
+        .map((a) => a.finished),
+    ),
+  );
+  const box = await notice(page).boundingBox();
+  expect(box!.y + box!.height, 'the card ends inside the viewport').toBeLessThanOrEqual(225);
+  for (const action of ['deny', 'dismiss']) {
+    const button = notice(page).locator(`[data-np-privacy-action="${action}"]`);
+    await button.scrollIntoViewIfNeeded();
+    await expect(button).toBeInViewport();
+    await button.click({ trial: true });
+  }
+  await context.close();
+});
+
 test('the footer link is on every surface, including the homepage and the 404', async () => {
   for (const viewport of [DESKTOP, MOBILE]) {
     const { context, page } = await open(viewport);
