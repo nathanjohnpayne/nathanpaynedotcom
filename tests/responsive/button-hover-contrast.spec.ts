@@ -2,7 +2,8 @@ import { test, expect } from '@playwright/test';
 import { contrastRatio, parseComputedColor } from '../helpers/contrast';
 
 /**
- * Every .nav-button label clears WCAG AA against its own fill while hovered.
+ * Every .nav-button label clears WCAG AA against its own fill while hovered
+ * and while keyboard-focused (:focus-visible).
  *
  * The white footers' red hover painted a cream label at 2.56:1 on every page
  * with that footer, and the blue accent's ink-on-blue fill (/privacy/, /blog/)
@@ -20,7 +21,7 @@ for (const width of [1440, 390] as const) {
     test.use({ viewport: { width, height: 900 } });
 
     for (const path of PAGES) {
-      test(`${path} buttons keep an AA label on hover`, async ({ page }) => {
+      test(`${path} buttons keep an AA label on hover and focus`, async ({ page }) => {
         // A valid dismissed-notice state (gate.js reads anything else as
         // unset and shows the notice), so it can't cover the page's buttons.
         await page.addInitScript(() => {
@@ -44,38 +45,52 @@ for (const width of [1440, 390] as const) {
         for (let i = 0; i < count; i++) {
           const button = buttons.nth(i);
           await button.scrollIntoViewIfNeeded();
-          await button.hover({ timeout: 5000 });
-          const { hovered, ink, fill, name } = await button.evaluate((e) => {
-            let el: Element | null = e;
-            let fill = 'rgb(255, 255, 255)';
-            for (; el; el = el.parentElement) {
-              const bg = getComputedStyle(el).backgroundColor;
-              if (!/rgba\(.*,\s*0\)$/.test(bg) && bg !== 'transparent') {
-                fill = bg;
-                break;
-              }
+          for (const state of ['hover', 'focus-visible'] as const) {
+            if (state === 'hover') {
+              await button.hover({ timeout: 5000 });
+            } else {
+              // A key press puts the page in keyboard modality, so the
+              // scripted focus that follows matches :focus-visible.
+              await page.mouse.move(0, 0);
+              await page.keyboard.press('Shift');
+              await button.focus();
             }
-            return {
-              hovered: e.matches(':hover'),
-              ink: getComputedStyle(e).color,
-              fill,
-              name: (e.getAttribute('aria-label') || (e as HTMLElement).innerText).trim(),
-            };
-          });
-          // Measure only a real hover: an overlay taking the pointer would
-          // leave the button at rest and pass on its resting colors.
-          if (!hovered) {
-            failures.push(`${name}: not hovered`);
-            continue;
+            const { active, ink, fill, name } = await button.evaluate((e, st) => {
+              let el: Element | null = e;
+              let fill = 'rgb(255, 255, 255)';
+              for (; el; el = el.parentElement) {
+                const bg = getComputedStyle(el).backgroundColor;
+                if (!/rgba\(.*,\s*0\)$/.test(bg) && bg !== 'transparent') {
+                  fill = bg;
+                  break;
+                }
+              }
+              return {
+                active: e.matches(`:${st}`),
+                ink: getComputedStyle(e).color,
+                fill,
+                name: (e.getAttribute('aria-label') || (e as HTMLElement).innerText).trim(),
+              };
+            }, state);
+            // Measure only the real state: an overlay taking the pointer, or a
+            // focus that isn't :focus-visible, would leave the button at rest
+            // and pass on its resting colors.
+            if (!active) {
+              failures.push(`${name}: not in :${state}`);
+              continue;
+            }
+            const a = parseComputedColor(ink);
+            const b = parseComputedColor(fill);
+            if (!a || !b) {
+              failures.push(`${name} (${state}): unparsed ${ink} on ${fill}`);
+              continue;
+            }
+            const ratio = contrastRatio(a, b);
+            if (ratio < 4.5) {
+              failures.push(`${name} (${state}): ${ratio.toFixed(2)}:1 (${ink} on ${fill})`);
+            }
           }
-          const a = parseComputedColor(ink);
-          const b = parseComputedColor(fill);
-          if (!a || !b) {
-            failures.push(`${name}: unparsed ${ink} on ${fill}`);
-            continue;
-          }
-          const ratio = contrastRatio(a, b);
-          if (ratio < 4.5) failures.push(`${name}: ${ratio.toFixed(2)}:1 (${ink} on ${fill})`);
+          await button.blur();
         }
         await page.mouse.move(0, 0);
         expect(failures).toEqual([]);
