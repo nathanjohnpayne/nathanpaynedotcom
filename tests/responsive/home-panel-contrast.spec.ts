@@ -126,15 +126,19 @@ async function sampleLinks(page: Page): Promise<Sample[]> {
         };
       }
 
-      // Resolve the panel's --arrow-accent the way the browser would, by
-      // painting it onto a throwaway span inside that panel. Reading the raw
-      // custom-property value would return the unresolved `var(--blue)` text.
-      const rawAccent = getComputedStyle(panel).getPropertyValue('--arrow-accent').trim();
+      // Resolve the --arrow-accent in force where the link sits the way the
+      // browser would, by painting it onto a throwaway span beside the link.
+      // Reading the raw custom-property value would return the unresolved
+      // `var(--blue)` text. Read at the link, not the panel: in the stack the
+      // red panel holds two surfaces, the cover and the paper sheet below it,
+      // and each declares its own accent.
+      const host = anchor.parentElement ?? panel;
+      const rawAccent = getComputedStyle(host).getPropertyValue('--arrow-accent').trim();
       let declaredAccent: string | null = null;
       if (rawAccent) {
         const probe = document.createElement('span');
         probe.style.color = rawAccent;
-        panel.appendChild(probe);
+        host.appendChild(probe);
         declaredAccent = getComputedStyle(probe).color;
         probe.remove();
       }
@@ -239,21 +243,20 @@ const CARRIES_NO_ARROW = ['writing-link'];
 const CARRIES_S_ARROW = ['social-row'];
 
 /**
- * The accent each plane gives its arrows, as the contrast ratio it produces
- * against that plane — the currency the decision was made in (#978).
+ * The accent each stack surface gives its arrows, as the contrast ratio it
+ * produces against that surface — the currency the decision was made in
+ * (#978). Ratios rather than hexes so the assertion tracks the DECISION, not
+ * the spelling of a token: an arrow left on a closed plane's accent (cream or
+ * --blue-contrast on paper) lands near 1:1 and fails here.
  *
- * Ratios rather than hexes so the assertion tracks the DECISION, not the
- * spelling of a token. Every rejected candidate lands on a different number:
- * on black, --veil-on-black reads 10.35 where --blue-contrast reads 11.49; on
- * blue, --blue-contrast reads 6.28 and --paper 6.91 where --cream reads 6.08;
- * on yellow, the --ink-warm this arrow moved off reads 11.51 against 4.27. So
- * a swap back to any of them fails here rather than passing quietly.
+ * The stack is a cover and reading surfaces: only the résumé link stays on the
+ * red cover, on --paper (a known limitation: see the CSS note); every other
+ * surface is paper or, for Connect, cream, and takes --blue.
  */
-const PLANE_ACCENT_RATIO: Record<string, number> = {
-  'panel--red': 4.95, // --paper. A known limitation: see the CSS note.
-  'panel--yellow': 4.27, // --blue
-  'panel--black': 11.49, // --blue-contrast
-  'panel--blue': 6.08, // --cream
+const STACK_SURFACE_RATIO: Record<string, number> = {
+  cover: 4.95, // --paper on the 1930 red
+  paper: 6.91, // --blue on --paper
+  cream: 6.06, // --blue on --cream (Connect)
 };
 
 /** Parchment, which is what any open panel shows. --blue on all four. */
@@ -390,12 +393,22 @@ test.describe('Home panel interactive text contrast', () => {
     if (isStack) {
       expect(await page.locator('.panel.is-open').count(), 'a panel opened in stack mode').toBe(0);
       const samples = await sampleLinks(page);
-      // Each closed panel shows its own plane, so each has its own accent.
-      for (const panel of PANELS) {
+      // The cover keeps the red plane; every reading surface below it is
+      // paper, or cream for Connect.
+      const surfaceOf = (s: Sample): string => {
+        const plane = planeOf(s);
+        if (plane.r === 218 && plane.g === 36 && plane.b === 24) return 'cover';
+        if (plane.r === 255 && plane.g === 255 && plane.b === 255) return 'paper';
+        if (plane.r === 245 && plane.g === 240 && plane.b === 228) return 'cream';
+        return `unexpected rgb(${plane.r}, ${plane.g}, ${plane.b})`;
+      };
+      const surfaces = [...new Set(samples.map(surfaceOf))].sort();
+      expect(surfaces, `stack ${width}px surfaces`).toEqual(['cover', 'cream', 'paper']);
+      for (const surface of surfaces) {
         assertArrowContract(
-          samples.filter((s) => s.panel === panel),
-          `stack ${width}px, ${panel} closed`,
-          PLANE_ACCENT_RATIO[panel],
+          samples.filter((s) => surfaceOf(s) === surface),
+          `stack ${width}px, ${surface}`,
+          STACK_SURFACE_RATIO[surface],
         );
       }
       return;
