@@ -11,7 +11,8 @@ import { contrastRatio, parseComputedColor, type ParsedColor } from '../helpers/
  *
  *   - one footer hover affordance: white footers go red regardless of page
  *     accent; only the color-themed project-detail footer keeps its accent;
- *   - one page-canvas: centered (equal gutters) with the shared drop shadow;
+ *   - one page-canvas: centered (equal gutters) with the shared drop shadow,
+ *     and edge to edge with no shadow in the phone stack (<=1023px, #1479);
  *   - one breadcrumbs impl with an aria-current current item;
  *   - one breadcrumb color ramp on every page (#452): token-driven, never
  *     container-inherited, with parent links a step darker than the muted
@@ -107,9 +108,15 @@ for (const width of BREAKPOINTS) {
       });
     });
 
-    test.describe('shared page canvas — centered with the shared shadow (#428/#435)', () => {
+    // Below --bp-stack the canvas runs edge to edge like the homepage stack:
+    // no gutter and no shadow (#1479). At desktop it keeps the shared shadow.
+    const stacked = width <= 1023;
+
+    test.describe('shared page canvas — centered with the shared shadow (#428/#435), edge-to-edge in the stack (#1479)', () => {
       for (const path of CANVAS_PAGES) {
-        test(`${path} canvas is centered and carries the drop shadow`, async ({ page }) => {
+        test(`${path} canvas is centered and ${stacked ? 'edge-to-edge with no shadow' : 'carries the drop shadow'}`, async ({
+          page,
+        }) => {
           await page.goto(path);
           await page.waitForLoadState('domcontentloaded');
           const result = await page.evaluate(() => {
@@ -128,10 +135,16 @@ for (const width of BREAKPOINTS) {
           expect(result, `.page-canvas missing on ${path}`).not.toBeNull();
           // Centered: symmetric gutters (allow 2px for sub-pixel rounding).
           expect(Math.abs(result!.leftGap - result!.rightGap)).toBeLessThanOrEqual(2);
-          // The shared ink drop shadow is present (full 0.12 or the <=1023 0.1).
-          // Compare color values, not computed-style serialization: color-mix()
-          // may produce CSS Color 4 `color(srgb ...)` strings in Chromium.
-          expectInkShadow(result!.shadow);
+          if (stacked) {
+            // Edge to edge: the canvas fills its shell and drops the shadow.
+            expect(result!.leftGap).toBeLessThanOrEqual(1);
+            expect(result!.shadow).toBe('none');
+          } else {
+            // The shared ink drop shadow is present. Compare color values,
+            // not computed-style serialization: color-mix() may produce CSS
+            // Color 4 `color(srgb ...)` strings in Chromium.
+            expectInkShadow(result!.shadow);
+          }
         });
       }
     });
