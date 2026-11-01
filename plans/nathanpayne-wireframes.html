@@ -469,14 +469,16 @@
        yellow, Community black, Connect red (on cream). */
     .app.home .stage{--rail-w:calc(var(--line) * 3)}
     .app.home .content-inner{--pi:clamp(1rem,4cqw,2rem)}
+    /* The red panel shares the railed sheets' inset, so the cover, the About sheets and the sheets below share one left edge. */
+    .app.home .panel--red .content-inner{--pi:clamp(1.15rem,3cqw,1.5rem);padding-inline:var(--pi)}
     .app.home .panel--red .content-inner > h1,.app.home .panel--red .content-inner > .lead,.app.home .panel--red .about-block--now,.app.home .panel--red .about-block--now .eyebrow.lbl{color:var(--paper)}
     .app.home .panel--red .about-blocks{display:flex;flex-direction:column;gap:0;max-width:none}
-    .app.home .panel--red .about-block--now{order:-1;max-width:none;margin:0 calc(-1 * var(--pi));padding:0 var(--pi) 1.4rem;border-bottom:var(--line) solid var(--ink)}
+    .app.home .panel--red .about-block--now{order:-1;max-width:none;margin:0 calc(-1 * var(--pi));padding:0 var(--pi) 1.4rem calc(var(--pi) + var(--rail-w) + var(--line));border-bottom:var(--line) solid var(--ink)}.app.home .panel--red .about-block--now > p{max-width:calc(37rem - var(--rail-w) - var(--line))}.app.home .panel--red .content-inner > h1,.app.home .panel--red .content-inner > .lead{padding-left:calc(var(--rail-w) + var(--line))}
     .app.home .panel--red .about-blocks > :not(.about-block--now){--rail:var(--blue);max-width:none;margin-inline:calc(-1 * var(--pi));padding:1.1rem max(var(--pi),calc(100% + var(--pi) - 37rem)) 0 var(--pi);background-color:var(--paper);color:var(--ink-warm)}
     /* each paper block overlaps the one above by a pixel so no red hairline shows between them, as global.css does */
     .app.home .panel--red .about-blocks > :not(.about-block--now):not(:first-child){margin-top:-1px;padding-top:calc(1.1rem + 1px)}
     .app.home .panel--red .about-blocks > :first-child{padding-top:1.4rem}
-    .app.home .panel--red .about-blocks > .ribbon{margin-bottom:-1.4rem;padding-right:clamp(1.15rem,3cqw,1.5rem);padding-bottom:1.4rem;border-top:0}
+    .app.home .panel--red .about-blocks > .ribbon{margin-bottom:-1.4rem;padding-right:var(--pi);padding-bottom:1.4rem;border-top:0}
     .app.home .panel--red:not(.is-open) .about-blocks > :not(.about-block--now) .eyebrow.lbl,.app.home .panel--red:not(.is-open) .ribbon .items{color:color-mix(in srgb,var(--ink-warm) 72%,transparent)}
     .app.home .panel--red:not(.is-open) .writing-list,.app.home .panel--red:not(.is-open) .ribbon .ribbon-row{border-color:var(--rule)}
     .app.home .panel--red:not(.is-open) .about-blocks > :not(.about-block--now) .p-name-link{color:var(--ink-warm)}.app.home .panel--red:not(.is-open) .ribbon-exit{color:color-mix(in srgb,var(--ink-warm) 72%,transparent)}

@@ -6009,15 +6009,38 @@ a:focus-visible {
     gap: 0;
   }
 
+  /* The red panel takes the inset the railed sheets use (#930), so the cover,
+     the About sheets and the sheets below share one left edge on a phone as
+     well as at tablet widths. Every bleed below is expressed in it. */
+  .panel--red {
+    --sheet-pi: clamp(1.15rem, 3vw, 1.5rem);
+  }
+  .panel--red .content-inner {
+    padding-inline: var(--sheet-pi);
+  }
+
   .panel--red .about-block--now {
     order: -1;
     max-width: none;
-    margin: 0 -1.5rem;
-    padding: 0 1.5rem 1.5rem;
+    margin: 0 calc(-1 * var(--sheet-pi));
+    /* Left inset: the rail and its ink line, which the cover lacks (below). */
+    padding: 0 var(--sheet-pi) 1.5rem calc(var(--sheet-pi) + var(--rail-w) + var(--line));
     border-bottom: var(--line) solid var(--ink);
     /* --cream on the 1930 red is 4.35:1; --paper is the one foreground this
        red admits for body copy (see the #977 note on the exit link). */
     color: var(--paper);
+  }
+
+  /* The cover has no rail, so its text indents by the rail and its ink line
+     to share one left edge with the sheets below. Its NOW prose then takes
+     the sheets' measure, so both edges match instead of ~125-character lines
+     at a 1000px window. */
+  .panel--red .content-inner > h1,
+  .panel--red .content-inner > .lead {
+    padding-left: calc(var(--rail-w) + var(--line));
+  }
+  .panel--red .about-block--now .about-now-flow {
+    max-width: calc(var(--about-measure) - var(--rail-w) - var(--line));
   }
 
   /* The whole cover takes --paper: --cream measured 4.35:1 on the tagline
@@ -6043,9 +6066,9 @@ a:focus-visible {
     --rail: var(--blue);
     --arrow-accent: var(--blue);
     max-width: none;
-    margin-inline: -1.5rem;
-    padding: var(--about-space-above-label) max(1.5rem, calc(100% + 1.5rem - var(--about-measure)))
-      0 1.5rem;
+    margin-inline: calc(-1 * var(--sheet-pi));
+    padding: var(--about-space-above-label)
+      max(var(--sheet-pi), calc(100% + var(--sheet-pi) - var(--about-measure))) 0 var(--sheet-pi);
     background-color: var(--paper);
     color: var(--ink-warm);
   }
@@ -6064,11 +6087,10 @@ a:focus-visible {
 
   /* The ribbon is chrome, not prose: like the DOMAINS and LATEST POST
      ribbons on the other sheets, its rule and exit link run to the sheet's
-     right edge instead of stopping at the About measure, at the same inset
-     as their .content-inner. */
+     right edge instead of stopping at the About measure. */
   .panel--red .about-blocks > .now-ribbon {
     margin-bottom: -1.5rem;
-    padding-right: clamp(1.15rem, 3vw, 1.5rem);
+    padding-right: var(--sheet-pi);
     padding-bottom: 1.5rem;
     border-top: 0;
   }
