@@ -100,6 +100,19 @@ afterAll(async () => {
 
 async function openPage({ width, height }) {
   const page = await browser.newPage({ viewport: { width, height } });
+  // The privacy notice floats over the top of the page as a card (#1479), so
+  // on a first visit it sits over part of the composition and takes the
+  // clicks aimed there. These tests are about the grid; the notice has its
+  // own suites (tests/privacy*/). Start as a returning visitor who dismissed
+  // it, which leaves the analytics choice unset.
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem(
+        'np-privacy',
+        JSON.stringify({ v: 1, choice: 'unset', noticeDismissed: true }),
+      );
+    } catch {}
+  });
   await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'load' });
   await page.evaluate(() => document.fonts.ready);
   // A hidden pane freezes the animation clock; read settled geometry only.
@@ -110,11 +123,10 @@ async function openPage({ width, height }) {
 }
 
 /**
- * Scroll a panel into view and return the middle of its visible part. With the
- * privacy notice (#1079, on since #1233) above the grid on a first visit the
- * page is taller than the viewport, and a collapsed bottom panel can sit
- * entirely below the fold (Connect, while About is open at 1440x900), where a
- * cursor hovers nothing. Refuses to proceed if the point is not on screen.
+ * Scroll a panel into view and return the middle of its visible part. A
+ * collapsed bottom panel can sit entirely below the fold (Connect, while About
+ * is open at 1440x900), where a cursor hovers nothing. Refuses to proceed if
+ * the point is not on screen.
  */
 async function aimAtPanel(page, name) {
   const panel = page.locator(`[data-panel="${name}"]`);
