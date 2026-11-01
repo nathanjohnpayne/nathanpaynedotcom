@@ -7342,9 +7342,18 @@ body.resume-page {
   .blog-canvas .site-footer--canvas {
     grid-row: 6;
   }
+  /* Title-card rhythm: the kicker, title and deck are one unit, so the title
+     sits evenly between them. The desktop 1.2rem title margin plus the deck's
+     own top margin left ~29px under a 32px title against 8px above it. */
   .blog-header-kicker {
     display: block;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.6rem;
+  }
+  .blog-canvas-header h1 {
+    margin-bottom: 0;
+  }
+  .blog-canvas-header .deck {
+    margin-top: 1rem;
   }
   .blog-header-topics {
     display: flex;
