@@ -129,9 +129,9 @@
      ============================================================ */
   /* The homepage renders under data-palette="1930" (src/pages/index.astro): the
      higher-chroma register overrides the three planes on that page only. */
-  .app.home{--red:#da2418;--yellow:#f0c800;--blue:#0a5c9e}
+  .app.home{--red:#da2418;--yellow:#f0c800;--blue:#0a5c9e;--blue-ink:#0a5c9e}
   .app{
-    --ink:#11100d;--paper:#fff;--red:#e8784a;--yellow:#e3d477;--blue:#2080ca;--gray-plane:#dde1e5;--black:#11100d;
+    --ink:#11100d;--paper:#fff;--red:#e8784a;--yellow:#e3d477;--blue:#2080ca;--blue-ink:#1a66a2;--gray-plane:#dde1e5;--black:#11100d;
     --accent-black:#333333;--accent-paper:#5b5f64;--accent-gray:#d4d4d4;--cream:#f5f0e4;--surface:rgba(244,239,229,.96);
     --panel-open-bg:#e4ded0;--ink-warm:#171208;--blue-contrast:#f0f4ff;--stage-bg:#c4c3bc;--chrome-bg:#bdbeb8;--grid-border:#1a1814;
     --veil-on-red:#f2ede1;--veil-on-black:#efe8d8;--line:9px;--page-gutter:2rem;
@@ -154,7 +154,7 @@
   .app .breadcrumbs .sep{color:color-mix(in srgb,var(--ink) 35%,transparent);margin:0 .45em}
   .app .breadcrumbs .cur{color:color-mix(in srgb,var(--ink) 60%,transparent)}
   .app .deck{font-family:var(--font-heading);font-size:clamp(1.05rem,1.3cqw,1.4rem);line-height:1.45;max-width:38rem;color:color-mix(in srgb,var(--ink) 72%,transparent);margin-top:.9rem}
-  .app .deck b{color:var(--blue);font-weight:700}
+  .app .deck b{color:var(--blue-ink);font-weight:700}
   .app .eyebrow,.app .post-meta{font-family:var(--font-body);font-size:clamp(.65rem,.78cqw,.76rem);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-62);font-weight:500}
   .app .nav-button{display:inline-block;border:1px solid var(--ink);padding:.55rem .85rem;font-size:clamp(.8rem,.9cqw,.92rem);font-weight:600;letter-spacing:.14em;text-transform:uppercase;background:var(--paper);white-space:nowrap}
   .app .site-footer{display:flex;justify-content:space-between;align-items:center;gap:.8rem 1.2rem;flex-wrap:wrap;padding:1.1rem clamp(1.15rem,3cqw,2.5rem);background:var(--paper)}
@@ -183,7 +183,7 @@
   .app .band{background:var(--gray-plane);display:grid;place-items:center;padding:1.4rem clamp(1.15rem,3cqw,2.5rem);text-align:center}
   .app .band .post-meta{font-weight:600;color:var(--ink)}
   .app .band p{font-size:clamp(.88rem,.95cqw,.98rem);line-height:1.55;max-width:58ch;color:color-mix(in srgb,var(--ink) 78%,transparent)}
-  .app .band .blue-link{color:var(--blue);font-weight:600;text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--blue) 35%,transparent)}
+  .app .band .blue-link{color:var(--blue-ink);font-weight:600;text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--blue-ink) 35%,transparent)}
   .app .brand-band{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.4rem 2rem;text-align:left;place-items:start}
   .app .swatches{display:flex;gap:.9rem;flex-wrap:wrap;margin-top:.6rem}
   .app .swatch{display:flex;gap:.5rem;align-items:center;font-size:.72rem;line-height:1.25}
@@ -234,9 +234,9 @@
   .app .resume h1{font-size:clamp(2.6rem,5cqw,4rem);line-height:1.04}
   .app .r-title{font-family:var(--font-heading);font-style:italic;font-size:clamp(1.1rem,1.4cqw,1.5rem);color:color-mix(in srgb,var(--ink) 78%,transparent);margin:.3rem 0 .6rem}
   .app .r-contact{font-size:clamp(.82rem,.88cqw,.92rem);color:color-mix(in srgb,var(--ink) 66%,transparent);line-height:1.7}
-  .app .r-contact a{color:var(--blue);text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--blue) 35%,transparent)}
+  .app .r-contact a{color:var(--blue-ink);text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--blue-ink) 35%,transparent)}
   .app .r-actions{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:1rem}
-  .app .r-actions a{border:1px solid var(--rule);background:var(--paper);padding:.42rem .85rem;font-size:.8rem;font-weight:600;color:var(--blue)}
+  .app .r-actions a{border:1px solid var(--rule);background:var(--paper);padding:.42rem .85rem;font-size:.8rem;font-weight:600;color:var(--blue-ink)}
   .app .r-sec{border-top:1px solid var(--rule);padding-top:1.6rem;margin-top:2.1rem}
   .app .r-sec:first-child{border-top:0;padding-top:0;margin-top:0}
   .app .r-sec h2{font-style:italic;font-size:clamp(1.4rem,1.25rem + .45cqw,1.85rem);margin-bottom:.8rem}
@@ -253,10 +253,10 @@
   .app .r-entry .meta{font-size:clamp(.8rem,.85cqw,.9rem);color:var(--ink-62);margin-top:.15rem}
   .app .r-entry ul{margin:.6rem 0 0;padding:0 0 0 1rem;list-style:none}
   .app .r-entry li{position:relative;font-size:clamp(.94rem,1cqw,1.02rem);line-height:1.55;margin-bottom:.35rem}
-  .app .r-entry li::before{content:"";position:absolute;left:-1rem;top:.6em;width:.36rem;height:.36rem;background:var(--blue)}
+  .app .r-entry li::before{content:"";position:absolute;left:-1rem;top:.6em;width:.36rem;height:.36rem;background:var(--blue-ink)}
   .app .r-status{font-size:.62rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-62)}
   .app .r-cta{margin-top:2rem;background:var(--paper);border-left:9px solid var(--red);padding:1rem 1.2rem;font-size:clamp(.94rem,1cqw,1.02rem)}
-  .app .r-cta a{color:var(--blue);font-weight:600}
+  .app .r-cta a{color:var(--blue-ink);font-weight:600}
 
   /* ---- project detail / privacy: single-column framed article ---- */
   .app.inner .page-shell{min-height:100%;padding:clamp(.9rem,2.5cqw,1.8rem) var(--page-gutter);background:linear-gradient(135deg,rgba(255,255,255,.42),rgba(255,255,255,0)),color-mix(in srgb,var(--accent) 16%,var(--cream))}
@@ -972,7 +972,8 @@ const TOKENS = [
   ['--ink-warm', '#171208', 'Warm near-ink text on yellow and on open parchment', '#e3d477', [['#e3d477', 'on yellow'], [PARCH, 'on parchment']]],
   ['--red', '#e8784a', 'About plane; accent cells; blog/résumé/book accent; rails', INK, [[INK, 'ink text on red (not used for body)', 'lg']]],
   ['--yellow', '#e3d477', 'Projects plane; accent cells; the article’s margin stripe; rails', INK, [['#171208', 'ink-warm on yellow']]],
-  ['--blue', '#2080ca', 'Connect plane; in-content and contact links; /blog and /privacy accent; rails', PAPER, [[PAPER, 'as link text on paper'], [SURF, 'as link text on surface']]],
+  ['--blue', '#2080ca', 'Connect plane; /blog and /privacy accent; rails. A plane color, not a text color (#1485)', null, []],
+  ['--blue-ink', '#1a66a2', '--blue darkened for link text: .p-link and the résumé links (#1485). The 1930 homepage maps it to its own --blue', PAPER, [[PAPER, 'link text on paper'], [SURF, 'link text on surface'], ['#dde1e5', 'link text on gray plane']]],
   ['--blue-contrast', '#f0f4ff', 'Light text on the blue plane (CONNECT label, availability line)', '#2080ca', [['#2080ca', 'on blue', 'lg']]],
   ['--accent-black', '#333333', 'Community plane and the “black” accent cells / rail — not --ink', CREAM, [[CREAM, 'cream text on it']]],
   ['--accent-gray', '#d4d4d4', 'Two homepage blocks; blog / résumé metadata panel; 404 cells', INK, [[INK, 'ink on it'], [mix(INK, '#d4d4d4', .48), '48% ink dt labels on it']]],
