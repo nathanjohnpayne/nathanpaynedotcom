@@ -476,10 +476,10 @@
     /* each paper block overlaps the one above by a pixel so no red hairline shows between them, as global.css does */
     .app.home .panel--red .about-blocks > :not(.about-block--now):not(:first-child){margin-top:-1px;padding-top:calc(1.1rem + 1px)}
     .app.home .panel--red .about-blocks > :first-child{padding-top:1.4rem}
-    .app.home .panel--red .about-blocks > .ribbon{margin-bottom:-1.4rem;padding-bottom:1.4rem;border-top:0}
+    .app.home .panel--red .about-blocks > .ribbon{margin-bottom:-1.4rem;padding-right:clamp(1.15rem,3cqw,1.5rem);padding-bottom:1.4rem;border-top:0}
     .app.home .panel--red:not(.is-open) .about-blocks > :not(.about-block--now) .eyebrow.lbl,.app.home .panel--red:not(.is-open) .ribbon .items{color:color-mix(in srgb,var(--ink-warm) 72%,transparent)}
     .app.home .panel--red:not(.is-open) .writing-list,.app.home .panel--red:not(.is-open) .ribbon .ribbon-row{border-color:var(--rule)}
-    .app.home .panel--red:not(.is-open) .about-blocks > :not(.about-block--now) .p-name-link,.app.home .panel--red:not(.is-open) .ribbon-exit{color:var(--ink-warm)}
+    .app.home .panel--red:not(.is-open) .about-blocks > :not(.about-block--now) .p-name-link{color:var(--ink-warm)}.app.home .panel--red:not(.is-open) .ribbon-exit{color:color-mix(in srgb,var(--ink-warm) 72%,transparent)}
     .app.home .panel--yellow{--rail:var(--yellow)}.app.home .panel--black{--rail:var(--accent-black)}.app.home .panel--blue{--rail:var(--red)}
     .app.home .panel--yellow,.app.home .panel--black,.app.home .panel--blue{background-color:var(--paper);color:var(--ink-warm)}
     .app.home .panel--blue{background-color:var(--cream)}

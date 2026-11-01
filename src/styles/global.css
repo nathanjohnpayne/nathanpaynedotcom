@@ -6062,8 +6062,13 @@ a:focus-visible {
     padding-top: calc(var(--about-space-above-label) + 1px);
   }
 
+  /* The ribbon is chrome, not prose: like the DOMAINS and LATEST POST
+     ribbons on the other sheets, its rule and exit link run to the sheet's
+     right edge instead of stopping at the About measure, at the same inset
+     as their .content-inner. */
   .panel--red .about-blocks > .now-ribbon {
     margin-bottom: -1.5rem;
+    padding-right: clamp(1.15rem, 3vw, 1.5rem);
     padding-bottom: 1.5rem;
     border-top: 0;
   }
@@ -6073,9 +6078,13 @@ a:focus-visible {
     border-top: 1px solid var(--rule);
   }
 
-  .panel--red:not(.is-open) .writing-link,
-  .panel--red:not(.is-open) .ribbon-exit {
+  .panel--red:not(.is-open) .writing-link {
     color: var(--ink-warm);
+  }
+
+  /* The same muted exit the other sheets' ribbons carry. */
+  .panel--red:not(.is-open) .ribbon-exit {
+    color: color-mix(in srgb, var(--ink-warm) 72%, transparent);
   }
 
   .panel--yellow {
