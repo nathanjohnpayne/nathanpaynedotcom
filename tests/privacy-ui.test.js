@@ -287,7 +287,7 @@ describe('notice confirmation: a link to /privacy/, and gone after 30 seconds (#
 });
 
 describe('notice (PRIV-14, PRIV-6)', () => {
-  it('shows on a first visit as a labelled, non-modal aside in flow at the top of the body', () => {
+  it('shows on a first visit as a labelled, non-modal aside first in the body', () => {
     const { d, privacy } = mountNotice();
     const notice = d.getElementById('np-privacy-notice');
     expect(privacy.notice.shouldShow()).toBe(true);
@@ -298,7 +298,8 @@ describe('notice (PRIV-14, PRIV-6)', () => {
     expect(notice.hasAttribute('aria-modal')).toBe(false);
     const title = d.getElementById(notice.getAttribute('aria-labelledby'));
     expect(title.textContent.trim()).toBe('Analytics on this site');
-    // In the document flow above the page content, never over it.
+    // First in the body, so first in tab order; CSS floats it over the top
+    // of the page as a fixed card (#1479).
     expect(d.body.firstElementChild).toBe(notice);
     expect(notice.nextElementSibling).toBe(d.getElementById('np-privacy-notice-status'));
     expect(d.querySelector('main').previousElementSibling).toBe(notice.nextElementSibling);

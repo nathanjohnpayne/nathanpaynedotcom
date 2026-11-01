@@ -4181,9 +4181,10 @@ a.tag:hover {
 
 /* 768px matches --bp-tablet on :root. (#332) */
 @media (max-width: 768px) {
-  /* Keep the var(--line) frame and full drop shadow so the collapsed card
-     matches the resume/blog/project canvases on narrow screens, rather than
-     thinning to the 1px border + small shadow. */
+  /* Keep the var(--line) frame so the collapsed card matches the
+     resume/blog/project canvases on narrow screens, rather than thinning to
+     the 1px border. The phone-stack rules drop --canvas-shadow to none, so
+     on screen this card loses its shadow with the others. */
   .error-mondrian {
     grid-template-columns: var(--line) 1fr var(--line);
     grid-template-rows: var(--line) auto var(--line);
@@ -7129,6 +7130,112 @@ body.resume-page {
   /* Resume footer reposition + column-stack now come from the shared
      .site-footer / .site-footer--canvas @1023 rules (#434); --resume is the
      print-hide hook only. */
+}
+
+/* ── Phone stack: edge-to-edge frame and accent rails ─────────────────
+   Below --bp-stack every inner page frames the way the homepage stack
+   does: no side gutter, no drop shadow, no gap above the frame. The 6px
+   frame meets the viewport edges and the reading column gets that width
+   back (about 41 → 51 characters a line at 390px). Screen only: a printed
+   Letter page is also narrower than 1024px and keeps its @media print rules.
+
+   The desktop accent cells are hidden in the stack (the width-only
+   @1023 block above); each stacked block instead carries a rail on its
+   left edge, [rail][line][block], the desktop row with its accent cell
+   narrowed. Colors come from data-rail (getMobileRail in
+   src/lib/index-grid.ts), which never puts one color on adjacent blocks.
+   The rail is painted into a transparent left border, so every block
+   keeps its own padding. A block that drew its own top or bottom rule
+   hands it to the grid, so the rule runs unbroken under the rail instead
+   of mitering into it. ── */
+.blog-header-kicker,
+.blog-header-topics {
+  display: none;
+}
+
+@media screen and (max-width: 1023px) {
+  :root {
+    --page-gutter: 0;
+    --canvas-shadow: none;
+    --rail-w: calc(var(--line) * 3);
+  }
+
+  .shell,
+  .page-shell,
+  .resume-shell {
+    padding-block: 0;
+  }
+
+  .project-detail {
+    box-shadow: none;
+  }
+
+  [data-rail='red'] {
+    --rail: var(--red);
+  }
+  [data-rail='blue'] {
+    --rail: var(--blue);
+  }
+  [data-rail='yellow'] {
+    --rail: var(--yellow);
+  }
+  [data-rail='black'] {
+    --rail: var(--accent-black);
+  }
+
+  [data-rail] {
+    border-left: calc(var(--rail-w) + var(--line)) solid transparent;
+    background-image: linear-gradient(to right, var(--rail) var(--rail-w), var(--ink) 0);
+    background-origin: border-box;
+    background-size: calc(var(--rail-w) + var(--line)) 100%;
+    background-repeat: no-repeat;
+  }
+
+  /* Index pages: the hero's bottom rule and the footer's top rule become
+     the grid's own ink, shown as padding. */
+  .hero[data-rail] {
+    border-bottom: 0;
+  }
+  .hero[data-rail] + .blog-grid {
+    padding-top: var(--line);
+  }
+  .blog-grid:has(+ .site-footer--grid[data-rail]) {
+    padding-bottom: var(--line);
+  }
+  .site-footer--grid[data-rail] {
+    border-top: 0;
+  }
+
+  /* Article: the metadata panel leaves the stack and its facts move into
+     the header, as the /blog card shows them, so the post opens on its
+     breadcrumb and title like every other page. */
+  .blog-sidebar-meta {
+    display: none;
+  }
+  .blog-canvas {
+    grid-template-rows:
+      var(--line) auto /* header */
+      var(--line) auto /* content */
+      var(--line) auto /* footer */
+      var(--line);
+  }
+  .blog-canvas-header {
+    grid-row: 2;
+  }
+  .blog-content {
+    grid-row: 4;
+  }
+  .blog-canvas .site-footer--canvas {
+    grid-row: 6;
+  }
+  .blog-header-kicker {
+    display: block;
+    margin-bottom: 0.5rem;
+  }
+  .blog-header-topics {
+    display: flex;
+    margin-top: 1rem;
+  }
 }
 
 /* ════════════════════════════════════════════════════════════════════

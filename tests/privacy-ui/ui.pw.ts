@@ -184,19 +184,40 @@ interface AxeResults {
 }
 
 for (const viewport of [DESKTOP, MOBILE, NARROW]) {
-  test(`first visit at ${viewport.width}px: the notice is in flow above the page, non-modal, and reachable`, async () => {
+  test(`first visit at ${viewport.width}px: the notice floats as a small non-modal card and the page stays reachable`, async () => {
     const { context, page } = await open(viewport);
     await page.goto(`${SITE}/blog/`);
     await expect(notice(page)).toBeVisible();
+    // Measure the card where it lands, not mid-roll.
+    await page.evaluate(() =>
+      Promise.all(
+        (document.getElementById('np-privacy-notice') as HTMLElement)
+          .getAnimations({ subtree: true })
+          .map((a) => a.finished),
+      ),
+    );
     const geometry = await page.evaluate(() => {
       const n = document.getElementById('np-privacy-notice') as HTMLElement;
       const main = document.querySelector('main') as HTMLElement;
       const html = document.documentElement;
+      const box = n.getBoundingClientRect();
+      // A backdrop would be a viewport-sized fixed layer other than the card.
+      const backdrop = [...document.body.querySelectorAll<HTMLElement>('*')].some((el) => {
+        if (n.contains(el)) return false;
+        const cs = getComputedStyle(el);
+        if (cs.position !== 'fixed' || cs.display === 'none') return false;
+        const r = el.getBoundingClientRect();
+        return r.width >= innerWidth && r.height >= innerHeight;
+      });
       return {
         position: getComputedStyle(n).position,
         firstInBody: document.body.firstElementChild === n,
-        noticeBottom: n.getBoundingClientRect().bottom,
-        mainTop: main.getBoundingClientRect().top,
+        width: box.width,
+        left: box.left,
+        right: box.right,
+        bottomFraction: box.bottom / innerHeight,
+        rootFontSize: parseFloat(getComputedStyle(html).fontSize),
+        backdrop,
         role: n.getAttribute('role'),
         modal: n.getAttribute('aria-modal'),
         mainInert: main.hasAttribute('inert') || main.getAttribute('aria-hidden') === 'true',
@@ -206,10 +227,16 @@ for (const viewport of [DESKTOP, MOBILE, NARROW]) {
         overflowsHorizontally: html.scrollWidth > html.clientWidth,
       };
     });
-    expect(geometry.position).toBe('static');
+    // A card laid over the top of the page (§ UI Hooks, #1479): fixed, no
+    // wider than 30rem, inside the viewport, and short enough that most of
+    // the page stays in view beneath it.
+    expect(geometry.position).toBe('fixed');
     expect(geometry.firstInBody).toBe(true);
-    // Above the content, not over it: the notice ends before the main starts.
-    expect(geometry.noticeBottom).toBeLessThanOrEqual(geometry.mainTop + 0.5);
+    expect(geometry.width).toBeLessThanOrEqual(30 * geometry.rootFontSize + 0.5);
+    expect(geometry.left).toBeGreaterThanOrEqual(0);
+    expect(geometry.right).toBeLessThanOrEqual(viewport.width);
+    expect(geometry.bottomFraction).toBeLessThanOrEqual(0.6);
+    expect(geometry.backdrop).toBe(false);
     expect(geometry.role).toBeNull();
     expect(geometry.modal).toBeNull();
     expect(geometry.mainInert).toBe(false);
@@ -232,12 +259,48 @@ for (const viewport of [DESKTOP, MOBILE, NARROW]) {
       );
     }
     expect(focusPath).toEqual(['link', 'deny', 'dismiss', 'page']);
-    // The page behind it stays interactive: a trial click checks the link is
-    // visible, stable, and not obscured by anything.
-    await page.locator('main a').first().click({ trial: true });
+    // The page behind it stays interactive: a trial click on the first page
+    // link outside the card checks it is visible, stable, and not obscured.
+    const outside = await page.evaluate(() => {
+      const n = (
+        document.getElementById('np-privacy-notice') as HTMLElement
+      ).getBoundingClientRect();
+      const links = [...document.querySelectorAll<HTMLAnchorElement>('main a')];
+      const index = links.findIndex((a) => {
+        const r = a.getBoundingClientRect();
+        return r.width > 0 && r.height > 0 && r.top >= n.bottom && r.bottom <= innerHeight;
+      });
+      return index;
+    });
+    expect(outside, 'a page link is in view below the card').toBeGreaterThanOrEqual(0);
+    await page.locator('main a').nth(outside).click({ trial: true });
     await context.close();
   });
 }
+
+test('in a very short viewport the card stays on screen and both choices can be scrolled into reach', async () => {
+  // 400% zoom on a 1280x900 window leaves about 320x225 CSS px. A fixed card
+  // does not move when the page scrolls, so its own contents must scroll.
+  const { context, page } = await open({ width: 320, height: 225 });
+  await page.goto(`${SITE}/blog/`);
+  await expect(notice(page)).toBeVisible();
+  await page.evaluate(() =>
+    Promise.all(
+      (document.getElementById('np-privacy-notice') as HTMLElement)
+        .getAnimations({ subtree: true })
+        .map((a) => a.finished),
+    ),
+  );
+  const box = await notice(page).boundingBox();
+  expect(box!.y + box!.height, 'the card ends inside the viewport').toBeLessThanOrEqual(225);
+  for (const action of ['deny', 'dismiss']) {
+    const button = notice(page).locator(`[data-np-privacy-action="${action}"]`);
+    await button.scrollIntoViewIfNeeded();
+    await expect(button).toBeInViewport();
+    await button.click({ trial: true });
+  }
+  await context.close();
+});
 
 test('the footer link is on every surface, including the homepage and the 404', async () => {
   for (const viewport of [DESKTOP, MOBILE]) {

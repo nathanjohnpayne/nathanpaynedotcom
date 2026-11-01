@@ -25,9 +25,9 @@
 
   /**
    * BaseLayout mounts the notice at the end of <body>. It is moved to the top
-   * so it sits in the document flow above the page content: never positioned
-   * over anything, never trapping focus or scroll, on any viewport (§ UI
-   * Hooks: non-modal; PRIV-6, PRIV-14). The status line follows it so an
+   * so it comes first in DOM and tab order; CSS floats it as a card fixed near
+   * the top of the viewport, never trapping focus or scroll, on any viewport
+   * (§ UI Hooks: non-modal; PRIV-6, PRIV-14). The status line follows it so an
    * announcement made as the notice closes has a place to land.
    */
   function placeAtTop() {
@@ -37,9 +37,60 @@
     if (notice.nextSibling !== status) body.insertBefore(status, notice.nextSibling);
   }
 
+  /** On screen and not on its way out. */
+  function isShown() {
+    return !notice.hidden && !notice.classList.contains('is-leaving');
+  }
+
+  // Leaving (#1479): when the gate stops showing a notice that is on screen,
+  // the card rolls up (.is-leaving) and is hidden when that animation ends.
+  // It is inert meanwhile, so nothing in it can be pressed or focused twice.
+  // Where nothing animates (an engine without CSS animations, or JSDOM) it
+  // hides at once. A timer backs up animationend, which a background tab may
+  // never deliver.
+  var leaveTimer = null;
+
+  function finishLeave() {
+    if (leaveTimer) w.clearTimeout(leaveTimer);
+    leaveTimer = null;
+    notice.removeEventListener('animationend', onLeaveEnd);
+    notice.classList.remove('is-leaving');
+    notice.inert = false;
+    notice.hidden = !privacy.notice.shouldShow();
+  }
+
+  function onLeaveEnd(event) {
+    if (event.target === notice) finishLeave();
+  }
+
+  // The leave animation's duration, plus the frames a transition can run past
+  // its nominal end (--motion-settle), in milliseconds.
+  function leaveMs(style) {
+    var toMs = function (value) {
+      var n = parseFloat(value);
+      if (!(n >= 0)) return 0;
+      return /ms\s*$/.test(value) ? n : n * 1000;
+    };
+    return toMs(style.animationDuration) + toMs(style.getPropertyValue('--motion-settle'));
+  }
+
   /** § Runtime API: shown exactly while the gate says so. */
   function sync() {
-    notice.hidden = !privacy.notice.shouldShow();
+    if (privacy.notice.shouldShow()) {
+      if (notice.classList.contains('is-leaving')) finishLeave();
+      notice.hidden = false;
+      return;
+    }
+    if (!isShown()) return;
+    notice.classList.add('is-leaving');
+    var style = w.getComputedStyle(notice);
+    if (!style.animationName || style.animationName === 'none') {
+      finishLeave();
+      return;
+    }
+    notice.inert = true;
+    notice.addEventListener('animationend', onLeaveEnd);
+    leaveTimer = w.setTimeout(finishLeave, leaveMs(style));
   }
 
   // An announcement stays up for STATUS_MS, then hides (#1348). It never hides
@@ -59,7 +110,7 @@
    * the sequential-focus starting point where the line was.
    */
   function focusAfterLine() {
-    var target = notice.hidden ? null : notice.querySelector('[data-np-privacy-action]');
+    var target = isShown() ? notice.querySelector('[data-np-privacy-action]') : null;
     if (target) target.focus({ preventScroll: true });
     else if (d.activeElement && d.activeElement.blur) d.activeElement.blur();
   }
@@ -196,12 +247,12 @@
   privacy.onChange(function () {
     if (localChange) return;
     var hadFocus = notice.contains(d.activeElement);
-    var wasHidden = notice.hidden;
+    var wasHidden = !isShown();
     sync();
-    if (hadFocus && notice.hidden) {
+    if (hadFocus && !isShown()) {
       announce('The privacy notice closed because your setting changed.');
       status.focus();
-    } else if (wasHidden && !notice.hidden) {
+    } else if (wasHidden && isShown()) {
       // The notice is back (another tab cleared the setting): an earlier
       // announcement about closing it is no longer true, so drop it (#1258).
       announce('');

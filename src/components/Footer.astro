@@ -41,9 +41,11 @@ interface Props {
   variant?: "grid" | "canvas" | "detail";
   /** Extra class(es), e.g. the resume canvas-collapse/print hook. */
   class?: string;
+  /** Phone-stack rail color (src/lib/index-grid.ts getMobileRail). */
+  rail?: string;
 }
 
-const { attribution, links, variant, class: extra } = Astro.props;
+const { attribution, links, variant, class: extra, rail } = Astro.props;
 
 // The byline's city is the profile's locality (#1166), the same field the
 // résumé header and both Person JSON-LD nodes read.
@@ -62,7 +64,7 @@ const classList = [
   .join(" ");
 ---
 
-<footer class={classList}>
+<footer class={classList} data-rail={rail}>
   <p class="site-footer__attribution">{attribution} &middot; {locality}</p>
   <nav class="site-footer__nav" aria-label="Footer navigation">
     {links.map((link) => (
