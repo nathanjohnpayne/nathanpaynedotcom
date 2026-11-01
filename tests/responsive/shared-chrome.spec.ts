@@ -181,6 +181,53 @@ for (const width of BREAKPOINTS) {
           expectInkColor(result.current, 0.6);
           expectInkColor(result.sep, 0.35);
         });
+
+        for (const textScale of ['100%', '200%']) {
+          test(`${path} keeps its breadcrumb trail on one line at ${textScale} text`, async ({
+            page,
+          }) => {
+            await page.goto(path);
+            await page.waitForLoadState('domcontentloaded');
+            await page.evaluate((scale) => {
+              document.documentElement.style.fontSize = scale;
+            }, textScale);
+            await page.evaluate(() => document.fonts.ready);
+            const trail = await page.evaluate(() => {
+              const nav = document.querySelector('.breadcrumbs') as HTMLElement;
+              const navBox = nav.getBoundingClientRect();
+              const parentBox = (nav.parentElement as HTMLElement).getBoundingClientRect();
+              const children = [...nav.children].map((el) => el.getBoundingClientRect());
+              return {
+                tops: children.map((box) => Math.round(box.top)),
+                navOverflow: navBox.right - parentBox.right,
+                childOverflow: Math.max(...children.map((box) => box.right)) - navBox.right,
+                scrolls:
+                  nav.scrollWidth > nav.clientWidth &&
+                  ['auto', 'scroll'].includes(getComputedStyle(nav).overflowX),
+                // Room inside the scrollport around each link for its focus
+                // ring (2px outline + 2px offset), which the scrollport clips.
+                focusRoom: Math.min(
+                  ...[...nav.querySelectorAll('a')].flatMap((link) => {
+                    const box = link.getBoundingClientRect();
+                    return [
+                      box.left - navBox.left,
+                      box.top - navBox.top,
+                      navBox.bottom - box.bottom,
+                    ];
+                  }),
+                ),
+              };
+            });
+            // Parent links never wrap ("Nathan / Payne"); only the current
+            // segment gives up width, by truncating.
+            expect(new Set(trail.tops).size).toBe(1);
+            expect(trail.navOverflow).toBeLessThanOrEqual(1);
+            // A link past the trail's edge must still be reachable, by
+            // scrolling the trail, rather than clipped by an ancestor.
+            if (trail.childOverflow > 1) expect(trail.scrolls).toBe(true);
+            expect(trail.focusRoom).toBeGreaterThanOrEqual(3.5);
+          });
+        }
       }
 
       test('parent links carry the hover affordance (underline + darker step)', async ({
@@ -212,6 +259,31 @@ for (const width of BREAKPOINTS) {
     });
 
     if (width <= 1023) {
+      test('article title sits evenly between its kicker and its deck', async ({ page }) => {
+        await page.goto('/blog/six-prs-one-bug-agent-failure-modes/');
+        await page.waitForLoadState('domcontentloaded');
+        await page.evaluate(() => document.fonts.ready);
+        const gaps = await page.evaluate(() => {
+          // Ink-to-ink, not box-to-box: a Range over each element's text.
+          const ink = (sel: string) => {
+            const range = document.createRange();
+            range.selectNodeContents(document.querySelector(sel) as Element);
+            const rects = [...range.getClientRects()];
+            return {
+              top: Math.min(...rects.map((r) => r.top)),
+              bottom: Math.max(...rects.map((r) => r.bottom)),
+            };
+          };
+          const kicker = ink('.blog-header-kicker');
+          const title = ink('.blog-canvas-header h1');
+          const deck = ink('.blog-canvas-header .deck');
+          return { above: title.top - kicker.bottom, below: deck.top - title.bottom };
+        });
+        // The title belongs to both, so neither gap may run away from the
+        // other (the desktop margins left 8px above and ~29px below).
+        expect(Math.abs(gaps.above - gaps.below)).toBeLessThanOrEqual(4);
+      });
+
       test('mobile blog metadata text retains AA contrast on the accent plane', async ({
         page,
       }) => {
