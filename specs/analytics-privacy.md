@@ -127,7 +127,7 @@ These apply whenever analytics load with the flag on.
 | GPC state | `data-np-privacy-gpc` on the controls while GPC is active; the grant button is disabled with a plain explanation in `[data-np-privacy-ui="gpc-explanation"]` that analytics are off because the browser sends GPC | #1229 |
 | Page | `/privacy/`, from `src/pages/privacy/[...index].astro` with `export const prerender = true` and a `getStaticPaths` that returns the route only when `privacyControlsEnabled()`. Its description and share-card copy come from a `privacy` entry in `src/content/site-copy/` through `getSiteCopy()`, like every other public page | #1229 |
 
-The notice is non-modal, never covers content or blocks interaction, and appears only while `notice.shouldShow()` is true. Opting out takes no more steps than re-enabling. The UI calls only `window.npPrivacy`; it never touches analytics scripts.
+The notice is non-modal: it may overlay a small region at the top of the page (a fixed card no wider than 30rem) but has no backdrop, never blocks interaction with or scrolling of the page behind it, never traps or steals focus, is dismissible with one press or Escape, and appears only while `notice.shouldShow()` is true. It rolls down on arrival and back up when it closes; under `prefers-reduced-motion` it appears and leaves without motion (#1479). Opting out takes no more steps than re-enabling. The UI calls only `window.npPrivacy`; it never touches analytics scripts.
 
 ## Test Fixture
 

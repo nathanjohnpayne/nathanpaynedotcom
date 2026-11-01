@@ -3,12 +3,16 @@
  * #1079 privacy notice (specs/analytics-privacy.md § UI Hooks, row "Notice").
  *
  * Rendered by PrivacyBody at the end of <body>, only when
- * privacyControlsEnabled(); notice.js moves it to the top of the body so it
- * sits in the document flow above the page, never over it. It is an <aside>
- * with a label, not a dialog: nothing is modal, nothing takes focus, nothing
- * locks scroll. Both buttons call window.npPrivacy and nothing else.
+ * privacyControlsEnabled(); notice.js moves it to the top of the body, first
+ * in DOM and tab order. It floats as a small card fixed near the top of the
+ * viewport, over a small region of the page: it rolls down on arrival and back
+ * up when a choice or dismissal closes it (#1479). It is an <aside> with a
+ * label, not a dialog: no backdrop, nothing is modal, nothing takes focus,
+ * nothing locks scroll, and the page behind stays interactive. Both buttons
+ * call window.npPrivacy and nothing else.
  *
- * The copy is Nathan's (2026-10-12). Its facts trace to docs/privacy/inventory.md
+ * The copy is Nathan's (2026-10-12, shortened 2026-10-31 to drop the one
+ * sentence that leaned toward keeping analytics on). Its facts trace to docs/privacy/inventory.md
  * § Summary: analytics with session replay (PostHog) and video playback data
  * (Mux Data). The tools are named on /privacy/, one link away. It names no
  * retention period and makes no claim of anonymity, compliance, or "not sold"
@@ -26,44 +30,105 @@ import noticeSource from './notice.js?raw';
 ---
 
 <style is:inline>
-  .privacy-notice {
+  /* A card laid on the page, not a band in it: fixed near the top, centered,
+     at most 30rem wide, with a 12px margin to the viewport edges on phones.
+     env(safe-area-inset-top) is 0 under the default viewport-fit and keeps it
+     clear of a notch if the site ever sets viewport-fit=cover. The rail on
+     its left edge takes the color before the page accent in the phone-stack
+     rail cycle (src/lib/index-grid.ts), so it never matches the hero below. */
+  .privacy-notice,
+  .privacy-notice-status {
+    --np-rail-w: 1rem;
+    --np-edge: 0.75rem;
+    position: fixed;
+    top: calc(var(--np-edge) + env(safe-area-inset-top));
+    left: var(--np-edge);
+    right: var(--np-edge);
+    max-width: 30rem;
+    margin-inline: auto;
     background: var(--paper);
     color: var(--ink);
-    border-bottom: var(--line) solid var(--ink);
+    border: 3px solid var(--ink);
+    box-shadow: 6px 6px 0 color-mix(in srgb, var(--ink) 18%, transparent);
     font-family: var(--font-body);
   }
-  /* Arrival: the notice slides down into its slot and fades in, on the
-     homepage panel morph's duration and curve (--motion-plane,
-     --ease-standard). Only transform and opacity move. The slot is in the
-     document flow from first paint, so the page below never shifts (no
-     layout shift), and the notice never sits over content (PRIV-14). */
-  @keyframes np-privacy-notice-in {
+  .privacy-notice {
+    --np-rail: var(--accent-black);
+    z-index: 11;
+  }
+  [data-accent='blue'] .privacy-notice {
+    --np-rail: var(--red);
+  }
+  [data-accent='yellow'] .privacy-notice {
+    --np-rail: var(--blue);
+  }
+  [data-accent='black'] .privacy-notice {
+    --np-rail: var(--yellow);
+  }
+  .privacy-notice::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: var(--np-rail-w);
+    background: var(--np-rail);
+    border-right: 3px solid var(--ink);
+  }
+  /* Arrival: the card rolls down from above the viewport edge, then its rail
+     draws in once, the only attention cue. Leaving (.is-leaving, set by
+     notice.js before it hides the card) rolls it back up. Only transform,
+     opacity and the rail's width move. The card takes no space in the page,
+     so neither motion shifts layout. */
+  @keyframes np-privacy-roll-down {
     from {
       opacity: 0;
-      transform: translateY(-100%);
+      transform: translateY(calc(-100% - var(--np-edge) - env(safe-area-inset-top)));
+    }
+  }
+  @keyframes np-privacy-roll-up {
+    to {
+      opacity: 0;
+      transform: translateY(calc(-100% - var(--np-edge) - env(safe-area-inset-top)));
+    }
+  }
+  @keyframes np-privacy-rail-in {
+    from {
+      width: 0;
+    }
+  }
+  @keyframes np-privacy-fade-in {
+    from {
+      opacity: 0;
     }
   }
   .privacy-notice:not([hidden]) {
-    animation: np-privacy-notice-in var(--motion-plane) var(--ease-standard) both;
+    animation: np-privacy-roll-down var(--motion-plane) var(--ease-sharp) both;
   }
+  .privacy-notice:not([hidden])::before {
+    animation: np-privacy-rail-in var(--motion-load) var(--ease-out) var(--motion-plane) both;
+  }
+  .privacy-notice.is-leaving {
+    animation: np-privacy-roll-up var(--motion-load) var(--ease-standard) both;
+    pointer-events: none;
+  }
+  .privacy-notice-status:not(:empty) {
+    animation: np-privacy-fade-in var(--motion-load) var(--ease-standard) both;
+  }
+  /* Reduced motion: nothing moves. The card appears and leaves at once and
+     the rail is simply there (PRIV-6); notice.js sees no animation and hides
+     the card immediately. */
   @media (prefers-reduced-motion: reduce) {
-    .privacy-notice:not([hidden]) {
+    .privacy-notice:not([hidden]),
+    .privacy-notice:not([hidden])::before,
+    .privacy-notice.is-leaving,
+    .privacy-notice-status:not(:empty) {
       animation: none;
     }
   }
-  /* Copy on the left, the two choices at the top right. Below 40rem the
-     choices drop under the copy and share its full width. */
+  /* The copy, then the two choices side by side under it at every width. */
   .privacy-notice__inner {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: start;
-    gap: var(--sp-md) var(--sp-lg);
-    max-width: 72rem;
-    margin: 0 auto;
-    /* The notice owns its side padding rather than reading --page-gutter:
-       the phone stack sets that gutter to 0, and clamp() lets a maximum
-       below the minimum win, which collapsed this padding to 0. */
-    padding: var(--sp-lg) clamp(1rem, 4vw, 2rem);
+    gap: var(--sp-md);
+    padding: var(--sp-lg) var(--sp-lg) var(--sp-lg) calc(var(--np-rail-w) + 3px + var(--sp-lg));
   }
   .privacy-notice__copy {
     min-width: 0;
@@ -76,8 +141,16 @@ import noticeSource from './notice.js?raw';
     text-transform: uppercase;
     color: var(--ink-62);
   }
+  /* The question names both choices, so the card asks for a decision
+     without leaning toward either answer. */
+  .privacy-notice__question {
+    margin-bottom: var(--sp-xs);
+    font-family: var(--font-heading);
+    font-size: clamp(1.2rem, 1.1rem + 0.4vw, 1.4rem);
+    line-height: 1.2;
+  }
   .privacy-notice__text {
-    font-size: clamp(0.88rem, 0.86rem + 0.1vw, 0.95rem);
+    font-size: clamp(0.85rem, 0.84rem + 0.1vw, 0.92rem);
     line-height: 1.5;
   }
   .privacy-notice__text a {
@@ -86,10 +159,9 @@ import noticeSource from './notice.js?raw';
     text-decoration-thickness: 1px;
     text-underline-offset: 0.18em;
   }
-  /* Two equal choices: `1fr` tracks in an auto-sized grid both take the
-     wider label's width, and both buttons share one style, so turning
-     analytics off is exactly as large and as visible as keeping them on.
-     Each target is at least 44px tall (WCAG 2.5.5). */
+  /* Two equal choices: both tracks are 1fr and both buttons share one
+     style, so turning analytics off is exactly as large and as visible as
+     keeping them on. Each target is at least 44px tall (WCAG 2.5.5). */
   .privacy-notice__actions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -98,7 +170,7 @@ import noticeSource from './notice.js?raw';
   .privacy-notice .nav-button {
     justify-content: center;
     min-height: 2.75rem;
-    padding: 0.7rem 1.1rem;
+    padding: 0.6rem 0.7rem;
     font-family: var(--font-body);
     line-height: 1.25;
     text-align: center;
@@ -139,24 +211,40 @@ import noticeSource from './notice.js?raw';
     background: var(--np-button-bg);
     color: var(--paper);
   }
-  @media (max-width: 40rem) {
-    .privacy-notice__inner {
-      grid-template-columns: minmax(0, 1fr);
-    }
+  /* Too narrow for both labels side by side (a phone-width card): stack
+     them, full width, turning analytics off first, so neither wraps or
+     shrinks. Sized on the card, not the viewport, since the card stops
+     growing at 30rem. */
+  .privacy-notice__inner {
+    container-type: inline-size;
   }
-  /* Too narrow for both labels on one line side by side: stack them, full
-     width, turning analytics off first, so neither wraps or shrinks. */
-  @media (max-width: 30rem) {
+  @container (max-width: 26rem) {
     .privacy-notice__actions {
       grid-template-columns: minmax(0, 1fr);
     }
   }
+  /* The smallest phones: the question already names the topic, so the
+     eyebrow is hidden visually (it still names the card for assistive
+     technology through aria-labelledby) and the gaps tighten, keeping the
+     card off most of a 320px screen. */
+  @container (max-width: 18rem) {
+    .privacy-notice__title {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+    .privacy-notice__actions {
+      gap: var(--sp-sm);
+    }
+  }
+  /* The announcement after a choice lands where the card was, as a smaller
+     card under it, so the card rolling up reveals it. */
   .privacy-notice-status {
-    padding: var(--sp-sm) clamp(1rem, 4vw, 2rem);
-    background: var(--paper);
-    color: var(--ink);
-    border-bottom: var(--line) solid var(--ink);
-    font-family: var(--font-body);
+    z-index: 10;
+    padding: var(--sp-sm) var(--sp-md);
     font-size: clamp(0.85rem, 0.83rem + 0.1vw, 0.92rem);
     line-height: 1.5;
     text-align: center;
@@ -177,15 +265,6 @@ import noticeSource from './notice.js?raw';
   .privacy-notice-status:focus-visible {
     outline: 2px solid currentColor;
     outline-offset: -4px;
-  }
-  /* On the phone stack the page frame runs edge to edge directly below, and
-     its top border is the line. Keeping this one too stacked two 6px lines
-     into a 12px bar. */
-  @media screen and (max-width: 1023px) {
-    .privacy-notice,
-    .privacy-notice-status {
-      border-bottom-width: 0;
-    }
   }
   /* The notice is a screen control. With the flag on, the build-time résumé
      PDF render (src/integrations/resume-pdf.mjs) is a first visit in a fresh
@@ -208,8 +287,9 @@ import noticeSource from './notice.js?raw';
   <div class="privacy-notice__inner">
     <div class="privacy-notice__copy">
       <p class="privacy-notice__title" id="np-privacy-notice-title">Analytics on this site</p>
+      <p class="privacy-notice__question">Keep analytics on, or turn them off?</p>
       <p class="privacy-notice__text">
-        This is my personal site. I use analytics, including session replay and video playback data, to see what's working and improve it. Leaving them on helps me, and you can turn them off anytime. <a href="/privacy/">Privacy details</a>.
+        This personal site uses analytics, including session replay and video playback data, to see what's working. You can turn them off anytime. <a href="/privacy/">Privacy details</a>.
       </p>
     </div>
     <div class="privacy-notice__actions">
