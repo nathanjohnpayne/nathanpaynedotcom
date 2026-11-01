@@ -203,6 +203,10 @@
   /* Repeated page/panel surface colors, tokenized in #469. */
   --panel-open-bg: #e4ded0; /* warm parchment every homepage panel opens to */
   --blue-contrast: #f0f4ff; /* light text/chrome on the --blue panel */
+  /* --blue darkened for link text on light surfaces. --blue itself is
+     4.20:1 on paper, 3.66:1 on cream and 3.19:1 on --gray-plane, under AA
+     for body-size text; this keeps the hue at 6.06 / 5.29 / 4.61. */
+  --blue-ink: #1a66a2;
   /* Warm near-ink text on warm surfaces (yellow panel, open parchment).
      Collapsed from three audit-time near-duplicates (#171208 / #17130f /
      #191611) that sat on the same parchment background — drift, not
@@ -331,6 +335,8 @@
   --red: #da2418;
   --yellow: #f0c800;
   --blue: #0a5c9e;
+  /* This blue already clears AA as text (6.91:1 on paper), so link text keeps it. */
+  --blue-ink: var(--blue);
 }
 
 * {
@@ -1382,7 +1388,7 @@ html[data-fonts-pending] .panel-label {
 }
 
 .p-link {
-  color: var(--blue);
+  color: var(--blue-ink);
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;
@@ -6283,8 +6289,9 @@ a:focus-visible {
    existing tokens — never redefines them: --ink (text), --cream/--surface
    (warm reading surface), --paper, --rule (dividers), Cormorant Garamond +
    Inter, and the --motion- and --ease- motion tokens. The local
-   --resume-link is the site's --blue accent, used for in-content links and
-   the header contact links on the cream surface. See specs/resume.md and #394.
+   --resume-link is --blue-ink (the --blue accent darkened for AA text),
+   used for in-content links and the header contact links on the cream
+   surface. See specs/resume.md and #394.
    ════════════════════════════════════════════════════════════════════ */
 body.resume-page {
   min-height: 100%;
@@ -6293,7 +6300,7 @@ body.resume-page {
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0)),
     var(--project-bg, #d8d1c5);
-  --resume-link: var(--blue);
+  --resume-link: var(--blue-ink);
   /* Accent (red, to match the other white footers) comes from
      data-accent="red" on the body (#437). */
 }
