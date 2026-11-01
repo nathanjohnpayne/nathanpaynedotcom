@@ -3,6 +3,7 @@ import { glob } from 'astro/loaders';
 import { BLOG_CATEGORIES, HOMEPAGE_WRITING_LIMIT } from './lib/blog-order';
 import { MUX_PLAYBACK_ID_PATTERN } from '../scripts/lib/mux-playback-id.mjs';
 import { siteCopySchema } from './lib/site-copy-schema';
+import { aiUseSchema, sha256Hex } from './lib/content-stamp-schema';
 
 // Page and publication copy that several surfaces repeat (#1166). Each entry
 // has its own strict shape; read one through getSiteCopy() in
@@ -217,6 +218,12 @@ const projects = defineCollection({
         )
         .optional()
         .default([]),
+
+      // The AI-use disclosure and its reader-facing-content stamp (#1492,
+      // epic #1490). Shape and rationale: src/lib/content-stamp-schema.ts;
+      // the hash: src/lib/ai-use-stamp.mjs. Optional during rollout; #1498
+      // makes it required.
+      aiUse: aiUseSchema.optional(),
     })
     // `githubUrl` is optional so a private-repo project can suppress its dead
     // CTA (#874), but `heroRefresh: 'github-social'` refreshes the hero from
@@ -323,6 +330,10 @@ const blog = defineCollection({
       )
       .optional()
       .default([]),
+
+    // The AI-use disclosure, as on `projects` above (#1492). Optional during
+    // rollout; #1498 makes it required.
+    aiUse: aiUseSchema.optional(),
   }),
 });
 
@@ -487,8 +498,8 @@ const education = defineCollection({
 // recomputes both hashes and fails, with the remedy, when either side changed.
 // A current stamp proves the review happened, not that the claims agree. See
 // specs/resume.md § Claims review. Strict, so a misspelled key cannot pass as a
-// stamp that is merely missing a field.
-const sha256Hex = z.string().regex(/^[0-9a-f]{64}$/, 'expected a lowercase SHA-256 hex digest');
+// stamp that is merely missing a field. `sha256Hex` lives in
+// src/lib/content-stamp-schema.ts, shared with the `aiUse` stamp.
 const resumeProjects = defineCollection({
   loader: glob({ pattern: '**/*.md', base: './src/content/resume/projects' }),
   schema: z.object({
