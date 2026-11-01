@@ -20,7 +20,7 @@ The real site, captured from a production build at desktop 1440×900 and phone 3
 On phones every page shares one frame: edge to edge, with an accent rail on each block that cycles red, blue, yellow and black so no two neighbours repeat.
 
 <p>
-  <img src="docs/images/readme/home-phone.png" width="200" alt="Homepage on a phone: the stacked red About panel with Context, Approach and Now">
+  <img src="docs/images/readme/home-phone.png" width="200" alt="Homepage on a phone: the red cover with the name, tagline and Now, then the white About block with a blue rail and Context and Approach">
   <img src="docs/images/readme/blog-phone.png" width="200" alt="Blog index on a phone: the hero and post cards, each with a colored rail">
   <img src="docs/images/readme/article-phone.png" width="200" alt="Blog article on a phone: the title card with its category and date kicker, then Key Takeaways">
   <img src="docs/images/readme/projects-phone.png" width="200" alt="Projects index on a phone: project cards with lifecycle status, each with a colored rail">
