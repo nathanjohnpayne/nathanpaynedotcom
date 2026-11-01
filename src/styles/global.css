@@ -5930,7 +5930,10 @@ a:focus-visible {
   .now-ribbon-date {
     font-size: clamp(0.68rem, 0.64rem + 0.24vw, 0.78rem);
     line-height: 1.48;
-    letter-spacing: 0.06em;
+    /* Mixed-case text needs little tracking. At 0.06em the DOMAINS line
+       measured 325px in Linux Chromium (309px on macOS) against the 311px a
+       railed panel leaves it at 390px, and wrapped (#930). */
+    letter-spacing: 0.02em;
   }
 
   /* Base rule sets the About headline at a flat 4rem with white-space: nowrap,
@@ -5943,72 +5946,183 @@ a:focus-visible {
     font-size: clamp(2.4rem, 9vw, 4rem);
   }
 
-  /* The exit link is no longer in this list: it is an interactive control
-     with a 4.5:1 floor, so it takes its own (higher) veil in the
-     :not(.is-open) rule above, at every width rather than only here. */
-  .panel--red .about-label,
+  /* ── Cover + reading surfaces ───────────────────────────────────────────
+     The stack is the homepage's reading layout, so it borrows the inner
+     pages' phone frame (#1479): one cover on the red (the name, the tagline
+     and NOW), then paper blocks with accent rails for everything that is
+     read. Long copy on a full red or yellow plane measured 4.35:1 (cream on
+     the 1930 red) or glared (ink on the 1930 yellow); the cover keeps the
+     identity, the paper carries the reading.
+
+     Rails cycle from the cover the way getMobileRail('red', n) does on the
+     inner pages, so no two neighbours share a color: About blue, Projects
+     yellow, Community black, Connect red. They take the 1930 palette the
+     homepage renders under, so Connect's red rail matches the cover above.
+
+     Every color below is the panel's open-state ink: the open panel on
+     desktop is already this page's paper reading surface. */
+  .stage {
+    --rail-w: calc(var(--line) * 3);
+  }
+
+  /* The area behind a transparent iOS status bar takes the root background;
+     gray above the red cover read as a seam. Width-only: a short wide window
+     also reaches the stack, capped at 1024px and centered, and its gutters
+     stay the chrome gray. */
+  @media (max-width: 1023px) {
+    html:has(.stage) {
+      background: var(--red);
+    }
+  }
+
+  .panel--red .about-blocks {
+    gap: 0;
+  }
+
+  .panel--red .about-block--now {
+    order: -1;
+    max-width: none;
+    margin: 0 -1.5rem;
+    padding: 0 1.5rem 1.5rem;
+    border-bottom: var(--line) solid var(--ink);
+    /* --cream on the 1930 red is 4.35:1; --paper is the one foreground this
+       red admits for body copy (see the #977 note on the exit link). */
+    color: var(--paper);
+  }
+
+  /* The whole cover takes --paper: --cream measured 4.35:1 on the tagline
+     and the veiled NOW label 3.78:1. */
+  .panel--red .content-inner > h1,
+  .panel--red .content-inner > .lead,
+  .panel--red .about-block--now .about-label {
+    color: var(--paper);
+  }
+
+  /* Labels on the paper sheet: the warm 50% ink is tuned for the darker
+     open-state parchment and measured 3.3–4.0:1 on white. 72% is the ink
+     the DOMAINS and SCOPE ribbons already use here. */
+  .panel--red .about-blocks > :not(.about-block--now) .about-label,
   .panel--red .now-ribbon-label,
-  .panel--red .now-ribbon-date {
-    color: color-mix(in srgb, var(--veil-on-red) 82%, transparent);
-  }
-
-  .panel--red .now-ribbon {
-    border-top-color: color-mix(in srgb, var(--veil-on-red) 28%, transparent);
-  }
-
-  /* The article list's vertical bracket uses var(--rule) (dark),
-     near-invisible on the red mobile base — flip it to the same light divider
-     color as the ribbon hairline so both rules read as one system. */
-  .panel--red .writing-list__posts {
-    border-left-color: color-mix(in srgb, var(--veil-on-red) 28%, transparent);
-  }
-
-  /* DOMAINS takes STACK's inks rather than its own, on this plane and every
-     other: the two are the same line in the same footer under a build switch
-     (#984), so a separate ink would be a second contrast surface to keep in
-     step with #977–#979 for no visible difference. */
-  .panel--yellow .domains-label,
-  .panel--yellow .domains-items {
+  .panel--red .now-ribbon-date,
+  .panel--blue .connect-label,
+  .panel--blue .blog-callout-label {
     color: color-mix(in srgb, var(--ink-warm) 72%, transparent);
   }
-  .panel--yellow .domains-ribbon {
-    border-top-color: color-mix(in srgb, var(--ink-warm) 22%, transparent);
+
+  .panel--red .about-blocks > :not(.about-block--now) {
+    --rail: var(--blue);
+    --arrow-accent: var(--blue);
+    max-width: none;
+    margin-inline: -1.5rem;
+    padding: var(--about-space-above-label) max(1.5rem, calc(100% + 1.5rem - var(--about-measure)))
+      0 1.5rem;
+    background-color: var(--paper);
+    color: var(--ink-warm);
   }
 
+  .panel--red .about-blocks > :first-child {
+    padding-top: 1.5rem;
+  }
+
+  /* The sheet is four siblings meeting at fractional offsets, which left a
+     hairline of the red plane between them. Each one overlaps the one above
+     by a pixel and gives it back in padding. */
+  .panel--red .about-blocks > :not(.about-block--now):not(:first-child) {
+    margin-top: -1px;
+    padding-top: calc(var(--about-space-above-label) + 1px);
+  }
+
+  .panel--red .about-blocks > .now-ribbon {
+    margin-bottom: -1.5rem;
+    padding-bottom: 1.5rem;
+    border-top: 0;
+  }
+
+  .panel--red .now-ribbon .ribbon-row {
+    padding-top: var(--sp-2xs);
+    border-top: 1px solid var(--rule);
+  }
+
+  .panel--red:not(.is-open) .writing-link,
+  .panel--red:not(.is-open) .ribbon-exit {
+    color: var(--ink-warm);
+  }
+
+  .panel--yellow {
+    --rail: var(--yellow);
+  }
+  .panel--black {
+    --rail: var(--accent-black);
+  }
+  .panel--blue {
+    --rail: var(--red);
+  }
+
+  /* :not(.is-open) to meet the closed-plane --arrow-accent rules at their
+     own specificity; they set near-white and cream arrows for the colored
+     planes, which vanish on paper. */
+  .panel--yellow:not(.is-open),
+  .panel--black:not(.is-open),
+  .panel--blue:not(.is-open) {
+    --arrow-accent: var(--blue);
+  }
+
+  .panel--yellow,
+  .panel--black,
+  .panel--blue {
+    background-color: var(--paper);
+    color: var(--ink-warm);
+  }
+
+  /* Connect closes the page on the cream band the inner pages end with. */
+  .panel--blue {
+    background-color: var(--cream);
+  }
+
+  /* Beside a rail the inset matches the inner pages' hero (the rail already
+     marks the edge). The rail costs 24px of column; at 1.5rem a side the
+     DOMAINS line lost its single line on a 390px phone (#930). */
+  .panel--yellow .content-inner,
+  .panel--black .content-inner,
+  .panel--blue .content-inner {
+    padding-inline: clamp(1.15rem, 3vw, 1.5rem);
+  }
+
+  .panel--yellow,
+  .panel--black,
+  .panel--blue,
+  .panel--red .about-blocks > :not(.about-block--now) {
+    border-left: calc(var(--rail-w) + var(--line)) solid transparent;
+    background-image: linear-gradient(to right, var(--rail) var(--rail-w), var(--ink) 0);
+    background-origin: border-box;
+    background-size: calc(var(--rail-w) + var(--line)) 100%;
+    background-repeat: no-repeat;
+  }
+
+  .panel--blue:not(.is-open) .ribbon-exit {
+    color: color-mix(in srgb, var(--ink-warm) 72%, transparent);
+  }
+
+  .panel--blue .blog-callout {
+    border-top-color: var(--rule);
+  }
+
+  .panel--blue .blog-callout-link {
+    color: color-mix(in srgb, var(--ink-warm) 72%, transparent);
+  }
+
+  /* DOMAINS takes STACK's inks rather than its own (#984): the same line in
+     the same footer under a build switch. On paper both are the open-state
+     ink. */
+  .panel--yellow .domains-label,
+  .panel--yellow .domains-items,
   .panel--black .impact-label,
   .panel--black .impact-items {
-    color: color-mix(in srgb, var(--veil-on-black) 82%, transparent);
+    color: color-mix(in srgb, var(--ink-warm) 72%, transparent);
   }
-
+  .panel--yellow .domains-ribbon,
   .panel--black .impact-ribbon {
-    border-top-color: color-mix(in srgb, var(--veil-on-black) 22%, transparent);
-  }
-
-  /* Match the Giving vertical rule to the ribbon's light divider on the
-     black mobile base (var(--rule) is invisible there). */
-  .panel--black .effort-list li {
-    border-left-color: color-mix(in srgb, var(--veil-on-black) 22%, transparent);
-  }
-
-  .panel--blue .connect-label {
-    color: color-mix(in srgb, var(--blue-contrast) 82%, transparent);
-  }
-
-  .panel--blue .availability-signal {
-    color: color-mix(in srgb, var(--blue-contrast) 82%, transparent);
-  }
-
-  .panel--blue .availability-signal .p-link {
-    color: var(--blue-contrast);
-  }
-
-  .panel--blue .social-row {
-    border-color: color-mix(in srgb, var(--blue-contrast) 18%, transparent);
-  }
-
-  .panel--blue .s-icon,
-  .panel--blue .s-arrow {
-    opacity: 0.78;
+    border-top-color: color-mix(in srgb, var(--ink-warm) 22%, transparent);
   }
 }
 
