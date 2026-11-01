@@ -90,3 +90,27 @@ for (const width of WIDTHS) {
     }
   });
 }
+
+test.describe('p-link rollover', () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  test('a .p-link rests on a 55% underline and takes a full 2px one on hover', async ({ page }) => {
+    await page.goto('/projects/');
+    await page.addStyleTag({
+      content: '*,*::before,*::after{transition:none!important;animation:none!important}',
+    });
+    const link = page.locator('.deck .p-link');
+    const read = () =>
+      link.evaluate((a) => {
+        const cs = getComputedStyle(a);
+        return { thickness: cs.textDecorationThickness, color: cs.textDecorationColor };
+      });
+    const rest = await read();
+    expect(rest.thickness).toBe('1px');
+    expect(rest.color).toMatch(/\/ 0\.55\)$/);
+    await link.hover();
+    const hover = await read();
+    expect(hover.thickness).toBe('2px');
+    expect(hover.color).toBe('rgb(26, 102, 162)');
+  });
+});

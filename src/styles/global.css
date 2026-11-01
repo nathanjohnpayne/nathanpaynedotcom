@@ -1392,7 +1392,20 @@ html[data-fonts-pending] .panel-label {
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;
+  /* The reading-surface rollover (.project-copy a): the underline rests at
+     55% of the link's own color and goes full and 2px on hover. currentColor,
+     so the 1930 homepage's own blue carries it too. */
+  text-decoration-color: color-mix(in srgb, currentColor 55%, transparent);
   font-weight: 700;
+  transition:
+    text-decoration-color var(--motion-hover) var(--ease-standard),
+    text-decoration-thickness var(--motion-hover) var(--ease-standard);
+}
+
+.p-link:hover,
+.p-link:focus-visible {
+  text-decoration-thickness: 2px;
+  text-decoration-color: currentColor;
 }
 
 /* === Site-wide link affordance ============================================
@@ -2232,6 +2245,21 @@ body.blog-page {
   background: var(--accent, var(--ink));
   color: var(--accent-contrast, var(--cream));
   transform: translateY(calc(var(--shift-small) * -1));
+}
+
+/* The footer's Privacy link as an icon (PrivacyLink `icon`): a square button
+   the height of its text neighbours. The glyph is one line box tall (1.2em at
+   the button's font size), so equal padding on every side gives the same
+   height and a square. */
+.privacy-link--icon {
+  justify-content: center;
+  padding: 0.55rem;
+}
+
+.privacy-icon {
+  width: 1.2em;
+  height: 1.2em;
+  flex-shrink: 0;
 }
 
 /* #468: mirror the .link-arrow reduced-motion treatment — the universal
@@ -5832,6 +5860,17 @@ a:focus-visible {
   .nav-button {
     width: 100%;
     justify-content: center;
+  }
+
+  /* In the footer, each text button still takes its own full row, but the
+     basis leaves room for the Privacy icon (about 2.2rem plus the 0.75rem
+     gap), so the icon sits beside the last button instead of alone below. */
+  .site-footer__nav .nav-button {
+    width: auto;
+    flex: 1 1 calc(100% - 3rem);
+  }
+  .site-footer__nav .privacy-link--icon {
+    flex: 0 0 auto;
   }
 
   .blog-code-block {

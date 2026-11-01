@@ -181,6 +181,9 @@
   .app .deck{font-family:var(--font-heading);font-size:clamp(1.05rem,1.3cqw,1.4rem);line-height:1.45;max-width:38rem;color:color-mix(in srgb,var(--ink) 72%,transparent);margin-top:.9rem}
   .app .deck b{color:var(--blue-ink);font-weight:700}
   .app .eyebrow,.app .post-meta{font-family:var(--font-body);font-size:clamp(.65rem,.78cqw,.76rem);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-62);font-weight:500}
+  /* The footer Privacy link is an icon: Lucide shield-check, as PrivacyLink.astro draws it. */
+  .app .nav-button.privacy-link--icon{display:inline-flex;align-items:center;justify-content:center;padding:.55rem}
+  .app .privacy-icon{width:1.2em;height:1.2em}
   .app .nav-button{display:inline-block;border:1px solid var(--ink);padding:.55rem .85rem;font-size:clamp(.8rem,.9cqw,.92rem);font-weight:600;letter-spacing:.14em;text-transform:uppercase;background:var(--paper);white-space:nowrap}
   .app .site-footer{display:flex;justify-content:space-between;align-items:center;gap:.8rem 1.2rem;flex-wrap:wrap;padding:1.1rem clamp(1.15rem,3cqw,2.5rem);background:var(--paper)}
   .app .site-footer--grid{border-top:var(--line) solid var(--ink)}
@@ -552,7 +555,9 @@
   /* ≤480 (--bp-narrow) */
   @container frame (max-width: 480px) {
     .app .nav-button{width:100%;text-align:center}
-    .app .site-footer__nav{flex-direction:column;width:100%}
+    .app .site-footer__nav{flex-wrap:wrap;width:100%}
+    .app .site-footer__nav .nav-button{width:auto;flex:1 1 calc(100% - 3rem)}
+    .app .site-footer__nav .privacy-link--icon{flex:0 0 auto}
     .app .mstrip{grid-template-columns:1fr}
     .app .mstrip > div{border-left:0;border-top:1px dotted var(--ink-32)}
     .app .mstrip > div:first-child{border-top:0}
@@ -635,7 +640,7 @@ const RAIL_CYCLE = ['red', 'blue', 'yellow', 'black'];
 const rail = (accent, i) => RAIL_CYCLE[(RAIL_CYCLE.indexOf(accent) + i) % 4];
 const bc = (...parts) => `<div class="breadcrumbs">${parts.map((p, i) => i === parts.length - 1 ? `<span class="cur">${p}</span>` : `<a>${p}</a>`).join('<span class="sep">/</span>')}</div>`;
 const footer = (variant, links, { privacy = true } = {}) =>
-  `<footer class="site-footer site-footer--${variant}" data-rail="${links.rail || ''}"><p class="site-footer__attribution">Nathan Payne · San Francisco</p><nav class="site-footer__nav">${links.items.map(l => `<a class="nav-button">${l}</a>`).join('')}${privacy ? '<a class="nav-button">Privacy</a>' : ''}</nav></footer>`;
+  `<footer class="site-footer site-footer--${variant}" data-rail="${links.rail || ''}"><p class="site-footer__attribution">Nathan Payne · San Francisco</p><nav class="site-footer__nav">${links.items.map(l => `<a class="nav-button">${l}</a>`).join('')}${privacy ? PRIVACY_ICON : ''}</nav></footer>`;
 // src/lib/index-grid.ts: six-row cycle; a later cycle opens yellow + gray instead of red + gray
 const ROWS = [
   { cols: '50fr 22fr 28fr', h: '16rem', acc: ['red', 'paper'] },
@@ -818,6 +823,7 @@ const EXP_COMPACT = [
   ['AJ', 'Director of Information Technology—AJ+', 'San Francisco · 2013–2016'],
   ['CT', 'Senior Systems Architect—Current TV', 'San Francisco · 2012–2013'],
   ['CN', 'Systems Architect / Support Roles—CNN', 'Washington, DC Bureau · 2002–2012']];
+const PRIVACY_ICON = '<a class="nav-button privacy-link--icon" aria-label="Privacy" title="Privacy"><svg class="privacy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg></a>';
 const SEP = '<span class="sep" aria-hidden="true">·</span>';
 const resumeContact = () => `<p class="r-contact r-contact--primary"><span>${ICON.mappin}San Francisco, CA</span>${SEP}<a>${ICON.mail}hire@nathanpayne.com</a></p><p class="r-contact r-contact--profiles"><a>${ICON.globe}nathanpayne.com</a>${SEP}<a>${ICON.linkedin}linkedin.com/in/nathanpayne</a>${SEP}<a>${ICON.github}github.com/nathanjohnpayne</a></p>`;
 const resumeHead = () => `${bc('Nathan Payne', 'Résumé')}<h1>Nathan Payne</h1><p class="r-title">Senior Platform Product Manager</p>${resumeContact()}`;
