@@ -4214,17 +4214,41 @@ a.tag:hover {
      resume/blog/project canvases on narrow screens, rather than thinning to
      the 1px border. The phone-stack rules drop --canvas-shadow to none, so
      on screen this card loses its shadow with the others. */
+  .error-shell {
+    /* Start at the top like the résumé/blog/project canvases rather than
+       floating mid-viewport in the stage gray. */
+    align-items: flex-start;
+  }
+  /* The desktop's lower two block rows survive at four equal tracks (yellow,
+     blue, #333, gray over gray, blue, yellow, paper; ~90px), so the phone
+     keeps the Mondrian composition instead of a bare card. Every block keeps
+     its desktop placement; only the red block goes, its color moving to the
+     card's rail. */
   .error-mondrian {
-    grid-template-columns: var(--line) 1fr var(--line);
-    grid-template-rows: var(--line) auto var(--line);
+    grid-template-columns:
+      var(--line) 1fr var(--line) 1fr var(--line) 1fr var(--line) 1fr
+      var(--line);
+    grid-template-rows: var(--line) auto var(--line) 3rem var(--line) 2.25rem var(--line);
     box-shadow: var(--canvas-shadow);
   }
+  /* The inner pages' accent rail (see [data-rail] below), scoped here rather
+     than via data-rail so the tablet layout doesn't get a rail beside its red
+     block. */
   .e-content {
-    grid-column: 2;
+    --rail: var(--red);
+    grid-column: 2 / 9;
     grid-row: 2;
+    border-left: calc(var(--rail-w) + var(--line)) solid transparent;
+    background-image: linear-gradient(to right, var(--rail) var(--rail-w), var(--ink) 0);
+    background-origin: border-box;
+    background-size: calc(var(--rail-w) + var(--line)) 100%;
+    background-repeat: no-repeat;
   }
-  .e-block {
+  .e-red {
     display: none;
+  }
+  .e-content .nav-button {
+    min-height: 44px;
   }
 }
 
