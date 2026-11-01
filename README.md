@@ -10,7 +10,7 @@ Personal portfolio, project, and blog site for Nathan Payne—a static site buil
 
 ## Screenshots
 
-The real site, captured from a production build at desktop 1440×900 and phone 390×844 with the privacy notice dismissed ([how they are made](scripts/capture-readme-screenshots.mjs)). On desktop the homepage is a Mondrian composition whose panels open on hover or focus; below 1024px wide or 840px tall it becomes a readable stack.
+The real site, captured from a production build at desktop 1440×900 and phone 390×844 with the privacy notice dismissed, then framed in the same macOS window and iPhone chrome the wireframes use ([how they are made](scripts/capture-readme-screenshots.mjs)). On desktop the homepage is a Mondrian composition whose panels open on hover or focus; below 1024px wide or 840px tall it becomes a readable stack.
 
 <p>
   <img src="docs/images/readme/home-desktop.png" width="400" alt="Homepage at 1440px: the closed Mondrian composition with the red Nathan Payne panel, yellow Projects, dark Community and blue Connect">
