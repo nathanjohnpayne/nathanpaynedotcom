@@ -5907,7 +5907,10 @@ a:focus-visible {
   .now-ribbon-date {
     font-size: clamp(0.68rem, 0.64rem + 0.24vw, 0.78rem);
     line-height: 1.48;
-    letter-spacing: 0.06em;
+    /* Mixed-case text needs little tracking. At 0.06em the DOMAINS line
+       measured 325px in Linux Chromium (309px on macOS) against the 311px a
+       railed panel leaves it at 390px, and wrapped (#930). */
+    letter-spacing: 0.02em;
   }
 
   /* Base rule sets the About headline at a flat 4rem with white-space: nowrap,
