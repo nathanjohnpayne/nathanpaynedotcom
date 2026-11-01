@@ -6,6 +6,42 @@ Personal portfolio, project, and blog site for Nathan Payne—a static site buil
 
 **Owner's manual:** step-by-step guides for editing posts, projects, the homepage, and the résumé, plus previewing, publishing, deploying, and reading analytics, live in the private docs vault: [nathanpaynedotcom owner's manual](https://github.com/nathanjohnpayne/docs/blob/9284108e3f8275c3d79e54e302199f207f1c5d41/projects/nathanpaynedotcom/owners-manual/README.md). This README stays the technical overview.
 
+**Wireframes:** [`plans/nathanpayne-wireframes.html`](plans/nathanpayne-wireframes.html) ([rendered](https://raw.githack.com/nathanjohnpayne/nathanpaynedotcom/main/plans/nathanpayne-wireframes.html)) draws every page as built at desktop 1440, tablet 834 and phone 390. It adds the renditions that only exist at certain sizes: each homepage panel open, the short-window stack, the phone stack's accent rails, and the privacy notice. It is painted with the shipped tokens and is an as-built reference, not a proposal.
+
+## Screenshots
+
+The real site, captured from a production build at desktop 1440×900 and phone 390×844 with the privacy notice dismissed ([how they are made](scripts/capture-readme-screenshots.mjs)). On desktop the homepage is a Mondrian composition whose panels open on hover or focus; below 1024px wide or 840px tall it becomes a readable stack.
+
+<p>
+  <img src="docs/images/readme/home-desktop.png" width="400" alt="Homepage at 1440px: the closed Mondrian composition with the red Nathan Payne panel, yellow Projects, dark Community and blue Connect">
+  <img src="docs/images/readme/home-desktop-about-open.png" width="400" alt="Homepage at 1440px with the About panel open: name, tagline, Context, Approach, Now and Writing on the parchment reading surface">
+</p>
+
+On phones every page shares one frame: edge to edge, with an accent rail on each block that cycles red, blue, yellow and black so no two neighbours repeat.
+
+<p>
+  <img src="docs/images/readme/home-phone.png" width="200" alt="Homepage on a phone: the red cover with the name, tagline and Now, then the white About block with a blue rail and Context and Approach">
+  <img src="docs/images/readme/blog-phone.png" width="200" alt="Blog index on a phone: the hero and post cards, each with a colored rail">
+  <img src="docs/images/readme/article-phone.png" width="200" alt="Blog article on a phone: the title card with its category and date kicker, then Key Takeaways">
+  <img src="docs/images/readme/projects-phone.png" width="200" alt="Projects index on a phone: project cards with lifecycle status, each with a colored rail">
+</p>
+
+Project pages and the résumé on desktop.
+
+<p>
+  <img src="docs/images/readme/project-desktop.png" width="400" alt="Five Across project page at 1440px: breadcrumb, title, deck, action buttons, the metadata strip and the two Edition screenshots">
+  <img src="docs/images/readme/resume-desktop.png" width="400" alt="Résumé page at 1440px">
+</p>
+
+To refresh them after a visual change:
+
+```bash
+npm run build
+npx astro preview --port 4450 &
+node scripts/capture-readme-screenshots.mjs http://localhost:4450
+npx astro preview stop
+```
+
 ---
 
 ## Design

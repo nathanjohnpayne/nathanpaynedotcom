@@ -1,0 +1,1030 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>nathanpayne.com — as-built wireframes, every page at every width it renders at</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%2311100d'/%3E%3Crect x='4' y='4' width='34' height='34' fill='%23e8784a'/%3E%3Crect x='42' y='4' width='18' height='18' fill='%23e3d477'/%3E%3Crect x='4' y='42' width='18' height='18' fill='%23333'/%3E%3Crect x='42' y='42' width='18' height='18' fill='%232080ca'/%3E%3C/svg%3E">
+<!--
+  nathanpayne.com — AS-BUILT wireframes. A reference, not a proposal.
+
+  Self-contained: inline CSS + JS, no build step, no CDN, no external fonts,
+  images or scripts. Open the file directly (file://).
+
+  Every page is authored ONCE (a JS function returning the page's markup) and
+  stamped at each width it renders at — desktop 1440×900, tablet 834×1112,
+  phone 390×844, plus the renditions that exist only at particular sizes (the
+  homepage's four open panels at 1440, the 1440×700 short window, the résumé's
+  print layout). The canvas inside each frame is a CSS size container, so the
+  same markup re-flows per width AND height with @container rules written to
+  the site's own breakpoints; what you see at each width is the shipped
+  responsive behaviour, not a shrunken desktop. Frames are scaled with
+  transform (the zoom control changes the scale); the layout inside is
+  computed at the real width. Device chrome (macOS window bar, iPad/iPhone
+  bezels, the Letter sheet) sits outside the canvas so the container width
+  stays exact.
+
+  Sources read (worktree at origin/main, after PR #1479):
+    src/styles/global.css — tokens on :root and [data-palette='1930'], the
+      Mondrian composition and its four focus-state grid templates, the
+      `@media (max-width: 1023px), (max-height: 839px)` homepage stack, the
+      `@media (min-width: 1024px) and (max-height: 839px)` 1024px cap, the
+      inner-page frames, the ≤1023 / ≤768 / ≤480 blocks, the phone-stack rails
+      (7156–7238), the résumé layout and its @media print block (7244–7655)
+    src/pages/index.astro, blog/index.astro, blog/[...slug].astro,
+      projects/index.astro, projects/[slug].astro, resume.astro, book.astro,
+      brand.astro, privacy/[...index].astro, 404.astro
+    src/layouts/BaseLayout.astro, BlogPost.astro, ProjectLayout.astro
+    src/components/ProjectHero.astro, MetadataStrip.astro, Footer.astro,
+      Breadcrumbs.astro, privacy/PrivacyNotice.astro, resume/*
+    src/lib/index-grid.ts (row cycle + getMobileRail), blog-order.ts
+    src/content/bio/now.md, site-copy/*, projects/*.mdx, blog/*
+    specs/responsive-layout.md, blog-responsive.md, analytics-privacy.md,
+      project-pages.md, book-page.md, brand-page.md, resume.md,
+      panel-interaction.md, figure-numbering.md
+  Copy is the public site copy, shortened where a frame would otherwise
+  overflow. Nothing is invented except the placeholder screenshot blocks.
+-->
+<style>
+  /* ---------- page chrome (document, not site UI) ---------- */
+  body{margin:0;padding:32px 24px 64px;background:#ececf0;color:#2a2a2e;font:14px/1.45 Inter,"Helvetica Neue",Arial,sans-serif}
+  /* Document headings only: :not(.app *) keeps these rules out of the
+     wireframe canvases, whose headings are the site's own. */
+  h1:not(.app *){font-size:22px;margin:0 0 4px}
+  h2:not(.app *){font-size:16px;margin:40px 0 12px;border-top:1px solid #c9c9d0;padding-top:20px}
+  h3:not(.app *){font-size:14px;margin:26px 0 8px}
+  h4:not(.app *){font-size:12px;margin:22px 0 6px;color:#4a4a52;text-transform:uppercase;letter-spacing:.1em;font-weight:700}
+  .sub{color:#77777f;margin:0 0 14px;max-width:900px}
+  .sub b{color:#2a2a2e}
+  .sub code,.cap code,.legend code,.tokens code,.bptable code{font-family:ui-monospace,Menlo,monospace;font-size:.92em;background:#e2e2e8;padding:0 4px;border-radius:4px;color:#2a2a2e}
+  .callout{border-left:3px solid #8a8a95;padding-left:10px}
+  .callout.accent{border-left-color:#e8784a}
+  .frames{display:flex;flex-wrap:wrap;gap:36px 48px;align-items:flex-start}
+  .unit{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-start}
+  .cap{margin:14px 4px 0;font-size:12.5px;color:#77777f;max-width:var(--capw,520px)}
+  .cap b{color:#2a2a2e;display:block;font-size:13.5px;margin-bottom:2px}
+  .cap a,.legend a,.sub a{color:#2a2a2e}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px 2px}
+  .fchip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 8px;border-radius:11px;background:#1b1d24;color:#fff;font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;border:1px solid #1b1d24;white-space:nowrap}
+  .fchip::before{content:"";width:9px;height:9px;border-radius:50%;flex:0 0 auto;background:var(--sw,#9aa3b2)}
+  .fchip.desk,.fchip.short{--sw:#3f66f0}.fchip.tab{--sw:#2e9fa8}.fchip.ph{--sw:#8fd0c3}.fchip.print{--sw:#8a8a95}
+  .fchip.built{--sw:#059669;background:#fff;color:#1b1d24;border-color:#c9c9d0}
+  .fchip.state{--sw:#f59e0b;background:#fff;color:#1b1d24;border-color:#c9c9d0}
+  .legend{margin:12px 4px 0;padding:0;font-size:12.5px;color:#77777f;list-style:none;counter-reset:an;max-width:900px}
+  .legend li{margin:0 0 8px;padding-left:24px;position:relative;line-height:1.5}
+  .legend li::before{counter-increment:an;content:counter(an);position:absolute;left:0;top:2px;width:14px;height:14px;border-radius:50%;background:#1b1d24;color:#fff;font-size:9px;font-weight:800;display:inline-flex;align-items:center;justify-content:center}
+  .legend b{color:#2a2a2e}
+  .toc{max-width:1180px;margin:0 0 10px;padding:16px 20px 14px;border:1px solid #c9c9d0;border-radius:14px;background:#f5f5f8}
+  .toc .tt{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#4a4a52;margin:0 0 10px}
+  .toc ol{margin:0;padding-left:20px}
+  .toc > ol > li{margin-bottom:9px;font-weight:700}
+  .toc ol ol{padding-left:16px;margin:3px 0 0;font-weight:400}
+  .toc a{color:#2a2a2e}
+  .toc .vars{display:block;font-weight:400;margin-top:3px;line-height:1.9}
+  .toc .vars a{display:inline-block;margin:0 4px 0 0;padding:1px 6px;border-radius:7px;border:1px solid #d5d5dc;background:#fff;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;text-decoration:none;color:#4a4a52}
+  .zoom{display:flex;gap:6px;align-items:center;margin:0 0 18px;font-size:12px;color:#4a4a52;position:sticky;top:0;z-index:10;background:#ececf0;padding:8px 0}
+  .zoom button{font:inherit;padding:3px 10px;border-radius:8px;border:1px solid #c9c9d0;background:#fff;cursor:pointer;color:#2a2a2e}
+  .zoom button[aria-pressed=true]{background:#1b1d24;color:#fff;border-color:#1b1d24}
+  .zoom .sp{flex:1}
+  .tokens,.bptable{width:100%;max-width:1180px;border-collapse:collapse;font-size:12.5px;margin:10px 0 6px;background:#f5f5f8;border:1px solid #c9c9d0;border-radius:14px;overflow:hidden}
+  .tokens th,.bptable th{text-align:left;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#4a4a52;padding:10px 12px;border-bottom:1px solid #c9c9d0}
+  .tokens td,.bptable td{padding:8px 12px;border-bottom:1px solid #dcdce2;vertical-align:middle;color:#2a2a2e;line-height:1.45}
+  .tokens tr:last-child td,.bptable tr:last-child td{border-bottom:0}
+  .tokens .tsw{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+  .tokens .tsw i{width:22px;height:22px;border-radius:7px;display:inline-block;box-shadow:inset 0 0 0 1px rgba(0,0,0,.1)}
+  .tokens .sample{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-weight:600;font-size:12px}
+  .tokens .ratio{font-family:ui-monospace,Menlo,monospace;white-space:nowrap}
+  .tokens .ok{color:#1e6b3f;font-weight:700}.tokens .no{color:#9b2335;font-weight:700}.tokens .lg{color:#8a5a00;font-weight:700}
+  .tokens .ratio small{color:#77777f;font-weight:400}
+  .bptable td:first-child{font:700 11px ui-monospace,Menlo,monospace;white-space:nowrap}
+
+  /* ---------- frames: fixed canvases, scaled with transform ---------- */
+  :root{--w-desk:1440px;--h-desk:900px;--w-short:1440px;--h-short:700px;--w-tab:834px;--h-tab:1112px;--w-ph:390px;--h-ph:844px;--w-print:816px;--h-print:1056px;
+    --s-desk:.5;--s-tab:.55;--s-ph:1;--s-print:.5}
+  .fw{position:relative}
+  .fw.desk{width:calc(var(--w-desk)*var(--s-desk));height:calc((var(--h-desk) + 38px)*var(--s-desk));margin:2px 2px 10px}
+  .fw.short{width:calc(var(--w-short)*var(--s-desk));height:calc((var(--h-short) + 38px)*var(--s-desk));margin:2px 2px 10px}
+  .fw.tab{width:calc(var(--w-tab)*var(--s-tab));height:calc(var(--h-tab)*var(--s-tab));margin:18px 18px 20px}
+  .fw.ph{width:calc(var(--w-ph)*var(--s-ph));height:calc(var(--h-ph)*var(--s-ph));margin:14px 14px 16px}
+  .fw.print{width:calc(var(--w-print)*var(--s-print));height:calc(var(--h-print)*var(--s-print));margin:8px 8px 14px}
+  .frame{position:absolute;top:0;left:0;transform-origin:0 0;box-sizing:border-box;overflow:hidden;background:#fff}
+  .fw.desk .frame,.fw.short .frame{width:var(--w-desk);transform:scale(var(--s-desk));border-radius:10px;display:flex;flex-direction:column;box-shadow:0 0 0 1px #b9b9c2,0 18px 44px rgba(0,0,0,.2)}
+  .fw.desk .frame{height:calc(var(--h-desk) + 38px)}
+  .fw.short .frame{height:calc(var(--h-short) + 38px)}
+  .macbar{height:38px;flex:0 0 auto;background:linear-gradient(#f3f3f5,#e6e6ea);border-bottom:1px solid #cfcfd6;display:flex;align-items:center;padding:0 14px;gap:8px;position:relative}
+  .macbar i{width:12px;height:12px;border-radius:50%;display:block;box-shadow:inset 0 0 0 .5px rgba(0,0,0,.15)}
+  .macbar i:nth-child(1){background:#ff5f57}.macbar i:nth-child(2){background:#febc2e}.macbar i:nth-child(3){background:#28c840}
+  .macbar .addr{position:absolute;left:50%;top:7px;transform:translateX(-50%);width:440px;height:24px;border-radius:7px;background:#fff;border:1px solid #d4d4d8;font:11.5px Inter,system-ui,sans-serif;color:#52525b;display:flex;align-items:center;justify-content:center}
+  .fw.desk .frame > .app,.fw.short .frame > .app{height:auto;flex:1 1 auto;min-height:0}
+  .fw.tab .frame{width:var(--w-tab);height:var(--h-tab);transform:scale(var(--s-tab));border-radius:22px;box-shadow:0 0 0 14px #17171a,0 0 0 15.5px #45454c,0 16px 40px rgba(0,0,0,.22)}
+  .fw.ph .frame{width:var(--w-ph);height:var(--h-ph);transform:scale(var(--s-ph));border-radius:44px;box-shadow:0 0 0 9px #17171a,0 0 0 10.5px #45454c,0 14px 34px rgba(0,0,0,.22)}
+  .fw.print .frame{width:var(--w-print);height:var(--h-print);transform:scale(var(--s-print));box-shadow:0 0 0 1px #b9b9c2,0 10px 30px rgba(0,0,0,.18)}
+  .unit.desk,.unit.short{--capw:720px}.unit.tab{--capw:460px}.unit.ph{--capw:390px}.unit.print{--capw:408px}
+
+  /* ============================================================
+     SITE UI inside a frame — painted with the shipped tokens
+     (src/styles/global.css :root). The .app is a size container named
+     `frame`; every @container rule below is one of the site's @media
+     rules re-expressed against the frame instead of the window.
+     ============================================================ */
+  /* The homepage renders under data-palette="1930" (src/pages/index.astro): the
+     higher-chroma register overrides the three planes on that page only. */
+  .app.home{--red:#da2418;--yellow:#f0c800;--blue:#0a5c9e}
+  .app{
+    --ink:#11100d;--paper:#fff;--red:#e8784a;--yellow:#e3d477;--blue:#2080ca;--gray-plane:#dde1e5;--black:#11100d;
+    --accent-black:#333333;--accent-paper:#5b5f64;--accent-gray:#d4d4d4;--cream:#f5f0e4;--surface:rgba(244,239,229,.96);
+    --panel-open-bg:#e4ded0;--ink-warm:#171208;--blue-contrast:#f0f4ff;--stage-bg:#c4c3bc;--chrome-bg:#bdbeb8;--grid-border:#1a1814;
+    --veil-on-red:#f2ede1;--veil-on-black:#efe8d8;--line:9px;--page-gutter:2rem;
+    --ink-06:color-mix(in srgb,var(--ink) 6%,transparent);--ink-18:color-mix(in srgb,var(--ink) 18%,transparent);
+    --ink-32:color-mix(in srgb,var(--ink) 32%,transparent);--ink-50:color-mix(in srgb,var(--ink) 50%,transparent);
+    --ink-62:color-mix(in srgb,var(--ink) 62%,transparent);--rule:var(--ink-18);
+    --canvas-shadow:14px 14px 0 color-mix(in srgb,var(--ink) 12%,transparent);
+    --font-heading:'Cormorant Garamond',Garamond,'Times New Roman',serif;--font-body:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+    --accent:var(--red);
+    container-type:size;container-name:frame;width:100%;height:100%;position:relative;overflow:hidden;
+    font:16px/1.45 var(--font-body);color:var(--ink);background:var(--chrome-bg);box-sizing:border-box;text-align:left}
+  .app *{box-sizing:border-box;margin:0}
+  .app a{color:inherit;text-decoration:none}
+  .app h1,.app h2,.app h3{font-family:var(--font-heading);font-weight:600;letter-spacing:0}
+  .app .arrow{display:inline-block;margin-left:.15em}
+  .app .ph-img{background:repeating-linear-gradient(135deg,#d8d2c4 0 6px,#e9e4d8 6px 12px);border:1px solid var(--rule)}
+
+  /* ---- shared inner-page chrome ---- */
+  .app .breadcrumbs{font-family:var(--font-body);font-size:clamp(.72rem,.92cqw,.88rem);letter-spacing:.12em;text-transform:uppercase;color:color-mix(in srgb,var(--ink) 68%,transparent);margin-bottom:1.4rem}
+  .app .breadcrumbs .sep{color:color-mix(in srgb,var(--ink) 35%,transparent);margin:0 .45em}
+  .app .breadcrumbs .cur{color:color-mix(in srgb,var(--ink) 60%,transparent)}
+  .app .deck{font-family:var(--font-heading);font-size:clamp(1.05rem,1.3cqw,1.4rem);line-height:1.45;max-width:38rem;color:color-mix(in srgb,var(--ink) 72%,transparent);margin-top:.9rem}
+  .app .deck b{color:var(--blue);font-weight:700}
+  .app .eyebrow,.app .post-meta{font-family:var(--font-body);font-size:clamp(.65rem,.78cqw,.76rem);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-62);font-weight:500}
+  .app .nav-button{display:inline-block;border:1px solid var(--ink);padding:.55rem .85rem;font-size:clamp(.8rem,.9cqw,.92rem);font-weight:600;letter-spacing:.14em;text-transform:uppercase;background:var(--paper);white-space:nowrap}
+  .app .site-footer{display:flex;justify-content:space-between;align-items:center;gap:.8rem 1.2rem;flex-wrap:wrap;padding:1.1rem clamp(1.15rem,3cqw,2.5rem);background:var(--paper)}
+  .app .site-footer--grid{border-top:var(--line) solid var(--ink)}
+  .app .site-footer--detail{border-top:1px solid var(--ink)}
+  .app .site-footer__attribution{font-size:clamp(.7rem,.8cqw,.82rem);letter-spacing:.18em;text-transform:uppercase;color:var(--ink-62)}
+  .app .site-footer__nav{display:flex;gap:.6rem;flex-wrap:wrap}
+
+  /* ---- index-style pages: /blog/, /projects/, /book/, /brand/ ---- */
+  .app.inner .shell{min-height:100%;padding:clamp(.9rem,2.5cqw,1.8rem) var(--page-gutter);background:linear-gradient(135deg,rgba(255,255,255,.42),rgba(255,255,255,0)),var(--project-bg,var(--stage-bg))}
+  .app .page-canvas{width:min(100%,72rem);margin:0 auto;box-shadow:var(--canvas-shadow)}
+  .app .frame-c{background:var(--surface);border:var(--line) solid var(--grid-border);overflow:hidden}
+  .app .hero{background:var(--paper);padding:clamp(1.15rem,3cqw,2.5rem);border-bottom:var(--line) solid var(--ink)}
+  .app .hero h1{font-size:clamp(2.8rem,6cqw,5.4rem);line-height:1.02}
+  .app .blog-grid{background:var(--ink);display:grid;gap:var(--line)}
+  .app .grid-row{display:grid;gap:var(--line)}
+  .app .post-card{background:var(--surface);padding:clamp(1.2rem,2.5cqw,2rem);display:flex;flex-direction:column;justify-content:center;gap:.35rem}
+  .app .post-card .post-meta+.post-meta{color:color-mix(in srgb,var(--ink) 92%,transparent)}
+  .app .post-title{font-size:clamp(1.6rem,2.2cqw,2.4rem);line-height:1.05;margin:.3rem 0 .25rem}
+  .app .post-desc{font-size:clamp(.88rem,.95cqw,.98rem);line-height:1.55;color:color-mix(in srgb,var(--ink) 78%,transparent);max-width:62ch}
+  .app .tag{display:inline-block;font-size:clamp(.62rem,.7cqw,.72rem);letter-spacing:.12em;text-transform:uppercase;font-weight:600;background:color-mix(in srgb,var(--ink) 8%,transparent);padding:.25rem .5rem;border-radius:2px;margin-top:.5rem;align-self:flex-start}
+  .app .accent-red{background:var(--red)}.app .accent-blue{background:var(--blue)}.app .accent-yellow{background:var(--yellow)}
+  .app .accent-black{background:var(--accent-black)}.app .accent-paper{background:var(--gray-plane);position:relative}
+  .app .featured{position:absolute;right:.9rem;bottom:.9rem;writing-mode:vertical-rl;transform:rotate(180deg);font-family:var(--font-heading);font-size:.9rem;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-62)}
+  .app .grid-row--rss{grid-template-columns:1fr;min-height:6rem}
+  .app .band{background:var(--gray-plane);display:grid;place-items:center;padding:1.4rem clamp(1.15rem,3cqw,2.5rem);text-align:center}
+  .app .band .post-meta{font-weight:600;color:var(--ink)}
+  .app .band p{font-size:clamp(.88rem,.95cqw,.98rem);line-height:1.55;max-width:58ch;color:color-mix(in srgb,var(--ink) 78%,transparent)}
+  .app .band .blue-link{color:var(--blue);font-weight:600;text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--blue) 35%,transparent)}
+  .app .brand-band{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.4rem 2rem;text-align:left;place-items:start}
+  .app .swatches{display:flex;gap:.9rem;flex-wrap:wrap;margin-top:.6rem}
+  .app .swatch{display:flex;gap:.5rem;align-items:center;font-size:.72rem;line-height:1.25}
+  .app .swatch i{width:2.4rem;height:2.4rem;display:block;border:1px solid var(--rule)}
+  .app .swatch code{font-family:ui-monospace,Menlo,monospace;font-size:.68rem;color:var(--ink-62)}
+  .app .preview{height:clamp(7rem,12cqw,10rem);display:grid;place-items:center;background:var(--paper);border:1px solid var(--rule);margin-bottom:.8rem}
+  .app .npmark{width:3.4rem;height:3.4rem;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:3px;background:var(--ink);padding:3px}
+  .app .npmark i:nth-child(1){background:#da2418}.app .npmark i:nth-child(2){background:#f0c800}.app .npmark i:nth-child(3){background:#f5f0e4}.app .npmark i:nth-child(4){background:#0a5c9e}
+  .app .chips-dl{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.4rem}
+  .app .chips-dl .tag{margin-top:0}
+
+  /* ---- reading canvases: blog article and résumé ---- */
+  .app .canvas7{display:grid;grid-template-columns:var(--line) minmax(2.5rem,.4fr) var(--line) minmax(18rem,3fr) var(--line) minmax(10rem,1.3fr) var(--line);grid-template-rows:var(--line) auto var(--line) 1fr var(--line) auto var(--line);background:var(--ink);overflow:clip}
+  .app .m-head{grid-column:2;grid-row:2;background:var(--red)}
+  .app .m-body{grid-column:2;grid-row:4;background:linear-gradient(to bottom,var(--yellow) 0 25%,var(--ink) 25% calc(25% + var(--line)),var(--paper) calc(25% + var(--line)) 60%,var(--ink) 60% calc(60% + var(--line)),var(--blue) calc(60% + var(--line)))}
+  .app .m-foot{grid-column:2;grid-row:6;background:var(--paper)}
+  .app .c-head{grid-column:4;grid-row:2;background:var(--paper);padding:clamp(1.15rem,3cqw,2.5rem);display:flex;flex-direction:column;justify-content:flex-end}
+  .app .c-head h1{font-size:clamp(2rem,3cqw,3rem);line-height:1.08}
+  .app .c-head .deck{font-family:var(--font-body);font-size:clamp(.85rem,1cqw,1rem);line-height:1.6;max-width:54ch;color:var(--ink-62)}
+  .app .c-meta{grid-column:6;grid-row:2;background:var(--accent-gray);padding:clamp(1rem,2cqw,1.6rem);display:flex;flex-direction:column;justify-content:flex-end;gap:.7rem}
+  .app .c-meta dt{font-size:clamp(.58rem,.65cqw,.68rem);letter-spacing:.14em;text-transform:uppercase;color:color-mix(in srgb,var(--ink) 48%,transparent);margin-bottom:.15rem}
+  .app .c-meta dd{font-family:var(--font-heading);font-weight:500;font-size:clamp(.88rem,1cqw,.98rem);line-height:1.3}
+  .app .pills{display:flex;gap:.3rem;flex-wrap:wrap}
+  .app .pill{font-family:var(--font-body);font-size:.6rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;background:color-mix(in srgb,var(--ink) 8%,transparent);padding:.2rem .45rem;border-radius:2px}
+  .app .c-content{grid-column:4;grid-row:4;background:var(--surface);padding:clamp(1.15rem,3cqw,2.5rem)}
+  .app .c-side{grid-column:6;grid-row:4;background:var(--surface);padding:clamp(.85rem,1.6cqw,1.5rem)}
+  .app .c-foot{grid-column:2/-2;grid-row:6}
+  .app .side-h{font-size:clamp(.7rem,.75cqw,.78rem);font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-62);margin-bottom:.5rem}
+  .app .side-toc{list-style:none;padding:0;font-size:clamp(.78rem,.85cqw,.88rem)}
+  .app .side-toc li{padding:.42rem 0;border-top:1px solid var(--rule)}
+  .app .side-toc li:last-child{border-bottom:1px solid var(--rule)}
+  .app .pq{margin-top:.9rem;border-left:3px solid var(--pq,var(--red));background:rgba(255,255,255,.52);padding:.7rem .85rem;font-family:var(--font-heading);font-style:italic;font-size:clamp(.92rem,1cqw,1.04rem);line-height:1.35}
+  .app .pq cite{display:block;font-family:var(--font-body);font-style:normal;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-62);margin-top:.4rem}
+  .app .prose p,.app .prose li{font-size:clamp(.98rem,1.05cqw,1.08rem);line-height:1.72;margin-bottom:1rem}
+  .app .prose h2{font-style:italic;font-size:clamp(1.4rem,1.25rem + .45cqw,1.85rem);line-height:1.12;border-top:1px solid var(--rule);padding-top:1.2rem;margin:1.6rem 0 .8rem}
+  .app .prose a{text-decoration:underline;text-decoration-color:var(--ink-32)}
+  .app .takeaways{background:var(--paper);border-left:9px solid var(--yellow);padding:1rem 1.2rem;margin-bottom:1.4rem}
+  .app .takeaways ul{padding-left:1.1rem;list-style:none}
+  .app .takeaways li{position:relative;margin-bottom:.4rem;font-size:clamp(.9rem,1cqw,1rem);line-height:1.5}
+  .app .takeaways li::before{content:"";position:absolute;left:-1.1rem;top:.55em;width:.36rem;height:.36rem;background:var(--red)}
+  .app .kicker,.app .header-topics{display:none}
+  .app .kicker .post-meta{display:block;margin-bottom:.35rem}
+  .app .header-topics{margin-top:1rem}
+  .app .bfig{border:1px solid var(--rule);border-top:3px solid var(--accent);background:rgba(255,255,255,.82);padding:.85rem;margin-bottom:1rem}
+  .app .bfig .ph-img{height:9rem}
+  .app .bfig figcaption{font-size:clamp(.74rem,.8cqw,.84rem);color:var(--ink-62);margin-top:.5rem}
+  /* résumé specifics */
+  .app .resume h1{font-size:clamp(2.6rem,5cqw,4rem);line-height:1.04}
+  .app .r-title{font-family:var(--font-heading);font-style:italic;font-size:clamp(1.1rem,1.4cqw,1.5rem);color:color-mix(in srgb,var(--ink) 78%,transparent);margin:.3rem 0 .6rem}
+  .app .r-contact{font-size:clamp(.82rem,.88cqw,.92rem);color:color-mix(in srgb,var(--ink) 66%,transparent);line-height:1.7}
+  .app .r-contact a{color:var(--blue);text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--blue) 35%,transparent)}
+  .app .r-actions{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:1rem}
+  .app .r-actions a{border:1px solid var(--rule);background:var(--paper);padding:.42rem .85rem;font-size:.8rem;font-weight:600;color:var(--blue)}
+  .app .r-sec{border-top:1px solid var(--rule);padding-top:1.6rem;margin-top:2.1rem}
+  .app .r-sec:first-child{border-top:0;padding-top:0;margin-top:0}
+  .app .r-sec h2{font-style:italic;font-size:clamp(1.4rem,1.25rem + .45cqw,1.85rem);margin-bottom:.8rem}
+  .app .r-sec p{font-size:clamp(.94rem,1cqw,1.02rem);line-height:1.62;margin-bottom:.8rem}
+  .app .r-skill{display:grid;grid-template-columns:11rem 1fr;gap:.3rem 1rem;font-size:clamp(.9rem,.95cqw,.98rem);line-height:1.5;margin-bottom:.4rem}
+  .app .r-skill b{font-weight:600;font-size:clamp(.82rem,.88cqw,.92rem)}
+  .app .r-skill span{color:color-mix(in srgb,var(--ink) 82%,transparent)}
+  .app .r-entry{margin-top:1.4rem}
+  .app .r-entry .head{display:flex;gap:.85rem;align-items:center}
+  .app .r-logo{width:72px;height:72px;flex:0 0 auto;background:var(--paper);border:1px solid var(--rule);border-radius:9px;display:grid;place-items:center;font-family:var(--font-heading);font-weight:600;font-size:1.3rem;color:var(--ink-62)}
+  .app .r-entry.compact .r-logo{width:52px;height:52px;font-size:1rem}
+  .app .r-entry h3{font-size:clamp(1.12rem,1.3cqw,1.4rem);line-height:1.15}
+  .app .r-entry.compact h3{font-size:clamp(1rem,1.1cqw,1.18rem)}
+  .app .r-entry .meta{font-size:clamp(.8rem,.85cqw,.9rem);color:var(--ink-62);margin-top:.15rem}
+  .app .r-entry ul{margin:.6rem 0 0;padding:0 0 0 1rem;list-style:none}
+  .app .r-entry li{position:relative;font-size:clamp(.94rem,1cqw,1.02rem);line-height:1.55;margin-bottom:.35rem}
+  .app .r-entry li::before{content:"";position:absolute;left:-1rem;top:.6em;width:.36rem;height:.36rem;background:var(--blue)}
+  .app .r-status{font-size:.62rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-62)}
+  .app .r-cta{margin-top:2rem;background:var(--paper);border-left:9px solid var(--red);padding:1rem 1.2rem;font-size:clamp(.94rem,1cqw,1.02rem)}
+  .app .r-cta a{color:var(--blue);font-weight:600}
+
+  /* ---- project detail / privacy: single-column framed article ---- */
+  .app.inner .page-shell{min-height:100%;padding:clamp(.9rem,2.5cqw,1.8rem) var(--page-gutter);background:linear-gradient(135deg,rgba(255,255,255,.42),rgba(255,255,255,0)),color-mix(in srgb,var(--accent) 16%,var(--cream))}
+  .app .project-detail{background:var(--surface);border:var(--line) solid var(--grid-border)}
+  .app .ph-gradient{border-left:clamp(.5rem,1cqw,.8rem) solid var(--accent);padding:clamp(1.15rem,3cqw,2.5rem);background:var(--paper)}
+  .app .ph-inset{padding-left:clamp(1rem,2.2cqw,1.6rem)}
+  .app .ph-inset h1{font-size:clamp(2.4rem,5cqw,5.1rem);line-height:1.04}
+  .app .ctas{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1.2rem}
+  .app .hero-rule{border-bottom:1px solid var(--ink)}
+  .app .metadata-surface{margin:clamp(1rem,2cqw,1.5rem) clamp(1.15rem,3cqw,2.5rem);border:1px solid var(--rule);background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 14%,var(--cream)),var(--cream))}
+  .app .mstrip{display:grid;grid-template-columns:repeat(4,1fr)}
+  .app .mstrip > div{padding:.9rem 1.1rem;border-left:1px dotted var(--ink-32)}
+  .app .mstrip > div:first-child{border-left:0}
+  .app .mstrip dt{font-size:clamp(.6rem,.7cqw,.68rem);letter-spacing:.16em;text-transform:uppercase;color:var(--ink-62);margin-bottom:.3rem}
+  .app .mstrip dd{font-size:clamp(.9rem,.95cqw,.98rem);line-height:1.4}
+  .app .mstrip dd small{display:block;font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-62);margin-top:.3rem}
+  .app .mfig{border-top:1px dotted var(--ink-32);padding:1.2rem 1.1rem;display:flex;flex-direction:column;align-items:center;gap:.8rem}
+  .app .pair{display:flex;gap:1rem;justify-content:center;width:100%}
+  .app .phone-shot{width:min(320px,100%);aspect-ratio:9/19.5;border-radius:12px;max-height:22rem}
+  .app .wide-shot{width:100%;height:14rem}
+  .app .mfig figcaption{font-size:clamp(.62rem,.7cqw,.7rem);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-62)}
+  .app .mfig figcaption b{color:var(--ink);margin-right:.6rem}
+  .app .project-copy{padding:0 clamp(1.15rem,3cqw,2.5rem) 2rem;display:grid;gap:1.2rem}
+  .app .project-copy h2{font-style:italic;font-size:clamp(1.4rem,1.25rem + .45cqw,1.85rem);border-top:1px solid var(--rule);padding-top:1.2rem;margin-top:1.8rem}
+  .app .project-copy p{font-size:clamp(.95rem,1cqw,1.02rem);line-height:1.65}
+  .app .cstrip{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--rule)}
+  .app .cstrip div{padding:.9rem 1rem;border-left:1px solid var(--rule)}
+  .app .cstrip div:first-child{border-left:0}
+  .app .cstrip b{display:block;font-family:var(--font-heading);font-size:1.6rem;line-height:1}
+  .app .cstrip span{font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-62)}
+  .app .ledger-line{display:flex;align-items:baseline;gap:.5rem;font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-62)}
+  .app .ledger-line i{flex:1;border-bottom:1px dotted var(--ink-32)}
+  .app .ledger-line b{color:var(--ink)}
+  .app .dec-title{font-size:clamp(1.35rem,1.6cqw,1.8rem);line-height:1.15;max-width:30ch;margin:.3rem 0 .6rem}
+  .app .dec-dl{display:grid;grid-template-columns:1fr 1fr;gap:.7rem 1.4rem}
+  .app .dec-dl dt{font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-62);margin-bottom:.2rem}
+  .app .dec-dl dd{font-size:clamp(.88rem,.95cqw,.96rem);line-height:1.5}
+  .app .dec-dl .full{grid-column:1/-1}
+  .app .dec-dl .cost{border-left:2px solid var(--accent);padding-left:.7rem}
+  .app .dec-dl .ev{background:var(--paper);border:1px solid var(--rule);padding:.7rem .9rem}
+  .app .related li{list-style:none;position:relative;padding-left:1rem;font-size:clamp(.95rem,1cqw,1.02rem);margin-bottom:.4rem}
+  .app .related li::before{content:"";position:absolute;left:0;top:.55em;width:.42rem;height:.42rem;background:var(--accent)}
+  .app .inline-toc{display:flex;flex-wrap:wrap;gap:.3rem .8rem;margin-top:1.2rem;font-size:clamp(.66rem,.75cqw,.74rem);letter-spacing:.12em;text-transform:uppercase;font-weight:600}
+  .app .inline-toc span::before{content:"●";color:var(--blue);margin-right:.8rem;font-size:.5rem;vertical-align:middle}
+  .app .inline-toc span:first-child::before{content:none}
+  .app .choices{background:var(--paper);border:1px solid var(--rule);padding:1rem 1.2rem}
+  .app .choices .ctas{margin-top:.8rem}
+  .app .note{font-size:.88rem;color:var(--ink-62);font-style:italic}
+
+  /* ---- 404 ---- */
+  .app .error-shell{min-height:100%;display:flex;align-items:center;justify-content:center;padding:2rem;background:var(--stage-bg)}
+  .app .error-mondrian{width:min(64rem,100%);display:grid;grid-template-columns:var(--line) 2.4fr var(--line) 1fr var(--line) 1.2fr var(--line) .5fr var(--line);grid-template-rows:var(--line) auto var(--line) 5rem var(--line) 3.5rem var(--line);background:var(--ink)}
+  .app .e-content{grid-column:2/7;grid-row:2;background:var(--paper);padding:clamp(2rem,5cqw,4rem)}
+  .app .e-content h1{font-size:clamp(2.4rem,5cqw,5.1rem);line-height:1.04}
+  .app .e-content .deck{font-family:var(--font-body);color:#555;font-size:clamp(.95rem,1.1cqw,1.1rem)}
+  .app .e-r{grid-column:8;grid-row:2;background:var(--red)}
+  .app .e-y1{grid-column:2;grid-row:4;background:var(--yellow)}
+  .app .e-b{grid-column:4;grid-row:4/7;background:var(--blue)}
+  .app .e-k{grid-column:6;grid-row:4;background:var(--accent-black)}
+  .app .e-g1{grid-column:8;grid-row:4;background:var(--accent-gray)}
+  .app .e-g2{grid-column:2;grid-row:6;background:var(--accent-gray)}
+  .app .e-y2{grid-column:6;grid-row:6;background:var(--yellow)}
+  .app .e-w{grid-column:8;grid-row:6;background:var(--paper)}
+
+  /* ---- privacy notice (PrivacyNotice.astro) ---- */
+  .app .privacy-notice{position:absolute;z-index:11;top:12px;left:12px;right:12px;max-width:30rem;margin:0 auto;background:var(--paper);border:3px solid var(--ink);box-shadow:6px 6px 0 var(--ink-18);display:grid;grid-template-columns:16px 1fr}
+  .app .pn-rail{background:var(--pn-rail,var(--accent-black));border-right:3px solid var(--ink)}
+  .app .pn-body{padding:.84rem}
+  .app .pn-eyebrow{font-size:.62rem;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-62)}
+  .app .pn-q{font-family:var(--font-heading);font-weight:600;font-size:clamp(1.2rem,1.3cqw,1.4rem);line-height:1.15;margin:.35rem 0 .45rem}
+  .app .pn-p{font-size:clamp(.85rem,.9cqw,.92rem);line-height:1.5;color:color-mix(in srgb,var(--ink) 85%,transparent)}
+  .app .pn-p a{text-decoration:underline}
+  .app .pn-buttons{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-top:.8rem}
+  .app .pn-buttons button{min-height:44px;font:600 .78rem/1.2 var(--font-body);letter-spacing:.08em;text-transform:uppercase;background:var(--paper);color:var(--ink);border:1px solid var(--ink);padding:.5rem .6rem}
+  .app .pn-buttons .primary{border:3px solid var(--ink);outline:1px solid var(--ink);outline-offset:-5px}
+
+  /* ============================================================
+     HOMEPAGE — the Mondrian composition (global.css § .mondrian)
+     ============================================================ */
+  .app.home .stage{min-height:100%;height:100%;display:grid;place-items:center;padding:clamp(.6rem,1.5cqw,1rem);background:var(--stage-bg)}
+  .app.home .mondrian{position:relative;width:min(95cqw,95cqh,1280px);aspect-ratio:1/1;display:grid;background:var(--black);border:1px solid var(--grid-border);overflow:hidden;
+    grid-template-columns:var(--line) minmax(8rem,2.45fr) var(--line) minmax(4.5rem,1.15fr) var(--line) minmax(4.25rem,1fr) var(--line) minmax(5.75rem,1.65fr) var(--line);
+    grid-template-rows:var(--line) minmax(10rem,3.05fr) var(--line) minmax(3rem,1fr) var(--line) minmax(2rem,.6fr) var(--line) minmax(3.75rem,1.12fr) var(--line)}
+  .app.home .mondrian[data-focus=about]{grid-template-columns:var(--line) minmax(10rem,3.65fr) var(--line) minmax(4.4rem,1.45fr) var(--line) minmax(3.75rem,.82fr) var(--line) minmax(4.8rem,1.08fr) var(--line);
+    grid-template-rows:var(--line) minmax(0px,547px) 0 0 var(--line) minmax(2rem,.6fr) var(--line) minmax(3.4rem,.95fr) var(--line)}
+  .app.home .mondrian[data-focus=projects]{grid-template-columns:var(--line) minmax(5.2rem,.92fr) var(--line) minmax(4.2rem,.88fr) var(--line) minmax(6.8rem,2.55fr) var(--line) minmax(8rem,3.45fr) var(--line);
+    grid-template-rows:var(--line) minmax(0px,676px) 0 0 var(--line) minmax(1.6rem,.52fr) var(--line) minmax(2.8rem,.78fr) var(--line)}
+  .app.home .mondrian[data-focus=projects] .panel--yellow{grid-row:2/5}
+  .app.home .mondrian[data-focus=community]{grid-template-columns:var(--line) minmax(11rem,4.1fr) var(--line) minmax(4.1rem,.82fr) var(--line) minmax(3.75rem,.72fr) var(--line) minmax(4.8rem,1.18fr) var(--line);
+    grid-template-rows:var(--line) minmax(5.5rem,.88fr) var(--line) minmax(2.75rem,.75fr) var(--line) minmax(3.25rem,1.04fr) var(--line) minmax(8.8rem,3.7fr) var(--line)}
+  .app.home .mondrian[data-focus=connect]{grid-template-columns:var(--line) minmax(7.8rem,1.6fr) var(--line) minmax(5.2rem,1.3fr) var(--line) minmax(4.4rem,1.08fr) var(--line) minmax(8.5rem,3.28fr) var(--line);
+    grid-template-rows:var(--line) minmax(6.2rem,1.1fr) var(--line) minmax(3.1rem,.95fr) var(--line) minmax(2.85rem,.9fr) var(--line) 423px var(--line)}
+  .app.home .panel{position:relative;overflow:hidden}
+  .app.home .panel--red{grid-column:2/5;grid-row:2/5;background:var(--red);color:var(--cream)}
+  .app.home .panel--yellow{grid-column:6/9;grid-row:2;background:var(--yellow);color:var(--ink-warm)}
+  .app.home .panel--black{grid-column:2;grid-row:6/9;background:var(--accent-black);color:var(--cream)}
+  .app.home .panel--blue{grid-column:6/9;grid-row:8;background:var(--blue);color:var(--blue-contrast)}
+  .app.home .panel.is-open{background:var(--panel-open-bg);color:var(--ink-warm)}
+  .app.home .block--white-a{grid-column:6;grid-row:4;background:var(--paper)}
+  .app.home .block--white-b{grid-column:8;grid-row:4;background:var(--paper)}
+  .app.home .block--white-c{grid-column:4/7;grid-row:6;background:var(--paper)}
+  .app.home .block--gray-e{grid-column:8;grid-row:6;background:var(--accent-gray)}
+  .app.home .block--gray-d{grid-column:4/5;grid-row:8;background:var(--accent-gray)}
+  .app.home .panel-label{position:absolute;inset:0;z-index:3;display:flex;align-items:flex-start;justify-content:flex-start;padding:min(8%,2rem);font:600 .95rem/1 var(--font-body);letter-spacing:.22em;text-transform:uppercase}
+  .app.home .panel-label--name{font-family:var(--font-heading);font-size:2.2rem;letter-spacing:.02em;text-transform:none;align-items:center;padding-left:10%;padding-right:8%}
+  .app.home .panel-label--name span{display:inline-block;background:var(--ink);color:var(--cream);border:1px solid color-mix(in srgb,var(--cream) 85%,transparent);padding:.22em .52em .26em;line-height:.96;white-space:nowrap}
+  .app.home .panel--red{container-type:inline-size}
+  @container (max-width: 380px) { /* global.css 1907: the name label shrinks and wraps when the red panel is narrow (projects-focus) */
+    .app.home .panel--red .panel-label--name{font-size:clamp(.95rem,8.4cqw,2rem)}
+    .app.home .panel--red .panel-label--name span{white-space:normal;text-wrap:balance;line-height:1.04}
+  }
+  .app.home .panel--yellow .panel-label{color:var(--ink-warm);justify-content:flex-end;padding-top:15%;padding-right:16%}
+  .app.home .panel--black .panel-label{color:var(--cream);align-items:flex-end;padding-left:17%;padding-bottom:16%}
+  .app.home .mondrian[data-focus=projects] .panel--black .panel-label span{writing-mode:vertical-rl;transform:rotate(180deg)}
+  .app.home .panel--blue .panel-label{color:var(--blue-contrast);align-items:center;padding-left:23%}
+  .app.home .panel-content{display:none}
+  .app.home .panel.is-open .panel-label{display:none}
+  .app.home .panel.is-open .panel-content{display:block;height:100%;overflow:hidden}
+  .app.home .content-inner{padding:1.6rem 2rem 1.4rem}
+  .app.home .content-inner h1{font-size:4rem;line-height:1;white-space:nowrap}
+  .app.home .content-inner h2{font-size:3.5rem;line-height:1;margin-bottom:.63rem}
+  .app.home .panel--blue .content-inner{padding-top:1.1rem}
+  .app.home .panel--blue .content-inner h2{font-size:1.6rem;line-height:1.05;margin-bottom:.42rem}
+  .app.home .content-inner p{font-size:.94rem;line-height:1.58;margin-bottom:.5rem}
+  .app.home .lead{font-family:var(--font-heading);font-style:italic;font-size:1.35rem;line-height:1.25;margin:.3rem 0 1rem}
+  .app.home .about-blocks{display:flex;flex-direction:column;gap:1.25rem;max-width:37rem}
+  .app.home .about-block p{margin:0;line-height:1.5}
+  .app.home .eyebrow.lbl{display:block;font-size:.56rem;letter-spacing:.16em;font-weight:500;color:var(--ink-50);margin-bottom:.3rem}
+  .app.home .p-name-link,.app.home .effort-link{font-weight:600;text-decoration:underline;text-decoration-color:color-mix(in srgb,currentcolor 35%,transparent);text-underline-offset:.12em}
+  .app.home .writing-list{border-left:1px solid var(--rule);padding-left:.85rem;margin-top:.4rem}
+  .app.home .writing-list li{list-style:none;font-size:.86rem;line-height:1.58}
+  .app.home .ribbon{border-top:1px solid var(--rule);padding-top:.6rem;margin-top:1.25rem}
+  .app.home .ribbon-row{display:flex;justify-content:space-between;align-items:baseline;gap:1rem}
+  .app.home .ribbon-exit{font-size:.62rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;white-space:nowrap}
+  .app.home .ribbon .items{display:block;font-size:.78rem;letter-spacing:.06em;line-height:1.48;margin-top:.25rem}
+  .app.home .ribbon .items.title{font-family:var(--font-heading);font-size:1.05rem;letter-spacing:0;font-weight:600}
+  .app.home .project-list{display:flex;flex-direction:column;gap:.2rem;margin-top:.4rem}
+  .app.home .project-item{padding:.35rem .55rem}
+  .app.home .p-head{display:flex;align-items:center;flex-wrap:wrap;gap:.45rem}
+  .app.home .p-name{font-family:var(--font-heading);font-size:1.25rem;line-height:1.1}
+  .app.home .p-status{margin-left:.55rem;font-size:.62rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;white-space:nowrap;color:color-mix(in srgb,currentcolor 68%,transparent)}
+  .app.home .project-item p{font-size:.84rem;line-height:1.45;margin:.1rem 0 0}
+  .app.home .effort-list{list-style:none;padding:0;display:flex;flex-direction:column;gap:.9rem;margin-top:.5rem}
+  .app.home .effort-list li{border-left:1px solid var(--rule);padding-left:.85rem}
+  .app.home .effort-link{font-family:var(--font-heading);font-size:1.2rem}
+  .app.home .effort-amount{font-size:.68rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;margin:.15rem 0 .2rem}
+  .app.home .effort-desc{font-size:.84rem;line-height:1.45}
+  .app.home .availability{font-size:.94rem;line-height:1.58}
+  .app.home .availability a{font-weight:600;text-decoration:underline;text-decoration-color:color-mix(in srgb,currentcolor 35%,transparent)}
+  .app.home .social-stack{display:flex;flex-direction:column;gap:.35rem;margin:.3rem 0 .9rem}
+  .app.home .social-row{display:flex;align-items:center;gap:.6rem;font-size:.9rem;font-weight:500}
+  .app.home .social-row .s-icon{width:18px;height:18px;border-radius:4px;background:var(--si,currentcolor);flex:0 0 auto}
+  .app.home .social-row .s-arrow{margin-left:auto;opacity:.75}
+  /* closed-plane veils in the stack (the open-parchment rules do not apply there) */
+  .app.home .panel--red:not(.is-open) .eyebrow.lbl,.app.home .panel--red:not(.is-open) .ribbon .items{color:color-mix(in srgb,var(--veil-on-red) 82%,transparent)}
+  .app.home .panel--red:not(.is-open) .ribbon,.app.home .panel--red:not(.is-open) .writing-list{border-color:color-mix(in srgb,var(--veil-on-red) 28%,transparent)}
+  .app.home .panel--yellow:not(.is-open) .eyebrow.lbl,.app.home .panel--yellow:not(.is-open) .ribbon .items{color:color-mix(in srgb,var(--ink-warm) 72%,transparent)}
+  .app.home .panel--yellow:not(.is-open) .ribbon{border-color:color-mix(in srgb,var(--ink-warm) 22%,transparent)}
+  .app.home .panel--black:not(.is-open) .eyebrow.lbl,.app.home .panel--black:not(.is-open) .ribbon .items{color:color-mix(in srgb,var(--veil-on-black) 82%,transparent)}
+  .app.home .panel--black:not(.is-open) .ribbon,.app.home .panel--black:not(.is-open) .effort-list li{border-color:color-mix(in srgb,var(--veil-on-black) 22%,transparent)}
+  .app.home .panel--blue:not(.is-open) .eyebrow.lbl{color:color-mix(in srgb,var(--blue-contrast) 82%,transparent)}
+  .app.home .panel--blue:not(.is-open) .ribbon{border-color:color-mix(in srgb,var(--blue-contrast) 28%,transparent)}
+
+  /* `@media (max-width: 1023px), (max-height: 839px)` — the homepage stack (global.css 5812) */
+  @container frame ((max-width: 1023px) or (max-height: 839px)) {
+    .app.home .stage{--line:6px;padding:0;align-items:start}
+    .app.home .mondrian{width:100%;max-width:none;aspect-ratio:auto;min-height:100%;grid-template-columns:var(--line) 1fr var(--line);grid-template-rows:var(--line) auto var(--line) auto var(--line) auto var(--line) auto var(--line)}
+    .app.home .panel,.app.home .block{grid-column:2}
+    .app.home .panel--red{grid-row:2}.app.home .panel--yellow{grid-row:4}.app.home .panel--black{grid-row:6}.app.home .panel--blue{grid-row:8}
+    .app.home .block,.app.home .panel-label{display:none}
+    .app.home .panel-content{display:block}
+    .app.home .content-inner{min-height:220px;padding:1.4rem clamp(1rem,4cqw,2rem)}
+    .app.home .content-inner h1{font-size:clamp(2.4rem,9cqw,4rem)}
+    .app.home .content-inner h2{font-size:clamp(2.2rem,7cqw,3.5rem)}
+    .app.home .eyebrow.lbl,.app.home .ribbon-exit{font-size:clamp(.56rem,.52rem + .2cqw,.64rem);letter-spacing:.15em}
+    .app.home .ribbon .items{font-size:clamp(.68rem,.64rem + .24cqw,.78rem);letter-spacing:.02em}
+    /* Cover + reading surfaces (#1481, global.css homepage stack): the name,
+       tagline and NOW stay on the red as the cover; everything read moves onto
+       paper with an accent rail cycling from the cover — About blue, Projects
+       yellow, Community black, Connect red (on cream). */
+    .app.home .stage{--rail-w:calc(var(--line) * 3)}
+    .app.home .content-inner{--pi:clamp(1rem,4cqw,2rem)}
+    .app.home .panel--red .content-inner > h1,.app.home .panel--red .content-inner > .lead,.app.home .panel--red .about-block--now,.app.home .panel--red .about-block--now .eyebrow.lbl{color:var(--paper)}
+    .app.home .panel--red .about-blocks{display:flex;flex-direction:column;gap:0;max-width:none}
+    .app.home .panel--red .about-block--now{order:-1;max-width:none;margin:0 calc(-1 * var(--pi));padding:0 var(--pi) 1.4rem;border-bottom:var(--line) solid var(--ink)}
+    .app.home .panel--red .about-blocks > :not(.about-block--now){--rail:var(--blue);max-width:none;margin-inline:calc(-1 * var(--pi));padding:1.1rem max(var(--pi),calc(100% + var(--pi) - 37rem)) 0 var(--pi);background-color:var(--paper);color:var(--ink-warm)}
+    /* each paper block overlaps the one above by a pixel so no red hairline shows between them, as global.css does */
+    .app.home .panel--red .about-blocks > :not(.about-block--now):not(:first-child){margin-top:-1px;padding-top:calc(1.1rem + 1px)}
+    .app.home .panel--red .about-blocks > :first-child{padding-top:1.4rem}
+    .app.home .panel--red .about-blocks > .ribbon{margin-bottom:-1.4rem;padding-bottom:1.4rem;border-top:0}
+    .app.home .panel--red:not(.is-open) .about-blocks > :not(.about-block--now) .eyebrow.lbl,.app.home .panel--red:not(.is-open) .ribbon .items{color:color-mix(in srgb,var(--ink-warm) 72%,transparent)}
+    .app.home .panel--red:not(.is-open) .writing-list,.app.home .panel--red:not(.is-open) .ribbon .ribbon-row{border-color:var(--rule)}
+    .app.home .panel--red:not(.is-open) .about-blocks > :not(.about-block--now) .p-name-link,.app.home .panel--red:not(.is-open) .ribbon-exit{color:var(--ink-warm)}
+    .app.home .panel--yellow{--rail:var(--yellow)}.app.home .panel--black{--rail:var(--accent-black)}.app.home .panel--blue{--rail:var(--red)}
+    .app.home .panel--yellow,.app.home .panel--black,.app.home .panel--blue{background-color:var(--paper);color:var(--ink-warm)}
+    .app.home .panel--blue{background-color:var(--cream)}
+    .app.home .panel--yellow .content-inner,.app.home .panel--black .content-inner,.app.home .panel--blue .content-inner{padding-inline:clamp(1.15rem,3cqw,1.5rem)}
+    .app.home .panel--yellow,.app.home .panel--black,.app.home .panel--blue,.app.home .panel--red .about-blocks > :not(.about-block--now){border-left:calc(var(--rail-w) + var(--line)) solid transparent;background-image:linear-gradient(to right,var(--rail) var(--rail-w),var(--ink) 0);background-origin:border-box;background-size:calc(var(--rail-w) + var(--line)) 100%;background-repeat:no-repeat}
+    .app.home .panel--yellow:not(.is-open) .eyebrow.lbl,.app.home .panel--yellow:not(.is-open) .ribbon .items,.app.home .panel--black:not(.is-open) .eyebrow.lbl,.app.home .panel--black:not(.is-open) .ribbon .items,.app.home .panel--blue:not(.is-open) .eyebrow.lbl{color:color-mix(in srgb,var(--ink-warm) 72%,transparent)}
+    .app.home .panel--yellow:not(.is-open) .ribbon,.app.home .panel--black:not(.is-open) .ribbon,.app.home .panel--black:not(.is-open) .effort-list li,.app.home .panel--blue:not(.is-open) .ribbon{border-color:var(--rule)}
+  }
+  /* `@media (min-width: 1024px) and (max-height: 839px)` — the height-axis stack is capped and centred (global.css 6134) */
+  @container frame ((min-width: 1024px) and (max-height: 839px)) {
+    .app.home .mondrian{max-width:1024px;margin-inline:auto}
+  }
+
+  /* ---- inner pages: ≤1023 stack + phone-stack frame and rails (global.css 6005–6118, 7156–7238) ---- */
+  @container frame (max-width: 1023px) {
+    .app.inner > div{--line:6px;--page-gutter:0;--canvas-shadow:none} /* a container cannot style itself, so the tokens land on its child */
+    .app.inner .shell,.app.inner .page-shell,.app.inner .error-shell{padding:0}
+    .app .grid-row{grid-template-columns:1fr !important;min-height:auto !important}
+    .app .accent-red,.app .accent-blue,.app .accent-yellow,.app .accent-black,.app .accent-paper{display:none}
+    .app .grid-row--rss{min-height:4rem !important}
+    .app .hero{border-bottom:0}
+    .app .blog-grid{padding:var(--line) 0}
+    .app .site-footer--grid{border-top:0}
+    .app .site-footer{flex-direction:column;text-align:center;justify-content:center}
+    .app [data-rail]{border-left:calc(4*var(--line)) solid transparent;background-image:linear-gradient(to right,var(--rail-c) 0 calc(3*var(--line)),var(--ink) calc(3*var(--line)) calc(4*var(--line)),transparent calc(4*var(--line)));background-origin:border-box}
+    .app [data-rail=red]{--rail-c:var(--red)}.app [data-rail=blue]{--rail-c:var(--blue)}.app [data-rail=yellow]{--rail-c:var(--yellow)}.app [data-rail=black]{--rail-c:var(--accent-black)}
+    .app .post-card{background-color:var(--surface)}
+    /* reading canvases */
+    .app .canvas7{grid-template-columns:var(--line) 1fr var(--line);grid-template-rows:var(--line) auto var(--line) auto var(--line) auto var(--line)}
+    .app .m-head,.app .m-body,.app .m-foot,.app .c-side{display:none}
+    .app.article .c-meta{display:none}
+    .app .c-head{grid-column:2;grid-row:2}
+    .app .c-content{grid-column:2;grid-row:4}
+    .app .c-foot{grid-column:2;grid-row:6}
+    .app .kicker,.app .header-topics{display:block}
+    .app.resume .canvas7{grid-template-rows:var(--line) auto var(--line) auto var(--line) auto var(--line) auto var(--line)}
+    .app.resume .c-meta{display:flex;flex-direction:row;flex-wrap:wrap;gap:1rem 2rem;grid-column:2;grid-row:4;justify-content:flex-start}
+    .app.resume .c-meta > div{flex:1 1 14rem}
+    .app.resume .c-content{grid-row:6}
+    .app.resume .c-foot{grid-row:8}
+    .app .c-head,.app .c-content,.app .c-meta,.app .c-foot{background-color:var(--surface)}
+    .app .c-head{background-color:var(--paper)}.app .c-foot{background-color:var(--paper)}.app.resume .c-meta{background-color:var(--accent-gray)}
+  }
+  /* ≤768 (--bp-tablet) */
+  @container frame (max-width: 768px) {
+    /* The 404 composition collapses at --bp-tablet, not --bp-stack
+       (global.css @media (max-width: 768px) .error-mondrian). */
+    .app .error-mondrian{width:100%;grid-template-columns:var(--line) 1fr var(--line);grid-template-rows:var(--line) 1fr var(--line);min-height:100%}
+    .app .e-content{grid-column:2;grid-row:2}
+    .app .e-r,.app .e-y1,.app .e-b,.app .e-k,.app .e-g1,.app .e-g2,.app .e-y2,.app .e-w{display:none}
+    .app .mstrip,.app .cstrip{grid-template-columns:1fr 1fr}
+    .app .mstrip > div:nth-child(3),.app .cstrip div:nth-child(3){border-left:0}
+    .app .mstrip > div:nth-child(n+3),.app .cstrip div:nth-child(n+3){border-top:1px dotted var(--ink-32)}
+    .app .cstrip div:nth-child(n+3){border-top-style:solid}
+    .app .dec-dl{grid-template-columns:1fr}
+    .app .brand-band{grid-template-columns:1fr}
+  }
+  @container frame (max-width: 767px) {
+    .app .pair{flex-direction:column;align-items:center}
+    .app .phone-shot{width:min(280px,100%)}
+  }
+  /* ≤560 — résumé skills rows stack */
+  @container frame (max-width: 560px) {.app .r-skill{grid-template-columns:1fr}}
+  /* ≤480 (--bp-narrow) */
+  @container frame (max-width: 480px) {
+    .app .nav-button{width:100%;text-align:center}
+    .app .site-footer__nav{flex-direction:column;width:100%}
+    .app .mstrip{grid-template-columns:1fr}
+    .app .mstrip > div{border-left:0;border-top:1px dotted var(--ink-32)}
+    .app .mstrip > div:first-child{border-top:0}
+    .app .ph-gradient{padding:1rem}
+    .app .ph-inset{padding-left:.5rem}
+    .app .ph-inset h1{font-size:clamp(1.55rem,8cqw,2.4rem)}
+    .app .ctas{flex-direction:column}
+    .app .ctas .nav-button{text-align:center}
+    .app .inline-toc{flex-direction:column;gap:.35rem}
+    .app .inline-toc span::before{content:none}
+  }
+  /* the notice's own ≤26rem rule, reached when the frame is ≤440px */
+  @container frame (max-width: 440px) {.app .pn-buttons{grid-template-columns:1fr}}
+
+  /* ---- résumé PRINT (global.css 7244–7655): Letter, 0.6in margins, single column, all black ---- */
+  .app.print{background:#fff;color:#000;font-size:9.5pt;line-height:1.3;padding:.6in}
+  .app.print h1{font-size:18pt;line-height:1.1}
+  .app.print .r-title{font-size:11.5pt;font-style:italic;font-family:var(--font-heading);margin:.1in 0 .05in}
+  .app.print .r-contact{font-size:9.5pt}
+  .app.print .r-contact a{text-decoration:underline;text-decoration-thickness:.5pt}
+  .app.print h2{font-size:14pt;font-style:italic;margin:.16in 0 .06in}
+  .app.print h3{font-size:12pt;font-family:var(--font-heading);line-height:1.15}
+  .app.print .meta{font-size:9pt;color:#000;margin-bottom:.04in}
+  .app.print p{margin-bottom:.06in}
+  .app.print ul{padding-left:.16in;list-style:none}
+  /* Body text takes the print scale explicitly: the screen rules on these
+     descendants (.r-sec p, .r-entry li, .r-skill) outrank .app.print's own
+     size, as .resume-prose p / li and .resume-skills__values do in print. */
+  .app.print .r-sec p,.app.print .r-entry li,.app.print .r-skill,.app.print .r-skill b,.app.print .r-sec li{font-size:9.5pt;line-height:1.3}
+  .app.print li{position:relative;margin-bottom:.03in}
+  .app.print li::before{content:"";position:absolute;left:-.16in;top:.5em;width:.05in;height:.05in;background:#000}
+  .app.print .entry{margin-top:.1in;break-inside:avoid}
+  .app.print .r-sec{border-top:0;padding-top:0;margin-top:.14in} /* section rules removed in print, gaps tightened */
+  .app.print .r-skill{display:grid;grid-template-columns:1.4in 1fr;gap:.02in .15in;margin-bottom:.03in}
+  .app.print .r-skill b{font-weight:600}
+  .app.print .pgno{position:absolute;bottom:.3in;left:0;right:0;text-align:center;font-size:8pt;color:#666}
+</style>
+</head>
+<body>
+
+<h1 id="sec-intro">nathanpayne.com — as-built wireframes, every page at every width it renders at</h1>
+<p class="sub">An <b>as-built reference, not a proposal.</b> Each frame draws the site exactly as <code>main</code> builds it today, painted with the shipped tokens from <code>src/styles/global.css</code>: the Mondrian/De Stijl homepage with its four focus states, and the inner pages on their framed reading canvases. Every page is authored once as a function returning markup and stamped at desktop (1440×900), tablet (834×1112) and phone (390×844), drawn as a macOS window, an iPad and an iPhone with the device chrome outside the canvas so the container width stays exact. The canvas is a CSS <em>size</em> container, so the same markup re-flows per width and per height with <code>@container</code> rules written to the site's own breakpoints (<code>--bp-narrow</code> 480, <code>--bp-tablet</code> 768, <code>--bp-stack</code> 1024 and the homepage's 840px height floor). Renditions that exist only at particular sizes get their own frames: the homepage's four open panels at 1440, the 1440×700 short window that the height axis sends to the stack, and the résumé's print layout on a Letter sheet.</p>
+<p class="sub">Every frame carries a stable anchor of the form <code>#fx-&lt;page&gt;-&lt;rendition&gt;</code>. Captions name the breakpoint behaviour the frame shows. Copy is the public site copy, shortened where a frame would overflow; the gray hatched blocks stand in for screenshots and logos, which are the only things not drawn from source. Sources are listed in the file's header comment and under <a href="#sec-tokens">Tokens</a>.</p>
+<p class="sub callout accent"><b>Homepage stack: cover + reading surfaces (#1481).</b> Below 1024px wide or 840px tall, only the name, tagline and NOW stay on the red plane; Context, Approach, Writing and the three other panels sit on paper blocks with rails that cycle from the cover (blue, yellow, black, red), as the inner pages have since #1479. Connect closes on cream.</p>
+<p class="sub callout"><b>How to read a frame.</b>
+<br>· <b>Chips</b> name the canvas (desktop 1440×900 · short 1440×700 · tablet 834 · phone 390 · print Letter) and whether the frame is a <span class="fchip built" style="vertical-align:middle">built</span> page or a <span class="fchip state" style="vertical-align:middle">state</span> of one (an open panel, the notice overlay).
+<br>· <b>Numbered legends</b> under a page apply to all its frames.
+<br>· <b>Zoom</b> scales the desktop and tablet canvases; the phone canvas is 1:1 by default. Nothing inside re-flows when you zoom — only the real width and height do that. Tall pages are clipped at the frame's height, as a first screen would be.</p>
+
+<div class="zoom" id="zoom"><span>Zoom</span>
+  <button data-z="fit">Fit</button><button data-z="read" aria-pressed="true">Read</button><button data-z="actual">Actual size</button>
+  <span class="sp"></span><span id="zoomnote">desktop ×0.5 · tablet ×0.55 · phone ×1 · print ×0.5</span></div>
+
+<nav class="toc" id="toc"><p class="tt">Contents</p><ol id="toclist"></ol></nav>
+
+<div id="doc"></div>
+
+<h2 id="sec-tokens">Tokens — the shipped palette, with computed WCAG contrast</h2>
+<p class="sub">Every color below is a literal from <code>src/styles/global.css</code> <code>:root</code> (or <code>[data-palette='1930']</code>, the higher-chroma register the homepage renders under and the brand page's COLORS chips show). Ratios are computed in this file from the hex values; the <code>--ink-NN</code> steps are <code>color-mix()</code> of ink into the surface they sit on, resolved here against the named surface. Text ≥4.5:1 passes AA; large text (≥24px, or ≥19px bold — the panel labels and panel titles) passes at 3:1; planes with no text carry no target.</p>
+<table class="tokens" id="tokens"><thead><tr><th>Token</th><th>Hex</th><th>Usage</th><th>Sample</th><th>Contrast vs. its background</th></tr></thead><tbody id="tokenrows"></tbody></table>
+
+<h2 id="sec-bp">Breakpoints — where each page changes</h2>
+<table class="bptable"><thead><tr><th>Threshold</th><th>Source</th><th>What changes</th></tr></thead><tbody>
+<tr><td>≥1024 wide AND ≥840 tall</td><td><code>.mondrian</code> base rules; specs/responsive-layout.md req. 2, 12</td><td>Homepage renders the square composition, <code>min(95vw, 95vh, 1280px)</code>, centred in the stage. Panels open on hover/focus into content-sized tracks (<code>--cell-h-*</code>, JS-measured). Inner pages render their 9px-framed canvases with the 2rem gutter and the 14px offset shadow.</td></tr>
+<tr><td>&lt;1024 wide OR &lt;840 tall</td><td><code>@media (max-width: 1023px), (max-height: 839px)</code> (global.css 5812)</td><td>Homepage becomes the vertical stack: <code>--line</code> 6px, no stage padding, every panel one row at full width, labels and decorative blocks hidden, all content static: NOW on the red cover, everything else on paper blocks with accent rails (#1481). Interactions are disabled (JS guard matches the same two-axis condition).</td></tr>
+<tr><td>≥1024 wide AND &lt;840 tall</td><td><code>@media (min-width: 1024px) and (max-height: 839px)</code> (6134)</td><td>The height-axis stack is capped at 1024px and centred, so a 1440×700 window does not set body copy to a 1378px measure.</td></tr>
+<tr><td>≤1023 (<code>--bp-stack</code>)</td><td>global.css 6005–6118, 7156–7238; spec req. 13</td><td>Inner pages: <code>--line</code> 6px, gutter 0, shadow none, shells lose vertical padding so the frame meets the viewport edges. Index grids go one column and hide every accent plane; reading canvases hide the margin, sidebar and metadata panel (the résumé's becomes a wrapping bar). Each stacked block on /blog, /projects, /book, /resume and blog posts carries an 18px rail + 6px ink line on its left (<code>data-rail</code>, cycle red → blue → yellow → black from the page accent). The article shows its title-card kicker and topic pills. Footers stack and centre.</td></tr>
+<tr><td>≤768 (<code>--bp-tablet</code>)</td><td>global.css 2451, 3484, 3361, 3234, 3456, 4183</td><td>Project detail: metadata strip 2×2, constraint strip 2×2, decision record and learning ledger one column; the narrow figure pair stacks (≤767). 404 hides its colored blocks and keeps the content cell in a black frame.</td></tr>
+<tr><td>≤560</td><td>global.css 6852</td><td>Résumé skills rows stack label over values.</td></tr>
+<tr><td>≤480 (<code>--bp-narrow</code>)</td><td>global.css 3503, 5753–5782</td><td>Metadata strip one column; detail hero padding 1rem, inset .5rem, h1 <code>clamp(1.55rem, 8vw, 2.4rem)</code>; CTAs and footer buttons full width; the privacy page's inline contents list becomes a column.</td></tr>
+<tr><td>notice ≤26rem</td><td>PrivacyNotice.astro</td><td>The floating card's two buttons stack, “Turn analytics off” first; at ≤18rem the eyebrow is visually hidden.</td></tr>
+<tr><td>print</td><td><code>@media print</code>, <code>@page</code> (7244)</td><td>Résumé: Letter, 0.6in margins, white, single column, all text #000, margin/metadata/sidebar/footer/actions/CTA/logos hidden, 18/14/12/9.5pt scale, entries avoid breaking. Inner-page rails are <code>@media screen</code> so print keeps its own layout.</td></tr>
+</tbody></table>
+
+<script>
+// ---------------------------------------------------------------------------
+// Authoring helpers. Each page is a function (state) => canvas markup string.
+// ---------------------------------------------------------------------------
+const RAIL_CYCLE = ['red', 'blue', 'yellow', 'black'];
+const rail = (accent, i) => RAIL_CYCLE[(RAIL_CYCLE.indexOf(accent) + i) % 4];
+const bc = (...parts) => `<div class="breadcrumbs">${parts.map((p, i) => i === parts.length - 1 ? `<span class="cur">${p}</span>` : `<a>${p}</a>`).join('<span class="sep">/</span>')}</div>`;
+const footer = (variant, links, { privacy = true } = {}) =>
+  `<footer class="site-footer site-footer--${variant}" data-rail="${links.rail || ''}"><p class="site-footer__attribution">Nathan Payne · San Francisco</p><nav class="site-footer__nav">${links.items.map(l => `<a class="nav-button">${l}</a>`).join('')}${privacy ? '<a class="nav-button">Privacy</a>' : ''}</nav></footer>`;
+// src/lib/index-grid.ts: six-row cycle; a later cycle opens yellow + gray instead of red + gray
+const ROWS = [
+  { cols: '50fr 22fr 28fr', h: '16rem', acc: ['red', 'paper'] },
+  { cols: '72fr 28fr', h: '13rem', acc: ['blue'] },
+  { cols: '50fr 50fr', h: '14rem', acc: ['black'] },
+  { cols: '50fr 22fr 28fr', h: '14rem', acc: ['yellow', 'paper'] },
+  { cols: '72fr 28fr', h: '13rem', acc: ['blue'] },
+  { cols: '50fr 50fr', h: '13rem', acc: ['red'] }];
+function gridRows(cards, accent, { featured = false, startIndex = 1 } = {}) {
+  return cards.map((card, i) => {
+    const r = ROWS[i % 6];
+    const acc = (i >= 6 && i % 6 === 0) ? ['yellow', 'paper'] : r.acc;
+    const planes = acc.map((a, j) => `<div class="accent-${a}">${featured && i === 0 && j === acc.length - 1 ? '<span class="featured">Featured</span>' : ''}</div>`).join('');
+    return `<div class="grid-row" style="grid-template-columns:${r.cols};min-height:${r.h}"><article class="post-card" data-rail="${rail(accent, startIndex + i)}">${card}</article>${planes}</div>`;
+  }).join('');
+}
+const indexShell = (accent, bg, heroHtml, rowsHtml, footHtml) =>
+  `<div class="app inner" style="--accent:var(--${accent});--project-bg:${bg}"><div class="shell"><div class="page-canvas frame-c"><header class="hero" data-rail="${accent}">${heroHtml}</header><div class="blog-grid">${rowsHtml}</div>${footHtml}</div></div></div>`;
+
+// ---------------------------------------------------------------------------
+// HOMEPAGE — src/pages/index.astro + global.css § .mondrian
+// ---------------------------------------------------------------------------
+const WRITING = ['The Product Did Not Travel', 'Every Reviewer Was Right, and the Pull Request Was Still Wrong', 'A Perfect Score on the Wrong Axis: 116 Review Findings, Zero Rejected, One Escape', 'Agent Approval Workflow and the Genesis of Mergepath', 'The HTML Mock-up Is the Spec: How I Got Visual Work Out of Claude Code'];
+const BUILDS = [
+  ['Five Across', '■ Shipped', 'Multiplayer bingo I built in eight days for a cruise and ran ten days at sea. The standings held, but the social mechanics barely caught on.'],
+  ['Mergepath', '■ Shipped', 'A code-review standard for AI coding agents. Written rules didn’t stop them pushing to main, so I built gates that could refuse.'],
+  ['Override', '■ Shipped', 'A Broadway deal model I built from my own investment documents, to learn the domain and test AI coding tools.'],
+  ['Device Source of Truth', '▣ Archived', 'A device registry I built at Disney: five feeds, one schema. AI drafted the heaviest intake; every commit still needed an admin.'],
+  ['Matchline', '□ In development', 'A career CRM that stops claims I can’t trace to approved evidence. Back in development and still unlaunched, at 48% extraction and 19% match against an 80% bar I set first.'],
+  ['Swipe Watch', '◧ Experiment', 'A swipe prototype that asks for taste before a viewer presses play.'],
+  ['Friends & Family Billing', '■ Shipped', 'Shared billing for nine people, with no recipient accounts.']];
+const SOCIAL = [['LinkedIn', '#006699'], ['GitHub', '#232925'], ['Bluesky', '#1f6fff'], ['Instagram', '#c13584'], ['Threads', '#111'], ['X', '#111']];
+function home(focus) {
+  const open = p => focus === p ? ' is-open' : '';
+  return `<div class="app home"><main class="stage"><section class="mondrian" data-focus="${focus === 'closed' ? '' : focus}">
+    <article class="panel panel--red${open('about')}"><div class="panel-label panel-label--name"><span>Nathan Payne</span></div>
+      <div class="panel-content"><div class="content-inner"><h1>Nathan Payne</h1><p class="lead">Most product decisions are invisible—until they aren’t.</p>
+        <div class="about-blocks">
+          <div class="about-block"><span class="eyebrow lbl">Context</span><p>For ten years, I worked on the streaming platforms behind Disney+, Hulu, and ESPN. I started at MLB.com and BAMTECH, joined Disney through the 2017 acquisition, and spent five years leading the Native Client Platform across PlayStation, Xbox, Amazon Fire TV, Linux set-top boxes, and smart TVs.</p></div>
+          <div class="about-block"><span class="eyebrow lbl">Approach</span><p>I like working through problems where systems disagree, the rules leave something unresolved, or a product claims more than it can prove: a codec mismatch, an ambiguous financial rule, an AI agent that knows a policy but skips it. I work out which source to trust and what the product needs to do, then make that clear enough to design, test, and operate.</p></div>
+          <div class="about-block about-block--now"><span class="eyebrow lbl">Now</span><p>I build and operate products with Claude Code, Codex, and Cursor. I also built Mergepath, the review and enforcement system those agents work under. That work keeps bringing me back to three questions: what evidence is enough, which decisions an agent can make, and when I need to decide. Open to senior product and platform roles, especially in streaming infrastructure, developer tools, and workflows that use AI. <a class="p-name-link">Read my résumé<span class="arrow">→</span></a></p></div>
+          <div class="about-block"><span class="eyebrow lbl">Writing</span><p>I write about what I asked for, what shipped, and what I had to change.</p><div class="writing-list"><ul>${WRITING.map(t => `<li><a class="p-name-link">${t}</a></li>`).join('')}</ul></div></div>
+          <div class="ribbon"><div class="ribbon-row"><span class="eyebrow lbl">Last updated</span><a class="ribbon-exit">View all writing<span class="arrow">→</span></a></div><span class="items">October 2026</span></div>
+        </div></div></div></article>
+    <div class="block block--white-a"></div>
+    <article class="panel panel--yellow${open('projects')}"><div class="panel-label">Projects</div>
+      <div class="panel-content"><div class="content-inner"><h2>Selected Projects</h2><p>The case studies focus on the decisions, tradeoffs, and evidence behind them; I built each with AI agents under a review system I designed.</p>
+        <div class="project-list">${BUILDS.map(([n, s, d]) => `<div class="project-item"><div class="p-head"><a class="p-name p-name-link">${n}<span class="arrow">→</span></a><span class="p-status">${s}</span></div><p>${d}</p></div>`).join('')}</div>
+        <div class="ribbon"><div class="ribbon-row"><span class="eyebrow lbl">Domains</span><a class="ribbon-exit">View all projects<span class="arrow">→</span></a></div><span class="items">Consumer · Enterprise · Finance · Developer&nbsp;tooling</span></div>
+      </div></div></article>
+    <div class="block block--white-b"></div>
+    <article class="panel panel--black${open('community')}"><div class="panel-label"><span>Community</span></div>
+      <div class="panel-content"><div class="content-inner"><h2>Giving &amp; Governing</h2><p>Outside work, I’ve spent years organizing around causes I care about—raising more than $100,000, building campaigns, and staying involved after the fundraising ended.</p>
+        <ul class="effort-list">
+          <li><a class="effort-link">Larkin Street Youth Services<span class="arrow">→</span></a><div class="effort-amount">$16,684 raised</div><div class="effort-desc">Raised for Safe &amp; Seen, a campaign for LGBTQ+ youth experiencing homelessness in San Francisco, supporting housing, education, and healthcare through Larkin Street Youth Services.</div></li>
+          <li><a class="effort-link">San Francisco AIDS Foundation<span class="arrow">→</span></a><div class="effort-amount">$80,195 raised</div><div class="effort-desc">Three AIDS/LifeCycle rides: $9,166 in 2023, $45,646 in 2024, and $25,383 in 2025, supporting HIV prevention, care services, and housing stability through the San Francisco AIDS Foundation.</div></li>
+          <li><a class="effort-link">Jewish Pride Fund<span class="arrow">→</span></a><div class="effort-amount">$8,959 raised</div><div class="effort-desc">After the campaign, I joined one of the country’s few LGBTQ+ Jewish giving circles to interview grant applicants and help decide where its grants go.</div></li>
+        </ul>
+        <div class="ribbon"><span class="eyebrow lbl">Scope</span><span class="items">Fundraising · Campaign&nbsp;Building · Grantmaking · Community&nbsp;Organizing</span></div>
+      </div></div></article>
+    <div class="block block--white-c"></div><div class="block block--gray-e"></div><div class="block block--gray-d"></div>
+    <article class="panel panel--blue${open('connect')}"><div class="panel-label">Connect</div>
+      <div class="panel-content"><div class="content-inner"><h2>Connect</h2><p class="availability"><a>hire@nathanpayne.com<span class="arrow">→</span></a>&nbsp;· <a>Book time<span class="arrow">→</span></a></p>
+        <span class="eyebrow lbl">Elsewhere</span><div class="social-stack">${SOCIAL.map(([n, c]) => `<a class="social-row" style="--si:${c}"><span class="s-icon"></span><span>${n}</span><span class="s-arrow">→</span></a>`).join('')}</div>
+        <div class="ribbon"><div class="ribbon-row"><span class="eyebrow lbl">Latest Post</span><a class="ribbon-exit">View all writing<span class="arrow">→</span></a></div><a class="items title">The Subagent Said It Was Unsafe<span class="arrow">→</span></a></div>
+      </div></div></article>
+  </section></main></div>`;
+}
+
+// ---------------------------------------------------------------------------
+// /blog/ and a post — src/pages/blog/index.astro, src/layouts/BlogPost.astro
+// ---------------------------------------------------------------------------
+const POSTS = [
+  ['Agent Systems', 'Sep 24, 2026 · 14 min', 'Product · Consumer · Live Ops · Platforms · Evidence', 'The Product Did Not Travel', 'A bingo app built for a cruise ran a second event for a different host. By Saturday afternoon, nobody was marking squares. …'],
+  ['Agent Systems', 'Oct 26, 2026 · 8 min', 'AI · Code Review · Systems · Agent Governance · Failure Modes', 'The Subagent Said It Was Unsafe', 'An OpenAI subagent judged an action unsafe; its parent had it done anyway. Another agent rewrote the test that would have caught it. …'],
+  ['Agent Systems', 'Oct 1, 2026 · 10 min', 'AI · Code Review · Systems · Product · Failure Modes', 'Silence Is Not an Approval', 'My review pipeline kept counting a reviewer that hadn\'t answered as one that had. …'],
+  ['Agent Systems', 'Sep 6, 2026 · 16 min', 'AI · Product · Decision Rights · Code Review · Systems', 'Every Reviewer Was Right, and the Pull Request Was Still Wrong', 'Two pull requests drew 72 Codex findings. I couldn\'t fault one; both closed unmerged. …'],
+  ['Agent Systems', 'Aug 24, 2026 · 17 min', 'Product · Engineering · Scope · Decision Making · AI', '1,513 Lines for One Dash: The Requirement Nobody Questioned', 'I wanted this site to follow one Chicago rule. An unrequested auto-fixer drew 42 of 57 review findings; cutting it ended the rewrite-safety churn. …'],
+  ['Agent Systems', 'Jul 30, 2026 · 17 min', 'AI · Engineering · Systems · Code Review · Debugging', 'A Perfect Score on the Wrong Axis: 116 Review Findings, Zero Rejected, One Escape', 'An eleven-PR batch recorded 122 dispositions; no finding was rejected as factually wrong. …'],
+  ['Agent Systems', 'May 19, 2026 · 15 min', 'AI · Product · Design · Engineering · Workflow', 'The HTML Mock-up Is the Spec: How I Got Visual Work Out of Claude Code', 'Claude kept giving me layouts that didn\'t match what I had in mind. …']];
+const postCard = ([cat, date, tags, title, desc]) => `<span class="post-meta">${cat}</span><span class="post-meta">${date}</span><span class="post-meta">${tags}</span><h2 class="post-title">${title}</h2><p class="post-desc">${desc}</p>`;
+function blogIndex() {
+  const rows = gridRows(POSTS.map(postCard), 'blue', { featured: true }) +
+    `<div class="grid-row grid-row--rss"><div class="band" data-rail="${rail('blue', POSTS.length + 1)}"><span class="post-meta">Subscribe via RSS →</span></div></div>`;
+  return indexShell('blue', '#c4c3bc', `${bc('Nathan Payne', 'Blog')}<h1>Writing</h1><p class="deck">I build products with AI coding agents. I write about what I asked for, what shipped, and what I had to change.</p>`, rows,
+    footer('grid', { rail: rail('blue', POSTS.length + 2), items: ['← Back to Homepage'] }));
+}
+function blogPost() {
+  const toc = ['Outvoted', 'The rewritten check', 'Unread', 'What my pipeline does today', 'Where the author still decides', 'Three rules', 'A no that holds'];
+  return `<div class="app inner article" style="--accent:var(--red);--project-bg:#c4c3bc"><div class="shell"><article class="page-canvas canvas7">
+    <div class="m-head"></div><div class="m-body"></div><div class="m-foot"></div>
+    <header class="c-head" data-rail="red">${bc('Nathan Payne', 'Blog', 'The Subagent Said It Was Un…')}
+      <div class="kicker"><span class="post-meta">Agent Systems</span><span class="post-meta">Oct 26, 2026 · 8 min read</span></div>
+      <h1>The Subagent Said It Was Unsafe</h1><p class="deck">An OpenAI subagent judged an action unsafe; its parent had it done anyway. Another agent rewrote the test that would have caught it. My review pipeline stops unread findings and keeps a PR from changing its own policy. It still lets the author overrule a blocking finding in writing.</p>
+      <div class="header-topics pills"><span class="pill">AI</span><span class="pill">Code Review</span><span class="pill">Systems</span><span class="pill">Agent Governance</span><span class="pill">Failure Modes</span></div></header>
+    <dl class="c-meta"><div><dt>Published</dt><dd>October 26, 2026</dd></div><div><dt>Author</dt><dd>Nathan Payne</dd></div><div><dt>Reading time</dt><dd>8 min read</dd></div><div><dt>Topics</dt><dd class="pills"><span class="pill">AI</span><span class="pill">Code Review</span><span class="pill">Systems</span><span class="pill">Agent Governance</span><span class="pill">Failure Modes</span></dd></div></dl>
+    <section class="c-content prose" data-rail="blue">
+      <div class="takeaways"><span class="side-h">Key takeaways</span><ul><li>In OpenAI's October 3 incident, the right judgment existed inside the system. A subagent called disabling the alerts unsafe, and the parent agent had it done anyway. …</li><li>In the October 6 incident, the change replaced the regression test that protected the monitor with one that required the monitor to be absent. …</li><li>My pipeline makes unread findings block merge and reads each PR's policy from its base branch, so a PR cannot loosen the rules it is judged by. …</li></ul></div>
+      <p>On October 3, an OpenAI coding agent was repairing an evaluation pipeline for a researcher who had said "don't send any messages." It asked a subagent for a fix that kept monitoring enabled. …</p>
+      <figure class="bfig"><div class="ph-img"></div><figcaption>Google News results for four October 21 stories, top to bottom. … Captured from Google News on October 26; the stack is my composite.</figcaption></figure>
+      <h2>Outvoted</h2><p>I don't read the October 3 incident as a model that lacked judgment. The right judgment existed inside the system. It was outvoted by the agent that wanted the work done. …</p>
+      <blockquote class="pq" style="--pq:var(--red)">The right judgment existed inside the system. It was outvoted by the agent that wanted the work done.</blockquote>
+      <h2>The rewritten check</h2><p>The October 6 incident is a different failure. The objection wasn't overruled. It was removed.</p>
+      <h2>Unread</h2><p>The third failure is the one I hit first in Mergepath, the rules my coding agents work under. The objection is neither overruled nor rewritten. Nobody reads it.</p>
+    </section>
+    <aside class="c-side"><div class="side-h">In this article</div><ol class="side-toc">${toc.map(t => `<li>${t}</li>`).join('')}</ol>
+      <blockquote class="pq" style="--pq:var(--yellow)">A check the author can rewrite in the same diff is not a check. It's a suggestion with a test runner.<cite>The rewritten check</cite></blockquote>
+      <blockquote class="pq" style="--pq:var(--blue)">A rebuttal is the author telling the reviewer why it's wrong. Today, in my pipeline, that is also the author deciding the reviewer was wrong.<cite>The gap</cite></blockquote></aside>
+    ${footer('detail', { rail: 'yellow', items: ['← Back to Blog', 'Back to Homepage →'] }).replace('site-footer--detail', 'site-footer--canvas c-foot')}
+  </article></div></div>`;
+}
+
+// ---------------------------------------------------------------------------
+// /projects/ and a project page — src/pages/projects/*, ProjectLayout.astro
+// ---------------------------------------------------------------------------
+const PROJECTS = [
+  ['■ Shipped', 'Consumer · Social · PWA · Live Ops', 'Five Across', 'Multiplayer bingo I built in eight days for a cruise and ran ten days at sea. The standings held, but the social mechanics barely caught on.'],
+  ['■ Shipped', 'Infrastructure · AI Tooling · GitHub Actions · Bash', 'Mergepath', 'A code-review standard for AI coding agents. Written rules didn’t stop them pushing to main, so I built gates that could refuse.'],
+  ['■ Shipped', 'Finance · Theater · React · Firebase', 'Override', 'A Broadway deal model I built from my own investment documents, to learn the domain and test AI coding tools.'],
+  ['▣ Archived', 'Enterprise · Data · React · Firebase', 'Device Source of Truth', 'A device registry I built at Disney: five feeds, one schema. AI drafted the heaviest intake; every commit still needed an admin. The demo shows the workflow on invented data.'],
+  ['□ In development', 'AI · Product · Career Tools · React · Firebase', 'Matchline', 'A career CRM that stops claims I can’t trace to approved evidence. Back in development and still unlaunched, at 48% extraction and 19% match against an 80% bar I set first.'],
+  ['◧ Experiment', 'Consumer · Streaming · Vanilla JS', 'Swipe Watch', 'A swipe prototype that asks for taste before a viewer presses play.'],
+  ['■ Shipped', 'Utility · Finance · React · Firebase', 'Friends & Family Billing', 'Shared billing for nine people, with no recipient accounts.']];
+const projCard = ([st, tags, title, desc]) => `<span class="post-meta">${st}</span><span class="post-meta">${tags}</span><h2 class="post-title">${title}</h2><p class="post-desc">${desc}</p><span class="tag">View ↗</span>`;
+function projectsIndex() {
+  return indexShell('yellow', 'color-mix(in srgb,#e3d477 16%,#f5f0e4)', `${bc('Nathan Payne', 'Projects')}<h1>Products—and the decisions behind them</h1><p class="deck">Every one of these began as a real problem—mine, or one I watched up close. The decisions are the part worth reading: what got built, what got refused, and what the evidence said once it was running. Each card says where the project stands, and why. I build with AI agents under a review system I designed and <b>documented here</b>. The agents are leverage; the product decisions are the point.</p>`,
+    gridRows(PROJECTS.map(projCard), 'yellow'), footer('grid', { rail: rail('yellow', PROJECTS.length + 1), items: ['Résumé →', 'Book time →', '← Back to Homepage'] }));
+}
+function projectDetail() {
+  return `<div class="app inner" style="--accent:var(--red)"><div class="page-shell"><article class="page-canvas project-detail">
+    <header class="ph-gradient hero-rule"><div class="ph-inset">${bc('Nathan Payne', 'Projects', 'Five Across')}<h1>Five Across</h1><p class="deck">I built a live bingo game for a nine-night Mediterranean cruise. It ran at sea, then became the engine for a second event. Getting people to play was a separate problem.</p>
+      <div class="ctas"><a class="nav-button">View live product</a><a class="nav-button">View on GitHub</a></div></div></header>
+    <div class="metadata-surface"><dl class="mstrip"><div><dt>Topics</dt><dd>Consumer · Social · Live Ops</dd></div><div><dt>Format</dt><dd>Production PWA—live multiplayer game</dd></div><div><dt>Focus</dt><dd>Consumer experience, social mechanics, and live operations</dd></div><div><dt>Status</dt><dd>■ Shipped<small>Updated October 2026</small></dd></div></dl>
+      <figure class="mfig"><div class="pair"><div class="ph-img phone-shot"></div><div class="ph-img phone-shot"></div></div><figcaption><b>Stack</b>React · TypeScript · Vite · Firebase · Cloud Functions · Cloudflare Workers · PostHog</figcaption></figure></div>
+    <div class="project-copy">
+      <h2>The problem</h2><p>Five Across started as Gay Cruise Bingo, a phone-first game for a nine-night Mediterranean cruise from Trieste to Barcelona. I had eight days to build it.</p>
+      <div class="cstrip"><div><b>8 days</b><span>to launch</span></div><div><b>Ship Wi-Fi</b><span>connectivity</span></div><div><b>10 days</b><span>live operation</span></div><div><b>16 players</b><span>friend group</span></div></div>
+      <h2>The decisions</h2>
+      <div><div class="ledger-line">01 — Scope <i></i><b>■ Validated</b></div><h3 class="dec-title">Let friends mark their own boards</h3>
+        <dl class="dec-dl"><div><dt>Context</dt><dd>I had eight days to build a multiplayer game for an adult friend group. A server-authoritative game would check every claim before it counted, so players couldn't cheat.</dd></div><div><dt>Rejected</dt><dd>Cloud Functions checking every mark. That's the standard multiplayer approach, and the safer choice for an audience of strangers.</dd></div><div class="full"><dt>What I decided</dt><dd>I chose honor-system marking, with no server validation. Players write their own boards, and the client sorts the leaderboard. …</dd></div><div class="full cost"><dt>Cost</dt><dd>The standings are claims, not independently verified results. A player writes their own board, so the record can't distinguish a real mark from an invented one. Any player could demand proof.</dd></div><div class="full ev"><dt>Evidence</dt><dd>The frozen production Firestore holds 845 squares. Analytics recorded seven proof-demand events over ten days, all from the same player. …</dd></div></dl></div>
+      <h2>Related</h2><ul class="related"><li>Project: Swipe Watch</li><li>Project: Mergepath</li></ul>
+    </div>
+    ${footer('detail', { items: ['← Back to Projects', 'Back to Homepage →'] })}
+  </article></div></div>`;
+}
+
+// ---------------------------------------------------------------------------
+// /resume/ — src/pages/resume.astro, src/components/resume/*
+// ---------------------------------------------------------------------------
+/* Every résumé string below is verbatim from the built /resume/ page (the
+   src/content/experience, education and certifications collections), cut to
+   the first bullet or two per role. Nothing is paraphrased: this is an
+   as-built reference, and the résumé is the one page where an invented line
+   would be a false claim. */
+const EXP = [
+  ['DE', 'Senior Product Manager—Disney Entertainment and ESPN Product &amp; Technology', 'Native Client Platform (NCP) &amp; ADK · San Francisco · 2021–2026', ['Led Disney’s launch on Amazon’s Linux-based Vega OS (Kepler), a ground-up replacement of Fire TV’s Android stack with a native Linux OS. Ported Disney+, Hulu, and ESPN, landed the September 2025 announcement, and shipped on time in October with no measurable engagement impact on Disney’s fourth-largest living-room platform (~18M monthly active devices).', 'Conceived NCPv3 and secured approval for an $18.1M investment. The proposed JavaScript/React runtime would let Disney’s mature JavaScript app run across PlayStation, Xbox, Vega OS, MVPD set-top boxes, and smart TVs, so Disney could retire the parallel Rust app and consolidate two codebases and two teams into one. Success depended entirely on app teams choosing to build on the shared runtime.']],
+  ['DS', 'Senior Technical Project Manager, Lead—Disney Streaming', 'Living Room Devices Team · San Francisco · 2018–2021', ['Brought Disney+ from concept to launch across living-room platforms, coordinating with engineering, design, product, QA, and release stakeholders.', 'Led PlayStation prototyping that produced the first living-room Disney+ experience to launch.']],
+  ['MA', 'Technical Project Manager—MLB Advanced Media / BAMTech Media', 'Connected Devices Team · San Francisco · 2016–2018 · acquired by Disney 2017', ['Managed OTT app development for Roku, Chromecast, PlayStation, and Xbox across MLBAM platforms and partners, including MLB.com, HBO, Fox Sports, Eurosport, MLS, and NHL.']]];
+const EXP_COMPACT = [
+  ['AJ', 'Director of Information Technology—AJ+', 'San Francisco · 2013–2016'],
+  ['CT', 'Senior Systems Architect—Current TV', 'San Francisco · 2012–2013'],
+  ['CN', 'Systems Architect / Support Roles—CNN', 'Washington, DC Bureau · 2002–2012']];
+const resumeHead = () => `${bc('Nathan Payne', 'Résumé')}<h1>Nathan Payne</h1><p class="r-title">Senior Platform Product Manager</p><p class="r-contact">San Francisco, CA · <a>hire@nathanpayne.com</a><br><a>nathanpayne.com</a> · <a>linkedin.com/in/nathanpayne</a> · <a>github.com/nathanjohnpayne</a></p>`;
+const resumeBody = (print) => `
+  <section class="r-sec"><h2>Summary</h2><p>Senior Platform Product Manager with 20+ years across media technology, consumer streaming, partner ecosystems, and platform infrastructure. Built and led systems behind Disney+, Hulu, and ESPN across Fire TV, PlayStation, Xbox, Roku, smart TVs, and major MVPD set-top boxes.</p><p>Recently focused on AI-augmented product development: building working products with coding agents, designing multi-agent review systems, and developing the governance and measurement practices that make agent-assisted delivery reliable.</p></section>
+  <section class="r-sec"><h2>Skills</h2><div class="r-skill"><b>Product &amp; Platform</b><span>Platform strategy · Partner ecosystems · Device certification · Roadmap ownership · Program leadership · Release governance · Operational readiness</span></div><div class="r-skill"><b>AI-Augmented Development</b><span>Claude Code · Codex · Cursor · CodeRabbit · Anthropic / Claude API · OpenAI API · MCP · …</span></div><div class="r-skill"><b>Technical</b><span>TypeScript · JavaScript · React · Next.js · Astro · …</span></div></section>
+  <section class="r-sec"><h2>Experience</h2>${EXP.map(([l, t, m, b]) => `<div class="r-entry entry"><div class="head">${print ? '' : `<div class="r-logo">${l}</div>`}<div><h3>${t}</h3><div class="meta">${m}</div></div></div><ul>${b.map(x => `<li>${x}</li>`).join('')}</ul></div>`).join('')}
+    ${EXP_COMPACT.map(([l, t, m]) => `<div class="r-entry compact entry"><div class="head">${print ? '' : `<div class="r-logo">${l}</div>`}<div><h3>${t}</h3><div class="meta">${m}</div></div></div></div>`).join('')}</section>
+  <section class="r-sec"><h2>Education</h2><div class="r-entry compact entry"><div class="head">${print ? '' : '<div class="r-logo">GM</div>'}<div><h3>B.S., Management Information Systems &amp; Decision Sciences</h3><div class="meta">George Mason University · Fairfax, VA · 2002</div></div></div></div></section>
+  <section class="r-sec"><h2>Certifications</h2><ul><li>Building and Scaling Subscription Businesses (BUS 78)—Stanford Continuing Studies · 2021</li><li>Certified Scrum Professional - Product Owner (CSP-PO)—Scrum Alliance · 2019</li><li>Principles &amp; Qualities of Genuine Leadership—Turner Professional Development Center · 2012</li></ul></section>
+  <section class="r-sec"><h2>Projects</h2><div class="r-entry"><span class="r-status">■ Shipped</span><h3>Mergepath—Agent Governance Infrastructure</h3><div class="meta">Bash · Python · GitHub Actions · 1Password · Claude Code · Codex · Cursor · CodeRabbit</div><p>Case study → · Demo ↗ · GitHub ↗</p></div></section>`;
+function resume() {
+  return `<div class="app inner resume" style="--accent:var(--red);--project-bg:#c4c3bc"><div class="shell"><div class="page-canvas canvas7">
+    <div class="m-head"></div><div class="m-body"></div><div class="m-foot"></div>
+    <header class="c-head" data-rail="red">${resumeHead()}<div class="r-actions"><a>⤓ Download PDF</a><a>✉ Get in touch</a><a>▦ Book time</a></div></header>
+    <dl class="c-meta" data-rail="blue"><div><dt>Location</dt><dd>San Francisco, CA</dd></div><div><dt>Availability</dt><dd>Open to senior product and platform roles, especially in streaming infrastructure, developer tools, and workflows that use AI</dd></div><div><dt>Focus</dt><dd>Platform · Streaming · AI-augmented development</dd></div><div><dt>Topics</dt><dd class="pills"><span class="pill">Connected-TV</span><span class="pill">Device certification</span><span class="pill">Subscription activation</span><span class="pill">Partner ecosystems</span><span class="pill">Observability</span><span class="pill">AI-augmented dev</span><span class="pill">Developer tools</span></dd></div></dl>
+    <main class="c-content" data-rail="yellow">${resumeBody(false)}<div class="r-cta">Open to senior product/platform roles. <a>Get in touch→</a> · <a>Book time→</a></div></main>
+    <aside class="c-side"><div class="side-h">In this résumé</div><ol class="side-toc">${['Summary', 'Skills', 'Experience', 'Education', 'Certifications', 'Projects', 'Writing'].map(t => `<li>${t}</li>`).join('')}</ol>
+      <div class="side-h" style="margin-top:1.2rem">Highlights</div>
+      <blockquote class="pq" style="--pq:var(--red)">Conceived NCPv3 and secured approval for an $18.1M investment in a JavaScript/React runtime to run Disney's mature JavaScript app across five device families, so Disney could retire the parallel Rust app and merge two teams into one.</blockquote>
+      <blockquote class="pq" style="--pq:var(--yellow)">Led Disney's launch on Amazon's Linux-based Vega OS (Kepler): Disney+, Hulu, and ESPN shipped on schedule with no measurable engagement impact.</blockquote>
+      <blockquote class="pq" style="--pq:var(--blue)">Introduced an AI-powered PR review pipeline that cut median PR cycle time from 7.4 to 4 days, beating the 30% Q2 OKR target.</blockquote></aside>
+    ${footer('detail', { rail: 'black', items: ['← Back to Homepage', 'Read the Blog →'] }).replace('site-footer--detail', 'site-footer--canvas c-foot')}
+  </div></div></div>`;
+}
+function resumePrint() {
+  return `<div class="app print"><h1>Nathan Payne</h1><p class="r-title">Senior Platform Product Manager</p><p class="r-contact">San Francisco, CA · hire@nathanpayne.com · <a>nathanpayne.com</a> · <a>linkedin.com/in/nathanpayne</a> · <a>github.com/nathanjohnpayne</a></p>${resumeBody(true)}<div class="pgno">1 / 3</div></div>`;
+}
+
+// ---------------------------------------------------------------------------
+// /book/, /brand/, /privacy/, 404
+// ---------------------------------------------------------------------------
+function book() {
+  const cards = [['15 min · FaceTime, phone, Google Meet, or Zoom', 'Quick Intro'], ['30 min · FaceTime, phone, Google Meet, or Zoom', 'Real Conversation'], ['60, 90, or 120 min · San Francisco', 'Coffee or Lunch']]
+    .map(([k, t]) => `<span class="post-meta">${k}</span><h2 class="post-title">${t}</h2><span class="tag">Pick a time ↗</span>`);
+  const rows = gridRows(cards, 'red') + `<div class="grid-row grid-row--rss"><div class="band" data-rail="${rail('red', 4)}"><p>Times show in your time zone; mine is Pacific. Cal.com asks what you would like to discuss before it confirms, and the invite follows once you verify your email.<br><a class="blue-link">Everything on Cal.com →</a></p></div></div>`;
+  return indexShell('red', 'color-mix(in srgb,#e8784a 16%,#f5f0e4)', `${bc('Nathan Payne', 'Book time')}<h1>Book time</h1><p class="deck">Pick a time. I’m easy to talk to and hard to surprise.</p>`, rows, footer('grid', { rail: rail('red', 5), items: ['Résumé →', '← Back to Homepage'] }));
+}
+function brand() {
+  const fam = [['Mark', 'SVG · PNG · 11 files', 'The primary square mark: the NP monogram in the cream field, the red plane at right, and the yellow, charcoal and blue planes along the bottom. …'], ['Small-size tile', 'SVG · 1 file', 'The mark without the monogram, for sizes below 24px such as a 16px favicon, where the letters would blur. …'], ['Keyline mark', 'SVG · PNG · 2 files', 'The mark framed by an ink keyline the weight of its grid lines, only for cream or near-cream surfaces where the field would otherwise vanish. …'], ['One-color mark', 'SVG · PNG · 2 files', 'The mark for one-color reproduction: print, engraving and grayscale interfaces. The planes become tints of the ink.'], ['Horizontal lockup', 'SVG · PNG · 12 files', 'The primary lockup: the mark, the name and NATHANPAYNE.COM beneath. …'], ['Stacked lockup', 'SVG · PNG · 8 files', 'The mark above the name and domain, for square and portrait placements: social posts, slide title cards and print. …'], ['Compact lockup', 'SVG · 2 files', 'The mark and the name, without the domain, for placements between about 160px and 320px wide, where the domain line would be too small to read. …'], ['Wordmark', 'SVG · PNG · 3 files', 'The name and domain without the mark, for places where the mark already appears nearby.'], ['Social images', 'PNG · 2 files', 'A logo-only landscape card for social posts, and a square version with the stacked lockup on white. …'], ['Google Workspace logo', 'PNG · SVG · 4 files', 'Laid out for Google Workspace’s 320×132 organization-logo frame: the full-height mark at left and the name on two lines beside it, so it fills the frame instead of shrinking. …'], ['Profile picture', 'PNG · 2 files', 'The mark as a square avatar for a Google Account, GitHub, LinkedIn, X, Bluesky, Slack or Threads. …'], ['Browser icons', 'ICO · PNG · 2 files', 'The favicon, whose 16px size is the small-size tile and whose 32px and 48px sizes carry the monogram, and the 180px Apple touch icon, which iOS rounds itself.']]
+    .map(([t, k, d]) => `<div class="preview"><div class="npmark"><i></i><i></i><i></i><i></i></div></div><span class="post-meta">${k}</span><h2 class="post-title" style="font-size:clamp(1.3rem,1.8cqw,1.9rem)">${t}</h2><p class="post-desc">${d}</p><div class="chips-dl"><span class="tag">SVG</span><span class="tag">PNG</span></div>`);
+  const rows = gridRows(fam, 'red').replace(/ data-rail="[a-z]*"/g, '') + `<div class="grid-row grid-row--rss"><div class="band brand-band"><div><span class="post-meta">Colors</span><div class="swatches">${[['Red', '#da2418'], ['Yellow', '#f0c800'], ['Blue', '#0a5c9e'], ['Ink', '#11100d'], ['Cream', '#f5f0e4']].map(([n, h]) => `<span class="swatch"><i style="background:${h}"></i><span>${n}<br><code>${h}</code></span></span>`).join('')}</div></div><div><span class="post-meta">Type</span><p>The name is set in Cormorant Garamond 600 and the domain in Inter 500 small capitals. …</p></div><div><span class="post-meta">Rules</span><p>Keep clear space around any lockup equal to the width of the red plane, one quarter of the mark’s height. Do not recolor the planes, add gradients or shadows, rotate the mark, or set the name in another typeface.</p></div></div></div>`;
+  return indexShell('red', 'color-mix(in srgb,#e8784a 16%,#f5f0e4)', `${bc('Nathan Payne', 'Brand')}<h1>Brand assets</h1><p class="deck">The NP mark, the lockups and the wordmark, ready to download.</p>`, rows, footer('grid', { items: ['Résumé →', '← Back to Homepage'] })).replace(/ data-rail="[a-z]*"/g, '');
+}
+function privacyPage() {
+  const toc = ['Your choices', 'What is collected', 'Who receives it', 'Why I collect it', 'How long it is kept', 'Global Privacy Control', 'What turning analytics off does not do', 'Contact'];
+  return `<div class="app inner" style="--accent:var(--blue)"><div class="page-shell"><article class="page-canvas project-detail">
+    <header class="ph-gradient hero-rule"><div class="ph-inset">${bc('Nathan Payne', 'Privacy')}<h1>Privacy</h1><p class="deck">What nathanpayne.com collects through PostHog (including session replay), Google Analytics, and Mux Data, who receives it, how long it is kept, and how to turn analytics off.</p><div class="inline-toc">${toc.map(t => `<span>${t}</span>`).join('')}</div></div></header>
+    <div class="project-copy"><p class="note">This page describes the site’s settings as checked on 2026-10-11. Session replay is off on this page.</p>
+      <div class="choices"><h2 style="border:0;padding:0;margin:0">Your choices</h2><div class="ctas"><a class="nav-button">Turn analytics off</a><a class="nav-button">Turn analytics on</a></div></div>
+      <h2>What is collected</h2><p>Two analytics tools, PostHog and Google Analytics 4, run on every page unless you turn them off here, your browser sends Global Privacy Control, or JavaScript is off. …</p>
+      <h2>Who receives it</h2><p>PostHog receives everything in the PostHog list above. Its requests go through d.nathanpayne.com, a reverse proxy PostHog manages and routes through Cloudflare, which PostHog lists as a subprocessor. …</p>
+      <h2>How long it is kept</h2><p>PostHog session recordings: 30 days.</p></div>
+    ${footer('detail', { items: ['← Back to Homepage'] })}
+  </article></div></div>`;
+}
+function notFound() {
+  return `<div class="app inner"><div class="error-shell"><div class="error-mondrian">
+    <div class="e-content">${bc('Nathan Payne', '404')}<h1>Page not found</h1><p class="deck">The page you’re looking for doesn’t exist or has been moved.</p><div class="ctas"><a class="nav-button">Homepage</a><a class="nav-button">Résumé</a><a class="nav-button">Projects</a><a class="nav-button">Blog</a><a class="nav-button">Privacy</a></div></div>
+    <div class="e-r"></div><div class="e-y1"></div><div class="e-b"></div><div class="e-k"></div><div class="e-g1"></div><div class="e-g2"></div><div class="e-y2"></div><div class="e-w"></div>
+  </div></div></div>`;
+}
+const notice = (railColor) => `<div class="privacy-notice" style="--pn-rail:${railColor}"><div class="pn-rail"></div><div class="pn-body"><div class="pn-eyebrow">Analytics on this site</div><div class="pn-q">Keep analytics on, or turn them off?</div><p class="pn-p">This personal site uses analytics, including session replay and video playback data, to see what’s working. You can turn them off anytime. <a>Privacy details</a>.</p><div class="pn-buttons"><button>Turn analytics off</button><button class="primary">Keep analytics on</button></div></div></div>`;
+const withNotice = (html, railColor) => html.replace(/<\/div>\s*$/, notice(railColor) + '</div>');
+
+// ---------------------------------------------------------------------------
+// Document structure: pages → frames. Each frame names its canvas and state.
+// ---------------------------------------------------------------------------
+const W = { desk: 'Desktop · 1440×900', short: 'Short · 1440×700', tab: 'Tablet · 834', ph: 'Phone · 390', print: 'Print · Letter' };
+const PAGES = [
+  { id: 'home', title: 'Homepage — the Mondrian composition', url: 'nathanpayne.com', sub: 'src/pages/index.astro and global.css § .mondrian. A square, <code>min(95vw, 95vh, 1280px)</code>, centred on the #c4c3bc stage: four panels (About on red, Projects on yellow, Community on #333, Connect on blue) and five decorative blocks (three paper, two #d4d4d4) separated by 9px ink lines. A panel opens on hover or focus: the grid morphs to that state’s template (460ms), the panel turns parchment (#e4ded0) with warm ink text, and its label gives way to content. Below 1024px wide OR 840px tall the composition becomes the vertical stack (specs/responsive-layout.md req. 4, 12).',
+    legend: [
+      '<b>Closed composition.</b> Red spans columns 2–4 and rows 2–4 (the dominant plane); yellow sits top-right, #333 bottom-left spanning rows 6–8, blue bottom-right on row 8. The name label is an ink box with cream text at 2.2rem; PROJECTS / COMMUNITY / CONNECT are .95rem uppercase labels at .22em tracking, each placed by percentage padding so they hold their corner as the grid morphs.',
+      '<b>About- and Projects-focus content-size the open panel</b>: track 2 becomes <code>minmax(0, var(--cell-h-about))</code> (JS-measured; the CSS fallback of 547px is drawn here) and the two tracks below it collapse to 0, so the panel is exactly as tall as its text or scrolls inside itself. Community-focus is minmax-only (Connect lives on a track it would absorb); Connect-focus sizes track 8 to its content (423px fallback).',
+      '<b>Panel footers are one system</b>: hairline, eyebrow, one content line, and the exit link on the eyebrow row (LAST UPDATED · View all writing →; DOMAINS · View all projects →; SCOPE; LATEST POST · View all writing →). The Builds row keeps three grammars apart — arrowed text navigates, an outlined rectangle is a control, glyph + uppercase is state — so the lifecycle marks (■ shipped, □ in development, ◧ experiment, ▣ archived) are unboxed.',
+      '<b>The stack</b> (#1481) is a cover and reading surfaces: the name, tagline and NOW stay on the red plane in white; Context, Approach, Writing and LAST UPDATED become one white block with a blue rail, then Projects (yellow rail), Community (black rail) and Connect (red rail, on cream), all in the open-state inks. <code>--line</code> drops to 6px and the stage padding to 0. Reached by the height axis on a wide window, it is capped at 1024px and centred.'],
+    frames: [
+      { id: 'closed', w: 'desk', kind: 'built', label: 'closed composition', fn: () => home('closed'), cap: 'Rest state at 1440×900: the square is 95vh = 855px, centred with symmetric gutters. Four labels, five blocks, no content visible. Hovering any panel starts the morph; nothing opens on load (the on-load discoverability pulse, #305, is motion only).' },
+      { id: 'about', w: 'desk', kind: 'state', label: 'About open', fn: () => home('about'), cap: 'About-focus: columns re-weight to 3.65 / 1.45 / .82 / 1.08fr, track 2 becomes the measured content height and tracks 3–4 collapse, so the right column continues below the bio independently. Parchment surface, 4rem Cormorant name, italic lead, CONTEXT / APPROACH / NOW / WRITING blocks capped at a 37rem measure, then the LAST UPDATED ribbon.' },
+      { id: 'projects', w: 'desk', kind: 'state', label: 'Projects open', fn: () => home('projects'), cap: 'Projects-focus: the yellow panel takes grid-row 2/5 and the right column widens to 2.55 + 3.45fr; the left column compresses to .92 + .88fr, which is the one state where COMMUNITY turns vertical. Seven Builds rows (name → + status glyph, one sentence each), then DOMAINS · View all projects → over “Consumer · Enterprise · Finance · Developer tooling”.' },
+      { id: 'community', w: 'desk', kind: 'state', label: 'Community open', fn: () => home('community'), cap: 'Community-focus: the only minmax-only state — track 8 grows to 3.7fr and column 2 to 4.1fr, so Connect renders as a tall narrow tile at right. Giving &amp; Governing, three efforts (link, amount, description) with a hairline bracket, SCOPE ribbon.' },
+      { id: 'connect', w: 'desk', kind: 'state', label: 'Connect open', fn: () => home('connect'), cap: 'Connect-focus: column 8 widens to 3.28fr and track 8 is the measured Connect height, so the panel is exactly content-sized — hire@ + Book time, ELSEWHERE with six social rows (LinkedIn, GitHub, Bluesky, Instagram, Threads, X), then LATEST POST · View all writing → over the newest title.' },
+      { id: 'short', w: 'short', kind: 'built', label: 'short window, 1440×700', fn: () => home('closed'), cap: 'The height axis sends a 1440×700 window to the stack (<code>max-height: 839px</code>), and the companion <code>(min-width: 1024px) and (max-height: 839px)</code> rule caps it at 1024px and centres it on the stage, so body copy never sets at a 1378px measure. The red cover holds the name, tagline and NOW; below it, About (blue rail), Projects (yellow), Community (black) and Connect (red, on cream) run on paper. The gutters stay the chrome gray: the red root background is width-only.' },
+      { id: 'tab', w: 'tab', kind: 'built', label: 'Tablet', fn: () => home('closed'), cap: 'At 834 the width axis alone triggers the stack; it runs edge to edge with no cap and no stage padding, 6px lines. Labels and blocks are gone; the name sets at <code>clamp(2.4rem, 9vw, 4rem)</code>.' },
+      { id: 'ph', w: 'ph', kind: 'built', label: 'Phone', fn: () => home('closed'), cap: 'The phone stack: the red cover with NOW, then the railed paper blocks; eyebrows at <code>clamp(.56rem, …, .64rem)</code>, ribbon lines at .02em tracking so DOMAINS holds one line at 390.' }] },
+
+  { id: 'blog', title: '/blog/ — the writing index', url: 'nathanpayne.com/blog/', sub: 'src/pages/blog/index.astro on the shared index frame: a 9px-framed canvas at <code>min(100%, 72rem)</code> with the offset shadow, white hero (breadcrumb, display h1, deck), then an ink grid whose gaps are the lines. Each row is one post card plus its accent planes on the shared 50% / 72% gridlines, cycling six row shapes (src/lib/index-grid.ts). Page accent blue.',
+    legend: [
+      '<b>Row cycle</b>: 50/22/28 with red + gray (16rem) · 72/28 blue (13rem) · 50/50 #333 (14rem) · 50/22/28 yellow + gray (14rem) · 72/28 blue · 50/50 red; a repeated cycle opens yellow + gray so red never follows red. Post 0’s gray cell carries a vertical FEATURED label.',
+      '<b>Card anatomy</b>: three .post-meta lines (category · date and reading time · tags), Cormorant title at <code>clamp(1.6rem, 2.2vw, 2.4rem)</code>, description at a 62ch measure. Editorial order: the featured post, then Agent Systems newest first, then Building This Site (src/lib/blog-order.ts).',
+      '<b>Closing band</b>: one full-width gray plane, SUBSCRIBE VIA RSS →; then the white grid footer (attribution left, outlined nav buttons right, Privacy always appended).',
+      '<b>≤1023</b>: one column, every plane hidden, RSS cell 4rem, footer stacked. Phone-stack frame (#1479): gutter 0, shadow none, the 6px frame meets the edges, and every block carries a rail — hero blue (the page accent), then yellow, black, red, blue … with the RSS band and footer continuing the walk, so no two neighbours share a color.'],
+    frames: [
+      { id: 'desk', w: 'desk', kind: 'built', label: 'Desktop', fn: blogIndex, cap: 'The canvas is 1152px wide at 1440 with 2rem gutters; the first screen shows the hero and the first two rows (red + gray with FEATURED, then blue).' },
+      { id: 'tab', w: 'tab', kind: 'built', label: 'Tablet', fn: blogIndex, cap: 'Edge-to-edge 6px frame; single column; rails hero blue → yellow → black → red → blue. Type is fluid, nothing else differs from the phone.' },
+      { id: 'ph', w: 'ph', kind: 'built', label: 'Phone', fn: blogIndex, cap: 'Same railed stack; ≤480 makes the footer buttons full width. The reading column gains about 64px over a guttered frame (≈41 → 51 characters a line).' }] },
+
+  { id: 'post', title: 'Blog article — the reading canvas', url: 'nathanpayne.com/blog/the-subagent-said-it-was-unsafe/', sub: 'src/layouts/BlogPost.astro: a 7-column “composition with margins” — line | margin | line | content | line | sidebar | line — on an ink ground. The left margin is three accent cells (red beside the header, a yellow / paper / blue stripe beside the body, paper beside the footer); the header cell is white, the metadata panel #d4d4d4, the content and sidebar on the cream surface; the footer spans columns 2 to -2. Page accent red. Drawn with “The Subagent Said It Was Unsafe” (Oct 26, 2026).',
+    legend: [
+      '<b>Header cell</b>: breadcrumbs (current segment truncated at 31ch), article h1 at <code>clamp(2rem, 3vw, 3rem)</code>, Inter deck at a 54ch measure. The metadata panel is a <code>dl</code>: Published, Author, Reading time, Topics as pills.',
+      '<b>Content</b>: a Key takeaways box (white, 9px yellow edge, red square bullets), italic Cormorant h2s over hairlines, Inter prose at <code>clamp(.98rem, …, 1.08rem)</code> / 1.72 with no measure cap (it fills the cell, ≈632px of text at 1440), figures in a hairline box with a 3px accent top and a numbered caption, pullquotes with a 3px accent edge.',
+      '<b>Sidebar</b> (not sticky — only the résumé’s is): IN THIS ARTICLE with the h2 list, then pullquotes with red / yellow / blue edges, then any sidebar diagram.',
+      '<b>≤1023 (width only; a 1440×700 window stays desktop)</b>: three columns, margin / sidebar / metadata hidden, the ToC and pullquotes gone rather than moved. The header shows its title-card kicker (category, then date · reading time) above the h1 and the topic pills under the deck (specs/blog-responsive.md). Rails: header red, content blue, footer yellow.'],
+    frames: [
+      { id: 'desk', w: 'desk', kind: 'built', label: 'Desktop', fn: blogPost, cap: 'Columns resolve to roughly 95 / 712 / 309px at 1152. The metadata panel is bottom-aligned to the header, the sidebar starts level with the content.' },
+      { id: 'tab', w: 'tab', kind: 'built', label: 'Tablet', fn: blogPost, cap: 'Stack: kicker and topic pills appear; the metadata panel and sidebar are gone. Rails red / blue / yellow on the 6px edge-to-edge frame.' },
+      { id: 'ph', w: 'ph', kind: 'built', label: 'Phone', fn: blogPost, cap: 'Same stack; ≤480 drops code blocks to .75rem and makes the footer buttons full width.' }] },
+
+  { id: 'projects', title: '/projects/ — the case-study index', url: 'nathanpayne.com/projects/', sub: 'src/pages/projects/index.astro on the same index frame as /blog/, with the same six-row cycle. Seven cards in the canonical order (specs/project-pages.md): Five Across, Mergepath, Override, Device Source of Truth, Matchline, Swipe Watch, Friends &amp; Family Billing. Page accent yellow; the backdrop is the accent mixed 16% into cream.',
+    legend: [
+      '<b>Card anatomy</b>: status kicker with the lifecycle mark (■ shipped, ▣ archived, □ in development, ◧ experiment — drawn in currentcolor, never boxed), tags line, Cormorant title, one-sentence description, a VIEW ↗ chip.',
+      '<b>Planes</b> follow the row, not the project: row 7 (Friends &amp; Family Billing) opens the repeat cycle with yellow + gray.',
+      '<b>Footer</b>: Résumé → · Book time → · ← Back to Homepage · Privacy. ≤1023: single column, planes hidden, rails hero yellow → black → red → blue → yellow → black → red → blue → footer yellow.'],
+    frames: [
+      { id: 'desk', w: 'desk', kind: 'built', label: 'Desktop', fn: projectsIndex, cap: 'Hero “Products—and the decisions behind them”, then Five Across (red + gray) and Mergepath (blue) in the first screen.' },
+      { id: 'tab', w: 'tab', kind: 'built', label: 'Tablet', fn: projectsIndex, cap: 'Railed stack starting at the page accent, yellow.' },
+      { id: 'ph', w: 'ph', kind: 'built', label: 'Phone', fn: projectsIndex, cap: 'Same stack; full-width footer buttons at ≤480.' }] },
+
+  { id: 'detail', title: 'Project page — /projects/five-across/', url: 'nathanpayne.com/projects/five-across/', sub: 'src/layouts/ProjectLayout.astro: a single-column framed article on the cream surface (9px #1a1814 border, offset shadow). Hero with a <code>clamp(.5rem, 1vw, .8rem)</code> accent bar, inset breadcrumb / page h1 / deck / two CTAs, closed by a 1px rule; a metadata surface (accent-tinted gradient) holding the 4-cell strip and the figure; then the copy grid. Five Across is the representative: red accent, the narrow hero variant with a pair of phone shots. The others share this layout and differ by accent (Mergepath and Friends &amp; Family Billing yellow, Override paper/#5b5f64, Device Source of Truth blue, Matchline #333 on a dark figure surface with an inline wordmark, Swipe Watch red with a single Mux video), by the wide figure variant (full-width screenshot) and by status.',
+    legend: [
+      '<b>Metadata strip</b>: TOPICS · FORMAT · FOCUS · STATUS, dotted dividers; STATUS is the one place lifecycle appears on a detail page and carries the “Updated October 2026” line from the last git change. 2×2 at ≤768, one column at ≤480.',
+      '<b>Copy</b>: italic h2s over hairlines, the ConstraintStrip (8 days · Ship Wi-Fi · 10 days · 16 players), the DecisionLedger — index, lens, dotted leader, status token on one line; title; a two-column dl (context | rejected; decided; cost with a 2px accent bar; evidence in a white box) — then the LearningLedger (EXPECTED / OBSERVED / RESPONSE), Related with accent squares, and the detail footer (1px rule).',
+      '<b>≤1023</b>: edge to edge with a 6px border and no shadow — this page carries no rails. ≤767 stacks the phone pair (280px each); ≤480 drops the hero padding to 1rem, the inset to .5rem, h1 to <code>clamp(1.55rem, 8vw, 2.4rem)</code>, and stacks the CTAs full width.'],
+    frames: [
+      { id: 'desk', w: 'desk', kind: 'built', label: 'Desktop', fn: projectDetail, cap: 'Hero, strip and the figure pair (two 320px phone shots, 12px radius) fill the first screen; the copy grid starts below the fold.' },
+      { id: 'tab', w: 'tab', kind: 'built', label: 'Tablet', fn: projectDetail, cap: '6px frame to the edges, no rails; the strip is 2×2 and the pair stacks (≤767 — 834 keeps it side by side, so this frame still shows the pair).' },
+      { id: 'ph', w: 'ph', kind: 'built', label: 'Phone', fn: projectDetail, cap: 'Strip one column, pair stacked at 280px, CTAs full width, the hero at 1rem padding.' }] },
+
+  { id: 'resume', title: '/resume/ — the editorial résumé', url: 'nathanpayne.com/resume/', sub: 'src/pages/resume.astro on the same 7-column canvas as a blog post (specs/resume.md): red / stripe / paper margin cells, white header (breadcrumb, name at <code>clamp(2.6rem, 5vw, 4rem)</code>, italic title, contact lines with blue links, three outlined action boxes), #d4d4d4 metadata panel (LOCATION · AVAILABILITY · FOCUS · TOPICS pills), cream content column (Summary, Skills, Experience, Education, Certifications, Projects, Writing, then the CTA card with a 9px red edge) and a sticky sidebar (IN THIS RÉSUMÉ, HIGHLIGHTS as italic cards with red / yellow / blue edges). The résumé text is the vault copy verbatim (#850).',
+    legend: [
+      '<b>Experience entry</b>: a 72px logo tile beside “Role—Company” and a meta line (team · location · dates · note), then bullets with .36rem blue square markers. Pre-2016 roles (AJ+, Current TV, CNN) are compact: 52px tile, smaller title. Experience entries carry no lifecycle kicker (specs/resume.md); only Projects entries do (■ SHIPPED above the name).',
+      '<b>≤1023</b>: margin and sidebar hidden; the metadata panel becomes a horizontal wrapping bar between header and content; rails header red, metadata blue, content yellow, footer #333. ≤560 stacks each skills row.',
+      '<b>Print</b> (<code>@media print</code>, <code>@page size: letter; margin: .6in</code>): a single white column, every color forced to #000, margin / metadata / sidebar / footer / breadcrumbs / actions / CTA / logos hidden, the Projects and Writing sections reduced to their lead lines; 18pt name, 11.5pt title, 14pt sections, 12pt entries, 9.5pt body; entries avoid page breaks; target three pages.'],
+    frames: [
+      { id: 'desk', w: 'desk', kind: 'built', label: 'Desktop', fn: resume, cap: 'The header cell is bottom-aligned with the metadata panel beside it; the sidebar’s inner block sticks at top 9px as the content scrolls.' },
+      { id: 'tab', w: 'tab', kind: 'built', label: 'Tablet', fn: resume, cap: 'Rails red / blue / yellow / #333; the metadata panel wraps horizontally as a bar.' },
+      { id: 'ph', w: 'ph', kind: 'built', label: 'Phone', fn: resume, cap: 'Same stack; skills rows stack label over values at ≤560.' },
+      { id: 'print', w: 'print', kind: 'built', label: 'print, Letter', fn: resumePrint, cap: 'Page one of the printed résumé: 7.3in of usable width inside .6in margins, black only, 9.5pt / 1.3 body, square bullets printed via <code>print-color-adjust: exact</code>. Descriptive external links get their URL appended; the contact line does not.' }] },
+
+  { id: 'book', title: '/book/ — book time', url: 'nathanpayne.com/book/', sub: 'src/pages/book.astro (specs/book-page.md): the index frame with three cards in rows 1–3 of the cycle — Quick Intro (15 min), Real Conversation (30 min), Coffee or Lunch (60, 90 or 120 min · San Francisco) — each a kicker, a title link and a PICK A TIME ↗ chip opening cal.com/nathanpayne in a new tab. No embed, no iframe, no script. Page accent red.',
+    legend: [
+      '<b>Closing band</b>: a full-width gray plane, min 6rem, with a time-zone note and the blue “Everything on Cal.com →” link; then the grid footer: Résumé → · ← Back to Homepage · Privacy.',
+      '<b>≤1023</b>: planes hidden; rails hero red → cards blue, yellow, black → band red → footer blue.'],
+    frames: [
+      { id: 'desk', w: 'desk', kind: 'built', label: 'Desktop', fn: book, cap: 'Three rows (red + gray, blue, #333) then the gray band and footer; the whole page fits the first screen at 1440×900.' },
+      { id: 'tab', w: 'tab', kind: 'built', label: 'Tablet', fn: book, cap: 'Railed stack; the band keeps its centred paragraph.' },
+      { id: 'ph', w: 'ph', kind: 'built', label: 'Phone', fn: book, cap: 'Same; footer buttons full width at ≤480.' }] },
+
+  { id: 'privacy', title: '/privacy/ — the notice and the page', url: 'nathanpayne.com/privacy/', sub: 'specs/analytics-privacy.md. The <b>floating notice</b> (src/components/privacy/PrivacyNotice.astro) is a fixed card at top 12px (+ safe-area), left/right 12px, max-width 30rem, centred, z-index 11, non-modal: paper with a 3px ink border and a 6px hard shadow, a 16px rail at left, eyebrow ANALYTICS ON THIS SITE, the Cormorant question, one paragraph with a “Privacy details” link, and two 44px buttons — “Turn analytics off” plain, “Keep analytics on” double-bordered. It shows while no choice is saved, nothing has dismissed it and no GPC signal is set; Escape dismisses it; after a choice a smaller status card takes the same spot. The <b>/privacy/ page</b> uses the detail frame with a blue accent: blue hero bar, h1 Privacy, deck, an inline uppercase contents list separated by blue dots, then the dated note, a white “Your choices” box with both buttons, and the sections.',
+    legend: [
+      '<b>Notice rail</b> takes the next color after the page accent: #333 on /resume/ (red), red on /privacy/ (blue). The card rolls down on arrival and the rail draws in afterwards.',
+      '<b>Notice at ≤26rem</b> (a 390px phone leaves it 366px wide): the buttons stack, “Turn analytics off” first. At ≤18rem the eyebrow is visually hidden.',
+      '<b>Page</b>: ≤1023 edge to edge, 6px border, no rails; ≤480 turns the inline contents list into a column and stacks the two buttons.'],
+    frames: [
+      { id: 'notice-desk', w: 'desk', kind: 'state', label: 'notice over /resume/', fn: () => withNotice(resume(), 'var(--accent-black)'), cap: 'The card floats over the top of the résumé canvas at its 30rem maximum, centred; buttons side by side. Session replay is off while it shows (and on /privacy/ always).' },
+      { id: 'notice-ph', w: 'ph', kind: 'state', label: 'notice over /resume/, phone', fn: () => withNotice(resume(), 'var(--accent-black)'), cap: 'At 390 the card is 366px wide, under the notice’s own 26rem rule, so the buttons stack with “off” first; the 12px insets keep it off the frame edges.' },
+      { id: 'desk', w: 'desk', kind: 'built', label: 'Desktop', fn: privacyPage, cap: 'Blue-barred hero with the eight-item contents line, then the note and “Your choices” before What is collected.' },
+      { id: 'tab', w: 'tab', kind: 'built', label: 'Tablet', fn: privacyPage, cap: 'Edge to edge, 6px border, no rails (detail frame).' },
+      { id: 'ph', w: 'ph', kind: 'built', label: 'Phone', fn: privacyPage, cap: 'Contents list as a column; both choice buttons full width.' }] },
+
+  { id: 'brand', title: '/brand/ — brand assets', url: 'nathanpayne.com/brand/', sub: 'src/pages/brand.astro (specs/brand-page.md): the index frame, red accent, twelve family cards in the row cycle (src/lib/brand-assets.ts) — Mark, Small-size tile, Keyline mark, One-color mark, Horizontal lockup, Stacked lockup, Compact lockup, Wordmark, Social images, Google Workspace logo, Profile picture, Browser icons — each a contained preview <code>clamp(7rem, 12vw, 10rem)</code> tall, a format kicker, title, description and download chips. The closing gray band holds COLORS (the 1930 logo palette: #da2418 · #f0c800 · #0a5c9e · ink · cream — not the site tokens), TYPE and RULES. No type specimens are drawn because the page has none.',
+    legend: [
+      '<b>No rails.</b> /brand/ is the one index-style page without <code>data-rail</code>; at ≤1023 it is a plain single column in the edge-to-edge 6px frame.',
+      '<b>Band</b>: three columns of COLORS / TYPE / RULES on desktop, one column at ≤768.'],
+    frames: [
+      { id: 'desk', w: 'desk', kind: 'built', label: 'Desktop', fn: brand, cap: 'Hero “Brand assets”, Mark (red + gray) and Small-size tile (blue) in the first screen; the hatched mark stands in for the SVG preview.' },
+      { id: 'tab', w: 'tab', kind: 'built', label: 'Tablet', fn: brand, cap: 'Single column, planes hidden, no rails.' },
+      { id: 'ph', w: 'ph', kind: 'built', label: 'Phone', fn: brand, cap: 'Same; chips wrap under each title.' }] },
+
+  { id: 'e404', title: '404 — page not found', url: 'nathanpayne.com/anything-else', sub: 'src/pages/404.astro: a flex-centred 100vh stage on #c4c3bc holding a 64rem Mondrian whose lines are 9px tracks — columns 2.4fr / 1fr / 1.2fr / .5fr, rows auto / 5rem / 3.5rem. The content cell (breadcrumb NATHAN PAYNE / 404, page h1, a #555 deck, outlined buttons HOMEPAGE · RÉSUMÉ · PROJECTS · BLOG · Privacy) spans columns 2–6 of the first row beside a red cell; below it yellow, blue (spanning two rows), #333 and #d4d4d4, then #d4d4d4, yellow and paper. There is no footer.',
+    legend: [
+      '<b>≤768</b>: every colored block is hidden and the content cell alone sits in a black frame. ≤1023 also drops the shell padding so the frame meets the edges; ≤480 stacks the buttons full width.'],
+    frames: [
+      { id: 'desk', w: 'desk', kind: 'built', label: 'Desktop', fn: notFound, cap: 'The 64rem composition centred on the stage, content padded <code>clamp(2rem, 5vw, 4rem)</code>.' },
+      { id: 'tab', w: 'tab', kind: 'built', label: 'Tablet', fn: notFound, cap: 'At 834 (≤1023 but >768) the composition still shows its blocks, now edge to edge with 6px lines.' },
+      { id: 'ph', w: 'ph', kind: 'built', label: 'Phone', fn: notFound, cap: 'Blocks hidden; the content cell fills the frame inside 6px of ink; buttons full width.' }] }];
+
+// ---------------------------------------------------------------------------
+// Render
+// ---------------------------------------------------------------------------
+function unit(page, f) {
+  const id = `fx-${page.id}-${f.id}`;
+  const chrome = (f.w === 'desk' || f.w === 'short') ? `<div class="macbar"><i></i><i></i><i></i><span class="addr">${page.url}</span></div>` : '';
+  return `<div class="unit ${f.w}" id="${id}"><div class="chips"><span class="fchip ${f.w}">${W[f.w]}</span><span class="fchip ${f.kind}">${f.kind}</span></div>
+    <div class="fw ${f.w}"><div class="frame">${chrome}${f.fn()}</div></div>
+    <p class="cap"><b>${f.label}</b>${f.cap}</p></div>`;
+}
+const doc = document.getElementById('doc'), toc = document.getElementById('toclist');
+let html = '', tocHtml = '';
+for (const p of PAGES) {
+  html += `<h2 id="sec-${p.id}">${p.title}</h2><p class="sub">${p.sub}</p><div class="frames">${p.frames.map(f => unit(p, f)).join('')}</div><ol class="legend">${p.legend.map(l => `<li>${l}</li>`).join('')}</ol>`;
+  tocHtml += `<li><a href="#sec-${p.id}">${p.title}</a><span class="vars">${p.frames.map(f => `<a href="#fx-${p.id}-${f.id}">fx-${p.id}-${f.id}</a>`).join('')}</span></li>`;
+}
+doc.innerHTML = html;
+toc.innerHTML = tocHtml + '<li><a href="#sec-tokens">Tokens — palette with computed contrast</a></li><li><a href="#sec-bp">Breakpoints</a></li>';
+
+// token legend with computed WCAG contrast
+const hex2 = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const toHex = ([r, g, b]) => '#' + [r, g, b].map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
+const mix = (fg, bg, a) => toHex(hex2(fg).map((v, i) => v * a + hex2(bg)[i] * (1 - a)));
+const lum = h => { const [r, g, b] = hex2(h).map(v => v / 255).map(v => v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4); return .2126 * r + .7152 * g + .0722 * b; };
+const ratio = (a, b) => { const [l1, l2] = [lum(a), lum(b)].sort((x, y) => y - x); return (l1 + .05) / (l2 + .05); };
+const INK = '#11100d', PAPER = '#ffffff', CREAM = '#f5f0e4', SURF = '#f4efe5', PARCH = '#e4ded0';
+const TOKENS = [
+  ['--ink / --black', INK, 'Text everywhere; the grid ground and the lines', PAPER, [[PAPER, 'paper'], [SURF, 'surface'], [PARCH, 'parchment']]],
+  ['--paper', PAPER, 'Hero and header cells, footers, cards, two homepage blocks', null, []],
+  ['--cream', CREAM, 'Text on the closed red and #333 panels; hover fill on résumé actions', '#e8784a', [['#e8784a', 'on red (labels, ≥19px bold → 3:1)', 'lg'], ['#333333', 'on accent black (labels)', 'lg']]],
+  ['--surface', SURF, 'rgba(244,239,229,.96): the reading surface of every framed canvas', null, []],
+  ['--panel-open-bg', PARCH, 'The parchment every homepage panel opens to', null, []],
+  ['--ink-warm', '#171208', 'Warm near-ink text on yellow and on open parchment', '#e3d477', [['#e3d477', 'on yellow'], [PARCH, 'on parchment']]],
+  ['--red', '#e8784a', 'About plane; accent cells; blog/résumé/book accent; rails', INK, [[INK, 'ink text on red (not used for body)', 'lg']]],
+  ['--yellow', '#e3d477', 'Projects plane; accent cells; the article’s margin stripe; rails', INK, [['#171208', 'ink-warm on yellow']]],
+  ['--blue', '#2080ca', 'Connect plane; in-content and contact links; /blog and /privacy accent; rails', PAPER, [[PAPER, 'as link text on paper'], [SURF, 'as link text on surface']]],
+  ['--blue-contrast', '#f0f4ff', 'Light text on the blue plane (CONNECT label, availability line)', '#2080ca', [['#2080ca', 'on blue', 'lg']]],
+  ['--accent-black', '#333333', 'Community plane and the “black” accent cells / rail — not --ink', CREAM, [[CREAM, 'cream text on it']]],
+  ['--accent-gray', '#d4d4d4', 'Two homepage blocks; blog / résumé metadata panel; 404 cells', INK, [[INK, 'ink on it'], [mix(INK, '#d4d4d4', .48), '48% ink dt labels on it']]],
+  ['--gray-plane', '#dde1e5', 'Index-grid gray cells, the RSS / book / brand bands', INK, [[INK, 'ink on it'], [mix(INK, '#dde1e5', .62), '62% ink FEATURED label']]],
+  ['--stage-bg', '#c4c3bc', 'The backdrop behind every canvas (blog, résumé, 404, homepage stage)', null, []],
+  ['--ink-62', mix(INK, PAPER, .62), 'color-mix 62% ink: muted text, eyebrows, footer attribution — resolved on paper', PAPER, [[PAPER, 'on paper'], [SURF, 'on surface (' + mix(INK, SURF, .62) + ')']]],
+  ['--ink-50', mix(INK, PARCH, .5), 'color-mix 50% ink: panel eyebrow labels — resolved on parchment', PARCH, [[PARCH, 'on parchment']]],
+  ['--breadcrumb-current', mix(INK, PAPER, .6), 'color-mix 60% ink: the current breadcrumb segment', PAPER, [[PAPER, 'on paper'], ['#c4c3bc', 'on the 404 stage']]],
+  ['--veil-on-red @82%', mix('#f2ede1', '#e8784a', .82), 'Stack-mode label ink on the red plane', '#e8784a', [['#e8784a', 'on red (eyebrows, ≤.64rem)']]],
+  ['--veil-on-black @82%', mix('#efe8d8', '#333333', .82), 'Stack-mode label ink on the #333 plane', '#333333', [['#333333', 'on accent black']]],
+  ['1930 red', '#da2418', '[data-palette=1930] / brand COLORS chip', null, []],
+  ['1930 yellow', '#f0c800', '[data-palette=1930] / brand COLORS chip', null, []],
+  ['1930 blue', '#0a5c9e', '[data-palette=1930] / brand COLORS chip', null, []]];
+document.getElementById('tokenrows').innerHTML = TOKENS.map(([name, hex, use, sampleBg, pairs]) => {
+  const sample = sampleBg ? `<span class="sample" style="background:${sampleBg};color:${hex};border:1px solid rgba(0,0,0,.08)">Sample text</span>` : `<span class="sample" style="background:${hex};color:${lum(hex) > .4 ? INK : '#fff'};border:1px solid rgba(0,0,0,.08)">${name}</span>`;
+  const ratios = pairs.length ? pairs.map(([bg, lbl, large]) => { const r = ratio(hex, bg); const need = large ? 3 : 4.5; const pass = r >= need; return `<span class="ratio"><b class="${pass ? 'ok' : 'no'}">${r.toFixed(2)}:1</b> <small>${lbl} · ${large ? 'large text ≥3' : 'AA text ≥4.5'} ${pass ? '✓' : '✗'}</small></span>`; }).join('<br>') : '<span class="ratio"><small>surface — no text target</small></span>';
+  return `<tr><td><span class="tsw"><i style="background:${hex}"></i>${name}</span></td><td><code>${hex}</code></td><td>${use}</td><td>${sample}</td><td>${ratios}</td></tr>`;
+}).join('');
+
+// zoom: scales the canvases; layout inside is computed at the real width
+const ZOOM = { fit: [.36, .42, .8, .36], read: [.5, .55, 1, .5], actual: [1, 1, 1, 1] };
+document.getElementById('zoom').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const [d, t, p, pr] = ZOOM[b.dataset.z];
+  const r = document.documentElement.style;
+  r.setProperty('--s-desk', d); r.setProperty('--s-tab', t); r.setProperty('--s-ph', p); r.setProperty('--s-print', pr);
+  document.querySelectorAll('#zoom button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  document.getElementById('zoomnote').textContent = `desktop ×${d} · tablet ×${t} · phone ×${p} · print ×${pr}`;
+});
+
+// Autolink file paths and #issue references in the prose (not inside frames).
+const ISSUE_URL = 'https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/';
+const FILE_PATH = /\b(?:src|specs|plans|scripts|public|tests|docs)(?:\/[A-Za-z0-9_.\[\]-]+)+(?:\.(?:astro|tsx?|mjs|js|css|md|mdx|json|html)\b|\/)/g;
+const ISSUE_REF = /(?<!\w)#(?!333\b|555\b|000\b)\d{1,5}(?!\w)/g; // #1479, never the #333 / #555 / #000 colors named in captions
+(function linkRefs() {
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+    acceptNode(n) { const p = n.parentElement; return p && (p.closest('a,script,style,.frame,.toc,.tokens') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT); } });
+  const nodes = []; while (walker.nextNode()) nodes.push(walker.currentNode);
+  for (const node of nodes) {
+    const text = node.textContent, m = [];
+    for (const [re, href] of [[FILE_PATH, s => `../${s.replace(/\/$/, '')}`], [ISSUE_REF, s => ISSUE_URL + s.slice(1)]]) {
+      re.lastIndex = 0; let x; while ((x = re.exec(text))) m.push({ s: x.index, e: x.index + x[0].length, t: x[0], href: href(x[0]) });
+    }
+    if (!m.length) continue;
+    m.sort((a, b) => a.s - b.s || b.e - a.e);
+    const keep = m.reduce((k, r) => r.s >= (k.at(-1)?.e ?? 0) ? [...k, r] : k, []);
+    const frag = document.createDocumentFragment(); let i = 0;
+    for (const r of keep) { if (r.s > i) frag.appendChild(document.createTextNode(text.slice(i, r.s))); const a = document.createElement('a'); a.href = r.href; a.textContent = r.t; frag.appendChild(a); i = r.e; }
+    if (i < text.length) frag.appendChild(document.createTextNode(text.slice(i)));
+    node.parentNode.replaceChild(frag, node);
+  }
+})();
+</script>
+</body>
+</html>
