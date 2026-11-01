@@ -518,6 +518,10 @@
   .app.print .meta{font-size:9pt;color:#000;margin-bottom:.04in}
   .app.print p{margin-bottom:.06in}
   .app.print ul{padding-left:.16in;list-style:none}
+  /* Body text takes the print scale explicitly: the screen rules on these
+     descendants (.r-sec p, .r-entry li, .r-skill) outrank .app.print's own
+     size, as .resume-prose p / li and .resume-skills__values do in print. */
+  .app.print .r-sec p,.app.print .r-entry li,.app.print .r-skill,.app.print .r-skill b,.app.print .r-sec li{font-size:9.5pt;line-height:1.3}
   .app.print li{position:relative;margin-bottom:.03in}
   .app.print li::before{content:"";position:absolute;left:-.16in;top:.5em;width:.05in;height:.05in;background:#000}
   .app.print .entry{margin-top:.1in;break-inside:avoid}
