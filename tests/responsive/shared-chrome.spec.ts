@@ -181,6 +181,25 @@ for (const width of BREAKPOINTS) {
           expectInkColor(result.current, 0.6);
           expectInkColor(result.sep, 0.35);
         });
+
+        test(`${path} keeps its breadcrumb trail on one line`, async ({ page }) => {
+          await page.goto(path);
+          await page.waitForLoadState('domcontentloaded');
+          await page.evaluate(() => document.fonts.ready);
+          const trail = await page.evaluate(() => {
+            const nav = document.querySelector('.breadcrumbs') as HTMLElement;
+            const navBox = nav.getBoundingClientRect();
+            const parentBox = (nav.parentElement as HTMLElement).getBoundingClientRect();
+            return {
+              tops: [...nav.children].map((el) => Math.round(el.getBoundingClientRect().top)),
+              overflow: navBox.right - parentBox.right,
+            };
+          });
+          // Parent links never wrap ("Nathan / Payne"); only the current
+          // segment gives up width, by truncating.
+          expect(new Set(trail.tops).size).toBe(1);
+          expect(trail.overflow).toBeLessThanOrEqual(1);
+        });
       }
 
       test('parent links carry the hover affordance (underline + darker step)', async ({

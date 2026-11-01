@@ -3556,6 +3556,16 @@ body.blog-page {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--breadcrumb-current);
+  /* One line at every width: parent links and separators never wrap or
+     shrink; only the current segment gives up width, by truncating. */
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.breadcrumbs > a,
+.breadcrumbs > span:not(.breadcrumb-current) {
+  flex-shrink: 0;
 }
 
 .breadcrumbs a {
@@ -3579,6 +3589,7 @@ body.blog-page {
      wrapping under the trail. 31ch fits the longest shortTitle in use
      ("Two Blues, One Composition", ~220px at this letter-spacing). */
   max-width: 31ch;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3589,7 +3600,6 @@ body.blog-page {
    (#452). Placed after the base so its single-class overrides win by source
    order, matching the prior .project-breadcrumbs behavior. */
 .breadcrumbs--inset {
-  flex-wrap: wrap;
   margin-bottom: var(--sp-md);
   padding-left: clamp(1rem, 2.2vw, 1.6rem);
 }
