@@ -4633,7 +4633,9 @@ a.tag:hover {
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--ink-62);
+  /* Full ink, as the panel's other values are: --ink-62 painted 4.32:1 on
+     the 8% pill over #d4d4d4, under AA and lighter than the label (#1502). */
+  color: var(--ink);
 }
 
 .blog-sidebar-meta dl {
@@ -6541,7 +6543,9 @@ body.resume-page {
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--ink-62);
+  /* Full ink, as the panel's other values are: --ink-62 painted 4.32:1 on
+     the 8% pill over #d4d4d4, under AA and lighter than the label (#1502). */
+  color: var(--ink);
 }
 
 /* Main content column */
