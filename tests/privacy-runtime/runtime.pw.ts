@@ -236,7 +236,10 @@ const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 async function activate(page: Page): Promise<void> {
   await page.mouse.move(100, 100);
   await page.mouse.move(400, 250);
-  await page.locator('h1').first().click();
+  // Near the heading's left edge: on a first visit the privacy notice floats
+  // as a centered card over the top of the page (#1479), and on a wide
+  // heading (/blog/) the middle sits under it.
+  await page.locator('h1').first().click({ position: { x: 8, y: 8 } });
 }
 
 /** Requests to an analytics host the proxy refused since `since`. */
