@@ -21,10 +21,14 @@ for (const width of [1440, 390] as const) {
 
     for (const path of PAGES) {
       test(`${path} buttons keep an AA label on hover`, async ({ page }) => {
-        // Dismiss the analytics notice so it doesn't cover the page's buttons.
+        // A valid dismissed-notice state (gate.js reads anything else as
+        // unset and shows the notice), so it can't cover the page's buttons.
         await page.addInitScript(() => {
           try {
-            localStorage.setItem('np-privacy', JSON.stringify({ choice: 'on', v: 1 }));
+            localStorage.setItem(
+              'np-privacy',
+              JSON.stringify({ v: 1, choice: 'unset', noticeDismissed: true }),
+            );
           } catch {}
         });
         test.setTimeout(60_000);
@@ -40,10 +44,8 @@ for (const width of [1440, 390] as const) {
         for (let i = 0; i < count; i++) {
           const button = buttons.nth(i);
           await button.scrollIntoViewIfNeeded();
-          // force: a long page's buttons can sit under the sticky chrome while
-          // scrolling; the hover state is what is measured, not reachability.
-          await button.hover({ force: true, timeout: 2000 });
-          const { ink, fill, name } = await button.evaluate((e) => {
+          await button.hover({ timeout: 5000 });
+          const { hovered, ink, fill, name } = await button.evaluate((e) => {
             let el: Element | null = e;
             let fill = 'rgb(255, 255, 255)';
             for (; el; el = el.parentElement) {
@@ -54,11 +56,18 @@ for (const width of [1440, 390] as const) {
               }
             }
             return {
+              hovered: e.matches(':hover'),
               ink: getComputedStyle(e).color,
               fill,
               name: (e.getAttribute('aria-label') || (e as HTMLElement).innerText).trim(),
             };
           });
+          // Measure only a real hover: an overlay taking the pointer would
+          // leave the button at rest and pass on its resting colors.
+          if (!hovered) {
+            failures.push(`${name}: not hovered`);
+            continue;
+          }
           const a = parseComputedColor(ink);
           const b = parseComputedColor(fill);
           if (!a || !b) {
