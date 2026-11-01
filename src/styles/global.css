@@ -3550,7 +3550,15 @@ body.blog-page {
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  margin-bottom: 1rem;
+  /* --crumb-focus-room clears a link's focus ring (2px outline + 2px
+     offset) inside the scrollport below, which clips on every side once
+     overflow-x is set. Taken back out of the margins, so the trail and
+     what follows it sit exactly where they did; contexts that set their own
+     space below subtract it too. */
+  --crumb-focus-room: 4px;
+  padding: var(--crumb-focus-room) 0 var(--crumb-focus-room) var(--crumb-focus-room);
+  margin: calc(-1 * var(--crumb-focus-room)) 0 calc(1rem - var(--crumb-focus-room))
+    calc(-1 * var(--crumb-focus-room));
   font-size: clamp(0.72rem, 0.92vw, 0.88rem);
   font-weight: 400;
   letter-spacing: 0.12em;
@@ -3603,7 +3611,9 @@ body.blog-page {
    (#452). Placed after the base so its single-class overrides win by source
    order, matching the prior .project-breadcrumbs behavior. */
 .breadcrumbs--inset {
-  margin-bottom: var(--sp-md);
+  /* The inset's own padding already clears the focus ring on the left. */
+  margin-left: 0;
+  margin-bottom: calc(var(--sp-md) - var(--crumb-focus-room));
   padding-left: clamp(1rem, 2.2vw, 1.6rem);
 }
 
@@ -4137,7 +4147,7 @@ a.tag:hover {
 /* Sizing + colors come from the shared .breadcrumbs rules (#452); only the
    spacing to the h1 (which carries its own top margin) is local. */
 .e-content .breadcrumbs {
-  margin-bottom: 0.5rem;
+  margin-bottom: calc(0.5rem - var(--crumb-focus-room));
 }
 
 .e-content .project-actions {
@@ -4495,7 +4505,7 @@ a.tag:hover {
 /* Breadcrumb colors/typography come from the shared .breadcrumbs rules
    (#452); only the spacing to the h1 is local. */
 .blog-canvas-header .breadcrumbs {
-  margin-bottom: 1.5rem;
+  margin-bottom: calc(1.5rem - var(--crumb-focus-room));
 }
 
 .blog-canvas-header h1 {
@@ -6246,7 +6256,7 @@ body.resume-page {
   justify-content: flex-end;
 }
 .resume-canvas-header .breadcrumbs {
-  margin-bottom: 1.4rem;
+  margin-bottom: calc(1.4rem - var(--crumb-focus-room));
 }
 
 /* Metadata panel (top-right; screen-only) */

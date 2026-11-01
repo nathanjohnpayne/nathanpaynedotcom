@@ -204,6 +204,18 @@ for (const width of BREAKPOINTS) {
                 scrolls:
                   nav.scrollWidth > nav.clientWidth &&
                   ['auto', 'scroll'].includes(getComputedStyle(nav).overflowX),
+                // Room inside the scrollport around each link for its focus
+                // ring (2px outline + 2px offset), which the scrollport clips.
+                focusRoom: Math.min(
+                  ...[...nav.querySelectorAll('a')].flatMap((link) => {
+                    const box = link.getBoundingClientRect();
+                    return [
+                      box.left - navBox.left,
+                      box.top - navBox.top,
+                      navBox.bottom - box.bottom,
+                    ];
+                  }),
+                ),
               };
             });
             // Parent links never wrap ("Nathan / Payne"); only the current
@@ -213,6 +225,7 @@ for (const width of BREAKPOINTS) {
             // A link past the trail's edge must still be reachable, by
             // scrolling the trail, rather than clipped by an ancestor.
             if (trail.childOverflow > 1) expect(trail.scrolls).toBe(true);
+            expect(trail.focusRoom).toBeGreaterThanOrEqual(3.5);
           });
         }
       }
