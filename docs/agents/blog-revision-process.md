@@ -212,7 +212,7 @@ Style rules. Every statement is written for its own piece; there are no shared o
 
 Two rules bind the agent:
 
-- An agent may draft or update a statement, but it re-stamps `reviewed` only after the owner confirms the statement in the PR. Recompute the value with `npm run --silent ai-use:hash -- src/content/blog/<slug>.md`; printing the hash is not a review.
+- An agent may draft or update a statement, but it re-stamps `reviewed` only after the owner confirms the statement in the PR. Recompute the value with `npm run --silent ai-use:hash -- <entry path>` (for example `src/content/blog/<slug>.md` or `src/content/projects/<slug>.mdx`); printing the hash is not a review.
 - An agent never edits a statement to describe less agent involvement than the record shows. Where the record is thin, say so in the statement rather than guess.
 
 ## Revisions move the post's "Updated" date
