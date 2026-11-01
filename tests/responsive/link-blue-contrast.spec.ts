@@ -34,13 +34,27 @@ for (const width of WIDTHS) {
       test(`${path} blue link text clears AA`, async ({ page }) => {
         await page.goto(path);
         const samples: Sample[] = await page.evaluate((blues) => {
+          // Composite every translucent background up the ancestor chain onto
+          // the first opaque one (the résumé surface is 96% over ink), so the
+          // plane is what is actually painted behind the text.
           const opaquePlane = (el: Element | null): string => {
+            const layers: number[][] = [];
             for (; el; el = el.parentElement) {
-              const bg = getComputedStyle(el).backgroundColor;
-              const alpha = bg.match(/[\d.]+/g)?.[3];
-              if (alpha === undefined || Number(alpha) > 0.9) return bg;
+              const raw = getComputedStyle(el).backgroundColor;
+              const ch = raw.match(/[\d.]+/g)?.map(Number);
+              if (!ch) continue;
+              // color-mix() serializes as color(srgb r g b / a) in 0–1 channels.
+              if (raw.startsWith('color(')) for (let i = 0; i < 3; i++) ch[i] *= 255;
+              const a = ch.length > 3 ? ch[3] : 1;
+              if (a === 0) continue;
+              layers.push([ch[0], ch[1], ch[2], a]);
+              if (a === 1) break;
             }
-            return 'rgb(255, 255, 255)';
+            let [r, g, b] = [255, 255, 255];
+            for (const [lr, lg, lb, a] of layers.reverse()) {
+              [r, g, b] = [lr * a + r * (1 - a), lg * a + g * (1 - a), lb * a + b * (1 - a)];
+            }
+            return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
           };
           return [...document.querySelectorAll('a')]
             .filter((a) => blues.includes(getComputedStyle(a).color))
