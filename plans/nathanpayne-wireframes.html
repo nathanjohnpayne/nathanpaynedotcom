@@ -33,14 +33,15 @@
       (7156–7238), the résumé layout and its @media print block (7244–7655)
     src/pages/index.astro, blog/index.astro, blog/[...slug].astro,
       projects/index.astro, projects/[slug].astro, resume.astro, book.astro,
-      brand.astro, privacy/[...index].astro, 404.astro
+      brand.astro, privacy/[...index].astro, how-i-write.astro, 404.astro
     src/layouts/BaseLayout.astro, BlogPost.astro, ProjectLayout.astro
     src/components/ProjectHero.astro, MetadataStrip.astro, Footer.astro,
-      Breadcrumbs.astro, privacy/PrivacyNotice.astro, resume/*
+      Breadcrumbs.astro, HowIWriteLink.astro, privacy/PrivacyNotice.astro,
+      resume/*
     src/lib/index-grid.ts (row cycle + getMobileRail), blog-order.ts
     src/content/bio/now.md, site-copy/*, projects/*.mdx, blog/*
     specs/responsive-layout.md, blog-responsive.md, analytics-privacy.md,
-      project-pages.md, book-page.md, brand-page.md, resume.md,
+      project-pages.md, book-page.md, brand-page.md, how-i-write.md, resume.md,
       panel-interaction.md, figure-numbering.md
   Copy is the public site copy, shortened where a frame would otherwise
   overflow. Nothing is invented except the placeholder screenshot blocks.
@@ -181,8 +182,9 @@
   .app .deck{font-family:var(--font-heading);font-size:clamp(1.05rem,1.3cqw,1.4rem);line-height:1.45;max-width:38rem;color:color-mix(in srgb,var(--ink) 72%,transparent);margin-top:.9rem}
   .app .deck b{color:var(--blue-ink);font-weight:700}
   .app .eyebrow,.app .post-meta{font-family:var(--font-body);font-size:clamp(.65rem,.78cqw,.76rem);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-62);font-weight:500}
-  /* The footer Privacy link is an icon: Lucide shield-check, as PrivacyLink.astro draws it. */
-  .app .nav-button.privacy-link--icon{display:inline-flex;align-items:center;justify-content:center;padding:.55rem}
+  /* The footer's How I write and Privacy links are icons: Lucide pencil-sparkles
+     and shield-check, as HowIWriteLink.astro and PrivacyLink.astro draw them. */
+  .app .nav-button.privacy-link--icon,.app .nav-button.nav-button--icon{display:inline-flex;align-items:center;justify-content:center;padding:.55rem}
   .app .nav-icon{width:1.2em;height:1.2em;flex-shrink:0}
   .app .nav-button{display:inline-flex;align-items:center;justify-content:center;gap:.35rem;border:1px solid var(--ink);padding:.55rem .85rem;font-size:clamp(.8rem,.9cqw,.92rem);font-weight:600;letter-spacing:.14em;text-transform:uppercase;background:var(--paper);white-space:nowrap}
   .app .site-footer{display:flex;justify-content:space-between;align-items:center;gap:.8rem 1.2rem;flex-wrap:wrap;padding:1.1rem clamp(1.15rem,3cqw,2.5rem);background:var(--paper)}
@@ -556,8 +558,8 @@
   @container frame (max-width: 480px) {
     .app .nav-button{width:100%;text-align:center}
     .app .site-footer__nav{flex-wrap:wrap;width:100%}
-    .app .site-footer__nav .nav-button{width:auto;flex:1 1 calc(100% - 3rem)}
-    .app .site-footer__nav .privacy-link--icon{flex:0 0 auto}
+    .app .site-footer__nav .nav-button{width:auto;flex:1 1 calc(100% - 6rem)}
+    .app .site-footer__nav .privacy-link--icon,.app .site-footer__nav .nav-button--icon{flex:0 0 auto}
     .app .mstrip{grid-template-columns:1fr}
     .app .mstrip > div{border-left:0;border-top:1px dotted var(--ink-32)}
     .app .mstrip > div:first-child{border-top:0}
@@ -640,7 +642,7 @@ const RAIL_CYCLE = ['red', 'blue', 'yellow', 'black'];
 const rail = (accent, i) => RAIL_CYCLE[(RAIL_CYCLE.indexOf(accent) + i) % 4];
 const bc = (...parts) => `<div class="breadcrumbs">${parts.map((p, i) => i === parts.length - 1 ? `<span class="cur">${p}</span>` : `<a>${p}</a>`).join('<span class="sep">/</span>')}</div>`;
 const footer = (variant, links, { privacy = true } = {}) =>
-  `<footer class="site-footer site-footer--${variant}" data-rail="${links.rail || ''}"><p class="site-footer__attribution">Nathan Payne · San Francisco</p><nav class="site-footer__nav">${links.items.map(navItem).join('')}${privacy ? PRIVACY_ICON : ''}</nav></footer>`;
+  `<footer class="site-footer site-footer--${variant}" data-rail="${links.rail || ''}"><p class="site-footer__attribution">Nathan Payne · San Francisco</p><nav class="site-footer__nav">${links.items.map(navItem).join('')}${HOW_I_WRITE_ICON}${privacy ? PRIVACY_ICON : ''}</nav></footer>`;
 // src/lib/index-grid.ts: six-row cycle; a later cycle opens yellow + gray instead of red + gray
 const ROWS = [
   { cols: '50fr 22fr 28fr', h: '16rem', acc: ['red', 'paper'] },
@@ -723,7 +725,7 @@ function home(focus) {
       </div></div></article>
     <div class="block block--white-c"></div><div class="block block--gray-e"></div><div class="block block--gray-d"></div>
     <article class="panel panel--blue${open('connect')}"><div class="panel-label">Connect</div>
-      <div class="panel-content"><div class="content-inner"><h2>Connect</h2><p class="availability"><a>hire@nathanpayne.com<span class="arrow">→</span></a>&nbsp;· <a>Book time<span class="arrow">→</span></a></p>
+      <div class="panel-content"><div class="content-inner"><h2>Connect</h2><p class="availability"><a>Get in touch<span class="arrow">→</span></a>&nbsp;· <a>Book time<span class="arrow">→</span></a>&nbsp;· <a>Résumé<span class="arrow">→</span></a>&nbsp;· <a>How I write<span class="arrow">→</span></a>&nbsp;· <a>Privacy<span class="arrow">→</span></a></p>
         <span class="eyebrow lbl">Elsewhere</span><div class="social-stack">${SOCIAL.map(([n, k]) => `<a class="social-row"><span class="s-icon">${SOCIAL_ICON(k)}</span><span>${n}</span><span class="s-arrow">→</span></a>`).join('')}</div>
         <div class="ribbon"><div class="ribbon-row"><span class="eyebrow lbl">Latest Post</span><a class="ribbon-exit">View all writing<span class="arrow">→</span></a></div><a class="items title">The Subagent Said It Was Unsafe<span class="arrow">→</span></a></div>
       </div></div></article>
@@ -831,12 +833,15 @@ const NAV = {
   'layout-grid': '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
   house: '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
   'shield-check': '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
+  'pencil-sparkles': '<path d="M10 3H8"/><path d="m15.007 5.008 3.987 3.986"/><path d="M20 15v4"/><path d="M21.174 6.813a2.82 2.82 0 0 0-3.986-3.987L3.842 16.175a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="M22 17h-4"/><path d="M4 5v4"/><path d="M6 7H2"/><path d="M9 2v2"/>',
 };
 const navIcon = (n) => `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${NAV[n]}</svg>`;
 // A footer label names its icon by its destination word.
 const LABEL_ICON = [[/Résumé/, 'file-user'], [/Book time/, 'calendar'], [/Blog/, 'newspaper'], [/Projects/, 'layout-grid'], [/Homepage/, 'house']];
 const navItem = (label) => { const hit = LABEL_ICON.find(([re]) => re.test(label)); return `<a class="nav-button">${hit ? navIcon(hit[1]) : ''}${label}</a>`; };
 const PRIVACY_ICON = `<a class="nav-button privacy-link--icon" aria-label="Privacy" title="Privacy">${navIcon('shield-check')}</a>`;
+// #1494: every footer carries the /how-i-write/ icon just before Privacy.
+const HOW_I_WRITE_ICON = `<a class="nav-button nav-button--icon" aria-label="How I write" title="How I write">${navIcon('pencil-sparkles')}</a>`;
 const SEP = '<span class="sep" aria-hidden="true">·</span>';
 const resumeContact = () => `<p class="r-contact r-contact--primary"><span>${ICON.mappin}San Francisco, CA</span>${SEP}<a>${ICON.mail}hire@nathanpayne.com</a></p><p class="r-contact r-contact--profiles"><a>${ICON.globe}nathanpayne.com</a>${SEP}<a>${ICON.linkedin}linkedin.com/in/nathanpayne</a>${SEP}<a>${ICON.github}github.com/nathanjohnpayne</a></p>`;
 const resumeHead = () => `${bc('Nathan Payne', 'Résumé')}<h1>Nathan Payne</h1><p class="r-title">Senior Platform Product Manager</p>${resumeContact()}`;
@@ -893,9 +898,21 @@ function privacyPage() {
     ${footer('detail', { items: ['Back to Homepage'] })}
   </article></div></div>`;
 }
+function howIWritePage() {
+  return `<div class="app inner" style="--accent:var(--blue)"><div class="page-shell"><article class="page-canvas project-detail">
+    <header class="ph-gradient hero-rule"><div class="ph-inset">${bc('Nathan Payne', 'How I write')}<h1>How I write</h1><p class="deck">What AI agents do, and what I do, when a post or case study on this site gets written.</p></div></header>
+    <div class="project-copy"><p>AI agents write the posts and case studies on this site. An agent, usually Claude, writes the first draft from my direction, my own account of what happened, and the record of the work: commits, pull requests, issues, and session transcripts. Agents, mostly Claude and Codex, revise it from there, and AI reviewers flag problems for them to fix.</p>
+      <p>One of those revisions is a pass for voice. It works from my notes and from passages I chose as style examples. So far those examples are agent revisions I approved, not writing I did on my own.</p>
+      <p>Agents also check the facts. Every post and case study has a facts ledger in the site’s repository: an agent lists the piece’s claims, checks each one against the record, and marks it supported, wrong, stale, or unprovable. …</p>
+      <p>My part is direction and judgment. I choose what each piece covers, supply what I saw and decided, and send drafts back with notes. … I read every piece in full and approve it before it’s published.</p>
+      <p>Each post and case study ends with a statement headed “How this was written.” … The full process is public: <a>Blog drafting and voice review</a>.</p>
+      <p>This page covers the posts and case studies. …</p></div>
+    ${footer('detail', { items: ['Back to Homepage'] })}
+  </article></div></div>`;
+}
 function notFound() {
   return `<div class="app inner"><div class="error-shell"><div class="error-mondrian">
-    <div class="e-content">${bc('Nathan Payne', '404')}<h1>Page not found</h1><p class="deck">The page you’re looking for doesn’t exist or has been moved.</p><div class="ctas">${['Homepage', 'Résumé', 'Projects', 'Blog'].map(navItem).join('')}<a class="nav-button">${navIcon('shield-check')}Privacy</a></div></div>
+    <div class="e-content">${bc('Nathan Payne', '404')}<h1>Page not found</h1><p class="deck">The page you’re looking for doesn’t exist or has been moved.</p><div class="ctas">${['Homepage', 'Résumé', 'Projects', 'Blog'].map(navItem).join('')}<a class="nav-button">${navIcon('pencil-sparkles')}How I write</a><a class="nav-button">${navIcon('shield-check')}Privacy</a></div></div>
     <div class="e-r"></div><div class="e-y1"></div><div class="e-b"></div><div class="e-k"></div><div class="e-g1"></div><div class="e-g2"></div><div class="e-y2"></div><div class="e-w"></div>
   </div></div></div>`;
 }
@@ -927,7 +944,7 @@ const PAGES = [
     legend: [
       '<b>Row cycle</b>: 50/22/28 with red + gray (16rem) · 72/28 blue (13rem) · 50/50 #333 (14rem) · 50/22/28 yellow + gray (14rem) · 72/28 blue · 50/50 red; a repeated cycle opens yellow + gray so red never follows red. Post 0’s gray cell carries a vertical FEATURED label.',
       '<b>Card anatomy</b>: three .post-meta lines (category · date and reading time · tags), Cormorant title at <code>clamp(1.6rem, 2.2vw, 2.4rem)</code>, description at a 62ch measure. Editorial order: the featured post, then Agent Systems newest first, then Building This Site (src/lib/blog-order.ts).',
-      '<b>Closing band</b>: one full-width gray plane, SUBSCRIBE VIA RSS →; then the white grid footer (attribution left, outlined nav buttons right, Privacy always appended).',
+      '<b>Closing band</b>: one full-width gray plane, SUBSCRIBE VIA RSS →; then the white grid footer (attribution left, outlined nav buttons right, the How I write and Privacy icons always appended).',
       '<b>≤1023</b>: one column, every plane hidden, RSS cell 4rem, footer stacked. Phone-stack frame (#1479): gutter 0, shadow none, the 6px frame meets the edges, and every block carries a rail — hero blue (the page accent), then yellow, black, red, blue … with the RSS band and footer continuing the walk, so no two neighbours share a color.'],
     frames: [
       { id: 'desk', w: 'desk', kind: 'built', label: 'Desktop', fn: blogIndex, cap: 'The canvas is 1152px wide at 1440 with 2rem gutters; the first screen shows the hero and the first two rows (red + gray with FEATURED, then blue).' },
@@ -949,7 +966,7 @@ const PAGES = [
     legend: [
       '<b>Card anatomy</b>: status kicker with the lifecycle mark (■ shipped, ▣ archived, □ in development, ◧ experiment — drawn in currentcolor, never boxed), tags line, Cormorant title, one-sentence description, a VIEW ↗ chip.',
       '<b>Planes</b> follow the row, not the project: row 7 (Friends &amp; Family Billing) opens the repeat cycle with yellow + gray.',
-      '<b>Footer</b>: Résumé → · Book time → · ← Back to Homepage · Privacy. ≤1023: single column, planes hidden, rails hero yellow → black → red → blue → yellow → black → red → blue → footer yellow.'],
+      '<b>Footer</b>: Résumé → · Book time → · ← Back to Homepage · How I write · Privacy. ≤1023: single column, planes hidden, rails hero yellow → black → red → blue → yellow → black → red → blue → footer yellow.'],
     frames: [
       { id: 'desk', w: 'desk', kind: 'built', label: 'Desktop', fn: projectsIndex, cap: 'Hero “Products—and the decisions behind them”, then Five Across (red + gray) and Mergepath (blue) in the first screen.' },
       { id: 'tab', w: 'tab', kind: 'built', label: 'Tablet', fn: projectsIndex, cap: 'Railed stack starting at the page accent, yellow.' },
@@ -978,7 +995,7 @@ const PAGES = [
 
   { id: 'book', title: '/book/ — book time', url: 'nathanpayne.com/book/', sub: 'src/pages/book.astro (specs/book-page.md): the index frame with three cards in rows 1–3 of the cycle — Quick Intro (15 min), Real Conversation (30 min), Coffee or Lunch (60, 90 or 120 min · San Francisco) — each a kicker, a title link and a PICK A TIME ↗ chip opening cal.com/nathanpayne in a new tab. No embed, no iframe, no script. Page accent red.',
     legend: [
-      '<b>Closing band</b>: a full-width gray plane, min 6rem, with a time-zone note and the blue “Everything on Cal.com →” link; then the grid footer: Résumé → · ← Back to Homepage · Privacy.',
+      '<b>Closing band</b>: a full-width gray plane, min 6rem, with a time-zone note and the blue “Everything on Cal.com →” link; then the grid footer: Résumé → · ← Back to Homepage · How I write · Privacy.',
       '<b>≤1023</b>: planes hidden; rails hero red → cards blue, yellow, black → band red → footer blue.'],
     frames: [
       { id: 'desk', w: 'desk', kind: 'built', label: 'Desktop', fn: book, cap: 'Three rows (red + gray, blue, #333) then the gray band and footer; the whole page fits the first screen at 1440×900.' },
@@ -997,6 +1014,15 @@ const PAGES = [
       { id: 'tab', w: 'tab', kind: 'built', label: 'Tablet', fn: privacyPage, cap: 'Edge to edge, 6px border, no rails (detail frame).' },
       { id: 'ph', w: 'ph', kind: 'built', label: 'Phone', fn: privacyPage, cap: 'Contents list as a column; both choice buttons full width.' }] },
 
+  { id: 'howiwrite', title: '/how-i-write/ — How I write', url: 'nathanpayne.com/how-i-write/', sub: 'src/pages/how-i-write.astro (specs/how-i-write.md, #1494): the /privacy/ detail frame without its contents list, blue accent: blue hero bar, breadcrumb NATHAN PAYNE / HOW I WRITE, h1 “How I write”, the share line as deck, then six paragraphs from <code>src/content/site-copy/how-i-write.md</code> (shortened here), the one link pinned to a commit, and the detail footer. Every footer on the site now ends in two icon squares, <b>How I write</b> (Lucide pencil-sparkles) then <b>Privacy</b> (shield-check); the homepage Connect line and the 404 carry the worded link instead.',
+    legend: [
+      '<b>Footer icons</b>: 35×35 squares, the height of the text buttons, How I write first. At ≤480, where text buttons take full rows, the last text button’s basis leaves room for both icons, so the three share its row.',
+      '<b>Page</b>: ≤1023 edge to edge, 6px border, no rails (detail frame); ≤480 the hero inset drops to .5rem.'],
+    frames: [
+      { id: 'desk', w: 'desk', kind: 'built', label: 'Desktop', fn: howIWritePage, cap: 'Blue-barred hero, six paragraphs, then BACK TO HOMEPAGE beside the two icon squares.' },
+      { id: 'tab', w: 'tab', kind: 'built', label: 'Tablet', fn: howIWritePage, cap: 'Edge to edge, 6px border, no rails (detail frame); footer a centred column.' },
+      { id: 'ph', w: 'ph', kind: 'built', label: 'Phone', fn: howIWritePage, cap: 'The first screen: hero and the opening paragraphs. Below the copy, the footer puts BACK TO HOMEPAGE and both icons on one row.' }] },
+
   { id: 'brand', title: '/brand/ — brand assets', url: 'nathanpayne.com/brand/', sub: 'src/pages/brand.astro (specs/brand-page.md): the index frame, red accent, twelve family cards in the row cycle (src/lib/brand-assets.ts) — Mark, Small-size tile, Keyline mark, One-color mark, Horizontal lockup, Stacked lockup, Compact lockup, Wordmark, Social images, Google Workspace logo, Profile picture, Browser icons — each a contained preview <code>clamp(7rem, 12vw, 10rem)</code> tall, a format kicker, title, description and download chips. The closing gray band holds COLORS (the 1930 logo palette: #da2418 · #f0c800 · #0a5c9e · ink · cream — not the site tokens), TYPE and RULES. No type specimens are drawn because the page has none.',
     legend: [
       '<b>No rails.</b> /brand/ is the one index-style page without <code>data-rail</code>; at ≤1023 it is a plain single column in the edge-to-edge 6px frame.',
@@ -1006,7 +1032,7 @@ const PAGES = [
       { id: 'tab', w: 'tab', kind: 'built', label: 'Tablet', fn: brand, cap: 'Single column, planes hidden, no rails.' },
       { id: 'ph', w: 'ph', kind: 'built', label: 'Phone', fn: brand, cap: 'Same; chips wrap under each title.' }] },
 
-  { id: 'e404', title: '404 — page not found', url: 'nathanpayne.com/anything-else', sub: 'src/pages/404.astro: a flex-centred 100vh stage on #c4c3bc holding a 64rem Mondrian whose lines are 9px tracks — columns 2.4fr / 1fr / 1.2fr / .5fr, rows auto / 5rem / 3.5rem. The content cell (breadcrumb NATHAN PAYNE / 404, page h1, a #555 deck, outlined buttons HOMEPAGE · RÉSUMÉ · PROJECTS · BLOG · Privacy) spans columns 2–6 of the first row beside a red cell; below it yellow, blue (spanning two rows), #333 and #d4d4d4, then #d4d4d4, yellow and paper. There is no footer.',
+  { id: 'e404', title: '404 — page not found', url: 'nathanpayne.com/anything-else', sub: 'src/pages/404.astro: a flex-centred 100vh stage on #c4c3bc holding a 64rem Mondrian whose lines are 9px tracks — columns 2.4fr / 1fr / 1.2fr / .5fr, rows auto / 5rem / 3.5rem. The content cell (breadcrumb NATHAN PAYNE / 404, page h1, a #555 deck, outlined buttons HOMEPAGE · RÉSUMÉ · PROJECTS · BLOG · HOW I WRITE · PRIVACY, each led by its icon; at desktop width the last one wraps to a second row) spans columns 2–6 of the first row beside a red cell; below it yellow, blue (spanning two rows), #333 and #d4d4d4, then #d4d4d4, yellow and paper. There is no footer.',
     legend: [
       '<b>≤768</b>: the grid re-tracks to four equal columns; the content cell spans them with the red accent rail, the red block is hidden, and the other seven blocks keep their desktop rows below it. The shell aligns to the top, and the buttons are at least 44px tall. ≤1023 also drops the shell padding so the frame meets the edges; ≤480 stacks the buttons full width.'],
     frames: [

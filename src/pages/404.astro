@@ -5,6 +5,8 @@ import Breadcrumbs from '../components/Breadcrumbs.astro';
 // itself; the component renders nothing while the privacy flag is off.
 import PrivacyLink from '../components/privacy/ui/PrivacyLink.astro';
 import NavIcon from '../components/NavIcon.astro';
+// #1494: the /how-i-write/ link sits just before Privacy, as in the footer.
+import HowIWriteLink from '../components/HowIWriteLink.astro';
 ---
 
 <BaseLayout
@@ -33,6 +35,7 @@ import NavIcon from '../components/NavIcon.astro';
           <a class="nav-button" href="/resume/"><NavIcon name="file-user" />Résumé</a>
           <a class="nav-button" href="/projects/"><NavIcon name="layout-grid" />Projects</a>
           <a class="nav-button" href="/blog/"><NavIcon name="newspaper" />Blog</a>
+          <HowIWriteLink class="nav-button" icon="label" />
           <PrivacyLink class="nav-button" icon="label" />
         </div>
       </div>

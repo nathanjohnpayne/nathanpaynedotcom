@@ -93,6 +93,18 @@ export const SITE_COPY_SCHEMAS = {
     /** og:description and twitter:description, the hero deck, and the share card's line. */
     ogDescription: copy(),
   }),
+  /**
+   * `/how-i-write/` (specs/how-i-write.md), the policy page on how the posts
+   * and case studies are written. The entry's Markdown body is the page's
+   * copy, so the prose linter reads it and the owner approves one file
+   * verbatim (#1494).
+   */
+  'how-i-write': z.strictObject({
+    /** Meta description and the WebPage JSON-LD description. */
+    description: copy(),
+    /** og:description and twitter:description, the hero deck, and the share card's line. */
+    ogDescription: copy(),
+  }),
 } as const;
 
 export type SiteCopyId = keyof typeof SITE_COPY_SCHEMAS;
@@ -114,4 +126,5 @@ export const siteCopySchema = z.union([
   SITE_COPY_SCHEMAS.privacy,
   SITE_COPY_SCHEMAS.book,
   SITE_COPY_SCHEMAS.brand,
+  SITE_COPY_SCHEMAS['how-i-write'],
 ]);
