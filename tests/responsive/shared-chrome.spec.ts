@@ -182,24 +182,39 @@ for (const width of BREAKPOINTS) {
           expectInkColor(result.sep, 0.35);
         });
 
-        test(`${path} keeps its breadcrumb trail on one line`, async ({ page }) => {
-          await page.goto(path);
-          await page.waitForLoadState('domcontentloaded');
-          await page.evaluate(() => document.fonts.ready);
-          const trail = await page.evaluate(() => {
-            const nav = document.querySelector('.breadcrumbs') as HTMLElement;
-            const navBox = nav.getBoundingClientRect();
-            const parentBox = (nav.parentElement as HTMLElement).getBoundingClientRect();
-            return {
-              tops: [...nav.children].map((el) => Math.round(el.getBoundingClientRect().top)),
-              overflow: navBox.right - parentBox.right,
-            };
+        for (const textScale of ['100%', '200%']) {
+          test(`${path} keeps its breadcrumb trail on one line at ${textScale} text`, async ({
+            page,
+          }) => {
+            await page.goto(path);
+            await page.waitForLoadState('domcontentloaded');
+            await page.evaluate((scale) => {
+              document.documentElement.style.fontSize = scale;
+            }, textScale);
+            await page.evaluate(() => document.fonts.ready);
+            const trail = await page.evaluate(() => {
+              const nav = document.querySelector('.breadcrumbs') as HTMLElement;
+              const navBox = nav.getBoundingClientRect();
+              const parentBox = (nav.parentElement as HTMLElement).getBoundingClientRect();
+              const children = [...nav.children].map((el) => el.getBoundingClientRect());
+              return {
+                tops: children.map((box) => Math.round(box.top)),
+                navOverflow: navBox.right - parentBox.right,
+                childOverflow: Math.max(...children.map((box) => box.right)) - navBox.right,
+                scrolls:
+                  nav.scrollWidth > nav.clientWidth &&
+                  ['auto', 'scroll'].includes(getComputedStyle(nav).overflowX),
+              };
+            });
+            // Parent links never wrap ("Nathan / Payne"); only the current
+            // segment gives up width, by truncating.
+            expect(new Set(trail.tops).size).toBe(1);
+            expect(trail.navOverflow).toBeLessThanOrEqual(1);
+            // A link past the trail's edge must still be reachable, by
+            // scrolling the trail, rather than clipped by an ancestor.
+            if (trail.childOverflow > 1) expect(trail.scrolls).toBe(true);
           });
-          // Parent links never wrap ("Nathan / Payne"); only the current
-          // segment gives up width, by truncating.
-          expect(new Set(trail.tops).size).toBe(1);
-          expect(trail.overflow).toBeLessThanOrEqual(1);
-        });
+        }
       }
 
       test('parent links carry the hover affordance (underline + darker step)', async ({

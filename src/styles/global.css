@@ -3557,10 +3557,13 @@ body.blog-page {
   text-transform: uppercase;
   color: var(--breadcrumb-current);
   /* One line at every width: parent links and separators never wrap or
-     shrink; only the current segment gives up width, by truncating. */
+     shrink; only the current segment gives up width, by truncating. With
+     enlarged text the parent links alone can outgrow a phone column, so the
+     trail scrolls rather than clipping a link out of reach. */
   flex-wrap: nowrap;
   white-space: nowrap;
   min-width: 0;
+  overflow-x: auto;
 }
 
 .breadcrumbs > a,
