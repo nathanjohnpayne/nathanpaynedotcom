@@ -364,8 +364,9 @@ icon-library dependency.
   Garamond + Inter pairing—it does not redefine them or import new fonts.
 - The content-column section styling stays under the existing `.resume-*`
   classes (sections, entries, skills, certs, writing, `CompanyLogo`).
-- In-content links and the header contact links use the site's `--blue`
-  accent (via `--resume-link`), with the `→` arrow convention on the project
+- In-content links and the header contact links use `--blue-ink`, the site's
+  `--blue` accent darkened to pass WCAG AA as body-size text on paper and
+  cream (via `--resume-link`), with the `→` arrow convention on the project
   and writing links.
 - **Each project entry has a fixed anatomy** (#947), top to bottom: lifecycle kicker, name, tech list, destinations, description.
 

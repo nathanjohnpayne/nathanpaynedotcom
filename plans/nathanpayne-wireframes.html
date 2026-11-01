@@ -118,6 +118,31 @@
   .fw.desk .frame > .app,.fw.short .frame > .app{height:auto;flex:1 1 auto;min-height:0}
   .fw.tab .frame{width:var(--w-tab);height:var(--h-tab);transform:scale(var(--s-tab));border-radius:22px;box-shadow:0 0 0 14px #17171a,0 0 0 15.5px #45454c,0 16px 40px rgba(0,0,0,.22)}
   .fw.ph .frame{width:var(--w-ph);height:var(--h-ph);transform:scale(var(--s-ph));border-radius:44px;box-shadow:0 0 0 9px #17171a,0 0 0 10.5px #45454c,0 14px 34px rgba(0,0,0,.22)}
+  /* iPhone status bar, measured from an iPhone 17 Pro capture of /resume/ and Apple's
+     iOS UI kit: Safari's page starts 62pt down (the Dynamic Island devices' top safe
+     area), the island is 120×35 13pt from the top, and the time (9:41, SF Pro
+     Semibold 17pt) and system glyphs centre on the island. Device chrome, not site
+     UI: the canvas below it is 390 wide, 782 tall. Its fill is the page's root
+     background, which Safari shows behind it. */
+  .fw.ph .frame{display:flex;flex-direction:column}
+  .fw.ph .frame > .app{height:auto;flex:1 1 auto;min-height:0}
+  .sbar{height:62px;flex:0 0 auto;position:relative;color:#000;font:600 17px/1 -apple-system,"SF Pro Text",Inter,system-ui,sans-serif;letter-spacing:-.02em}
+  .sbar.on-dark{color:#fff}
+  .sbar .island{position:absolute;left:50%;top:13px;width:120px;height:35px;margin-left:-60px;border-radius:17.5px;background:#000}
+  .sbar .time,.sbar .sys{position:absolute;top:13px;height:35px;width:calc(50% - 60px);display:flex;align-items:center;justify-content:center}
+  .sbar .time{left:0;padding-left:16px}
+  .sbar .sys{right:0;gap:6px;padding-right:12px}
+  .sbar svg{display:block;fill:currentColor}
+  /* Safari's bottom toolbar (iOS 26+), measured from the same capture: three glass
+     pills 48pt tall, 30pt above the bottom edge, floating over the page rather than
+     shortening it: back/forward, the address pill, and tabs. */
+  .safari{position:absolute;left:31px;right:31px;bottom:30px;height:48px;display:flex;gap:7px;z-index:5;font:500 16px/1 -apple-system,"SF Pro Text",Inter,system-ui,sans-serif;color:#000;letter-spacing:-.01em}
+  .safari > span{display:flex;align-items:center;border-radius:24px;background:rgba(250,250,250,.72);backdrop-filter:blur(14px) saturate(1.6);-webkit-backdrop-filter:blur(14px) saturate(1.6);box-shadow:0 0 0 .5px rgba(0,0,0,.12),0 6px 18px rgba(0,0,0,.14)}
+  .safari .nav{width:74px;justify-content:space-around;padding:0 6px}
+  .safari .addr-pill{flex:1 1 auto;gap:10px;padding:0 14px}
+  .safari .addr-pill b{flex:1 1 auto;text-align:center;font-weight:500}
+  .safari .tabs{width:48px;justify-content:center}
+  .safari svg{display:block;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   .fw.print .frame{width:var(--w-print);height:var(--h-print);transform:scale(var(--s-print));box-shadow:0 0 0 1px #b9b9c2,0 10px 30px rgba(0,0,0,.18)}
   .unit.desk,.unit.short{--capw:720px}.unit.tab{--capw:460px}.unit.ph{--capw:390px}.unit.print{--capw:408px}
 
@@ -129,9 +154,9 @@
      ============================================================ */
   /* The homepage renders under data-palette="1930" (src/pages/index.astro): the
      higher-chroma register overrides the three planes on that page only. */
-  .app.home{--red:#da2418;--yellow:#f0c800;--blue:#0a5c9e}
+  .app.home{--red:#da2418;--yellow:#f0c800;--blue:#0a5c9e;--blue-ink:#0a5c9e}
   .app{
-    --ink:#11100d;--paper:#fff;--red:#e8784a;--yellow:#e3d477;--blue:#2080ca;--gray-plane:#dde1e5;--black:#11100d;
+    --ink:#11100d;--paper:#fff;--red:#e8784a;--yellow:#e3d477;--blue:#2080ca;--blue-ink:#1a66a2;--gray-plane:#dde1e5;--black:#11100d;
     --accent-black:#333333;--accent-paper:#5b5f64;--accent-gray:#d4d4d4;--cream:#f5f0e4;--surface:rgba(244,239,229,.96);
     --panel-open-bg:#e4ded0;--ink-warm:#171208;--blue-contrast:#f0f4ff;--stage-bg:#c4c3bc;--chrome-bg:#bdbeb8;--grid-border:#1a1814;
     --veil-on-red:#f2ede1;--veil-on-black:#efe8d8;--line:9px;--page-gutter:2rem;
@@ -154,7 +179,7 @@
   .app .breadcrumbs .sep{color:color-mix(in srgb,var(--ink) 35%,transparent);margin:0 .45em}
   .app .breadcrumbs .cur{color:color-mix(in srgb,var(--ink) 60%,transparent)}
   .app .deck{font-family:var(--font-heading);font-size:clamp(1.05rem,1.3cqw,1.4rem);line-height:1.45;max-width:38rem;color:color-mix(in srgb,var(--ink) 72%,transparent);margin-top:.9rem}
-  .app .deck b{color:var(--blue);font-weight:700}
+  .app .deck b{color:var(--blue-ink);font-weight:700}
   .app .eyebrow,.app .post-meta{font-family:var(--font-body);font-size:clamp(.65rem,.78cqw,.76rem);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-62);font-weight:500}
   .app .nav-button{display:inline-block;border:1px solid var(--ink);padding:.55rem .85rem;font-size:clamp(.8rem,.9cqw,.92rem);font-weight:600;letter-spacing:.14em;text-transform:uppercase;background:var(--paper);white-space:nowrap}
   .app .site-footer{display:flex;justify-content:space-between;align-items:center;gap:.8rem 1.2rem;flex-wrap:wrap;padding:1.1rem clamp(1.15rem,3cqw,2.5rem);background:var(--paper)}
@@ -183,7 +208,7 @@
   .app .band{background:var(--gray-plane);display:grid;place-items:center;padding:1.4rem clamp(1.15rem,3cqw,2.5rem);text-align:center}
   .app .band .post-meta{font-weight:600;color:var(--ink)}
   .app .band p{font-size:clamp(.88rem,.95cqw,.98rem);line-height:1.55;max-width:58ch;color:color-mix(in srgb,var(--ink) 78%,transparent)}
-  .app .band .blue-link{color:var(--blue);font-weight:600;text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--blue) 35%,transparent)}
+  .app .band .blue-link{color:var(--blue-ink);font-weight:600;text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--blue-ink) 35%,transparent)}
   .app .brand-band{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.4rem 2rem;text-align:left;place-items:start}
   .app .swatches{display:flex;gap:.9rem;flex-wrap:wrap;margin-top:.6rem}
   .app .swatch{display:flex;gap:.5rem;align-items:center;font-size:.72rem;line-height:1.25}
@@ -233,10 +258,14 @@
   /* résumé specifics */
   .app .resume h1{font-size:clamp(2.6rem,5cqw,4rem);line-height:1.04}
   .app .r-title{font-family:var(--font-heading);font-style:italic;font-size:clamp(1.1rem,1.4cqw,1.5rem);color:color-mix(in srgb,var(--ink) 78%,transparent);margin:.3rem 0 .6rem}
-  .app .r-contact{font-size:clamp(.82rem,.88cqw,.92rem);color:color-mix(in srgb,var(--ink) 66%,transparent);line-height:1.7}
-  .app .r-contact a{color:var(--blue);text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--blue) 35%,transparent)}
+  .app .r-contact{display:flex;flex-wrap:wrap;align-items:baseline;gap:.55rem .5rem;margin-top:.9rem;font-size:clamp(.82rem,.88cqw,.92rem);color:color-mix(in srgb,var(--ink) 66%,transparent)}
+  .app .r-contact--profiles{margin-top:.7rem}
+  .app .r-contact .sep{color:color-mix(in srgb,var(--ink) 30%,transparent)}
+  .app .r-contact a{color:var(--blue-ink);border-bottom:1px solid color-mix(in srgb,var(--blue-ink) 35%,transparent)}
   .app .r-actions{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:1rem}
-  .app .r-actions a{border:1px solid var(--rule);background:var(--paper);padding:.42rem .85rem;font-size:.8rem;font-weight:600;color:var(--blue)}
+  .app .r-actions a{display:inline-flex;align-items:center;border:1px solid var(--rule);background:var(--paper);padding:.42rem .85rem;font-size:clamp(.82rem,.88cqw,.92rem);line-height:1.4;color:var(--blue-ink)}
+  /* ContactIcon.astro: Lucide + brand glyphs, currentColor (global.css .contact-icon) */
+  .app .ci{width:.95em;height:.95em;margin-right:.32em;vertical-align:-.13em;flex-shrink:0}
   .app .r-sec{border-top:1px solid var(--rule);padding-top:1.6rem;margin-top:2.1rem}
   .app .r-sec:first-child{border-top:0;padding-top:0;margin-top:0}
   .app .r-sec h2{font-style:italic;font-size:clamp(1.4rem,1.25rem + .45cqw,1.85rem);margin-bottom:.8rem}
@@ -253,10 +282,10 @@
   .app .r-entry .meta{font-size:clamp(.8rem,.85cqw,.9rem);color:var(--ink-62);margin-top:.15rem}
   .app .r-entry ul{margin:.6rem 0 0;padding:0 0 0 1rem;list-style:none}
   .app .r-entry li{position:relative;font-size:clamp(.94rem,1cqw,1.02rem);line-height:1.55;margin-bottom:.35rem}
-  .app .r-entry li::before{content:"";position:absolute;left:-1rem;top:.6em;width:.36rem;height:.36rem;background:var(--blue)}
+  .app .r-entry li::before{content:"";position:absolute;left:-1rem;top:.6em;width:.36rem;height:.36rem;background:var(--blue-ink)}
   .app .r-status{font-size:.62rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-62)}
   .app .r-cta{margin-top:2rem;background:var(--paper);border-left:9px solid var(--red);padding:1rem 1.2rem;font-size:clamp(.94rem,1cqw,1.02rem)}
-  .app .r-cta a{color:var(--blue);font-weight:600}
+  .app .r-cta a{color:var(--blue-ink);font-weight:600}
 
   /* ---- project detail / privacy: single-column framed article ---- */
   .app.inner .page-shell{min-height:100%;padding:clamp(.9rem,2.5cqw,1.8rem) var(--page-gutter);background:linear-gradient(135deg,rgba(255,255,255,.42),rgba(255,255,255,0)),color-mix(in srgb,var(--accent) 16%,var(--cream))}
@@ -408,7 +437,8 @@
   .app.home .availability a{font-weight:600;text-decoration:underline;text-decoration-color:color-mix(in srgb,currentcolor 35%,transparent)}
   .app.home .social-stack{display:flex;flex-direction:column;gap:.35rem;margin:.3rem 0 .9rem}
   .app.home .social-row{display:flex;align-items:center;gap:.6rem;font-size:.9rem;font-weight:500}
-  .app.home .social-row .s-icon{width:18px;height:18px;border-radius:4px;background:var(--si,currentcolor);flex:0 0 auto}
+  .app.home .social-row .s-icon{width:.92rem;height:.92rem;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;opacity:.55}
+  .app.home .social-row .s-icon svg{width:.88rem;height:.88rem;fill:currentColor}
   .app.home .social-row .s-arrow{margin-left:auto;opacity:.75}
   /* closed-plane veils in the stack (the open-parchment rules do not apply there) */
   .app.home .panel--red:not(.is-open) .eyebrow.lbl,.app.home .panel--red:not(.is-open) .ribbon .items{color:color-mix(in srgb,var(--veil-on-red) 82%,transparent)}
@@ -497,9 +527,13 @@
   @container frame (max-width: 768px) {
     /* The 404 composition collapses at --bp-tablet, not --bp-stack
        (global.css @media (max-width: 768px) .error-mondrian). */
-    .app .error-mondrian{width:100%;grid-template-columns:var(--line) 1fr var(--line);grid-template-rows:var(--line) 1fr var(--line);min-height:100%}
-    .app .e-content{grid-column:2;grid-row:2}
-    .app .e-r,.app .e-y1,.app .e-b,.app .e-k,.app .e-g1,.app .e-g2,.app .e-y2,.app .e-w{display:none}
+    /* #1485: the card starts at the top, carries the red rail, and keeps the
+       desktop's lower two block rows at four tracks; the red block goes. */
+    .app .error-shell{align-items:flex-start;padding:0}
+    .app .error-mondrian{width:100%;grid-template-columns:var(--line) 1fr var(--line) 1fr var(--line) 1fr var(--line) 1fr var(--line);grid-template-rows:var(--line) auto var(--line) 3rem var(--line) 2.25rem var(--line)}
+    .app .e-content{--rail:var(--red);--rail-w:calc(var(--line) * 3);grid-column:2/9;grid-row:2;border-left:calc(var(--rail-w) + var(--line)) solid transparent;background-image:linear-gradient(to right,var(--rail) var(--rail-w),var(--ink) 0);background-origin:border-box;background-size:calc(var(--rail-w) + var(--line)) 100%;background-repeat:no-repeat}
+    .app .e-r{display:none}
+    .app .e-content .nav-button{min-height:44px}
     .app .mstrip,.app .cstrip{grid-template-columns:1fr 1fr}
     .app .mstrip > div:nth-child(3),.app .cstrip div:nth-child(3){border-left:0}
     .app .mstrip > div:nth-child(n+3),.app .cstrip div:nth-child(n+3){border-top:1px dotted var(--ink-32)}
@@ -535,8 +569,8 @@
   .app.print{background:#fff;color:#000;font-size:9.5pt;line-height:1.3;padding:.6in}
   .app.print h1{font-size:18pt;line-height:1.1}
   .app.print .r-title{font-size:11.5pt;font-style:italic;font-family:var(--font-heading);margin:.1in 0 .05in}
-  .app.print .r-contact{font-size:9.5pt}
-  .app.print .r-contact a{text-decoration:underline;text-decoration-thickness:.5pt}
+  .app.print .r-contact{font-size:9.5pt;margin-top:.26rem;gap:.1rem .4rem;line-height:1.3}
+  .app.print .r-contact--profiles{margin-top:.08rem}
   .app.print h2{font-size:14pt;font-style:italic;margin:.16in 0 .06in}
   .app.print h3{font-size:12pt;font-family:var(--font-heading);line-height:1.15}
   .app.print .meta{font-size:9pt;color:#000;margin-bottom:.04in}
@@ -558,7 +592,7 @@
 <body>
 
 <h1 id="sec-intro">nathanpayne.com — as-built wireframes, every page at every width it renders at</h1>
-<p class="sub">An <b>as-built reference, not a proposal.</b> Each frame draws the site exactly as <code>main</code> builds it today, painted with the shipped tokens from <code>src/styles/global.css</code>: the Mondrian/De Stijl homepage with its four focus states, and the inner pages on their framed reading canvases. Every page is authored once as a function returning markup and stamped at desktop (1440×900), tablet (834×1112) and phone (390×844), drawn as a macOS window, an iPad and an iPhone with the device chrome outside the canvas so the container width stays exact. The canvas is a CSS <em>size</em> container, so the same markup re-flows per width and per height with <code>@container</code> rules written to the site's own breakpoints (<code>--bp-narrow</code> 480, <code>--bp-tablet</code> 768, <code>--bp-stack</code> 1024 and the homepage's 840px height floor). Renditions that exist only at particular sizes get their own frames: the homepage's four open panels at 1440, the 1440×700 short window that the height axis sends to the stack, and the résumé's print layout on a Letter sheet.</p>
+<p class="sub">An <b>as-built reference, not a proposal.</b> Each frame draws the site exactly as <code>main</code> builds it today, painted with the shipped tokens from <code>src/styles/global.css</code>: the Mondrian/De Stijl homepage with its four focus states, and the inner pages on their framed reading canvases. Every page is authored once as a function returning markup and stamped at desktop (1440×900), tablet (834×1112) and phone (390×844), drawn as a macOS window, an iPad and an iPhone with the device chrome outside the canvas so the container width stays exact. The iPhone's status bar (62pt with the Dynamic Island, measured from an iPhone capture and Apple's iOS UI kit) takes the top of its 844, leaving a 390×782 canvas, and is filled with the page's root background as Safari shows it: chrome gray, or red behind the homepage stack. Safari's bottom toolbar floats over the page, as it does on the device. The canvas is a CSS <em>size</em> container, so the same markup re-flows per width and per height with <code>@container</code> rules written to the site's own breakpoints (<code>--bp-narrow</code> 480, <code>--bp-tablet</code> 768, <code>--bp-stack</code> 1024 and the homepage's 840px height floor). Renditions that exist only at particular sizes get their own frames: the homepage's four open panels at 1440, the 1440×700 short window that the height axis sends to the stack, and the résumé's print layout on a Letter sheet.</p>
 <p class="sub">Every frame carries a stable anchor of the form <code>#fx-&lt;page&gt;-&lt;rendition&gt;</code>. Captions name the breakpoint behaviour the frame shows. Copy is the public site copy, shortened where a frame would overflow; the gray hatched blocks stand in for screenshots and logos, which are the only things not drawn from source. Sources are listed in the file's header comment and under <a href="#sec-tokens">Tokens</a>.</p>
 <p class="sub callout accent"><b>Homepage stack: cover + reading surfaces (#1481).</b> Below 1024px wide or 840px tall, only the name, tagline and NOW stay on the red plane; Context, Approach, Writing and the three other panels sit on paper blocks with rails that cycle from the cover (blue, yellow, black, red), as the inner pages have since #1479. Connect closes on cream.</p>
 <p class="sub callout"><b>How to read a frame.</b>
@@ -631,7 +665,27 @@ const BUILDS = [
   ['Matchline', '□ In development', 'A career CRM that stops claims I can’t trace to approved evidence. Back in development and still unlaunched, at 48% extraction and 19% match against an 80% bar I set first.'],
   ['Swipe Watch', '◧ Experiment', 'A swipe prototype that asks for taste before a viewer presses play.'],
   ['Friends & Family Billing', '■ Shipped', 'Shared billing for nine people, with no recipient accounts.']];
-const SOCIAL = [['LinkedIn', '#006699'], ['GitHub', '#232925'], ['Bluesky', '#1f6fff'], ['Instagram', '#c13584'], ['Threads', '#111'], ['X', '#111']];
+const LUCIDE = (inner) => `<svg class="ci" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
+const BRAND = (d, vb = '0 0 24 24') => `<svg class="ci" viewBox="${vb}" fill="currentColor" aria-hidden="true">${d}</svg>`;
+const P = {
+  linkedin: '<path d="M20.45 20.45h-3.56v-5.57c0-1.33-.03-3.03-1.85-3.03-1.86 0-2.14 1.45-2.14 2.94v5.66H9.35V9.01h3.41v1.56h.05c.47-.9 1.64-1.86 3.37-1.86 3.6 0 4.27 2.38 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9.01h3.56v11.44z"/>',
+  github: '<path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.604-3.369-1.341-3.369-1.341-.454-1.154-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0 1 12 6.836a9.59 9.59 0 0 1 2.504.337c1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.202 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.744 0 .267.18.579.688.481C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/>',
+  bluesky: '<path d="M5.202 2.857C7.954 4.922 10.913 9.11 12 11.358c1.087-2.247 4.046-6.436 6.798-8.501C20.783 1.366 24 .213 24 3.883c0 .732-.42 6.156-.667 7.037-.856 3.061-3.978 3.842-6.755 3.37 4.854.826 6.089 3.562 3.422 6.299-5.065 5.196-7.28-1.304-7.847-2.97-.104-.305-.152-.448-.153-.327 0-.121-.05.022-.153.327-.568 1.666-2.782 8.166-7.847 2.97-2.667-2.737-1.432-5.473 3.422-6.3-2.777.473-5.899-.308-6.755-3.369C.42 10.04 0 4.615 0 3.883c0-3.67 3.217-2.517 5.202-1.026"/>',
+  instagram: '<path d="M8 5.2A2.8 2.8 0 1 0 8 10.8 2.8 2.8 0 0 0 8 5.2zM8 9.8A1.8 1.8 0 1 1 8 6.2 1.8 1.8 0 0 1 8 9.8z"/><path d="M11.2 1.6H4.8A3.2 3.2 0 0 0 1.6 4.8v6.4a3.2 3.2 0 0 0 3.2 3.2h6.4a3.2 3.2 0 0 0 3.2-3.2V4.8a3.2 3.2 0 0 0-3.2-3.2zm2.1 9.6a2.1 2.1 0 0 1-2.1 2.1H4.8a2.1 2.1 0 0 1-2.1-2.1V4.8a2.1 2.1 0 0 1 2.1-2.1h6.4a2.1 2.1 0 0 1 2.1 2.1v6.4z"/><circle cx="11.6" cy="4.4" r="0.9"/>',
+  threads: '<path d="M12.186 24h-.007c-3.581-.024-6.334-1.205-8.184-3.509C2.35 18.44 1.5 15.586 1.472 12.01v-.017c.03-3.579.879-6.43 2.525-8.482C5.845 1.205 8.6.024 12.18 0h.014c2.746.02 5.043.725 6.826 2.098 1.677 1.29 2.858 3.13 3.509 5.467l-2.04.569c-1.104-3.96-3.898-5.984-8.304-6.015-2.91.022-5.11.936-6.54 2.717C4.307 6.504 3.616 8.914 3.589 12c.027 3.086.718 5.496 2.057 7.164 1.43 1.783 3.631 2.698 6.54 2.717 2.623-.02 4.358-.631 5.8-2.045 1.647-1.613 1.618-3.593 1.09-4.798-.31-.71-.873-1.3-1.634-1.75-.192 1.352-.622 2.446-1.284 3.272-.886 1.102-2.14 1.704-3.73 1.79-1.202.065-2.361-.218-3.259-.801-1.063-.689-1.685-1.74-1.752-2.964-.065-1.19.408-2.285 1.33-3.082.88-.76 2.119-1.207 3.583-1.291a13.853 13.853 0 0 1 3.02.142c-.126-.742-.375-1.332-.75-1.757-.513-.586-1.308-.883-2.359-.89h-.029c-.844 0-1.992.232-2.721 1.32L7.734 7.847c.98-1.454 2.568-2.256 4.478-2.256h.044c3.194.02 5.097 1.975 5.287 5.388.108.046.216.094.321.142 1.49.7 2.58 1.761 3.154 3.07.797 1.82.871 4.79-1.548 7.158-1.85 1.81-4.094 2.628-7.277 2.65Zm1.003-11.69c-.242 0-.487.007-.739.021-1.836.103-2.98.946-2.916 2.143.067 1.256 1.452 1.839 2.784 1.767 1.224-.065 2.818-.543 3.086-3.71a10.5 10.5 0 0 0-2.215-.221z"/>',
+  x: '<path d="M18.9 2.25h2.8l-6.1 6.97 7.18 9.53h-5.62l-4.4-5.76-5.05 5.76H4.9l6.53-7.45L4.54 2.25h5.77l3.98 5.27zM17.92 17h1.55L9.5 3.92H7.84z"/>',
+};
+const ICON = {
+  mappin: LUCIDE('<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>'),
+  mail: LUCIDE('<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>'),
+  globe: LUCIDE('<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>'),
+  download: LUCIDE('<path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/>'),
+  calendar: LUCIDE('<path d="M8 2v3"/><path d="M16 2v3"/><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/>'),
+  linkedin: BRAND(P.linkedin),
+  github: BRAND(P.github),
+};
+const SOCIAL_ICON = (k) => `<svg viewBox="${k === 'instagram' ? '0 0 16 16' : '0 0 24 24'}" fill="currentColor" aria-hidden="true">${P[k]}</svg>`;
+const SOCIAL = [['LinkedIn', 'linkedin'], ['GitHub', 'github'], ['Bluesky', 'bluesky'], ['Instagram', 'instagram'], ['Threads', 'threads'], ['X', 'x']];
 function home(focus) {
   const open = p => focus === p ? ' is-open' : '';
   return `<div class="app home"><main class="stage"><section class="mondrian" data-focus="${focus === 'closed' ? '' : focus}">
@@ -663,7 +717,7 @@ function home(focus) {
     <div class="block block--white-c"></div><div class="block block--gray-e"></div><div class="block block--gray-d"></div>
     <article class="panel panel--blue${open('connect')}"><div class="panel-label">Connect</div>
       <div class="panel-content"><div class="content-inner"><h2>Connect</h2><p class="availability"><a>hire@nathanpayne.com<span class="arrow">→</span></a>&nbsp;· <a>Book time<span class="arrow">→</span></a></p>
-        <span class="eyebrow lbl">Elsewhere</span><div class="social-stack">${SOCIAL.map(([n, c]) => `<a class="social-row" style="--si:${c}"><span class="s-icon"></span><span>${n}</span><span class="s-arrow">→</span></a>`).join('')}</div>
+        <span class="eyebrow lbl">Elsewhere</span><div class="social-stack">${SOCIAL.map(([n, k]) => `<a class="social-row"><span class="s-icon">${SOCIAL_ICON(k)}</span><span>${n}</span><span class="s-arrow">→</span></a>`).join('')}</div>
         <div class="ribbon"><div class="ribbon-row"><span class="eyebrow lbl">Latest Post</span><a class="ribbon-exit">View all writing<span class="arrow">→</span></a></div><a class="items title">The Subagent Said It Was Unsafe<span class="arrow">→</span></a></div>
       </div></div></article>
   </section></main></div>`;
@@ -762,7 +816,9 @@ const EXP_COMPACT = [
   ['AJ', 'Director of Information Technology—AJ+', 'San Francisco · 2013–2016'],
   ['CT', 'Senior Systems Architect—Current TV', 'San Francisco · 2012–2013'],
   ['CN', 'Systems Architect / Support Roles—CNN', 'Washington, DC Bureau · 2002–2012']];
-const resumeHead = () => `${bc('Nathan Payne', 'Résumé')}<h1>Nathan Payne</h1><p class="r-title">Senior Platform Product Manager</p><p class="r-contact">San Francisco, CA · <a>hire@nathanpayne.com</a><br><a>nathanpayne.com</a> · <a>linkedin.com/in/nathanpayne</a> · <a>github.com/nathanjohnpayne</a></p>`;
+const SEP = '<span class="sep" aria-hidden="true">·</span>';
+const resumeContact = () => `<p class="r-contact r-contact--primary"><span>${ICON.mappin}San Francisco, CA</span>${SEP}<a>${ICON.mail}hire@nathanpayne.com</a></p><p class="r-contact r-contact--profiles"><a>${ICON.globe}nathanpayne.com</a>${SEP}<a>${ICON.linkedin}linkedin.com/in/nathanpayne</a>${SEP}<a>${ICON.github}github.com/nathanjohnpayne</a></p>`;
+const resumeHead = () => `${bc('Nathan Payne', 'Résumé')}<h1>Nathan Payne</h1><p class="r-title">Senior Platform Product Manager</p>${resumeContact()}`;
 const resumeBody = (print) => `
   <section class="r-sec"><h2>Summary</h2><p>Senior Platform Product Manager with 20+ years across media technology, consumer streaming, partner ecosystems, and platform infrastructure. Built and led systems behind Disney+, Hulu, and ESPN across Fire TV, PlayStation, Xbox, Roku, smart TVs, and major MVPD set-top boxes.</p><p>Recently focused on AI-augmented product development: building working products with coding agents, designing multi-agent review systems, and developing the governance and measurement practices that make agent-assisted delivery reliable.</p></section>
   <section class="r-sec"><h2>Skills</h2><div class="r-skill"><b>Product &amp; Platform</b><span>Platform strategy · Partner ecosystems · Device certification · Roadmap ownership · Program leadership · Release governance · Operational readiness</span></div><div class="r-skill"><b>AI-Augmented Development</b><span>Claude Code · Codex · Cursor · CodeRabbit · Anthropic / Claude API · OpenAI API · MCP · …</span></div><div class="r-skill"><b>Technical</b><span>TypeScript · JavaScript · React · Next.js · Astro · …</span></div></section>
@@ -774,7 +830,7 @@ const resumeBody = (print) => `
 function resume() {
   return `<div class="app inner resume" style="--accent:var(--red);--project-bg:#c4c3bc"><div class="shell"><div class="page-canvas canvas7">
     <div class="m-head"></div><div class="m-body"></div><div class="m-foot"></div>
-    <header class="c-head" data-rail="red">${resumeHead()}<div class="r-actions"><a>⤓ Download PDF</a><a>✉ Get in touch</a><a>▦ Book time</a></div></header>
+    <header class="c-head" data-rail="red">${resumeHead()}<div class="r-actions"><a>${ICON.download}Download PDF</a><a>${ICON.mail}Get in touch</a><a>${ICON.calendar}Book time</a></div></header>
     <dl class="c-meta" data-rail="blue"><div><dt>Location</dt><dd>San Francisco, CA</dd></div><div><dt>Availability</dt><dd>Open to senior product and platform roles, especially in streaming infrastructure, developer tools, and workflows that use AI</dd></div><div><dt>Focus</dt><dd>Platform · Streaming · AI-augmented development</dd></div><div><dt>Topics</dt><dd class="pills"><span class="pill">Connected-TV</span><span class="pill">Device certification</span><span class="pill">Subscription activation</span><span class="pill">Partner ecosystems</span><span class="pill">Observability</span><span class="pill">AI-augmented dev</span><span class="pill">Developer tools</span></dd></div></dl>
     <main class="c-content" data-rail="yellow">${resumeBody(false)}<div class="r-cta">Open to senior product/platform roles. <a>Get in touch→</a> · <a>Book time→</a></div></main>
     <aside class="c-side"><div class="side-h">In this résumé</div><ol class="side-toc">${['Summary', 'Skills', 'Experience', 'Education', 'Certifications', 'Projects', 'Writing'].map(t => `<li>${t}</li>`).join('')}</ol>
@@ -786,7 +842,7 @@ function resume() {
   </div></div></div>`;
 }
 function resumePrint() {
-  return `<div class="app print"><h1>Nathan Payne</h1><p class="r-title">Senior Platform Product Manager</p><p class="r-contact">San Francisco, CA · hire@nathanpayne.com · <a>nathanpayne.com</a> · <a>linkedin.com/in/nathanpayne</a> · <a>github.com/nathanjohnpayne</a></p>${resumeBody(true)}<div class="pgno">1 / 3</div></div>`;
+  return `<div class="app print"><h1>Nathan Payne</h1><p class="r-title">Senior Platform Product Manager</p>${resumeContact()}${resumeBody(true)}<div class="pgno">1 / 3</div></div>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -931,20 +987,35 @@ const PAGES = [
 
   { id: 'e404', title: '404 — page not found', url: 'nathanpayne.com/anything-else', sub: 'src/pages/404.astro: a flex-centred 100vh stage on #c4c3bc holding a 64rem Mondrian whose lines are 9px tracks — columns 2.4fr / 1fr / 1.2fr / .5fr, rows auto / 5rem / 3.5rem. The content cell (breadcrumb NATHAN PAYNE / 404, page h1, a #555 deck, outlined buttons HOMEPAGE · RÉSUMÉ · PROJECTS · BLOG · Privacy) spans columns 2–6 of the first row beside a red cell; below it yellow, blue (spanning two rows), #333 and #d4d4d4, then #d4d4d4, yellow and paper. There is no footer.',
     legend: [
-      '<b>≤768</b>: every colored block is hidden and the content cell alone sits in a black frame. ≤1023 also drops the shell padding so the frame meets the edges; ≤480 stacks the buttons full width.'],
+      '<b>≤768</b>: the grid re-tracks to four equal columns; the content cell spans them with the red accent rail, the red block is hidden, and the other seven blocks keep their desktop rows below it. The shell aligns to the top, and the buttons are at least 44px tall. ≤1023 also drops the shell padding so the frame meets the edges; ≤480 stacks the buttons full width.'],
     frames: [
       { id: 'desk', w: 'desk', kind: 'built', label: 'Desktop', fn: notFound, cap: 'The 64rem composition centred on the stage, content padded <code>clamp(2rem, 5vw, 4rem)</code>.' },
       { id: 'tab', w: 'tab', kind: 'built', label: 'Tablet', fn: notFound, cap: 'At 834 (≤1023 but >768) the composition still shows its blocks, now edge to edge with 6px lines.' },
-      { id: 'ph', w: 'ph', kind: 'built', label: 'Phone', fn: notFound, cap: 'Blocks hidden; the content cell fills the frame inside 6px of ink; buttons full width.' }] }];
+      { id: 'ph', w: 'ph', kind: 'built', label: 'Phone', fn: notFound, cap: 'The card starts at the top edge with the red accent rail, and the desktop’s lower two block rows follow at four equal tracks (yellow, blue over two rows, #333, gray; gray, yellow, paper), about 90px; the red block’s color moves to the rail. Buttons full width, 44px tall. Stage gray below.' }] }];
 
 // ---------------------------------------------------------------------------
 // Render
 // ---------------------------------------------------------------------------
+// Signal, Wi-Fi and battery are drawn here to the kit's sizes (17×12, 16×12, 27×13);
+// no Apple artwork is embedded.
+const STATUS_BAR = `<div class="sbar" aria-hidden="true"><span class="time">9:41</span><span class="island"></span><span class="sys">
+  <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="7.5" width="3.2" height="4.5" rx=".8"/><rect x="4.8" y="5" width="3.2" height="7" rx=".8"/><rect x="9.6" y="2.5" width="3.2" height="9.5" rx=".8"/><rect x="14.4" y="0" width="3.2" height="12" rx=".8"/></svg>
+  <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 11.6 5.74 9.34a3.2 3.2 0 0 1 4.52 0Z"/><path d="M3.4 7.0a6.5 6.5 0 0 1 9.2 0M.93 4.53a10 10 0 0 1 14.14 0" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/></svg>
+  <svg width="28" height="13" viewBox="0 0 28 13"><rect x=".5" y=".5" width="24" height="12" rx="3.8" fill="none" stroke="currentColor" stroke-opacity=".38"/><rect x="2" y="2" width="21" height="9" rx="2.5"/><path d="M26 4.5v4a2.1 2.1 0 0 0 0-4Z" fill-opacity=".4"/></svg>
+</span></div>`;
+// Safari's bottom toolbar, drawn (no Apple artwork): chevrons, page menu, the
+// page's domain, reload, tabs.
+const SAFARI_BAR = `<div class="safari" aria-hidden="true">
+  <span class="nav"><svg width="12" height="20" viewBox="0 0 12 20"><path d="M10 2 2 10l8 8"/></svg><svg width="12" height="20" viewBox="0 0 12 20"><path d="m2 2 8 8-8 8"/></svg></span>
+  <span class="addr-pill"><svg width="20" height="18" viewBox="0 0 20 18"><rect x="1" y="1" width="6" height="6" rx="1.2"/><path d="M1 11h18M1 16h12"/></svg><b>nathanpayne.com</b><svg width="18" height="18" viewBox="0 0 18 18"><path d="M15.5 9a6.5 6.5 0 1 1-2-4.7"/><path d="M14 1.5v3.6h-3.6"/></svg></span>
+  <span class="tabs"><svg width="22" height="22" viewBox="0 0 22 22"><rect x="7" y="7" width="13" height="13" rx="3"/><path d="M15 4.5V4a2.5 2.5 0 0 0-2.5-2.5H4A2.5 2.5 0 0 0 1.5 4v8.5A2.5 2.5 0 0 0 4 15h.5"/></svg></span>
+</div>`;
 function unit(page, f) {
   const id = `fx-${page.id}-${f.id}`;
-  const chrome = (f.w === 'desk' || f.w === 'short') ? `<div class="macbar"><i></i><i></i><i></i><span class="addr">${page.url}</span></div>` : '';
+  const chrome = (f.w === 'desk' || f.w === 'short') ? `<div class="macbar"><i></i><i></i><i></i><span class="addr">${page.url}</span></div>`
+    : f.w === 'ph' ? STATUS_BAR : '';
   return `<div class="unit ${f.w}" id="${id}"><div class="chips"><span class="fchip ${f.w}">${W[f.w]}</span><span class="fchip ${f.kind}">${f.kind}</span></div>
-    <div class="fw ${f.w}"><div class="frame">${chrome}${f.fn()}</div></div>
+    <div class="fw ${f.w}"><div class="frame">${chrome}${f.fn()}${f.w === 'ph' ? SAFARI_BAR : ''}</div></div>
     <p class="cap"><b>${f.label}</b>${f.cap}</p></div>`;
 }
 const doc = document.getElementById('doc'), toc = document.getElementById('toclist');
@@ -954,6 +1025,14 @@ for (const p of PAGES) {
   tocHtml += `<li><a href="#sec-${p.id}">${p.title}</a><span class="vars">${p.frames.map(f => `<a href="#fx-${p.id}-${f.id}">fx-${p.id}-${f.id}</a>`).join('')}</span></li>`;
 }
 doc.innerHTML = html;
+// The homepage stack paints the root red (html:has(.stage), width-only), which a
+// container query can't put on the canvas itself, so the phone bar takes it here.
+document.querySelectorAll('.sbar').forEach(bar => {
+  const app = bar.nextElementSibling, cs = getComputedStyle(app);
+  bar.style.background = app.classList.contains('home') ? cs.getPropertyValue('--red').trim() : cs.backgroundColor;
+  const [r, g, b] = getComputedStyle(bar).backgroundColor.match(/[\d.]+/g).map(Number);
+  if (0.2126 * r + 0.7152 * g + 0.0722 * b < 140) bar.classList.add('on-dark');
+});
 toc.innerHTML = tocHtml + '<li><a href="#sec-tokens">Tokens — palette with computed contrast</a></li><li><a href="#sec-bp">Breakpoints</a></li>';
 
 // token legend with computed WCAG contrast
@@ -972,7 +1051,8 @@ const TOKENS = [
   ['--ink-warm', '#171208', 'Warm near-ink text on yellow and on open parchment', '#e3d477', [['#e3d477', 'on yellow'], [PARCH, 'on parchment']]],
   ['--red', '#e8784a', 'About plane; accent cells; blog/résumé/book accent; rails', INK, [[INK, 'ink text on red (not used for body)', 'lg']]],
   ['--yellow', '#e3d477', 'Projects plane; accent cells; the article’s margin stripe; rails', INK, [['#171208', 'ink-warm on yellow']]],
-  ['--blue', '#2080ca', 'Connect plane; in-content and contact links; /blog and /privacy accent; rails', PAPER, [[PAPER, 'as link text on paper'], [SURF, 'as link text on surface']]],
+  ['--blue', '#2080ca', 'Connect plane; /blog and /privacy accent; rails. A plane color, not a text color (#1485)', null, []],
+  ['--blue-ink', '#1a66a2', '--blue darkened for link text: .p-link and the résumé links (#1485). The 1930 homepage maps it to its own --blue', PAPER, [[PAPER, 'link text on paper'], [SURF, 'link text on surface'], ['#dde1e5', 'link text on gray plane']]],
   ['--blue-contrast', '#f0f4ff', 'Light text on the blue plane (CONNECT label, availability line)', '#2080ca', [['#2080ca', 'on blue', 'lg']]],
   ['--accent-black', '#333333', 'Community plane and the “black” accent cells / rail — not --ink', CREAM, [[CREAM, 'cream text on it']]],
   ['--accent-gray', '#d4d4d4', 'Two homepage blocks; blog / résumé metadata panel; 404 cells', INK, [[INK, 'ink on it'], [mix(INK, '#d4d4d4', .48), '48% ink dt labels on it']]],
