@@ -48,10 +48,12 @@
 <style>
   /* ---------- page chrome (document, not site UI) ---------- */
   body{margin:0;padding:32px 24px 64px;background:#ececf0;color:#2a2a2e;font:14px/1.45 Inter,"Helvetica Neue",Arial,sans-serif}
-  h1{font-size:22px;margin:0 0 4px}
-  h2{font-size:16px;margin:40px 0 12px;border-top:1px solid #c9c9d0;padding-top:20px}
-  h3{font-size:14px;margin:26px 0 8px}
-  h4{font-size:12px;margin:22px 0 6px;color:#4a4a52;text-transform:uppercase;letter-spacing:.1em;font-weight:700}
+  /* Document headings only: :not(.app *) keeps these rules out of the
+     wireframe canvases, whose headings are the site's own. */
+  h1:not(.app *){font-size:22px;margin:0 0 4px}
+  h2:not(.app *){font-size:16px;margin:40px 0 12px;border-top:1px solid #c9c9d0;padding-top:20px}
+  h3:not(.app *){font-size:14px;margin:26px 0 8px}
+  h4:not(.app *){font-size:12px;margin:22px 0 6px;color:#4a4a52;text-transform:uppercase;letter-spacing:.1em;font-weight:700}
   .sub{color:#77777f;margin:0 0 14px;max-width:900px}
   .sub b{color:#2a2a2e}
   .sub code,.cap code,.legend code,.tokens code,.bptable code{font-family:ui-monospace,Menlo,monospace;font-size:.92em;background:#e2e2e8;padding:0 4px;border-radius:4px;color:#2a2a2e}
@@ -466,12 +468,14 @@
     .app.resume .c-foot{grid-row:8}
     .app .c-head,.app .c-content,.app .c-meta,.app .c-foot{background-color:var(--surface)}
     .app .c-head{background-color:var(--paper)}.app .c-foot{background-color:var(--paper)}.app.resume .c-meta{background-color:var(--accent-gray)}
-    .app .error-mondrian{width:100%;grid-template-columns:var(--line) 1fr var(--line);grid-template-rows:var(--line) 1fr var(--line);min-height:100%}
-    .app .e-content{grid-column:2;grid-row:2}
-    .app .e-r,.app .e-y1,.app .e-b,.app .e-k,.app .e-g1,.app .e-g2,.app .e-y2,.app .e-w{display:none}
   }
   /* ≤768 (--bp-tablet) */
   @container frame (max-width: 768px) {
+    /* The 404 composition collapses at --bp-tablet, not --bp-stack
+       (global.css @media (max-width: 768px) .error-mondrian). */
+    .app .error-mondrian{width:100%;grid-template-columns:var(--line) 1fr var(--line);grid-template-rows:var(--line) 1fr var(--line);min-height:100%}
+    .app .e-content{grid-column:2;grid-row:2}
+    .app .e-r,.app .e-y1,.app .e-b,.app .e-k,.app .e-g1,.app .e-g2,.app .e-y2,.app .e-w{display:none}
     .app .mstrip,.app .cstrip{grid-template-columns:1fr 1fr}
     .app .mstrip > div:nth-child(3),.app .cstrip div:nth-child(3){border-left:0}
     .app .mstrip > div:nth-child(n+3),.app .cstrip div:nth-child(n+3){border-top:1px dotted var(--ink-32)}
