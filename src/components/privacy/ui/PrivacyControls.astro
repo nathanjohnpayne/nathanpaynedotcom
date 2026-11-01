@@ -54,14 +54,40 @@ import controlsSource from './controls.js?raw';
   .privacy-controls [hidden] {
     display: none;
   }
+  /* The notice's button treatment (PrivacyNotice.astro), so both choice
+     surfaces read alike: no accent fill (the site's .nav-button hover paints
+     the page accent, blue on /privacy/, where ink measured only 4.53:1),
+     a light ink tint on hover, and a solid ink fill with a light label for
+     keyboard focus. "Turn analytics on" carries the notice's double line,
+     as its "Keep analytics on" does. */
   .privacy-controls .nav-button {
+    --np-button-bg: var(--paper);
     font-family: var(--font-body);
     line-height: normal;
     cursor: pointer;
+    background: var(--np-button-bg);
+    transition: transform var(--motion-hover) var(--ease-standard);
+  }
+  .privacy-controls .nav-button:hover {
+    --np-button-bg: color-mix(in srgb, var(--ink) 8%, var(--paper));
+    background: var(--np-button-bg);
+    color: var(--ink);
+  }
+  .privacy-controls .nav-button[data-np-privacy-action='grant'] {
+    /* 2px of the padding goes to the heavier border, so both buttons keep
+       one height. */
+    padding: calc(0.55rem - 2px) calc(0.85rem - 2px);
+    border: 3px solid var(--ink);
+    box-shadow:
+      inset 0 0 0 2px var(--np-button-bg),
+      inset 0 0 0 3px var(--ink);
   }
   .privacy-controls .nav-button:focus-visible {
-    outline: 2px solid currentColor;
-    outline-offset: 2px;
+    --np-button-bg: var(--ink);
+    outline: 3px solid transparent;
+    outline-offset: 3px;
+    background: var(--np-button-bg);
+    color: var(--paper);
   }
   .privacy-controls .nav-button:disabled {
     cursor: not-allowed;

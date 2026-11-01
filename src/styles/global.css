@@ -2247,6 +2247,16 @@ body.blog-page {
   transform: translateY(calc(var(--shift-small) * -1));
 }
 
+/* Ink on --blue passes AA by a hair (4.53:1) and reads poorly, so a blue
+   button fill uses the darker --blue-ink with a paper label (6.06:1).
+   :where keeps this at .nav-button:hover's own weight, so the privacy
+   notice's and controls' quieter hover (and the footer's) still win. */
+:where([data-accent='blue']) .nav-button:hover,
+:where([data-accent='blue']) .nav-button:focus-visible {
+  background: var(--blue-ink);
+  color: var(--paper);
+}
+
 /* The footer's Privacy link as an icon (PrivacyLink `icon`): a square button
    the height of its text neighbours. The glyph is one line box tall (1.2em at
    the button's font size), so equal padding on every side gives the same
@@ -4088,7 +4098,8 @@ a.tag:hover {
 .site-footer:not(.site-footer--detail) .nav-button:hover,
 .site-footer:not(.site-footer--detail) .nav-button:focus-visible {
   background: var(--red);
-  color: var(--cream);
+  /* Ink, as [data-accent='red'] uses: cream on this red is 2.56:1. */
+  color: var(--ink);
 }
 
 /* Mondrian grid footer row (blog + projects index): white band, thick rule. */
