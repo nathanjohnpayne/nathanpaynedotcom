@@ -2230,10 +2230,10 @@ body.blog-page {
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  transition:
-    background-color var(--motion-hover) var(--ease-standard),
-    color var(--motion-hover) var(--ease-standard),
-    transform var(--motion-hover) var(--ease-standard);
+  /* Only the lift eases. A fill and a label that fade together pass through
+     near-equal colors mid-hover (ink to paper over light to blue reads close
+     to 1:1), so the color swap is instant, as the privacy notice's is. */
+  transition: transform var(--motion-hover) var(--ease-standard);
 }
 
 .nav-button:hover,
@@ -2245,6 +2245,16 @@ body.blog-page {
   background: var(--accent, var(--ink));
   color: var(--accent-contrast, var(--cream));
   transform: translateY(calc(var(--shift-small) * -1));
+}
+
+/* Ink on --blue passes AA by a hair (4.53:1) and reads poorly, so a blue
+   button fill uses the darker --blue-ink with a paper label (6.06:1).
+   :where keeps this at .nav-button:hover's own weight, so the privacy
+   notice's and controls' quieter hover (and the footer's) still win. */
+:where([data-accent='blue']) .nav-button:hover,
+:where([data-accent='blue']) .nav-button:focus-visible {
+  background: var(--blue-ink);
+  color: var(--paper);
 }
 
 /* The footer's Privacy link as an icon (PrivacyLink `icon`): a square button
@@ -4091,7 +4101,8 @@ a.tag:hover {
 .site-footer:not(.site-footer--detail) .nav-button:hover,
 .site-footer:not(.site-footer--detail) .nav-button:focus-visible {
   background: var(--red);
-  color: var(--cream);
+  /* Ink, as [data-accent='red'] uses: cream on this red is 2.56:1. */
+  color: var(--ink);
 }
 
 /* Mondrian grid footer row (blog + projects index): white band, thick rule. */
