@@ -259,6 +259,31 @@ for (const width of BREAKPOINTS) {
     });
 
     if (width <= 1023) {
+      test('article title sits evenly between its kicker and its deck', async ({ page }) => {
+        await page.goto('/blog/six-prs-one-bug-agent-failure-modes/');
+        await page.waitForLoadState('domcontentloaded');
+        await page.evaluate(() => document.fonts.ready);
+        const gaps = await page.evaluate(() => {
+          // Ink-to-ink, not box-to-box: a Range over each element's text.
+          const ink = (sel: string) => {
+            const range = document.createRange();
+            range.selectNodeContents(document.querySelector(sel) as Element);
+            const rects = [...range.getClientRects()];
+            return {
+              top: Math.min(...rects.map((r) => r.top)),
+              bottom: Math.max(...rects.map((r) => r.bottom)),
+            };
+          };
+          const kicker = ink('.blog-header-kicker');
+          const title = ink('.blog-canvas-header h1');
+          const deck = ink('.blog-canvas-header .deck');
+          return { above: title.top - kicker.bottom, below: deck.top - title.bottom };
+        });
+        // The title belongs to both, so neither gap may run away from the
+        // other (the desktop margins left 8px above and ~29px below).
+        expect(Math.abs(gaps.above - gaps.below)).toBeLessThanOrEqual(4);
+      });
+
       test('mobile blog metadata text retains AA contrast on the accent plane', async ({
         page,
       }) => {
