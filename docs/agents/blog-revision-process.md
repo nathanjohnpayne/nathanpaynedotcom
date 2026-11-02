@@ -198,6 +198,23 @@ node scripts/check-blog-voice.mjs src/content/blog/autofix-was-the-whole-cost.md
 
 The Autofix sample produces advisory items for the authentic trust-burden contrast in body and pullquote metadata, a repeated deck opening, a sidebar signpost, a quoted qualification using “perhaps,” and recognized textual quotations, including source quotations and hypothetical narrator lines. Advisory counts can change when the review prompts change; evaluate each current finding rather than pinning the count. Its exact empty anchors produce no HTML warnings and do not downgrade pullquote verification. The revision adds changed-passages, metadata-change, negation/modal-change and protected-material-change prompts. HTML warnings from the before article also remain in revision packets when HTML is removed. These demonstrate why warnings are advisory: approved lines can match stock-pattern rules. They do not certify meaning or owner approval. All ten final merged posts passed mechanical checks in the corpus sweep; future changes must be checked anew.
 
+## The `aiUse` statement
+
+Every post and case study must carry an `aiUse` statement (`aiUse.statement`) saying how the text as it stands was written, and a stamp (`aiUse.reviewed`) recording the hash of the reader-facing content when the owner last confirmed it (#1490, #1492). The field is optional in the schema until the backfills land; #1498 makes it required. Any revision that changes the text puts the statement in question in the same diff. The review packet for the revision includes the proposed or updated statement, and the owner's approval in step 10 of the [blog writing workflow](../blog-writing-workflow.md#draft-and-review-step-by-step) covers it.
+
+Style rules. Every statement is written for its own piece; there are no shared or template statements.
+
+- Two or three first-person sentences: what the owner did, what AI actually did, and who made the final decisions. It is not a production log; `/how-i-write/` explains the general process.
+- Name the role plainly: "an agent wrote the first draft," not "AI helped draft." Use concrete verbs, never soft ones such as helped, assisted or supported, and never a bare "AI-assisted."
+- Describe the current text, including later model revisions, not the first draft. Change the statement wherever the record changes.
+- Say "edited" only where the record shows the owner changed the text. Where the owner read and accepted an agent's revision, say "reviewed and approved."
+- Do not close with "the perspective and final decisions are mine" by reflex.
+
+Two rules bind the agent:
+
+- An agent may draft or update a statement, but it re-stamps `reviewed` only after the owner confirms the statement in the PR. Recompute the value with `npm run --silent ai-use:hash -- <entry path>` (for example `src/content/blog/<slug>.md` or `src/content/projects/<slug>.mdx`); printing the hash is not a review.
+- An agent never edits a statement to describe less agent involvement than the record shows. Where the record is thin, say so in the statement rather than guess.
+
 ## Revisions move the post's "Updated" date
 
 Any merged commit that changes a post's Markdown body moves its last-updated time: the `Updated` month in the sidebar, JSON-LD `dateModified`, `article:modified_time` and the sitemap `<lastmod>` (specs/last-updated.md, #1168). That is the intended signal for a revision. A mechanical sweep that touches many bodies without changing what they say (an em dash pass, a spelling sweep, a link-format change) is not an update: after it merges, add its squash-merge SHA to `.freshness-ignore-revs` in a follow-up PR, with a comment saying why. Frontmatter-only edits never count, so a `description` or `homepageRank` change needs nothing.
