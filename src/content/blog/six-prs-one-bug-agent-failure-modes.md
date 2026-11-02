@@ -27,6 +27,11 @@ pullquotes:
   - text: "By prompt 11, I was offering to throw the template away."
     label: "What I said to the agent"
     accent: red
+aiUse:
+  statement: "Placeholder statement for layout testing only; not for merge."
+  reviewed:
+    content: "2f11a690f59ad6712d912c3e24ddab6b659b7398a089264899194fad9a5ee282"
+    date: "2026-11-01"
 ---
 
 [Friends & Family Billing](/projects/friends-and-family-billing/) sends invoices to my friends and family. In early April 2026, the template editor, Preview, and the email that arrived showed three versions of the same message. Text turned bold that nobody had bolded. The spacing changed between surfaces. [Issue #159](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/159) records both regressions. If I'm asking someone for money, I need to know what the email will say.
