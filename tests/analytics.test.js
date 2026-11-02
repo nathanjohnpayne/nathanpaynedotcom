@@ -794,8 +794,12 @@ describe('AI-use link events (#1511)', () => {
     // itself is what is under test. Added after the DOM write, which resets
     // the document's listeners.
     document.addEventListener('click', blocker);
-    const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
-    const script = scripts.find((x) => x.includes('ai_use_link_clicked'));
+    // Parse the page rather than regex-match <script> tags, so the lookup
+    // follows HTML's own rules (tag case, attributes) and finds the inline
+    // LinkAnalytics body however Astro serializes it.
+    const script = [...new DOMParser().parseFromString(html, 'text/html').scripts]
+      .map((el) => el.textContent)
+      .find((text) => text.includes('ai_use_link_clicked'));
     expect(script, `${route} should carry the LinkAnalytics script`).toBeDefined();
     const capture = vi.fn();
     window.posthog = posthog ? { capture } : undefined;
