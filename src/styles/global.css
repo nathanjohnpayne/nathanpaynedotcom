@@ -5145,7 +5145,7 @@ svg.mermaid foreignObject p {
   align-items: center;
   gap: 0.3em;
   font-family: var(--font-body);
-  font-size: clamp(0.72rem, 0.84vw, 0.8rem);
+  font-size: clamp(0.8rem, 0.95vw, 0.9rem);
   font-weight: 600;
   letter-spacing: 0.02em;
   white-space: nowrap;
@@ -5220,7 +5220,7 @@ svg.mermaid foreignObject p {
   margin: 0 0 0.6rem;
   font-family: var(--font-body);
   font-weight: 600;
-  font-size: clamp(0.7rem, 0.9vw, 0.78rem);
+  font-size: clamp(0.8rem, 1vw, 0.9rem);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--ink-62);
