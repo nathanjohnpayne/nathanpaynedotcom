@@ -34,7 +34,7 @@
     "acorn": "8.19.0",
     "astro": "7.4.4",
     "css-tree": "^3.2.1",
-    "eslint": "^10.13.0",
+    "eslint": "^10.14.0",
     "eslint-plugin-astro": "^3.2.1",
     "github-slugger": "^2.0.0",
     "globals": "^17.13.0",
