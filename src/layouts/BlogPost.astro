@@ -249,7 +249,7 @@ const jsonLd = {
             {showUpdated && <> &middot; Updated <time datetime={isoModified}>{updatedMonth}</time></>}
             {' '}&middot; {readingTime}
           </p>
-          {aiUse && <div class="blog-header-ai"><AiUseLink /></div>}
+          {aiUse && <div class="blog-header-ai"><AiUseLink surface="blog-header" title={title} /></div>}
         </div>
         <h1>{title}</h1>
         <p class="deck">{description}</p>
@@ -273,7 +273,7 @@ const jsonLd = {
           <div>
             <dt>Author</dt>
             <dd>{author}</dd>
-            {aiUse && <dd class="blog-sidebar-ai"><AiUseLink /></dd>}
+            {aiUse && <dd class="blog-sidebar-ai"><AiUseLink surface="blog-panel" title={title} /></dd>}
           </div>
           <div><dt>Reading time</dt><dd>{readingTime}</dd></div>
           <div>
@@ -321,7 +321,7 @@ const jsonLd = {
              .blog-postscript so it prints with the piece and sits above
              the prev/next cards and the author footer. Rendered here, not
              through the `sidebar` array, so no post can omit or move it. */}
-        {aiUse && <AiUseNote statement={aiUse.statement} variant="blog" />}
+        {aiUse && <AiUseNote statement={aiUse.statement} title={title} variant="blog" />}
 
         {/* ── End-of-post block (#622) ──────────────────────────────
              Prev/next by date + the author footer. Sits after
