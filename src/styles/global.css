@@ -5184,6 +5184,15 @@ svg.mermaid foreignObject p {
   margin-bottom: 0.3rem;
 }
 
+/* The kicker is a grid item, so it is a block formatting context: its last
+   child's bottom margin stays inside it instead of collapsing through. The
+   date line is the last child on a post without the link and closes the
+   kicker with .post-meta's 0.5rem; this line closes it with the same, so the
+   title sits as far below the kicker with the link as without it (#1513). */
+.blog-header-ai {
+  margin-bottom: 0.5rem;
+}
+
 /* Case-study action row: the last member, after the CTAs. */
 .project-actions .ai-use-link {
   margin-left: 0.35rem;
