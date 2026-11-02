@@ -1,8 +1,10 @@
 # AI-use statements for the case studies (#1496)
 
-Proposed `aiUse.statement` text for every entry in `src/content/projects/`, with the records each one was drafted from. Part of epic #1490. Drafted 2026-11-01 against `origin/main` at `b388d7ca76acbf35ac8fab3ea3b7c87889a5dcbd`.
+The `aiUse.statement` text for every entry in `src/content/projects/`, with the records each one was drafted from. Part of epic #1490. Drafted 2026-11-01 against `origin/main` at `b388d7ca76acbf35ac8fab3ea3b7c87889a5dcbd`; approved and stamped the same day.
 
-**Status: proposed, not approved.** No entry carries `aiUse` yet. The owner approves each statement verbatim on the pull request; only then are the `reviewed` stamps computed with `npm run --silent ai-use:hash -- <path>` and added, in a follow-up commit on the same pull request.
+**Status: approved and stamped.** An agent drafted a statement for each entry from the records below (#1509, `56dbf3ba`). The owner revised them and approved the final text verbatim in [the approval comment on #1509](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/1509#issuecomment-6566766077) (posted as nathanjohnpayne, 2026-11-02T01:16:57Z, which is 2026-11-01 Pacific). That comment is the source of truth for the wording: each entry's `aiUse.statement` matches it byte for byte, and its `aiUse.reviewed` stamp was computed with `npm run --silent ai-use:hash -- <path>` after the statement was in place, dated 2026-11-01.
+
+Each entry below gives the approved statement, the agent's superseded draft, the records the draft was built from and notes on that record. The approved statements say more about the owner's part than the draft did: that the owner directed the drafts, decided the framing and the visuals, and reviewed Claude's later edits before they went live. Those are the owner's own account, given in the approval; the repository record at drafting did not show them (see Record gaps).
 
 ## Scope and method
 
@@ -26,6 +28,12 @@ Recorded once here so each entry below lists only what is its own.
 
 `src/content/projects/five-across.mdx`
 
+**Approved statement** ([approval comment](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/1509#issuecomment-6566766077)):
+
+> At my direction, Claude wrote the first draft from the game's code, analytics, and event records, while I determined the story, its framing, and the visual evidence. I confirmed that the finale's freeze hadn't moved during the cruise, which let Claude correct its timing, and when Codex rewrote the piece in my voice, I requested three precision fixes and had two earlier lines restored because they made the point better. I approved the result and reviewed Claude's later card-summary revision before it went live.
+
+**Agent draft, superseded:**
+
 > Claude wrote this case study in August 2026 from the game's code, analytics and event data, then corrected the finale's timing in its October fact-check after I confirmed the freeze hadn't moved during the cruise. Codex then rewrote the page in my voice, and I approved it after asking for three precision fixes and two of the earlier lines back. Claude later rewrote the card summary, which the record doesn't show me reviewing.
 
 **Drafted from:**
@@ -40,6 +48,12 @@ Recorded once here so each entry below lists only what is its own.
 ## Mergepath
 
 `src/content/projects/mergepath.mdx`
+
+**Approved statement** ([approval comment](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/1509#issuecomment-6566766077)):
+
+> At my direction, Claude wrote the first draft from the Mergepath repositories, while I decided which parts of the work mattered and how to present them. After reading the live page, I sent it back to be shorter and sharper, and when Codex later rewrote it in first person, I requested two final wording changes. I approved that version and reviewed Claude's later card-summary revision.
+
+**Agent draft, superseded:**
 
 > Claude wrote this case study in August 2026 from Mergepath's repositories, then made it shorter and sharper after I read the live page and sent it back. After Claude's October fact-check, Codex rewrote the page in first person, and I approved it with two wording changes. Claude has since rewritten the card summary; nothing in the record shows me reviewing that line.
 
@@ -57,6 +71,12 @@ Recorded once here so each entry below lists only what is its own.
 
 `src/content/projects/override.mdx`
 
+**Approved statement** ([approval comment](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/1509#issuecomment-6566766077)):
+
+> At my direction, Claude wrote the first draft from Override's product specification and my investment documents. My feedback drove four more rounds of revision to the origin story, framing, and exhibits, and I decided which evidence and visuals belonged in the piece. Codex later rewrote it in first person and corrected the profit-split figure's units, and I approved that version and reviewed Claude's later additions about my Broadway investment and the card summary.
+
+**Agent draft, superseded:**
+
 > Claude wrote this case study in August 2026 from Override's product spec and my investment documents, then revised it four more times on my notes, reframing the origin story and replacing the exhibits. After Claude's October fact-check, Codex rewrote the page in first person, and I approved it along with its fix to the profit-split figure's units. Claude has since added the sentence about my Broadway investment and rewritten the card summary; the record doesn't show me reviewing either edit.
 
 **Drafted from:**
@@ -73,6 +93,12 @@ Recorded once here so each entry below lists only what is its own.
 
 `src/content/projects/device-source-of-truth.mdx`
 
+**Approved statement** ([approval comment](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/1509#issuecomment-6566766077)):
+
+> At my direction, Claude wrote the first draft from the demo's repository and my account of its origins: I had forked a Disney system and replaced its data with invented records. I decided how to frame that history and what the visuals should demonstrate, and when Codex rewrote the piece in my voice, I requested three specific sentences. I approved that version and reviewed Claude's later card-summary revision before publication.
+
+**Agent draft, superseded:**
+
 > Claude wrote this case study in August 2026 from the demo's repository and my account of where it came from: I forked a Disney system and reseeded it with invented data. After Claude's October fact-check, Codex rewrote it in my voice, and I approved that version once three sentences I asked for were in. Claude has since rewritten the card summary, an edit the record doesn't show me reviewing.
 
 **Drafted from:**
@@ -87,6 +113,12 @@ Recorded once here so each entry below lists only what is its own.
 ## Matchline
 
 `src/content/projects/matchline.mdx`
+
+**Approved statement** ([approval comment](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/1509#issuecomment-6566766077)):
+
+> At my direction, Claude wrote the first draft from the Matchline repository, and Codex later rewrote it in my voice. I supplied my real résumé example, wrote the three sentences weighing its two claims, and decided how the evidence and visuals should support that assessment. I approved that version and reviewed Claude's later additions—the bar-before-the-ruler lesson, the restart section, and the corrected latency figures—before they went live.
+
+**Agent draft, superseded:**
 
 > Claude wrote this case study in August 2026 from the Matchline repository, and Codex rewrote it in my voice in October. I asked for my real résumé example, wrote the three sentences that weigh its two claims, and approved that version. Since then Claude has added the bar-before-the-ruler lesson, the restart section and the corrected latency figures; the record shows I had the latency update merged and deployed, but not that I reviewed the other additions.
 
@@ -103,6 +135,12 @@ Recorded once here so each entry below lists only what is its own.
 
 `src/content/projects/swipe-watch.mdx`
 
+**Approved statement** ([approval comment](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/1509#issuecomment-6566766077)):
+
+> At my direction, Claude wrote the first draft from the prototype's repository, and I had it cut to a shorter read because the original was more than the story needed. When Codex rewrote it in first person, I requested a specific sentence about cost and changes to the card wording, and I decided what the visuals should emphasize. I approved the result and reviewed Claude's later revision to the card's opening sentence before publication.
+
+**Agent draft, superseded:**
+
 > Claude wrote this case study in August 2026 from the prototype's repository, then cut it to a short read in a second pass. After Claude's October fact-check, Codex rewrote it in first person, and I approved that version once it carried the cost sentence and card wording I asked for. Claude later rewrote the card's first sentence, an edit the record doesn't show me reviewing.
 
 **Drafted from:**
@@ -118,6 +156,12 @@ Recorded once here so each entry below lists only what is its own.
 
 `src/content/projects/friends-and-family-billing.mdx`
 
+**Approved statement** ([approval comment](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/1509#issuecomment-6566766077)):
+
+> At my direction, Claude wrote the first draft from the product's repository; when the opening got the households wrong, I corrected the account, supplied the actual count, and had Claude rewrite it. Codex later rewrote the piece in my voice, and I requested two wording fixes before approving it. When the app was redesigned, I selected and directed the visual presentation, gave feedback on the new screenshots, and reviewed Claude's updated lessons, captions, and card summary before they went live.
+
+**Agent draft, superseded:**
+
 > Claude wrote this case study in August 2026 from the product's repository and rewrote its opening after I pointed out that it had the households wrong and gave the real count. After Claude's October fact-check, Codex rewrote it in my voice, and I approved that version with two wording fixes. Claude has since revised the lessons and captions for the redesigned app and rewritten the card summary; the record shows my notes on the new screenshots, but not on that text.
 
 **Drafted from:**
@@ -130,6 +174,8 @@ Recorded once here so each entry below lists only what is its own.
 **Record notes:** #1454 shows the owner looked at the live page after #1453, but the notes it records are about the images, so the statement doesn't claim a review of the revised learning records.
 
 ## Record gaps
+
+These describe the repository record when the drafts were written. The owner's approval answers the first, third, fourth and fifth on the owner's own account: the approved statements say the owner reviewed each of those later Claude edits. No repository artifact records those reviews, so the stamp rests on the owner's attestation, which is the point of the approval. The Five Across card regression stays out of scope for #1496.
 
 - **No owner review of the October 15 card lines.** #1400 rewrote all seven `cardDescription` fields with no recorded owner review. Each statement says so. If the owner did review them, the clause can come out of every statement.
 - **Five Across card regression.** The #1400 card ("ran ten days at sea") reintroduces wording the owner's 2026-10-11 precision review removed from the metadata. Out of scope here, since #1496 changes no content, but worth an owner decision before the stamp freezes it.
