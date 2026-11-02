@@ -270,9 +270,7 @@ for (const width of BREAKPOINTS) {
         .filter((file) => /\.mdx?$/.test(file))
         .filter((file) => /^aiUse:/m.test(readFileSync(new URL(file, blogDir), 'utf8')))
         .map((file) => file.replace(/\.mdx?$/, ''));
-      const evennessPosts = [
-        ...new Set(['six-prs-one-bug-agent-failure-modes', ...aiUsePosts]),
-      ];
+      const evennessPosts = [...new Set(['six-prs-one-bug-agent-failure-modes', ...aiUsePosts])];
 
       for (const slug of evennessPosts) {
         test(`article title sits evenly between its kicker and its deck (${slug})`, async ({
