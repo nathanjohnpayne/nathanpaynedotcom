@@ -19,6 +19,9 @@ export async function GET(context: APIContext) {
     items: posts.map((post) => ({
       title: post.data.title,
       pubDate: post.data.date,
+      // Items carry only the description and link to the page. If feed items
+      // ever carry full content, they must carry the `aiUse` statement too
+      // (#1490).
       description: post.data.description,
       link: `/blog/${post.id}/`,
     })),

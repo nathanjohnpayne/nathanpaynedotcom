@@ -932,9 +932,10 @@ html[data-fonts-pending] .panel-label {
    Decision (#467): the clamp-sized dt eyebrows (.metadata-strip dt,
    .project-stack__label, .blog-sidebar-meta dt, .resume-canvas-meta dt)
    stay separate rather than joining via an --eyebrow--fluid modifier:
-   they split into two sub-patterns (two clamp() formulas, --ink-62 vs
-   0.48 ink) and are element-scoped dt rules, so a shared modifier would
-   still need every override and would only add markup churn. */
+   they split into two sub-patterns (two clamp() formulas; since #1502 all
+   four share --ink-62, the 0.48 ink having failed AA) and are
+   element-scoped dt rules, so a shared modifier would still need every
+   override and would only add markup churn. */
 .eyebrow {
   font-size: 0.56rem;
   letter-spacing: 0.16em;
@@ -2214,6 +2215,8 @@ body.blog-page {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+  /* Centered so the "AI use" link (#1493) sits on the buttons' midline. */
+  align-items: center;
   margin-top: var(--sp-lg);
   padding-left: clamp(1rem, 2.2vw, 1.6rem);
 }
@@ -4634,7 +4637,9 @@ a.tag:hover {
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--ink-62);
+  /* Full ink, as the panel's other values are: --ink-62 painted 4.32:1 on
+     the 8% pill over #d4d4d4, under AA and lighter than the label (#1502). */
+  color: var(--ink);
 }
 
 .blog-sidebar-meta dl {
@@ -4649,7 +4654,9 @@ a.tag:hover {
   font-size: clamp(0.58rem, 0.72vw, 0.68rem);
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--ink) 48%, transparent);
+  /* --ink-62, not 48% ink: 48% measured 3.07:1 on #d4d4d4 and 3.28:1 on
+     the pull-quote surface, under AA for ~10px text (#1502). */
+  color: var(--ink-62);
 }
 
 .blog-sidebar-meta dd {
@@ -4771,7 +4778,9 @@ a.tag:hover {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   font-style: normal;
-  color: color-mix(in srgb, var(--ink) 48%, transparent);
+  /* --ink-62, not 48% ink: 48% measured 3.07:1 on #d4d4d4 and 3.28:1 on
+     the pull-quote surface, under AA for ~10px text (#1502). */
+  color: var(--ink-62);
 }
 
 /* Mermaid measures node boxes in the build-time renderer, where Inter is not
@@ -5099,6 +5108,129 @@ svg.mermaid foreignObject p {
   background: var(--red);
 }
 
+/* ── AI-use disclosure (#1493, epic #1490) ──────────────────────────
+   A short "AI use" link near the top of each piece (AiUseLink.astro) jumps
+   to the "How this was written" block at its end (AiUseNote.astro). Rendered
+   only for an entry that carries `aiUse`.
+
+   The link is one class on every surface (blog metadata panel, phone header,
+   case-study action row), in the deck's 72% ink: --blue-ink measures 4.09:1
+   on the gray metadata panel, under AA. The rollover is .p-link's: a 1px
+   underline at 55% of the link's own color that goes full and 2px, with the
+   color, on hover and focus. Focus ring: the global a:focus-visible rule.
+   The universal reduced-motion rule zeroes the transitions. */
+.ai-use-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  font-family: var(--font-body);
+  font-size: clamp(0.72rem, 0.84vw, 0.8rem);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  color: color-mix(in srgb, var(--ink) 72%, transparent);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  text-decoration-color: color-mix(in srgb, currentColor 55%, transparent);
+  transition:
+    color var(--motion-hover) var(--ease-standard),
+    text-decoration-color var(--motion-hover) var(--ease-standard),
+    text-decoration-thickness var(--motion-hover) var(--ease-standard);
+}
+
+.ai-use-link:hover,
+.ai-use-link:focus-visible {
+  color: var(--ink);
+  text-decoration-thickness: 2px;
+  text-decoration-color: currentColor;
+}
+
+/* One em square before the text; NavIcon's own 1.2em is for button labels. */
+.ai-use-link .nav-icon {
+  width: 1em;
+  height: 1em;
+}
+
+/* Blog metadata panel: a second <dd> under the Author name, no new row. */
+.blog-sidebar-meta dd.blog-sidebar-ai {
+  margin-top: 0.35rem;
+}
+
+/* Phone header: its own line after the date line, tucked under it. Appending
+   it to the date line wraps. */
+.post-meta:has(+ .blog-header-ai) {
+  margin-bottom: 0.3rem;
+}
+
+/* Case-study action row: the last member, after the CTAs. */
+.project-actions .ai-use-link {
+  margin-left: 0.35rem;
+}
+
+/* The end block. Its label speaks in .blog-takeaways__heading's voice; the
+   statement sits one step under body prose, so it reads as a colophon. */
+.ai-use {
+  margin-top: clamp(2rem, 4vw, 3rem);
+  padding-top: clamp(1rem, 2vw, 1.4rem);
+  border-top: 1px solid var(--rule);
+  scroll-margin-top: calc(var(--line) + 1.5rem);
+}
+
+/* Case studies: the .project-related horizontal inset. */
+.ai-use--project {
+  padding-right: clamp(1.15rem, 3vw, 2.5rem);
+  padding-left: clamp(1.15rem, 3vw, 2.5rem);
+}
+
+.ai-use__heading {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  margin: 0 0 0.6rem;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: clamp(0.7rem, 0.9vw, 0.78rem);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-62);
+}
+
+.ai-use__heading .nav-icon {
+  width: 1.35em;
+  height: 1.35em;
+}
+
+.ai-use__statement {
+  max-width: 62ch;
+  margin: 0;
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: clamp(0.88rem, 0.95vw, 0.98rem);
+  line-height: 1.6;
+  color: var(--ink);
+  overflow-wrap: break-word;
+}
+
+/* The blog-prose link voice: inherited ink, a quiet underline, 2px on hover
+   and focus, so the link ends the sentence instead of reading as a button. */
+.ai-use__more {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--ink-32);
+  text-underline-offset: 0.16em;
+  transition:
+    text-decoration-color var(--motion-hover) var(--ease-standard),
+    text-decoration-thickness var(--motion-hover) var(--ease-standard);
+}
+
+.ai-use__more:hover,
+.ai-use__more:focus-visible {
+  text-decoration-thickness: 2px;
+  text-decoration-color: currentColor;
+}
+
 /* ── End-of-post block (#622) ───────────────────────────────────────
    Prev/next navigation + the author footer, separated from the post's
    closing line by a rule so the ending keeps its beat. Screen only —
@@ -5248,6 +5380,24 @@ svg.mermaid foreignObject p {
 
   .blog-takeaways__heading,
   .blog-takeaways__list li {
+    color: #000 !important;
+  }
+
+  /* The AI-use disclosure (#1493): the block is part of the piece and prints,
+     in black like the takeaways. The link above it points at an in-page
+     anchor, which does nothing on paper, so it is dropped. */
+  .ai-use-link {
+    display: none !important;
+  }
+
+  .ai-use {
+    border-top-color: #000;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .ai-use__heading,
+  .ai-use__statement {
     color: #000 !important;
   }
 
@@ -5871,6 +6021,12 @@ a:focus-visible {
   .project-actions {
     padding-left: 0.5rem;
     flex-direction: column;
+  }
+
+  /* The buttons stack full width; the "AI use" link (#1493) sits left-aligned
+     beneath them. */
+  .project-actions .ai-use-link {
+    align-self: flex-start;
   }
 
   .nav-button {
@@ -6514,7 +6670,9 @@ body.resume-page {
   font-size: clamp(0.58rem, 0.72vw, 0.68rem);
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--ink) 48%, transparent);
+  /* --ink-62, not 48% ink: 48% measured 3.07:1 on #d4d4d4 and 3.28:1 on
+     the pull-quote surface, under AA for ~10px text (#1502). */
+  color: var(--ink-62);
 }
 .resume-canvas-meta dd {
   font-family: var(--font-heading);
@@ -6538,7 +6696,9 @@ body.resume-page {
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--ink-62);
+  /* Full ink, as the panel's other values are: --ink-62 painted 4.32:1 on
+     the 8% pill over #d4d4d4, under AA and lighter than the label (#1502). */
+  color: var(--ink);
 }
 
 /* Main content column */

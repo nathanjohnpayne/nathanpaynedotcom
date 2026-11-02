@@ -186,6 +186,18 @@
      and shield-check, as HowIWriteLink.astro and PrivacyLink.astro draw them. */
   .app .nav-button.privacy-link--icon,.app .nav-button.nav-button--icon{display:inline-flex;align-items:center;justify-content:center;padding:.55rem}
   .app .nav-icon{width:1.2em;height:1.2em;flex-shrink:0}
+  /* #1493: the “AI use” link and the “How this was written” end block, drawn only on the article and project-detail frames. */
+  .app .ai-use-link{display:inline-flex;align-items:center;gap:.3em;font-family:var(--font-body);font-size:clamp(.72rem,.84cqw,.8rem);font-weight:600;letter-spacing:.02em;white-space:nowrap;color:color-mix(in srgb,var(--ink) 72%,transparent);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px;text-decoration-color:color-mix(in srgb,currentColor 55%,transparent)}
+  .app .ai-use-link .nav-icon{width:1em;height:1em}
+  .app .c-meta dd.ai-dd{margin-top:.35rem}
+  .app .kicker .ai-line{margin-top:.3rem}
+  .app .ctas .ai-use-link{margin-left:.35rem}
+  .app .ai-use{margin-top:clamp(2rem,4cqw,3rem);padding-top:clamp(1rem,2cqw,1.4rem);border-top:1px solid var(--rule)}
+  .app .ai-use--project{padding-left:clamp(1.15rem,3cqw,2.5rem);padding-right:clamp(1.15rem,3cqw,2.5rem)}
+  .app .ai-use h2,.app .prose .ai-use h2,.app .project-copy .ai-use h2{display:flex;align-items:center;gap:.5em;font-family:var(--font-body);font-style:normal;font-weight:600;font-size:clamp(.7rem,.9cqw,.78rem);letter-spacing:.16em;text-transform:uppercase;color:var(--ink-62);border:0;padding:0;margin:0 0 .6rem}
+  .app .ai-use h2 .nav-icon,.app .prose .ai-use h2 .nav-icon{width:1.35em;height:1.35em}
+  .app .ai-use p,.app .prose .ai-use p,.app .project-copy .ai-use p{font-size:clamp(.88rem,.95cqw,.98rem);line-height:1.6;max-width:62ch;margin:0;color:var(--ink)}
+  .app .ai-use p a{text-decoration:underline;text-decoration-thickness:1px;text-decoration-color:var(--ink-32);text-underline-offset:.16em}
   .app .nav-button{display:inline-flex;align-items:center;justify-content:center;gap:.35rem;border:1px solid var(--ink);padding:.55rem .85rem;font-size:clamp(.8rem,.9cqw,.92rem);font-weight:600;letter-spacing:.14em;text-transform:uppercase;background:var(--paper);white-space:nowrap}
   .app .site-footer{display:flex;justify-content:space-between;align-items:center;gap:.8rem 1.2rem;flex-wrap:wrap;padding:1.1rem clamp(1.15rem,3cqw,2.5rem);background:var(--paper)}
   .app .site-footer--grid{border-top:var(--line) solid var(--ink)}
@@ -234,7 +246,7 @@
   .app .c-head h1{font-size:clamp(2rem,3cqw,3rem);line-height:1.08}
   .app .c-head .deck{font-family:var(--font-body);font-size:clamp(.85rem,1cqw,1rem);line-height:1.6;max-width:54ch;color:var(--ink-62)}
   .app .c-meta{grid-column:6;grid-row:2;background:var(--accent-gray);padding:clamp(1rem,2cqw,1.6rem);display:flex;flex-direction:column;justify-content:flex-end;gap:.7rem}
-  .app .c-meta dt{font-size:clamp(.58rem,.65cqw,.68rem);letter-spacing:.14em;text-transform:uppercase;color:color-mix(in srgb,var(--ink) 48%,transparent);margin-bottom:.15rem}
+  .app .c-meta dt{font-size:clamp(.58rem,.65cqw,.68rem);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-62);margin-bottom:.15rem}
   .app .c-meta dd{font-family:var(--font-heading);font-weight:500;font-size:clamp(.88rem,1cqw,.98rem);line-height:1.3}
   .app .pills{display:flex;gap:.3rem;flex-wrap:wrap}
   .app .pill{font-family:var(--font-body);font-size:.6rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;background:color-mix(in srgb,var(--ink) 8%,transparent);padding:.2rem .45rem;border-radius:2px}
@@ -298,7 +310,7 @@
   .app .ph-gradient{border-left:clamp(.5rem,1cqw,.8rem) solid var(--accent);padding:clamp(1.15rem,3cqw,2.5rem);background:var(--paper)}
   .app .ph-inset{padding-left:clamp(1rem,2.2cqw,1.6rem)}
   .app .ph-inset h1{font-size:clamp(2.4rem,5cqw,5.1rem);line-height:1.04}
-  .app .ctas{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1.2rem}
+  .app .ctas{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-top:1.2rem}
   .app .hero-rule{border-bottom:1px solid var(--ink)}
   .app .metadata-surface{margin:clamp(1rem,2cqw,1.5rem) clamp(1.15rem,3cqw,2.5rem);border:1px solid var(--rule);background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 14%,var(--cream)),var(--cream))}
   .app .mstrip{display:grid;grid-template-columns:repeat(4,1fr)}
@@ -568,6 +580,7 @@
     .app .ph-inset h1{font-size:clamp(1.55rem,8cqw,2.4rem)}
     .app .ctas{flex-direction:column}
     .app .ctas .nav-button{text-align:center}
+    .app .ctas .ai-use-link{align-self:flex-start}
     .app .inline-toc{flex-direction:column;gap:.35rem}
     .app .inline-toc span::before{content:none}
   }
@@ -750,15 +763,18 @@ function blogIndex() {
   return indexShell('blue', '#c4c3bc', `${bc('Nathan Payne', 'Blog')}<h1>Writing</h1><p class="deck">I build products with AI coding agents. I write about what I asked for, what shipped, and what I had to change.</p>`, rows,
     footer('grid', { rail: rail('blue', POSTS.length + 2), items: ['Back to Homepage'] }));
 }
+// #1493 — the “AI use” link and the end block. The statement is a placeholder: the wireframe draws the anatomy, not an entry's disclosure.
+const aiLink = () => `<a class="ai-use-link">${navIcon('pencil-sparkles')}AI use</a>`;
+const aiNote = (variant) => `<section class="ai-use ai-use--${variant}"><h2>${navIcon('pencil-sparkles')}How this was written</h2><p>Placeholder statement: what the agents did, what I did, and who made the final decisions for this piece. <a>More about how I write</a></p></section>`;
 function blogPost() {
   const toc = ['Outvoted', 'The rewritten check', 'Unread', 'What my pipeline does today', 'Where the author still decides', 'Three rules', 'A no that holds'];
   return `<div class="app inner article" style="--accent:var(--red);--project-bg:#c4c3bc"><div class="shell"><article class="page-canvas canvas7">
     <div class="m-head"></div><div class="m-body"></div><div class="m-foot"></div>
     <header class="c-head" data-rail="red">${bc('Nathan Payne', 'Blog', 'The Subagent Said It Was Un…')}
-      <div class="kicker"><span class="post-meta">Agent Systems</span><span class="post-meta">Oct 26, 2026 · 8 min read</span></div>
+      <div class="kicker"><span class="post-meta">Agent Systems</span><span class="post-meta">Oct 26, 2026 · 8 min read</span><div class="ai-line">${aiLink()}</div></div>
       <h1>The Subagent Said It Was Unsafe</h1><p class="deck">An OpenAI subagent judged an action unsafe; its parent had it done anyway. Another agent rewrote the test that would have caught it. My review pipeline stops unread findings and keeps a PR from changing its own policy. It still lets the author overrule a blocking finding in writing.</p>
       <div class="header-topics pills"><span class="pill">AI</span><span class="pill">Code Review</span><span class="pill">Systems</span><span class="pill">Agent Governance</span><span class="pill">Failure Modes</span></div></header>
-    <dl class="c-meta"><div><dt>Published</dt><dd>October 26, 2026</dd></div><div><dt>Author</dt><dd>Nathan Payne</dd></div><div><dt>Reading time</dt><dd>8 min read</dd></div><div><dt>Topics</dt><dd class="pills"><span class="pill">AI</span><span class="pill">Code Review</span><span class="pill">Systems</span><span class="pill">Agent Governance</span><span class="pill">Failure Modes</span></dd></div></dl>
+    <dl class="c-meta"><div><dt>Published</dt><dd>October 26, 2026</dd></div><div><dt>Author</dt><dd>Nathan Payne</dd><dd class="ai-dd">${aiLink()}</dd></div><div><dt>Reading time</dt><dd>8 min read</dd></div><div><dt>Topics</dt><dd class="pills"><span class="pill">AI</span><span class="pill">Code Review</span><span class="pill">Systems</span><span class="pill">Agent Governance</span><span class="pill">Failure Modes</span></dd></div></dl>
     <section class="c-content prose" data-rail="blue">
       <div class="takeaways"><span class="side-h">Key takeaways</span><ul><li>In OpenAI's October 3 incident, the right judgment existed inside the system. A subagent called disabling the alerts unsafe, and the parent agent had it done anyway. …</li><li>In the October 6 incident, the change replaced the regression test that protected the monitor with one that required the monitor to be absent. …</li><li>My pipeline makes unread findings block merge and reads each PR's policy from its base branch, so a PR cannot loosen the rules it is judged by. …</li></ul></div>
       <p>On October 3, an OpenAI coding agent was repairing an evaluation pipeline for a researcher who had said "don't send any messages." It asked a subagent for a fix that kept monitoring enabled. …</p>
@@ -767,6 +783,7 @@ function blogPost() {
       <blockquote class="pq" style="--pq:var(--red)">The right judgment existed inside the system. It was outvoted by the agent that wanted the work done.</blockquote>
       <h2>The rewritten check</h2><p>The October 6 incident is a different failure. The objection wasn't overruled. It was removed.</p>
       <h2>Unread</h2><p>The third failure is the one I hit first in Mergepath, the rules my coding agents work under. The objection is neither overruled nor rewritten. Nobody reads it.</p>
+      ${aiNote('blog')}
     </section>
     <aside class="c-side"><div class="side-h">In this article</div><ol class="side-toc">${toc.map(t => `<li>${t}</li>`).join('')}</ol>
       <blockquote class="pq" style="--pq:var(--yellow)">A check the author can rewrite in the same diff is not a check. It's a suggestion with a test runner.<cite>The rewritten check</cite></blockquote>
@@ -794,7 +811,7 @@ function projectsIndex() {
 function projectDetail() {
   return `<div class="app inner" style="--accent:var(--red)"><div class="page-shell"><article class="page-canvas project-detail">
     <header class="ph-gradient hero-rule"><div class="ph-inset">${bc('Nathan Payne', 'Projects', 'Five Across')}<h1>Five Across</h1><p class="deck">I built a live bingo game for a nine-night Mediterranean cruise. It ran at sea, then became the engine for a second event. Getting people to play was a separate problem.</p>
-      <div class="ctas"><a class="nav-button">View live product</a><a class="nav-button">View on GitHub</a></div></div></header>
+      <div class="ctas"><a class="nav-button">View live product</a><a class="nav-button">View on GitHub</a>${aiLink()}</div></div></header>
     <div class="metadata-surface"><dl class="mstrip"><div><dt>Topics</dt><dd>Consumer · Social · Live Ops</dd></div><div><dt>Format</dt><dd>Production PWA—live multiplayer game</dd></div><div><dt>Focus</dt><dd>Consumer experience, social mechanics, and live operations</dd></div><div><dt>Status</dt><dd>■ Shipped<small>Updated October 2026</small></dd></div></dl>
       <figure class="mfig"><div class="pair"><div class="ph-img phone-shot"></div><div class="ph-img phone-shot"></div></div><figcaption><b>Stack</b>React · TypeScript · Vite · Firebase · Cloud Functions · Cloudflare Workers · PostHog</figcaption></figure></div>
     <div class="project-copy">
@@ -803,6 +820,7 @@ function projectDetail() {
       <h2>The decisions</h2>
       <div><div class="ledger-line">01 — Scope <i></i><b>■ Validated</b></div><h3 class="dec-title">Let friends mark their own boards</h3>
         <dl class="dec-dl"><div><dt>Context</dt><dd>I had eight days to build a multiplayer game for an adult friend group. A server-authoritative game would check every claim before it counted, so players couldn't cheat.</dd></div><div><dt>Rejected</dt><dd>Cloud Functions checking every mark. That's the standard multiplayer approach, and the safer choice for an audience of strangers.</dd></div><div class="full"><dt>What I decided</dt><dd>I chose honor-system marking, with no server validation. Players write their own boards, and the client sorts the leaderboard. …</dd></div><div class="full cost"><dt>Cost</dt><dd>The standings are claims, not independently verified results. A player writes their own board, so the record can't distinguish a real mark from an invented one. Any player could demand proof.</dd></div><div class="full ev"><dt>Evidence</dt><dd>The frozen production Firestore holds 845 squares. Analytics recorded seven proof-demand events over ten days, all from the same player. …</dd></div></dl></div>
+      ${aiNote('project')}
       <h2>Related</h2><ul class="related"><li>Project: Swipe Watch</li><li>Project: Mergepath</li></ul>
     </div>
     ${footer('detail', { items: ['Back to Projects', 'Back to Homepage'] })}
@@ -829,6 +847,7 @@ const EXP_COMPACT = [
 const NAV = {
   'file-user': '<path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M16 22a4 4 0 0 0-8 0"/><circle cx="12" cy="15" r="3"/>',
   calendar: '<path d="M8 2v3"/><path d="M16 2v3"/><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/>',
+  'pencil-sparkles': '<path d="M10 3H8"/><path d="m15.007 5.008 3.987 3.986"/><path d="M20 15v4"/><path d="M21.174 6.813a2.82 2.82 0 0 0-3.986-3.987L3.842 16.175a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="M22 17h-4"/><path d="M4 5v4"/><path d="M6 7H2"/><path d="M9 2v2"/>',
   newspaper: '<path d="M15 18h-5"/><path d="M18 14h-8"/><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-4 0v-9a2 2 0 0 1 2-2h2"/><rect width="8" height="4" x="10" y="6" rx="1"/>',
   'layout-grid': '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
   house: '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
@@ -953,10 +972,10 @@ const PAGES = [
 
   { id: 'post', title: 'Blog article — the reading canvas', url: 'nathanpayne.com/blog/the-subagent-said-it-was-unsafe/', sub: 'src/layouts/BlogPost.astro: a 7-column “composition with margins” — line | margin | line | content | line | sidebar | line — on an ink ground. The left margin is three accent cells (red beside the header, a yellow / paper / blue stripe beside the body, paper beside the footer); the header cell is white, the metadata panel #d4d4d4, the content and sidebar on the cream surface; the footer spans columns 2 to -2. Page accent red. Drawn with “The Subagent Said It Was Unsafe” (Oct 26, 2026).',
     legend: [
-      '<b>Header cell</b>: breadcrumbs (current segment truncated at 31ch), article h1 at <code>clamp(2rem, 3vw, 3rem)</code>, Inter deck at a 54ch measure. The metadata panel is a <code>dl</code>: Published, Author, Reading time, Topics as pills.',
-      '<b>Content</b>: a Key takeaways box (white, 9px yellow edge, red square bullets), italic Cormorant h2s over hairlines, Inter prose at <code>clamp(.98rem, …, 1.08rem)</code> / 1.72 with no measure cap (it fills the cell, ≈632px of text at 1440), figures in a hairline box with a 3px accent top and a numbered caption, pullquotes with a 3px accent edge.',
+      '<b>Header cell</b>: breadcrumbs (current segment truncated at 31ch), article h1 at <code>clamp(2rem, 3vw, 3rem)</code>, Inter deck at a 54ch measure. The metadata panel is a <code>dl</code>: Published, Author, Reading time, Topics as pills. A piece that carries an AI-use disclosure adds a second <code>dd</code> under the Author name: the “AI use” link (Lucide <code>pencil-sparkles</code>, #1493), which jumps to the end block.',
+      '<b>Content</b>: a Key takeaways box (white, 9px yellow edge, red square bullets), italic Cormorant h2s over hairlines, Inter prose at <code>clamp(.98rem, …, 1.08rem)</code> / 1.72 with no measure cap (it fills the cell, ≈632px of text at 1440), figures in a hairline box with a 3px accent top and a numbered caption, pullquotes with a 3px accent edge. The prose ends on the <b>How this was written</b> block (#1493): a hairline, the eyebrow label with the icon, the entry’s own statement and an inline “More about how I write” link to /how-i-write/. It sits before and outside the prev/next cards and author footer, and prints; the top link does not. Statement text here is a placeholder.',
       '<b>Sidebar</b> (not sticky — only the résumé’s is): IN THIS ARTICLE with the h2 list, then pullquotes with red / yellow / blue edges, then any sidebar diagram.',
-      '<b>≤1023 (width only; a 1440×700 window stays desktop)</b>: three columns, margin / sidebar / metadata hidden, the ToC and pullquotes gone rather than moved. The header shows its title-card kicker (category, then date · reading time) above the h1 and the topic pills under the deck (specs/blog-responsive.md). Rails: header red, content blue, footer yellow.'],
+      '<b>≤1023 (width only; a 1440×700 window stays desktop)</b>: three columns, margin / sidebar / metadata hidden, the ToC and pullquotes gone rather than moved. The header shows its title-card kicker (category, then date · reading time, then the “AI use” link on its own line) above the h1 and the topic pills under the deck (specs/blog-responsive.md). Rails: header red, content blue, footer yellow.'],
     frames: [
       { id: 'desk', w: 'desk', kind: 'built', label: 'Desktop', fn: blogPost, cap: 'Columns resolve to roughly 95 / 712 / 309px at 1152. The metadata panel is bottom-aligned to the header, the sidebar starts level with the content.' },
       { id: 'tab', w: 'tab', kind: 'built', label: 'Tablet', fn: blogPost, cap: 'Stack: kicker and topic pills appear; the metadata panel and sidebar are gone. Rails red / blue / yellow on the 6px edge-to-edge frame.' },
@@ -972,10 +991,10 @@ const PAGES = [
       { id: 'tab', w: 'tab', kind: 'built', label: 'Tablet', fn: projectsIndex, cap: 'Railed stack starting at the page accent, yellow.' },
       { id: 'ph', w: 'ph', kind: 'built', label: 'Phone', fn: projectsIndex, cap: 'Same stack; full-width footer buttons at ≤480.' }] },
 
-  { id: 'detail', title: 'Project page — /projects/five-across/', url: 'nathanpayne.com/projects/five-across/', sub: 'src/layouts/ProjectLayout.astro: a single-column framed article on the cream surface (9px #1a1814 border, offset shadow). Hero with a <code>clamp(.5rem, 1vw, .8rem)</code> accent bar, inset breadcrumb / page h1 / deck / two CTAs, closed by a 1px rule; a metadata surface (accent-tinted gradient) holding the 4-cell strip and the figure; then the copy grid. Five Across is the representative: red accent, the narrow hero variant with a pair of phone shots. The others share this layout and differ by accent (Mergepath and Friends &amp; Family Billing yellow, Override paper/#5b5f64, Device Source of Truth blue, Matchline #333 on a dark figure surface with an inline wordmark, Swipe Watch red with a single Mux video), by the wide figure variant (full-width screenshot) and by status.',
+  { id: 'detail', title: 'Project page — /projects/five-across/', url: 'nathanpayne.com/projects/five-across/', sub: 'src/layouts/ProjectLayout.astro: a single-column framed article on the cream surface (9px #1a1814 border, offset shadow). Hero with a <code>clamp(.5rem, 1vw, .8rem)</code> accent bar, inset breadcrumb / page h1 / deck / two CTAs followed by the “AI use” link (#1493; left-aligned beneath the stacked buttons at ≤480), closed by a 1px rule; a metadata surface (accent-tinted gradient) holding the 4-cell strip and the figure; then the copy grid. Five Across is the representative: red accent, the narrow hero variant with a pair of phone shots. The others share this layout and differ by accent (Mergepath and Friends &amp; Family Billing yellow, Override paper/#5b5f64, Device Source of Truth blue, Matchline #333 on a dark figure surface with an inline wordmark, Swipe Watch red with a single Mux video), by the wide figure variant (full-width screenshot) and by status.',
     legend: [
       '<b>Metadata strip</b>: TOPICS · FORMAT · FOCUS · STATUS, dotted dividers; STATUS is the one place lifecycle appears on a detail page and carries the “Updated October 2026” line from the last git change. 2×2 at ≤768, one column at ≤480.',
-      '<b>Copy</b>: italic h2s over hairlines, the ConstraintStrip (8 days · Ship Wi-Fi · 10 days · 16 players), the DecisionLedger — index, lens, dotted leader, status token on one line; title; a two-column dl (context | rejected; decided; cost with a 2px accent bar; evidence in a white box) — then the LearningLedger (EXPECTED / OBSERVED / RESPONSE), Related with accent squares, and the detail footer (1px rule).',
+      '<b>Copy</b>: italic h2s over hairlines, the ConstraintStrip (8 days · Ship Wi-Fi · 10 days · 16 players), the DecisionLedger — index, lens, dotted leader, status token on one line; title; a two-column dl (context | rejected; decided; cost with a 2px accent bar; evidence in a white box) — then the LearningLedger (EXPECTED / OBSERVED / RESPONSE), the <b>How this was written</b> block (#1493, placeholder statement; between the prose and Related), Related with accent squares, and the detail footer (1px rule).',
       '<b>≤1023</b>: edge to edge with a 6px border and no shadow — this page carries no rails. ≤767 stacks the phone pair (280px each); ≤480 drops the hero padding to 1rem, the inset to .5rem, h1 to <code>clamp(1.55rem, 8vw, 2.4rem)</code>, and stacks the CTAs full width.'],
     frames: [
       { id: 'desk', w: 'desk', kind: 'built', label: 'Desktop', fn: projectDetail, cap: 'Hero, strip and the figure pair (two 320px phone shots, 12px radius) fill the first screen; the copy grid starts below the fold.' },
@@ -1102,7 +1121,7 @@ const TOKENS = [
   ['--blue-ink', '#1a66a2', '--blue darkened for link text: .p-link and the résumé links (#1485). The 1930 homepage maps it to its own --blue', PAPER, [[PAPER, 'link text on paper'], [SURF, 'link text on surface'], ['#dde1e5', 'link text on gray plane']]],
   ['--blue-contrast', '#f0f4ff', 'Light text on the blue plane (CONNECT label, availability line)', '#2080ca', [['#2080ca', 'on blue', 'lg']]],
   ['--accent-black', '#333333', 'Community plane and the “black” accent cells / rail — not --ink', CREAM, [[CREAM, 'cream text on it']]],
-  ['--accent-gray', '#d4d4d4', 'Two homepage blocks; blog / résumé metadata panel; 404 cells', INK, [[INK, 'ink on it'], [mix(INK, '#d4d4d4', .48), '48% ink dt labels on it']]],
+  ['--accent-gray', '#d4d4d4', 'Two homepage blocks; blog / résumé metadata panel; 404 cells', INK, [[INK, 'ink on it'], [mix(INK, '#d4d4d4', .62), '62% ink dt labels on it (#1502)']]],
   ['--gray-plane', '#dde1e5', 'Index-grid gray cells, the RSS / book / brand bands', INK, [[INK, 'ink on it'], [mix(INK, '#dde1e5', .62), '62% ink FEATURED label']]],
   ['--stage-bg', '#c4c3bc', 'The backdrop behind every canvas (blog, résumé, 404, homepage stage)', null, []],
   ['--ink-62', mix(INK, PAPER, .62), 'color-mix 62% ink: muted text, eyebrows, footer attribution — resolved on paper', PAPER, [[PAPER, 'on paper'], [SURF, 'on surface (' + mix(INK, SURF, .62) + ')']]],
