@@ -200,7 +200,7 @@ The Autofix sample produces advisory items for the authentic trust-burden contra
 
 ## The `aiUse` statement
 
-Every post and case study carries an `aiUse` statement (`aiUse.statement`) saying how the text as it stands was written, and a stamp (`aiUse.reviewed`) recording the hash of the reader-facing content when the owner last confirmed it (#1490, #1492). Any revision that changes the text puts the statement in question in the same diff. The review packet for the revision includes the proposed or updated statement, and the owner's approval in step 10 of the [blog writing workflow](../blog-writing-workflow.md#draft-and-review-step-by-step) covers it.
+Every post and case study must carry an `aiUse` statement (`aiUse.statement`) saying how the text as it stands was written, and a stamp (`aiUse.reviewed`) recording the hash of the reader-facing content when the owner last confirmed it (#1490, #1492). The field is optional in the schema until the backfills land; #1498 makes it required. Any revision that changes the text puts the statement in question in the same diff. The review packet for the revision includes the proposed or updated statement, and the owner's approval in step 10 of the [blog writing workflow](../blog-writing-workflow.md#draft-and-review-step-by-step) covers it.
 
 Style rules. Every statement is written for its own piece; there are no shared or template statements.
 
