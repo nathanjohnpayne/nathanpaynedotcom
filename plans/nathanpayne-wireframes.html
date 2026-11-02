@@ -357,8 +357,10 @@
   .app .error-mondrian{width:min(64rem,100%);display:grid;grid-template-columns:var(--line) 2.4fr var(--line) 1fr var(--line) 1.2fr var(--line) .5fr var(--line);grid-template-rows:var(--line) auto var(--line) 5rem var(--line) 3.5rem var(--line);background:var(--ink)}
   .app .e-content{grid-column:2/7;grid-row:2;background:var(--paper);padding:clamp(2rem,5cqw,4rem)}
   .app .e-content h1{font-size:clamp(2.4rem,5cqw,5.1rem);line-height:1.04}
-  /* The 404's eight destinations: two even rows of four above 480 (#1494). */
+  /* The 404's eight destinations (#1494): four columns from 900px, two from 481px, stacked at <=480. */
   .app .e-content .ctas.e-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+  /* The frames use container queries; 899px matches the site's four-column floor. */
+  @container frame (max-width: 899px) {.app .e-content .ctas.e-actions{grid-template-columns:repeat(2,minmax(0,1fr))}}
   .app .e-content .deck{font-family:var(--font-body);color:#555;font-size:clamp(.95rem,1.1cqw,1.1rem)}
   .app .e-r{grid-column:8;grid-row:2;background:var(--red)}
   .app .e-y1{grid-column:2;grid-row:4;background:var(--yellow)}
@@ -1057,12 +1059,12 @@ const PAGES = [
       { id: 'tab', w: 'tab', kind: 'built', label: 'Tablet', fn: brand, cap: 'Single column, planes hidden, no rails.' },
       { id: 'ph', w: 'ph', kind: 'built', label: 'Phone', fn: brand, cap: 'Same; chips wrap under each title.' }] },
 
-  { id: 'e404', title: '404 — page not found', url: 'nathanpayne.com/anything-else', sub: 'src/pages/404.astro: a flex-centred 100vh stage on #c4c3bc holding a 64rem Mondrian whose lines are 9px tracks — columns 2.4fr / 1fr / 1.2fr / .5fr, rows auto / 5rem / 3.5rem. The content cell (breadcrumb NATHAN PAYNE / 404, page h1, a #555 deck, eight outlined buttons, each led by its icon, in two even rows of four above 480px: HOMEPAGE · RÉSUMÉ · PROJECTS · BLOG, then BOOK · BRAND · HOW I WRITE · PRIVACY) spans columns 2–6 of the first row beside a red cell; below it yellow, blue (spanning two rows), #333 and #d4d4d4, then #d4d4d4, yellow and paper. There is no footer.',
+  { id: 'e404', title: '404 — page not found', url: 'nathanpayne.com/anything-else', sub: 'src/pages/404.astro: a flex-centred 100vh stage on #c4c3bc holding a 64rem Mondrian whose lines are 9px tracks — columns 2.4fr / 1fr / 1.2fr / .5fr, rows auto / 5rem / 3.5rem. The content cell (breadcrumb NATHAN PAYNE / 404, page h1, a #555 deck, eight outlined buttons, each led by its icon, in equal columns: two rows of four from 900px (HOMEPAGE · RÉSUMÉ · PROJECTS · BLOG, then BOOK · BRAND · HOW I WRITE · PRIVACY), four rows of two from 481px to 899px, stacked at ≤480) spans columns 2–6 of the first row beside a red cell; below it yellow, blue (spanning two rows), #333 and #d4d4d4, then #d4d4d4, yellow and paper. There is no footer.',
     legend: [
       '<b>≤768</b>: the grid re-tracks to four equal columns; the content cell spans them with the red accent rail, the red block is hidden, and the other seven blocks keep their desktop rows below it. The shell aligns to the top, and the buttons are at least 44px tall. ≤1023 also drops the shell padding so the frame meets the edges; ≤480 stacks the buttons full width.'],
     frames: [
       { id: 'desk', w: 'desk', kind: 'built', label: 'Desktop', fn: notFound, cap: 'The 64rem composition centred on the stage, content padded <code>clamp(2rem, 5vw, 4rem)</code>; the eight buttons in two rows of four equal columns.' },
-      { id: 'tab', w: 'tab', kind: 'built', label: 'Tablet', fn: notFound, cap: 'At 834 (≤1023 but >768) the composition still shows its blocks, now edge to edge with 6px lines; the buttons keep their two rows of four.' },
+      { id: 'tab', w: 'tab', kind: 'built', label: 'Tablet', fn: notFound, cap: 'At 834 (≤1023 but >768) the composition still shows its blocks, now edge to edge with 6px lines; below 900px the buttons run in four rows of two, since four columns would be narrower than the widest button.' },
       { id: 'ph', w: 'ph', kind: 'built', label: 'Phone', fn: notFound, cap: 'The card starts at the top edge with the red accent rail, and the desktop’s lower two block rows follow at four equal tracks (yellow, blue over two rows, #333, gray; gray, yellow, paper), about 90px; the red block’s color moves to the rail. Buttons full width, 44px tall. Stage gray below.' }] }];
 
 // ---------------------------------------------------------------------------

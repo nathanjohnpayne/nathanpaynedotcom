@@ -70,51 +70,92 @@ test.describe('@834px', () => {
 });
 
 /**
- * Above 480px the eight destinations form two even rows of four (#1494):
- * Homepage, Résumé, Projects, Blog; then Book, Brand, How I write, Privacy.
- * Every button sits inside the card and its label fits its column.
+ * The 404's eight destinations (#1494) sit in equal columns above 480px:
+ * two columns up to 899px, four from 900px, where a column first holds the
+ * widest button with room to spare (global.css, `.e-actions`). Order is
+ * always Homepage, Résumé, Projects, Blog, Book, Brand, How I write, Privacy.
+ * At every width no button is narrower than its own content (padding, icon
+ * and an unbreakable label), no button runs into the next column, and the
+ * page does not scroll sideways. The widths bracket the breakpoint and the
+ * old failure: four forced columns at 520px overflowed (Codex, PR #1505).
  */
-for (const width of [1440, 834] as const) {
+const ORDER = ['Homepage', 'Résumé', 'Projects', 'Blog', 'Book', 'Brand', 'How I write', 'Privacy'];
+
+for (const [width, columns] of [
+  [481, 2],
+  [520, 2],
+  [600, 2],
+  [700, 2],
+  [834, 2],
+  [899, 2],
+  [900, 4],
+  [901, 4],
+  [1024, 4],
+  [1440, 4],
+] as const) {
   test.describe(`@${width}px grid`, () => {
     test.use({ viewport: { width, height: 900 } });
 
-    test('404 destinations form two rows of four equal columns', async ({ page }) => {
+    test(`404 destinations sit in ${columns} equal columns that hold their labels`, async ({
+      page,
+    }) => {
       await page.goto(PATH);
+      await page.evaluate(() => document.fonts.ready);
       const m = await page.evaluate(() => {
+        const list = document.querySelector('.e-actions')!;
         const content = document.querySelector('.e-content')!.getBoundingClientRect();
-        return [...document.querySelectorAll('.e-content .nav-button')].map((b) => {
-          const r = b.getBoundingClientRect();
-          return {
-            label: b.textContent!.trim(),
-            top: Math.round(r.top),
-            left: Math.round(r.left),
-            width: Math.round(r.width),
-            inside: r.left >= content.left - 0.5 && r.right <= content.right + 0.5,
-            fits: (b as HTMLElement).scrollWidth <= (b as HTMLElement).clientWidth + 1,
-          };
-        });
+        const buttons = [...list.querySelectorAll<HTMLElement>('.nav-button')];
+        return {
+          overflow: document.documentElement.scrollWidth > innerWidth,
+          buttons: buttons.map((b) => {
+            const r = b.getBoundingClientRect();
+            // The button's own content at its natural width, measured on a
+            // detached copy so the grid cannot squeeze it.
+            const probe = b.cloneNode(true) as HTMLElement;
+            probe.style.cssText = 'position:absolute;width:max-content;visibility:hidden';
+            list.appendChild(probe);
+            const need = probe.getBoundingClientRect().width;
+            probe.remove();
+            return {
+              label: b.textContent!.trim(),
+              top: Math.round(r.top),
+              left: r.left,
+              right: r.right,
+              width: r.width,
+              need,
+              scrolls: b.scrollWidth > b.clientWidth + 1,
+              inside: r.left >= content.left - 0.5 && r.right <= content.right + 0.5,
+            };
+          }),
+        };
       });
-      expect(m.map((b) => b.label)).toEqual([
-        'Homepage',
-        'Résumé',
-        'Projects',
-        'Blog',
-        'Book',
-        'Brand',
-        'How I write',
-        'Privacy',
-      ]);
-      const rows = [...new Set(m.map((b) => b.top))];
-      expect(rows).toHaveLength(2);
-      for (const row of rows) expect(m.filter((b) => b.top === row)).toHaveLength(4);
-      // Columns line up between the rows, and every column is the same width.
-      expect(m.slice(0, 4).map((b) => b.left)).toEqual(m.slice(4).map((b) => b.left));
+      const b = m.buttons;
+      expect(b.map((x) => x.label)).toEqual(ORDER);
+      expect(m.overflow).toBe(false);
+
+      const rows = [...new Set(b.map((x) => x.top))];
+      expect(rows).toHaveLength(8 / columns);
+      for (const row of rows) expect(b.filter((x) => x.top === row)).toHaveLength(columns);
+      // Columns line up from row to row and share one width.
+      for (let i = columns; i < b.length; i++) {
+        expect(Math.abs(b[i].left - b[i % columns].left)).toBeLessThanOrEqual(1);
+      }
       expect(
-        Math.max(...m.map((b) => b.width)) - Math.min(...m.map((b) => b.width)),
+        Math.max(...b.map((x) => x.width)) - Math.min(...b.map((x) => x.width)),
       ).toBeLessThanOrEqual(1);
-      for (const b of m) {
-        expect(b.inside, b.label).toBe(true);
-        expect(b.fits, `${b.label} overflows its column`).toBe(true);
+
+      for (let i = 0; i < b.length; i++) {
+        const x = b[i];
+        expect(x.inside, `${x.label} leaves the card`).toBe(true);
+        expect(x.scrolls, `${x.label} scrolls inside its button`).toBe(false);
+        expect(
+          x.need,
+          `${x.label} needs ${x.need}px, its column is ${x.width}px`,
+        ).toBeLessThanOrEqual(x.width + 0.5);
+        const next = b[i + 1];
+        if (next && next.top === x.top) {
+          expect(x.right, `${x.label} runs into ${next.label}`).toBeLessThanOrEqual(next.left);
+        }
       }
     });
   });

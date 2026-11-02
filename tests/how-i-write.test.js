@@ -155,9 +155,12 @@ describe('/how-i-write/ page (specs/how-i-write.md)', () => {
 
 describe('every post and case study has a facts ledger (the page says so)', () => {
   const LEDGER_DIRS = ['plans', 'plans/759', 'plans/correctness-pass-2026-10-06'];
+  // The same inventories the collections load (src/content.config.ts): `blog`
+  // takes `**/*.md`, and `projects` takes `**/*.{md,mdx}`, as
+  // tests/ai-use-stamp.test.js enumerates them.
   const entries = [
     ['src/content/blog', /\.md$/],
-    ['src/content/projects', /\.mdx$/],
+    ['src/content/projects', /\.mdx?$/],
   ].flatMap(([dir, pattern]) =>
     readdirSync(resolve(ROOT, dir), { recursive: true })
       .map(String)

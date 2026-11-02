@@ -4207,12 +4207,23 @@ a.tag:hover {
   padding-left: 0;
 }
 
-/* The 404's eight destinations (#1494): two even rows of four above 480px,
-   each button filling its column. At <=480 the shared .project-actions rule
-   stacks them full width. */
+/* The 404's eight destinations (#1494), each button filling its column.
+   Four columns need each column at least as wide as the widest button's
+   max-content (padding + icon + an unbreakable label, about 153px). Measured
+   on the built page, a column first clears that at 830px and has 8px to
+   spare from 870px, so four columns start at 900px (14px of margin there,
+   more above). From 481px to 899px two columns fit with at least 30px to
+   spare, so the order reads Homepage, Résumé / Projects, Blog / Book, Brand /
+   How I write, Privacy. At <=480 the shared .project-actions rule stacks
+   them full width. Guarded by tests/responsive/not-found-phone.spec.ts. */
 @media (min-width: 481px) {
   .e-content .e-actions {
     display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 900px) {
+  .e-content .e-actions {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
