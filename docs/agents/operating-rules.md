@@ -92,7 +92,7 @@ A body edit can change what the project is *about* without changing any claim a 
 
    Search for the old framing by meaning as well as by its exact words: a summary field usually paraphrases the body. A changed `cardDescription` must stay inside the band `tests/project-pages.test.js` enforces (120–200 characters, with the longest card under 1.6 times the shortest), and must still open by naming what the project is: it opens with the project's `cardSubjects` phrase in the same file, after at most a leading article (#1399). A card that is all hook and no subject cannot interest a reader who doesn't already know the project.
    The `tests/resume-claims-review.test.js` failure message prompts this step, but only for a project with a résumé entry: that check walks the résumé collection, and leaving a project off the résumé is curation (`specs/resume.md` § Claims review). Every published project has an entry today. For one that does not, nothing prompts the step, so follow it by hand.
-2. If the project has a résumé entry, follow the claims-review remedy (page → canonical → site mirror → stamp; see `specs/resume.md` § Claims review). Restamp last: `claimsReviewed.caseStudy` hashes the whole file, so any summary-field edit after the stamp makes it stale again.
+2. If the project has a résumé entry, follow the claims-review remedy (page → canonical → site mirror → stamp; see `specs/resume.md` § Claims review). Restamp last: `claimsReviewed.caseStudy` hashes the whole file except its `aiUse` block, so any summary-field edit after the stamp makes it stale again.
 3. After the deploy, verify the live project page, `/projects/` and `/`, plus `/resume/` and `/Nathan-Payne-Resume.pdf` when the résumé entry changed.
 
 #### Adding a Blog Post

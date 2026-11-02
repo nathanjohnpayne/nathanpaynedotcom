@@ -41,6 +41,9 @@ A page's description, social line, share-card text and the short introductions o
 | | `ogDescription` | `/book/` og and twitter description, the hero deck, and the book share card (`og/book.png`) |
 | `site-copy/brand.md` | `description` | `/brand/` meta description and CollectionPage JSON-LD |
 | | `ogDescription` | `/brand/` og and twitter description, the hero deck, and the brand share card (`og/brand.png`) |
+| `site-copy/how-i-write.md` | `description` | `/how-i-write/` meta description and WebPage JSON-LD |
+| | `ogDescription` | `/how-i-write/` og and twitter description, the deck, and the share card (`og/how-i-write.png`) |
+| | Markdown body | the `/how-i-write/` page copy ([specs/how-i-write.md](how-i-write.md)) |
 
 Item-level copy is unchanged: projects and posts own their own descriptions in frontmatter, and their share cards are generated from it (§ OG image targets). The `/projects/` hero deck, the homepage Context, Approach and community narratives, and the blog post author byline are page-specific prose with no second rendition, so they stay in their templates. `tests/content-owners.test.js` compares each built surface against its owning field and fails when a template retypes a sentence an owner holds.
 

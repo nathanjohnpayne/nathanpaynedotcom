@@ -229,6 +229,7 @@ const CARRIES_ACCENT_ARROW = [
   'availability-mailto',
   'availability-booking',
   'availability-resume',
+  'availability-how-i-write',
   'availability-privacy',
   'ribbon-exit', // exit action — About, Projects, Connect
   'p-name', // project titles — linked entity
