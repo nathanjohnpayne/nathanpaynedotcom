@@ -30,6 +30,11 @@ pullquotes:
   - text: "Claude wrote the tickets. Codex implemented them. I made the design calls."
     label: "Four decisions, one evening"
     accent: red
+aiUse:
+  statement: "The design decisions in this post are mine, and at my direction Claude wrote the first draft from the palette tickets and its own color sampling. I chose the painting reproductions and color-comparison figures, decided where each would appear, determined what each would communicate, flagged an overclaim about the source images, and chose a pullquote. Claude and Codex corrected the remaining claims, Codex rewrote the piece in my voice, and I approved that version and reviewed Claude's later corrections and its revised key takeaway."
+  reviewed:
+    content: "51c4ed695d0f6961e62412e2ab45977818b152657c2144cf34d2a7b8e51914e7"
+    date: "2026-11-01"
 ---
 
 On June 11, 2026, I handed Claude two screenshots of my [projects page](/projects/) and one sentence: scrutinize this layout against Mondrian colors and design principles. The black lattice, colored planes, and cream field were already there. I wanted to know whether they worked together. I expected adjectives. Claude came back with a Python script and two blues in the same composition. I'd put one of them there on purpose.

@@ -25,6 +25,11 @@ pullquotes:
   - text: "The author-derived matrix passed a broken matcher; the spec-derived expansion failed it within one round."
     label: "The natural experiment"
     accent: yellow
+aiUse:
+  statement: "At my direction, Claude wrote the first draft from review records the agents had collected, and Codex later restructured and rewrote it in my voice. I approved the new structure and suggested the sentences about review capacity. I chose all five figures, decided where each would appear and what each would communicate, and approved the published piece, including Claude's later fixes and three revised key takeaways."
+  reviewed:
+    content: "557bc29a3546e20214024f96237113ab7d1261d52803108c936fa36d18f31e08"
+    date: "2026-11-01"
 ---
 
 Resolving every finding doesn't mean I've found every bug. This batch made the difference harder to ignore: the rule the escaped defect broke had already been raised, fixed and validated on a sibling PR. The knowledge was there. The second implementation still broke the rule.
