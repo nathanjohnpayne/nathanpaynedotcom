@@ -32,6 +32,11 @@ pullquotes:
   - text: "The post arguing that visual acceptance and production acceptance are different bars is itself sitting on the wrong side of one."
     label: "Beyond resemblance"
     accent: red
+aiUse:
+  statement: "At my direction, Claude wrote the first draft and later corrected its account of the design history. I chose the Mondrian reference, the process diagram, and the shipped editor screenshot, decided where each would appear, and determined what each would communicate about how the design process led to the finished product. I took Codex's voice rewrite through three rounds of feedback, chose the wording of later corrections, and approved the published version and later changes."
+  reviewed:
+    content: "9be3e45254f65ad81292a4b9839beb7df5be4d6596d43b78c22836105ab2ee09"
+    date: "2026-11-01"
 ---
 
 I'm a product manager, not an engineer. In the first weeks of building nathanpayne.com with Claude Code, I knew what I wanted the site to look like. The homepage was already a Mondrian grid. I wanted the rest of the site to look like it belonged there. I thought "more Mondrian, less LinkedIn" was clear enough. The pages coming back said otherwise.

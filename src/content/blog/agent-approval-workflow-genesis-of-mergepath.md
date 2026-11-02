@@ -48,6 +48,11 @@ sidebar:
           style F fill:#2c5f8a,stroke:#2c5f8a,color:#fff
           style G fill:#2c5f8a,stroke:#2c5f8a,color:#fff
     caption: "The seven-stage agent review system, as of April 2026"
+aiUse:
+  statement: "At my direction, Claude wrote the first draft and later fact-checked it, while I decided which conclusions the evidence could support. I challenged its claim about agent reliability as an overstatement and confirmed from memory that the agents had quoted the no-direct-push rule back to me. When Codex rewrote the piece in my voice, I requested further changes before approving it, and I reviewed Claude's later corrections and its revised key takeaway."
+  reviewed:
+    content: "8c2955082f84e15abf9c9a1f0898e65ca9eb56f08c1c8538e0cf990b30d40b28"
+    date: "2026-11-01"
 ---
 
 I'd put the same rule in every instruction file: never push directly to `main`; every change goes through a pull request. All of them could quote it back. Then one would push straight to `main` anyway, usually on a small change, usually after I'd said "just fix this quickly."
