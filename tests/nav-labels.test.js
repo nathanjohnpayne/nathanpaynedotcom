@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 import { writeSanitizedDOM } from './helpers/dom.js';
 
@@ -32,6 +32,25 @@ describe('404 navigation labels (#524)', () => {
     expect(byHref['/resume/']).toBe('Résumé');
     expect(byHref['/projects/']).toBe('Projects'); // canonical nav label, not the old "Builds"
     expect(byHref['/blog/']).toBe('Blog');
+  });
+
+  it('offers the eight destinations in order: sections, then Book, Brand and the policies (#1494)', () => {
+    const buttons = [...document.querySelectorAll('.project-actions .nav-button')];
+    expect(buttons.map((a) => [a.getAttribute('href'), a.textContent.trim()])).toEqual([
+      ['/', 'Homepage'],
+      ['/resume/', 'Résumé'],
+      ['/projects/', 'Projects'],
+      ['/blog/', 'Blog'],
+      ['/book/', 'Book'],
+      ['/brand/', 'Brand'],
+      ['/how-i-write/', 'How I write'],
+      ['/privacy/', 'Privacy'],
+    ]);
+    // Every destination is a built page.
+    for (const [href] of buttons.map((a) => [a.getAttribute('href')])) {
+      const page = href === '/' ? 'index.html' : `${href.slice(1)}index.html`;
+      expect(existsSync(resolve(DIST, page)), href).toBe(true);
+    }
   });
 
   it('does not reintroduce the stale "Builds" wayfinding label', () => {

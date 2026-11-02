@@ -15,6 +15,7 @@ const SURFACES: [string, string][] = [
   ['/blog/six-prs-one-bug-agent-failure-modes/', '.site-footer__nav .nav-button'],
   ['/projects/matchline/', '.site-footer__nav .nav-button'],
   ['/resume/', '.site-footer__nav .nav-button'],
+  ['/how-i-write/', '.site-footer__nav .nav-button'],
   ['/404', '.e-content .nav-button'],
 ];
 
