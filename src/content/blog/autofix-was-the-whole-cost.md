@@ -39,11 +39,6 @@ sidebar:
 
       Priceable total: about $712.66. The two remaining Codex sessions ran on gpt-5.3-codex-spark, which has no established public API equivalent, so they are unpriced.
     caption: "An API-equivalent counterfactual. Nothing here was invoiced."
-aiUse:
-  statement: "Placeholder statement for layout testing only; not for merge."
-  reviewed:
-    content: "1438d5393a5a181a18228438d4cd3895043bc67827c4cc97aa2a8c47f931f0af"
-    date: "2026-11-01"
 ---
 
 I wanted this site to follow one Chicago rule: an em dash takes no space on either side. [Chicago's own Q&A](https://www.chicagomanualofstyle.org/qanda/data/faq/topics/HyphensEnDashesEmDashes/faq0108.html) states it in one line, then gives the exceptions it allows.

@@ -36,11 +36,6 @@ sidebar:
     content: |
       What was checked against what. Every pull request figure, timestamp, commit and quoted comment comes from the GitHub API, and the comment identifiers link to the source. The five prompts, my answers to them, the two lines I typed on August 27, and the messages I typed on September 6 come from the authoring session's own transcript, read directly rather than from a summary of it. An earlier summary of that transcript had claimed I typed nothing for twenty hours; the log says otherwise, and the text below follows the log. The fleet comparison covers every pull request with eight or more Codex review rounds opened between July 4 and September 6. Across the repository's full history at publication there were 26, and the two closed pull requests here are still the only ones that did not merge. Nothing here is quoted from a pull request body without saying so, because those were written by the agents that opened them, under my account.
     caption: "Provenance, so a reader can re-check it."
-aiUse:
-  statement: "Placeholder statement for layout testing only; not for merge."
-  reviewed:
-    content: "bc7ec787f1b72b3619072a8200ae5425ce7e95221f2a14f656a624c898d3531f"
-    date: "2026-11-01"
 ---
 
 When an automated reviewer flags a P1 correctness defect, I usually don't have the engineering knowledge to prove it wrong. I trust the reviewer to find bugs. So "there is a real bug; should we fix it?" isn't much of a decision. That question is rigged. Of course I say yes. The question I needed was whether the machinery containing the bug still belonged in the product I had asked for.
