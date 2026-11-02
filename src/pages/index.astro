@@ -10,6 +10,9 @@ import { alumniOf, longLocation } from '../lib/person-json-ld';
 // /privacy/ link. The row and the link both render only while the privacy
 // flag is on, so the flag-off homepage is byte-identical to before.
 import PrivacyLink from '../components/privacy/ui/PrivacyLink.astro';
+// #1494: /how-i-write/ rides the Connect line just before Privacy, as it
+// sits just before Privacy in every footer (specs/how-i-write.md § Links).
+import HowIWriteLink from '../components/HowIWriteLink.astro';
 import { privacyControlsEnabled } from '../lib/privacy-flag';
 
 // One published collection feeds two deliberately different surfaces (#627):
@@ -456,11 +459,14 @@ const homepageJsonLd = {
                 href={BOOK_PAGE_PATH}
               >Book time<span class="link-arrow" aria-hidden="true">→</span></a>{'\u00a0·'}</span>
               {' '}
-              {/* Privacy (#1079). The homepage has no footer, so the site's
-                  /privacy/ link rides the end of this line as a fourth peer.
-                  Résumé's separator and the link are gated together, so a
-                  flag-off build ends on Résumé exactly as before. */}
-              <span class="availability-item"><a class="availability-resume p-link" href="/resume/">Résumé<span class="link-arrow" aria-hidden="true">→</span></a>{privacyEnabled && '\u00a0·'}</span>
+              {/* How I write (#1494) and Privacy (#1079). The homepage has no
+                  footer, so the links every footer carries ride the end of
+                  this line as peers, How I write first. How I write's
+                  separator and the Privacy link are gated together, so a
+                  flag-off build ends on How I write. */}
+              <span class="availability-item"><a class="availability-resume p-link" href="/resume/">Résumé<span class="link-arrow" aria-hidden="true">→</span></a>{'\u00a0·'}</span>
+              {' '}
+              <span class="availability-item"><HowIWriteLink class="availability-how-i-write p-link" arrow />{privacyEnabled && '\u00a0·'}</span>
               {privacyEnabled && (
                 <>
                   {' '}

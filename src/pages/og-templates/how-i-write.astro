@@ -1,0 +1,15 @@
+---
+import OgCard from '../../layouts/OgCard.astro';
+import { getSiteCopy } from '../../lib/site-copy';
+import { HOW_I_WRITE_TITLE } from '../../lib/how-i-write';
+
+// The share line /how-i-write/ publishes as og:description and opens its deck
+// with (#1166), so the card and the unfurl text cannot disagree.
+const { ogDescription } = await getSiteCopy('how-i-write');
+---
+
+<OgCard
+  label="nathanpayne.com / how i write"
+  heading={HOW_I_WRITE_TITLE}
+  description={ogDescription}
+/>

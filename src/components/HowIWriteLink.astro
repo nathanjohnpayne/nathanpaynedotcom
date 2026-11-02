@@ -1,0 +1,39 @@
+---
+/**
+ * The link to /how-i-write/ (#1494; specs/how-i-write.md § Links): beside
+ * the Privacy link on every page. The shared footer, the homepage Connect
+ * line and the 404 each render one, in that surface's own link vocabulary,
+ * exactly as PrivacyLink.astro does, and always just before the Privacy link.
+ * Unlike Privacy it is not behind the privacy flag.
+ *
+ * `icon` swaps the words for Lucide's pencil-sparkles (NavIcon.astro), used
+ * in the shared footer as a square beside the Privacy shield; `icon="label"`
+ * leads the words with it, on the 404. The anchor keeps "How I write" as its
+ * accessible name (aria-label) and as a hover tooltip (title). The homepage
+ * keeps the worded link with the trailing arrow, as its Privacy link does.
+ */
+import NavIcon from './NavIcon.astro';
+import { HOW_I_WRITE_PATH, HOW_I_WRITE_TITLE } from '../lib/how-i-write';
+
+interface Props {
+  /** Class(es) for the anchor, from the surface's own link vocabulary. */
+  class?: string;
+  /** Append the site's trailing arrow (the homepage link convention). */
+  arrow?: boolean;
+  /** `true`: the pencil-sparkles icon in place of the words (the footer).
+   *  `'label'`: the icon leading the words (the 404's button row). */
+  icon?: boolean | 'label';
+}
+
+const { class: className, arrow = false, icon = false } = Astro.props;
+---
+
+{!icon && (
+  <a class={className} href={HOW_I_WRITE_PATH} data-how-i-write-link>{HOW_I_WRITE_TITLE}{arrow && <span class="link-arrow" aria-hidden="true">→</span>}</a>
+)}
+{icon === 'label' && (
+  <a class={className} href={HOW_I_WRITE_PATH} data-how-i-write-link><NavIcon name="pencil-sparkles" />{HOW_I_WRITE_TITLE}</a>
+)}
+{icon === true && (
+  <a class={[className, 'nav-button--icon'].filter(Boolean).join(' ')} href={HOW_I_WRITE_PATH} data-how-i-write-link aria-label={HOW_I_WRITE_TITLE} title={HOW_I_WRITE_TITLE}><NavIcon name="pencil-sparkles" /></a>
+)}

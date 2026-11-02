@@ -29,6 +29,7 @@ const copy = {
   resume: frontmatter('src/content/site-copy/resume.md'),
   book: frontmatter('src/content/site-copy/book.md'),
   brand: frontmatter('src/content/site-copy/brand.md'),
+  'how-i-write': frontmatter('src/content/site-copy/how-i-write.md'),
 };
 const myself = frontmatter('src/content/myself/nathan-payne.md');
 const experience = {
@@ -256,6 +257,19 @@ describe('brand page copy owners (specs/brand-page.md)', () => {
   });
 });
 
+describe('how-i-write page copy owners (specs/how-i-write.md)', () => {
+  it('uses one description for metadata and JSON-LD, and one share line for the unfurl, deck and card', () => {
+    const owner = copy['how-i-write'];
+    writeSanitizedDOM(readBuiltPage('how-i-write/index.html'));
+    expectMetaDescriptions(owner.description, owner.ogDescription);
+    expect(node('WebPage').description).toBe(owner.description);
+    expect(text(document.querySelector('.policy-header .deck'))).toBe(owner.ogDescription);
+    expect(ogCards['how-i-write'].description).toBe(owner.ogDescription);
+    // The share line is only worth naming while it differs from the description.
+    expect(owner.ogDescription).not.toBe(owner.description);
+  });
+});
+
 describe('publication copy owners (#1166)', () => {
   it('names and describes the RSS channel from the blog entry', () => {
     const feed = new DOMParser().parseFromString(readBuiltPage('rss.xml'), 'application/xml');
@@ -351,6 +365,8 @@ describe('owned copy is not retyped in templates (#1166)', () => {
       'pages/og-templates/book.astro': /getSiteCopy\('book'\)/,
       'pages/brand.astro': /getSiteCopy\('brand'\)/,
       'pages/og-templates/brand.astro': /getSiteCopy\('brand'\)/,
+      'pages/how-i-write.astro': /getSiteCopy\('how-i-write'\)/,
+      'pages/og-templates/how-i-write.astro': /getSiteCopy\('how-i-write'\)/,
     };
     for (const [consumer, reads] of Object.entries(consumers)) {
       expect(walked, `the walk never reached ${consumer}`).toContain(consumer);

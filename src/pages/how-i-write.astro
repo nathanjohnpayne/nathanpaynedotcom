@@ -1,0 +1,133 @@
+---
+/**
+ * /how-i-write/ (#1494; specs/how-i-write.md): the site-level policy page on
+ * how the posts and case studies are written. Parent epic #1490; path and
+ * title decided in #1491.
+ *
+ * The copy is the Markdown body of src/content/site-copy/how-i-write.md, with
+ * the page's description and share line in its frontmatter (#1166
+ * convention). Keeping the prose in Markdown puts it under the prose linter
+ * and makes the owner's verbatim approval cover one file. Every sentence is
+ * drawn from docs/blog-writing-workflow.md, docs/agents/blog-revision-process.md
+ * and the per-piece records in plans/; the PR that adds or changes the copy
+ * says which passage supports each sentence.
+ *
+ * The page carries the same composition as /privacy/, the site's other
+ * standalone prose page: a framed canvas, an accent-railed header with the
+ * breadcrumb, the headline and the deck, then the reading column.
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Breadcrumbs from '../components/Breadcrumbs.astro';
+import Footer from '../components/Footer.astro';
+import { getEntry, render } from 'astro:content';
+import { getSiteCopy } from '../lib/site-copy';
+import { HOW_I_WRITE_PATH, HOW_I_WRITE_TITLE } from '../lib/how-i-write';
+
+const { description, ogDescription } = await getSiteCopy('how-i-write');
+const entry = await getEntry('siteCopy', 'how-i-write');
+if (!entry) {
+  throw new Error('Missing site-copy entry "how-i-write": expected src/content/site-copy/how-i-write.md');
+}
+const { Content } = await render(entry);
+
+const title = `${HOW_I_WRITE_TITLE} | Nathan Payne`;
+const PAGE_URL = new URL(HOW_I_WRITE_PATH, Astro.site).href;
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebPage",
+      "@id": `${PAGE_URL}#webpage`,
+      "url": PAGE_URL,
+      "name": title,
+      "description": description,
+      "isPartOf": { "@id": "https://nathanpayne.com/#website" },
+      "author": { "@id": "https://nathanpayne.com/#person" },
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": `${PAGE_URL}#breadcrumb`,
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Nathan Payne", "item": "https://nathanpayne.com/" },
+        { "@type": "ListItem", "position": 2, "name": HOW_I_WRITE_TITLE, "item": PAGE_URL },
+      ],
+    },
+  ],
+};
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  ogDescription={ogDescription}
+  ogImage="https://nathanpayne.com/og/how-i-write.png"
+  ogImageAlt={`${HOW_I_WRITE_TITLE}, by Nathan Payne, open graph image`}
+  bodyClass="project-page"
+  dataAccent="blue"
+  jsonLd={jsonLd}
+>
+  <main class="page-shell">
+    <article class="policy-canvas page-canvas">
+      <header class="policy-header">
+        <Breadcrumbs
+          class="breadcrumbs--inset"
+          items={[{ label: 'Nathan Payne', href: '/' }, { label: HOW_I_WRITE_TITLE }]}
+        />
+        <h1>{HOW_I_WRITE_TITLE}</h1>
+        <p class="deck deck--inset">{ogDescription}</p>
+      </header>
+
+      <div class="project-copy policy-copy">
+        <Content />
+      </div>
+
+      <Footer
+        attribution="Nathan Payne"
+        variant="detail"
+        links={[{ href: '/', label: 'Back to Homepage', icon: 'house' }]}
+      />
+    </article>
+  </main>
+</BaseLayout>
+
+<style>
+  /* The /privacy/ composition (src/pages/privacy/[...index].astro), less its
+     table of contents: this page is nine paragraphs. */
+  .policy-canvas {
+    background: var(--surface);
+    border: var(--line) solid var(--grid-border);
+    overflow-x: hidden;
+  }
+  .policy-header {
+    position: relative;
+    padding: clamp(1.15rem, 3vw, 2.5rem);
+    border-bottom: 1px solid var(--rule);
+  }
+  .policy-header::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: clamp(0.5rem, 1vw, 0.8rem);
+    background: var(--accent);
+  }
+  .policy-header h1 {
+    padding-left: clamp(1rem, 2.2vw, 1.6rem);
+    font-family: var(--font-heading);
+    font-weight: var(--heading-weight);
+    font-size: var(--heading-page-size);
+    line-height: var(--heading-page-line-height);
+    letter-spacing: var(--heading-letter-spacing);
+    text-wrap: balance;
+  }
+  .policy-header .deck--inset {
+    max-width: 44rem;
+  }
+  @media (max-width: 480px) {
+    /* 480px matches --bp-narrow on :root. */
+    .policy-header h1,
+    .policy-header .deck--inset {
+      padding-left: 0.5rem;
+    }
+  }
+</style>
