@@ -136,6 +136,14 @@ describe('Entries with aiUse render the link and the end block (#1493)', () => {
 });
 
 describe('Entries without aiUse render no link and no block (rollout)', () => {
+  // Once every entry carries aiUse the loop below is empty, and Vitest fails
+  // an empty suite; this case then records that the rollout is complete.
+  // #1498 makes the field required and removes this suite.
+  if (withoutAiUse.length === 0) {
+    it('no entry is left without aiUse', () => {
+      expect(withoutAiUse).toEqual([]);
+    });
+  }
   for (const entry of withoutAiUse) {
     it(`${entry.kind}/${entry.slug}`, () => {
       writeSanitizedDOM(readBuiltPage(entry.path));
