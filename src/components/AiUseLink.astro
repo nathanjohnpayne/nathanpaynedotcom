@@ -1,0 +1,17 @@
+---
+/**
+ * AiUseLink.astro — the short "AI use" link each piece carries near its top
+ * (#1493, epic #1490). It jumps to the "How this was written" block at the end
+ * of the same piece (AiUseNote.astro), not to the general policy page.
+ *
+ * One component, one class (`.ai-use-link`), so the link reads the same on
+ * every surface it sits on: the blog metadata panel, the phone header and the
+ * case-study action row. The caller decides placement and renders it only for
+ * an entry that carries `aiUse`. The icon is decorative (NavIcon is
+ * aria-hidden), so the accessible name is the visible text.
+ */
+import NavIcon from './NavIcon.astro';
+import { AI_USE_ID, AI_USE_LINK_LABEL } from '../lib/ai-use';
+---
+
+<a class="ai-use-link" href={`#${AI_USE_ID}`}><NavIcon name="pencil-sparkles" />{AI_USE_LINK_LABEL}</a>

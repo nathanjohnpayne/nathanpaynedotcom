@@ -20,6 +20,7 @@ import ProjectHero from '../components/ProjectHero.astro';
 import MetadataStrip from '../components/MetadataStrip.astro';
 import ProjectMuxPlayer from '../components/ProjectMuxPlayer.astro';
 import Footer from '../components/Footer.astro';
+import AiUseNote from '../components/AiUseNote.astro';
 
 interface RelatedLink {
   label: string;
@@ -53,6 +54,8 @@ interface Props {
   };
   stack?: string;
   related: RelatedLink[];
+  /** The AI-use disclosure (#1493); the link and the end block render only when set. */
+  aiUse?: { statement: string };
   jsonLd: object;
   ogImage?: string;
   ogImageWidth?: string;
@@ -83,6 +86,7 @@ const {
   metadata,
   stack,
   related,
+  aiUse,
   jsonLd,
   ogImage,
   ogImageWidth,
@@ -123,6 +127,7 @@ const topics = kicker.split(/\s*×\s*/).join(' · ');
         liveUrl={liveUrl}
         liveLabel={liveLabel}
         githubUrl={githubUrl}
+        aiUse={Boolean(aiUse)}
       />
 
       <div class="metadata-surface">
@@ -168,6 +173,10 @@ const topics = kicker.split(/\s*×\s*/).join(' · ');
       <div class="project-copy">
         <slot />
       </div>
+
+      {/* How this was written (#1493): between the prose and the Related list,
+          rendered by the layout so no case study can omit or move it. */}
+      {aiUse && <AiUseNote statement={aiUse.statement} variant="project" />}
 
       {related.length > 0 && (
         <section class="project-related" aria-labelledby="related-heading">

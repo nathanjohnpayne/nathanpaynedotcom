@@ -1,0 +1,33 @@
+---
+/**
+ * AiUseNote.astro — the "How this was written" block at the end of a blog post
+ * or case study (#1493, epic #1490): the label, the entry's own `aiUse`
+ * statement, and an inline link to the `/how-i-write/` policy page.
+ *
+ * The layouts render it, not the `sidebar` array, so no entry can omit or move
+ * it. It sits after the article and before the "next" navigation (blog) or the
+ * Related list (case study). The `h2` is layout chrome, not Markdown, so it
+ * never enters the article's table of contents. The id is a constant, not the
+ * heading's slug (see src/lib/ai-use.ts).
+ */
+import NavIcon from './NavIcon.astro';
+import { HOW_I_WRITE_PATH } from '../lib/how-i-write';
+import {
+  AI_USE_HEADING,
+  AI_USE_HEADING_ID,
+  AI_USE_ID,
+  AI_USE_MORE_LABEL,
+} from '../lib/ai-use';
+
+interface Props {
+  statement: string;
+  variant: 'blog' | 'project';
+}
+
+const { statement, variant } = Astro.props;
+---
+
+<section class={`ai-use ai-use--${variant}`} id={AI_USE_ID} aria-labelledby={AI_USE_HEADING_ID}>
+  <h2 class="ai-use__heading" id={AI_USE_HEADING_ID}><NavIcon name="pencil-sparkles" />{AI_USE_HEADING}</h2>
+  <p class="ai-use__statement">{statement} <a class="ai-use__more" href={HOW_I_WRITE_PATH}>{AI_USE_MORE_LABEL}</a></p>
+</section>

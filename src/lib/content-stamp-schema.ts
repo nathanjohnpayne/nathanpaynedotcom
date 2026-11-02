@@ -11,8 +11,10 @@
  * - `blog.aiUse` and `projects.aiUse` (#1492, epic #1490): the AI-use
  *   disclosure. `statement` says what agents did and what the owner did, for
  *   the text as it stands now; `reviewed.content` is the hash of the entry's
- *   reader-facing content (src/lib/ai-use-stamp.mjs) when the owner last
- *   confirmed the statement. tests/ai-use-stamp.test.js recomputes it.
+ *   reader-facing content and of `statement` itself (src/lib/ai-use-stamp.mjs,
+ *   #1510) when the owner last confirmed the statement, so editing either one
+ *   invalidates it. `reviewed` is not hashed. tests/ai-use-stamp.test.js
+ *   recomputes it.
  *
  * Kept free of `astro:content` so `src/content.config.ts` and the tests import
  * the same definitions.

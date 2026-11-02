@@ -1,18 +1,22 @@
 /**
- * The reader-facing-content stamp behind `aiUse.reviewed.content` (#1492,
- * epic #1490).
+ * The stamp behind `aiUse.reviewed.content` (#1492, #1510, epic #1490).
  *
  * An entry's `aiUse.statement` says how its text was written. The stamp records
- * the SHA-256 of the entry's reader-facing content when the owner last
- * confirmed that statement, so a later edit to the text cannot merge without a
- * visible `aiUse` change in the same diff. tests/ai-use-stamp.test.js recomputes
- * the hash for every entry that carries `aiUse` and fails on a mismatch.
+ * the SHA-256 of the entry's reader-facing content and of the statement itself
+ * when the owner last confirmed that statement, so a later edit to either one
+ * cannot merge without a visible `aiUse.reviewed` change in the same diff. It
+ * binds the text and its disclosure together; it does not prove that anyone
+ * reviewed either, or that the statement is accurate.
+ * tests/ai-use-stamp.test.js recomputes the hash for every entry that carries
+ * `aiUse` and fails on a mismatch.
  *
  * Reader-facing content is the entry's body plus every frontmatter field except
  * `aiUse` itself and the fields in AI_USE_NON_PROSE_FIELDS. It is an exclusion
  * list, not an inclusion list, so a new prose field is covered by default.
  * Case-study prose lives largely in frontmatter (`decisions`, `learnings`,
- * `constraints`), so hashing the body alone would miss it.
+ * `constraints`), so hashing the body alone would miss it. Of `aiUse`, only
+ * `statement` is hashed: `aiUse.reviewed` is the stamp, and hashing it would
+ * make the stamp depend on itself.
  *
  * The hash is defined over the source file, not Astro's parsed entry, so the
  * test, the CLI and a reviewer all compute it from the bytes in the diff:
@@ -23,10 +27,18 @@
  *   text and, in `.mdx`, imports and component tags.
  * - Frontmatter: the YAML parsed with js-yaml's FAILSAFE_SCHEMA, so every leaf
  *   is a string. Quoting or reflowing a value does not move the hash, and an
- *   unquoted date hashes the same as a quoted one.
- * - Payload: canonical JSON of `{ body, frontmatter }`, object keys sorted at
- *   every depth, array order kept, no whitespace, so frontmatter key order does
- *   not move the hash. The digest is lowercase hex of its UTF-8 bytes.
+ *   unquoted date hashes the same as a quoted one. `aiUse` is dropped whole.
+ * - Statement: `aiUse.statement` from the same FAILSAFE parse, with leading and
+ *   trailing whitespace removed, as the schema trims it before it renders. It
+ *   is `null` for an entry without `aiUse`, which has no stamp to check. An
+ *   entry that carries `aiUse` without a non-empty string statement throws:
+ *   the schema rejects it, and a hash printed for it could only ever stamp a
+ *   statement nobody has written.
+ * - Payload: canonical JSON of `{ body, frontmatter, statement }`, object keys
+ *   sorted at every depth, array order kept, no whitespace, so frontmatter key
+ *   order does not move the hash. The statement is its own top-level member,
+ *   outside `frontmatter`, so no frontmatter field can stand in for it. The
+ *   digest is lowercase hex of the payload's UTF-8 bytes.
  *
  * Plain JavaScript with no Astro import, so `scripts/ai-use-hash.mjs` runs it
  * under Node directly.
@@ -34,7 +46,10 @@
 import { createHash } from 'node:crypto';
 import { load as parseYaml, FAILSAFE_SCHEMA } from 'js-yaml';
 
-/** The disclosure field. Never hashed: the stamp lives inside it. */
+/**
+ * The disclosure field. Dropped from the hashed frontmatter: its statement is
+ * hashed on its own, and its stamp is not hashed at all.
+ */
 export const AI_USE_FIELD = 'aiUse';
 
 /**
@@ -137,11 +152,35 @@ export function canonicalJson(value) {
 }
 
 /**
- * The reader-facing content the stamp covers: the body, plus the frontmatter
- * without `aiUse` and without AI_USE_NON_PROSE_FIELDS.
+ * The statement the stamp covers: `aiUse.statement`, trimmed. `null` when the
+ * entry carries no `aiUse`; throws when it carries `aiUse` without a non-empty
+ * string statement.
+ *
+ * @param {Record<string, unknown>} frontmatter - FAILSAFE-parsed frontmatter
+ * @returns {string | null}
+ */
+function aiUseStatement(frontmatter) {
+  if (!Object.hasOwn(frontmatter, AI_USE_FIELD)) return null;
+  const aiUse = frontmatter[AI_USE_FIELD];
+  const statement =
+    aiUse !== null && typeof aiUse === 'object' && !Array.isArray(aiUse)
+      ? /** @type {Record<string, unknown>} */ (aiUse).statement
+      : undefined;
+  if (typeof statement !== 'string' || statement.trim() === '') {
+    throw new Error(
+      `${AI_USE_FIELD} has no statement: write aiUse.statement before stamping, since the stamp covers it`,
+    );
+  }
+  return statement.trim();
+}
+
+/**
+ * The content the stamp covers: the body, the frontmatter without `aiUse` and
+ * without AI_USE_NON_PROSE_FIELDS, and the trimmed `aiUse.statement` (`null`
+ * without `aiUse`). `aiUse.reviewed` is never part of it.
  *
  * @param {string} source - the full entry file
- * @returns {{ body: string, frontmatter: Record<string, unknown> }}
+ * @returns {{ body: string, frontmatter: Record<string, unknown>, statement: string | null }}
  */
 export function readerFacingContent(source) {
   const { frontmatter, body } = splitEntry(source);
@@ -149,12 +188,12 @@ export function readerFacingContent(source) {
   const kept = Object.fromEntries(
     Object.entries(frontmatter).filter(([key]) => !excluded.has(key)),
   );
-  return { body, frontmatter: kept };
+  return { body, frontmatter: kept, statement: aiUseStatement(frontmatter) };
 }
 
 /**
  * The value `aiUse.reviewed.content` must hold: the SHA-256 of the canonical
- * JSON of the entry's reader-facing content, as lowercase hex.
+ * JSON of the entry's reader-facing content and statement, as lowercase hex.
  *
  * @param {string} source - the full entry file
  * @returns {string}
