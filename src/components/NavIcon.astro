@@ -6,6 +6,10 @@
  * Decorative (aria-hidden; the label, or the anchor's aria-label, names the
  * link). Inherits currentColor.
  *
+ * `pencil-sparkles` marks writing and AI use (#1490): the footer's icon-only
+ * "How I write" link (HowIWriteLink.astro), and the "AI use" link each piece
+ * carries (#1493) reuses it from here.
+ *
  * Lucide (https://lucide.dev, ISC) glyphs, transcribed verbatim from the
  * upstream source so a drift check is a byte comparison (as ContactIcon.astro
  * does):
@@ -17,7 +21,8 @@ export type NavIconName =
   | 'newspaper'
   | 'layout-grid'
   | 'house'
-  | 'shield-check';
+  | 'shield-check'
+  | 'pencil-sparkles';
 
 interface Props {
   name: NavIconName;
@@ -68,6 +73,18 @@ const { name } = Astro.props;
     <>
       <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path>
       <path d="m9 12 2 2 4-4"></path>
+    </>
+  )}
+  {name === 'pencil-sparkles' && (
+    <>
+      <path d="M10 3H8"></path>
+      <path d="m15.007 5.008 3.987 3.986"></path>
+      <path d="M20 15v4"></path>
+      <path d="M21.174 6.813a2.82 2.82 0 0 0-3.986-3.987L3.842 16.175a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path>
+      <path d="M22 17h-4"></path>
+      <path d="M4 5v4"></path>
+      <path d="M6 7H2"></path>
+      <path d="M9 2v2"></path>
     </>
   )}
 </svg>
