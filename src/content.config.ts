@@ -491,7 +491,8 @@ const education = defineCollection({
 // PR #951).
 //
 // `claimsReviewed` is the two-sided claims-review stamp (#1165): the SHA-256 of
-// the case study (`src/content/projects/<slug>.mdx`, raw file bytes) and of this
+// the case study (`src/content/projects/<slug>.mdx`, its bytes without the
+// top-level `aiUse` block, #1514: src/lib/claims-review-stamp.mjs) and of this
 // entry's Markdown body (after the closing `---`, outer whitespace trimmed) as
 // they stood when a person last compared the two, plus the date of that review.
 // The schema only checks the shape; `tests/resume-claims-review.test.js`

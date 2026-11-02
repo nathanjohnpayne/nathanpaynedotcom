@@ -19,6 +19,9 @@ import { getEntry } from "astro:content";
 // #1079: the /privacy/ link on every footer, rendered by the component only
 // when the privacy flag is on (specs/analytics-privacy.md § UI Hooks).
 import PrivacyLink from "./privacy/ui/PrivacyLink.astro";
+// #1494: the /how-i-write/ icon, just before Privacy on every footer
+// (specs/how-i-write.md § Links). Not behind the privacy flag.
+import HowIWriteLink from "./HowIWriteLink.astro";
 import NavIcon, { type NavIconName } from "./NavIcon.astro";
 
 interface FooterLink {
@@ -77,6 +80,7 @@ const classList = [
         {...(link.external ? { target: "_blank", rel: "noopener" } : {})}
       >{link.icon && <NavIcon name={link.icon} />}{link.label}</a>
     ))}
+    <HowIWriteLink class="nav-button" icon />
     <PrivacyLink class="nav-button" icon />
   </nav>
 </footer>

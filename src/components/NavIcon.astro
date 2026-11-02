@@ -22,7 +22,8 @@ export type NavIconName =
   | 'layout-grid'
   | 'house'
   | 'shield-check'
-  | 'pencil-sparkles';
+  | 'pencil-sparkles'
+  | 'palette';
 
 interface Props {
   name: NavIconName;
@@ -85,6 +86,15 @@ const { name } = Astro.props;
       <path d="M4 5v4"></path>
       <path d="M6 7H2"></path>
       <path d="M9 2v2"></path>
+    </>
+  )}
+  {name === 'palette' && (
+    <>
+      <path d="M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z"></path>
+      <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"></circle>
+      <circle cx="17.5" cy="10.5" r=".5" fill="currentColor"></circle>
+      <circle cx="6.5" cy="12.5" r=".5" fill="currentColor"></circle>
+      <circle cx="8.5" cy="7.5" r=".5" fill="currentColor"></circle>
     </>
   )}
 </svg>

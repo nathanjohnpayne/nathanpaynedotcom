@@ -809,10 +809,11 @@ describe('/privacy/ page and footer link (PRIV-11, PRIV-15)', () => {
       );
     }
     // The homepage puts the link at the end of the Connect contact line. The
-    // separator before it closes the Résumé item and must be gated too.
+    // separator before it closes the How I write item (#1494) and must be
+    // gated too.
     const home = read('src/pages/index.astro');
     expect(home).toMatch(
-      /Résumé<span class="link-arrow"[^>]*>→<\/span><\/a>\{privacyEnabled && '\\u00a0·'\}/,
+      /<HowIWriteLink class="availability-how-i-write p-link" arrow \/>\{privacyEnabled && '\\u00a0·'\}/,
     );
     expect(home).toMatch(
       /\{privacyEnabled && \(\s*<>\s*\{' '\}\s*<span class="availability-item"><PrivacyLink class="availability-privacy p-link"/,
