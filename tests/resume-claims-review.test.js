@@ -6,6 +6,7 @@ import { slug as githubSlug } from 'github-slugger';
 import { parseFrontmatter as astroParseFrontmatter } from '@astrojs/markdown-remark';
 import { parseFrontmatter } from '../scripts/lib/parse-frontmatter.mjs';
 import { findFilesRecursively } from '../scripts/lib/blog-file-inventory.mjs';
+import { caseStudyClaimsBytes, caseStudyClaimsHash } from '../src/lib/claims-review-stamp.mjs';
 
 // The two-sided claims-review stamp (#1165). See specs/resume.md § Claims
 // review, which is the contract; this file enforces it.
@@ -14,7 +15,7 @@ import { findFilesRecursively } from '../scripts/lib/blog-file-inventory.mjs';
 // last reviewed as:
 //
 //   claimsReviewed:
-//     caseStudy: <sha256 of the case study file's raw bytes>
+//     caseStudy: <sha256 of the case study file's bytes, aiUse block removed>
 //     resume: <sha256 of this entry's Markdown body>
 //     date: <YYYY-MM-DD of the review>
 //
@@ -24,6 +25,15 @@ import { findFilesRecursively } from '../scripts/lib/blog-file-inventory.mjs';
 // Nothing here can read the canonical (it is private and not in CI), and
 // nothing here writes to it. A passing stamp proves a person compared the two
 // sides since either last changed; it does not prove they agree.
+//
+// The `caseStudy` hash covers the case study file exactly as stored, except
+// its top-level `aiUse` frontmatter block (#1514): the `aiUse:` key line and
+// the lines nested under it, nothing else. The AI-use disclosure makes no
+// project claim, so adding or editing it leaves the stamp current; any other
+// edit, to the body or to another frontmatter field, still moves it. A file
+// without `aiUse` hashes as its raw bytes. The definition is
+// src/lib/claims-review-stamp.mjs, which this suite imports rather than
+// restating.
 //
 // Unlike tests/resume.test.js this reads source files only, not dist/: the
 // stamp is a fact about content, and the hashes are defined over source bytes.
@@ -70,7 +80,7 @@ function resumeHash(source) {
 
 /** @param {Buffer} bytes - the case study file exactly as stored */
 function caseStudyHash(bytes) {
-  return sha256Hex(bytes);
+  return caseStudyClaimsHash(bytes);
 }
 
 /**
@@ -137,7 +147,7 @@ function staleClaimsReviewMessage({
   // someone re-reads them. Two of them render only on other pages, so a read
   // of the edited page never shows them (#1395: the Matchline card kept "My
   // final session fixed the ruler" after #1392 rewrote the lesson). Put the
-  // step before the stamp, which hashes the whole file.
+  // step before the stamp, which hashes the whole file but its aiUse block.
   const summaryStep =
     !verdict.recorded || verdict.caseStudyChanged
       ? [
@@ -299,7 +309,7 @@ describe('Résumé claims review — the hash definitions', () => {
     }
   });
 
-  it('hashes the case study as raw bytes, so any edit to it moves the stamp', () => {
+  it('hashes the case study as stored, so an edit outside aiUse moves the stamp', () => {
     const bytes = Buffer.from('---\nslug: "x"\n---\n\nBody.\n', 'utf8');
     expect(caseStudyHash(bytes)).toBe(sha256Hex(bytes));
     expect(caseStudyHash(Buffer.from('---\nslug: "x"\n---\n\nBody!\n', 'utf8'))).not.toBe(
@@ -309,6 +319,141 @@ describe('Résumé claims review — the hash definitions', () => {
     expect(caseStudyHash(Buffer.from('---\nslug: "y"\n---\n\nBody.\n', 'utf8'))).not.toBe(
       caseStudyHash(bytes),
     );
+  });
+});
+
+describe('Résumé claims review — the case-study hash ignores the aiUse block', () => {
+  // #1514. The AI-use disclosure makes no project claim, so it must not send
+  // the résumé entry back for review. Everything else in the file still does.
+  const statement =
+    'At my direction, an agent wrote the first draft from the repository, and I approved the result.';
+  const aiUseBlock = (text = statement, content = 'a'.repeat(64), date = '2026-11-01') => [
+    'aiUse:',
+    `  statement: "${text}"`,
+    '  reviewed:',
+    `    content: "${content}"`,
+    `    date: "${date}"`,
+  ];
+  const head = ['---', 'title: "Example"', 'slug: "example"', 'status: "Live"'];
+  const tail = ['related:', '  - label: "Post: Example"', '    href: "/blog/example/"'];
+  const body = [
+    '---',
+    '',
+    "import ConstraintStrip from '../../components/projects/ConstraintStrip.astro';",
+    '',
+    'The body.',
+    '',
+  ];
+  const file = (...lines) => Buffer.from(lines.flat().join('\n'), 'utf8');
+  const without = file(head, tail, body);
+  const atEnd = file(head, tail, aiUseBlock(), body);
+
+  /** Insert lines just before the closing `---` of a file's frontmatter. */
+  function withBlockAtEnd(bytes, lines) {
+    const source = bytes.toString('utf8');
+    const close = /\r?\n---[ \t]*(?:\r?\n|$)/.exec(source.slice(4));
+    expect(source.startsWith('---\n') && close, 'expected a frontmatter block').toBeTruthy();
+    const at = 4 + close.index + 1;
+    return Buffer.from(`${source.slice(0, at)}${lines.join('\n')}\n${source.slice(at)}`, 'utf8');
+  }
+
+  it('hashes a file without aiUse as its raw bytes, so no earlier stamp moved', () => {
+    expect(caseStudyClaimsBytes(without)).toBe(without);
+    expect(caseStudyHash(without)).toBe(sha256Hex(without));
+    for (const c of caseStudies) {
+      if (/^aiUse\s*:/m.test(c.bytes.toString('utf8').split(/\n---/)[0])) continue;
+      expect(caseStudyHash(c.bytes), c.path).toBe(sha256Hex(c.bytes));
+    }
+  });
+
+  it('removes the block exactly, wherever it sits in the frontmatter', () => {
+    const cases = {
+      'at the end': atEnd,
+      'in the middle': file(head, aiUseBlock(), tail, body),
+      first: file(head[0], aiUseBlock(), head.slice(1), tail, body),
+      'with a blank and a comment line inside it': file(
+        head,
+        ['aiUse:', '  statement: "x"', '', '  # owner confirmed', '  reviewed:', '    date: "y"'],
+        tail,
+        body,
+      ),
+      'as a folded block scalar': file(
+        head,
+        ['aiUse:', '  statement: >-', '    Two lines', '    of statement.', '  reviewed: {}'],
+        tail,
+        body,
+      ),
+      'in flow style on one line': file(head, ['aiUse: { statement: "x" }'], tail, body),
+    };
+    for (const [where, bytes] of Object.entries(cases)) {
+      expect(caseStudyClaimsBytes(bytes).equals(without), where).toBe(true);
+      expect(caseStudyHash(bytes), where).toBe(caseStudyHash(without));
+    }
+    const crlf = (bytes) => Buffer.from(bytes.toString('utf8').replace(/\n/g, '\r\n'), 'utf8');
+    expect(caseStudyClaimsBytes(crlf(atEnd)).equals(crlf(without)), 'CRLF').toBe(true);
+  });
+
+  it('leaves the body alone, even where it contains aiUse:', () => {
+    const bodyWithKey = [...body.slice(0, -1), 'aiUse:', '  statement: "in the body"', ''];
+    const withBoth = file(head, tail, aiUseBlock(), bodyWithKey);
+    expect(caseStudyClaimsBytes(withBoth).equals(file(head, tail, bodyWithKey))).toBe(true);
+    const bodyOnly = file(head, tail, bodyWithKey);
+    expect(caseStudyClaimsBytes(bodyOnly)).toBe(bodyOnly);
+    expect(caseStudyHash(bodyOnly)).toBe(sha256Hex(bodyOnly));
+  });
+
+  it('keeps the stamp current when aiUse is added or edited', () => {
+    expect(caseStudyHash(atEnd)).toBe(caseStudyHash(without));
+    const edited = [
+      file(head, tail, aiUseBlock('A different, longer statement.'), body),
+      file(head, tail, aiUseBlock(statement, 'b'.repeat(64)), body),
+      file(head, tail, aiUseBlock(statement, 'a'.repeat(64), '2026-12-01'), body),
+    ];
+    for (const bytes of edited) expect(caseStudyHash(bytes)).toBe(caseStudyHash(atEnd));
+
+    // And on every real case study, in the five-line shape the rollout adds.
+    for (const c of caseStudies) {
+      const before = caseStudyHash(c.bytes);
+      const bare = caseStudyClaimsBytes(c.bytes);
+      for (const lines of [aiUseBlock(), aiUseBlock('Edited.', 'c'.repeat(64), '2027-01-01')]) {
+        expect(caseStudyHash(withBlockAtEnd(bare, lines)), c.path).toBe(before);
+      }
+    }
+  });
+
+  it('still moves the stamp on any other edit to the case study', () => {
+    const base = caseStudyHash(atEnd);
+    const others = {
+      'the body': file(
+        head,
+        tail,
+        aiUseBlock(),
+        body.map((l) => l.replace('The body.', 'A body.')),
+      ),
+      'another top-level field': file(
+        head.map((l) => l.replace('"Live"', '"Archived"')),
+        tail,
+        aiUseBlock(),
+        body,
+      ),
+      'a nested field of another key': file(
+        head,
+        tail.map((l) => l.replace('Post: Example', 'Post: Sample')),
+        aiUseBlock(),
+        body,
+      ),
+      'a field added after the block': file(head, tail, aiUseBlock(), 'cardDescription: "x"', body),
+      'a key that only starts with aiUse': file(head, tail, aiUseBlock(), 'aiUseNote: "x"', body),
+      'a blank line after the block': file(head, aiUseBlock(), '', tail, body),
+    };
+    for (const [edit, bytes] of Object.entries(others)) {
+      expect(caseStudyHash(bytes), edit).not.toBe(base);
+    }
+  });
+
+  it('refuses an aiUse it cannot remove exactly instead of hashing around it', () => {
+    const quoted = file(head, tail, ['"aiUse":', '  statement: "x"'], body);
+    expect(() => caseStudyHash(quoted)).toThrow(/aiUse/);
   });
 });
 
