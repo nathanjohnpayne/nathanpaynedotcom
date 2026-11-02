@@ -64,11 +64,8 @@ interface Props {
     | { type: 'mermaid'; content: string; title: string; description: string; caption?: string }
     | { type: 'image' | 'text'; content: string; caption?: string }
   )[];
-  /**
-   * The AI-use disclosure (#1493). Optional while #1492 leaves the schema field
-   * optional: the "AI use" link and the end block render only when it is set.
-   */
-  aiUse?: { statement: string };
+  /** The AI-use disclosure (#1493); required on every entry (#1498). */
+  aiUse: { statement: string };
   /** Older neighbor by date; null on the oldest post (no wrap). */
   prevPost?: PostLink | null;
   /** Newer neighbor by date; null on the newest post (no wrap). */
@@ -249,7 +246,7 @@ const jsonLd = {
             {showUpdated && <> &middot; Updated <time datetime={isoModified}>{updatedMonth}</time></>}
             {' '}&middot; {readingTime}
           </p>
-          {aiUse && <div class="blog-header-ai"><AiUseLink /></div>}
+          <div class="blog-header-ai"><AiUseLink /></div>
         </div>
         <h1>{title}</h1>
         <p class="deck">{description}</p>
@@ -273,7 +270,7 @@ const jsonLd = {
           <div>
             <dt>Author</dt>
             <dd>{author}</dd>
-            {aiUse && <dd class="blog-sidebar-ai"><AiUseLink /></dd>}
+            <dd class="blog-sidebar-ai"><AiUseLink /></dd>
           </div>
           <div><dt>Reading time</dt><dd>{readingTime}</dd></div>
           <div>
@@ -321,7 +318,7 @@ const jsonLd = {
              .blog-postscript so it prints with the piece and sits above
              the prev/next cards and the author footer. Rendered here, not
              through the `sidebar` array, so no post can omit or move it. */}
-        {aiUse && <AiUseNote statement={aiUse.statement} variant="blog" />}
+        <AiUseNote statement={aiUse.statement} variant="blog" />
 
         {/* ── End-of-post block (#622) ──────────────────────────────
              Prev/next by date + the author footer. Sits after

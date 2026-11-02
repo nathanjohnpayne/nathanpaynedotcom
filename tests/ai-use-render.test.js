@@ -1,17 +1,13 @@
 /**
  * The AI-use disclosure, rendered (#1493, epic #1490).
  *
- * Every blog post and case study that carries `aiUse` shows a short "AI use"
- * link near its top, and ends with a "How this was written" block holding its
- * own statement and a link to /how-i-write/. The layouts render both; no entry
- * can omit or move them. This suite reads the built site, so it describes what
- * a reader gets.
- *
- * It is vacuous against the built site until entries carry `aiUse` (#1495 and
- * #1496 backfill them; #1498 makes the field required and extends the loops
- * below to every non-draft entry). The source-contract block at the end is what
- * keeps the test meaningful in the meantime: it fails if either layout drops the
- * block or the link, whether or not any entry exercises it.
+ * Every non-draft blog post and case study shows a short "AI use" link near its
+ * top, and ends with a "How this was written" block holding its own statement
+ * and a link to /how-i-write/. The layouts render both unconditionally and
+ * `aiUse` is required (#1498), so no entry can omit or move them. This suite
+ * reads the built site, so it describes what a reader gets, and it checks every
+ * entry: a layout that drops the block or the link fails once per entry of that
+ * kind, which is why there is no separate layout-source check.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -44,7 +40,6 @@ function entries(kind) {
         slug: slug ?? frontmatter.slug,
         draft: frontmatter.draft === 'true',
         statement: frontmatter.aiUse?.statement,
-        hasAiUse: Boolean(frontmatter.aiUse),
       };
     })
     .filter((entry) => !entry.draft)
@@ -58,21 +53,22 @@ function entries(kind) {
 }
 
 const published = [...entries('blog'), ...entries('projects')];
-const withAiUse = published.filter((entry) => entry.hasAiUse);
-const withoutAiUse = published.filter((entry) => !entry.hasAiUse);
 
 const squash = (text) => text.replace(/\s+/g, ' ').trim();
 const follows = (a, b) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
 
-describe('Entries with aiUse render the link and the end block (#1493)', () => {
-  // Vitest rejects an empty suite. Until #1495 and #1496 land an `aiUse` block
-  // on real entries this is the only test here, and it asserts nothing about
-  // rendering; the source-contract suite below carries the weight.
-  it('reads the entries it will check', () => {
-    expect(published.length).toBeGreaterThan(0);
+describe('Every non-draft entry renders the link and the end block (#1493, #1498)', () => {
+  // Positive control: without it a misdirected walk leaves the loop below
+  // empty and the suite passes having checked nothing.
+  it('reads the posts and case studies it will check', () => {
+    expect(published.filter((e) => e.kind === 'blog').length).toBeGreaterThan(0);
+    expect(published.filter((e) => e.kind === 'projects').length).toBeGreaterThan(0);
+    for (const entry of published) {
+      expect(entry.statement, `${entry.kind}/${entry.slug}: aiUse.statement`).toBeTruthy();
+    }
   });
 
-  for (const entry of withAiUse) {
+  for (const entry of published) {
     it(`${entry.kind}/${entry.slug}: the "AI use" link, on every surface`, () => {
       writeSanitizedDOM(readBuiltPage(entry.path));
       const surfaces =
@@ -135,67 +131,7 @@ describe('Entries with aiUse render the link and the end block (#1493)', () => {
   }
 });
 
-describe('Entries without aiUse render no link and no block (rollout)', () => {
-  // Once every entry carries aiUse the loop below is empty, and Vitest fails
-  // an empty suite; this case then records that the rollout is complete.
-  // #1498 makes the field required and removes this suite.
-  if (withoutAiUse.length === 0) {
-    it('no entry is left without aiUse', () => {
-      expect(withoutAiUse).toEqual([]);
-    });
-  }
-  for (const entry of withoutAiUse) {
-    it(`${entry.kind}/${entry.slug}`, () => {
-      writeSanitizedDOM(readBuiltPage(entry.path));
-      expect(document.querySelector('a.ai-use-link')).toBeNull();
-      expect(document.querySelector(`#${AI_USE_ID}`)).toBeNull();
-      expect(document.querySelector('.ai-use')).toBeNull();
-      expect(document.querySelector('.blog-sidebar-ai')).toBeNull();
-      expect(document.querySelector('.blog-header-ai')).toBeNull();
-    });
-  }
-});
-
-describe('Layout source contract (keeps the suite meaningful before any entry carries aiUse)', () => {
-  const read = (path) => readFileSync(resolve(root, path), 'utf8');
-
-  it('BlogPost renders the end block after the prose and before .blog-postscript, and both links', () => {
-    const source = read('src/layouts/BlogPost.astro');
-    const proseEnd = source.indexOf('</article>');
-    const note = source.indexOf('<AiUseNote');
-    const postscript = source.indexOf('<div class="blog-postscript">');
-    expect(note, 'BlogPost must render <AiUseNote>').toBeGreaterThan(-1);
-    expect(proseEnd).toBeGreaterThan(-1);
-    expect(note).toBeGreaterThan(proseEnd);
-    expect(note).toBeLessThan(postscript);
-    expect(source).toMatch(/\{aiUse && <AiUseNote[^\n]*variant="blog"/);
-    expect(source.match(/<AiUseLink/g)?.length, 'panel link + phone-header link').toBe(2);
-    expect(source).toContain('class="blog-sidebar-ai"');
-    expect(source).toContain('class="blog-header-ai"');
-  });
-
-  it('ProjectLayout renders the end block before .project-related and tells the hero', () => {
-    const source = read('src/layouts/ProjectLayout.astro');
-    const note = source.indexOf('<AiUseNote');
-    expect(note, 'ProjectLayout must render <AiUseNote>').toBeGreaterThan(-1);
-    expect(note).toBeGreaterThan(source.indexOf('<div class="project-copy">'));
-    expect(note).toBeLessThan(source.indexOf('<section class="project-related"'));
-    expect(source).toMatch(/\{aiUse && <AiUseNote[^\n]*variant="project"/);
-    expect(source).toContain('aiUse={Boolean(aiUse)}');
-  });
-
-  it('ProjectHero closes the action row with the link', () => {
-    const source = read('src/components/ProjectHero.astro');
-    const link = source.indexOf('{aiUse && <AiUseLink />}');
-    expect(link).toBeGreaterThan(source.indexOf('data-cta="github"'));
-    expect(link).toBeLessThan(source.indexOf('</div>', link));
-  });
-
-  it("both pages pass the entry's aiUse to the layout", () => {
-    expect(read('src/pages/blog/[...slug].astro')).toContain('aiUse={post.data.aiUse}');
-    expect(read('src/pages/projects/[slug].astro')).toContain('aiUse={data.aiUse}');
-  });
-
+describe('Print stylesheet', () => {
   it('the shipped stylesheet prints the block and drops the link', () => {
     const css = readBuiltStylesheet();
     const printBlocks = [...css.matchAll(/@media print\{([\s\S]*?\})\}/g)]

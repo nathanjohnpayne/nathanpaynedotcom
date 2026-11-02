@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { test, expect, type Page } from '@playwright/test';
 import { contrastRatio, parseComputedColor, type ParsedColor } from '../helpers/contrast';
 
@@ -260,17 +260,20 @@ for (const width of BREAKPOINTS) {
     });
 
     if (width <= 1023) {
-      // The six-prs post is the reference. Every post that carries `aiUse` is
-      // checked too: its phone kicker ends in the AI-use link, and that line
-      // once closed the kicker without .post-meta's bottom margin, so the
-      // title sat 8px closer to it than on a post without the link (#1513).
-      // Read from the content files, so the check follows the rollout (#1490).
+      // Every post carries `aiUse` (#1498), so its phone kicker ends in the
+      // AI-use link, and that line once closed the kicker without .post-meta's
+      // bottom margin, so the title sat 8px closer to it than on a post
+      // without the link (#1513). Read the post files, not a list, so a new
+      // post is covered; six-prs stays first as the reference.
       const blogDir = new URL('../../src/content/blog/', import.meta.url);
-      const aiUsePosts = readdirSync(blogDir)
-        .filter((file) => /\.mdx?$/.test(file))
-        .filter((file) => /^aiUse:/m.test(readFileSync(new URL(file, blogDir), 'utf8')))
-        .map((file) => file.replace(/\.mdx?$/, ''));
-      const evennessPosts = [...new Set(['six-prs-one-bug-agent-failure-modes', ...aiUsePosts])];
+      const evennessPosts = [
+        ...new Set([
+          'six-prs-one-bug-agent-failure-modes',
+          ...readdirSync(blogDir)
+            .filter((file) => /\.mdx?$/.test(file))
+            .map((file) => file.replace(/\.mdx?$/, '')),
+        ]),
+      ];
 
       for (const slug of evennessPosts) {
         test(`article title sits evenly between its kicker and its deck (${slug})`, async ({
