@@ -186,7 +186,7 @@ describe('Layout source contract (keeps the suite meaningful before any entry ca
 
   it('ProjectHero closes the action row with the link', () => {
     const source = read('src/components/ProjectHero.astro');
-    const link = source.indexOf('{aiUse && <AiUseLink />}');
+    const link = source.indexOf('{aiUse && <AiUseLink surface="project-actions" title={title} />}');
     expect(link).toBeGreaterThan(source.indexOf('data-cta="github"'));
     expect(link).toBeLessThan(source.indexOf('</div>', link));
   });

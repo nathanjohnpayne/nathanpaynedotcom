@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import { resolve } from 'path';
 import { execSync } from 'child_process';
 import { readBuiltPage, writeSanitizedDOM } from './helpers/dom.js';
@@ -293,6 +293,8 @@ describe('PostHog', () => {
       19: 'nineteen',
       20: 'twenty',
       21: 'twenty-one',
+      22: 'twenty-two',
+      23: 'twenty-three',
     };
     const expected = words[rowCount];
     expect(expected, `no spelling on file for ${rowCount} — extend the map`).toBeDefined();
@@ -762,5 +764,162 @@ describe('PostHog', () => {
       .dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
     expect(capture).toHaveBeenCalledWith('resume_link_clicked');
+  });
+});
+
+// #1511 (epic #1490): the AI-use disclosure links. One delegated listener,
+// rendered by BaseLayout, reads the data attributes AiUseLink, AiUseNote and
+// HowIWriteLink emit. These tests run the listener exactly as built, against
+// the built pages, so they describe what a reader's click does.
+describe('AI-use link events (#1511)', () => {
+  const builtRoutes = (dir) =>
+    readdirSync(resolve(__dirname, '../dist', dir), { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => `${dir}/${e.name}/index.html`);
+  const firstWith = (routes, needle) =>
+    routes.find((r) => readBuiltPage(r).includes(needle)) ??
+    expect.fail(`no built page under ${routes[0]?.split('/')[0]} carries ${needle}`);
+
+  const blogPage = firstWith(builtRoutes('blog'), 'data-ai-use-surface="blog-panel"');
+  const projectPage = firstWith(builtRoutes('projects'), 'data-ai-use-surface="project-actions"');
+
+  let added = [];
+  let blocker;
+
+  /** Load a built page, run its LinkAnalytics script, and return the capture spy. */
+  function load(route, { posthog = true } = {}) {
+    const html = readBuiltPage(route);
+    writeSanitizedDOM(html);
+    // jsdom logs "not implemented: navigation" for a followed link; the click
+    // itself is what is under test. Added after the DOM write, which resets
+    // the document's listeners.
+    document.addEventListener('click', blocker);
+    const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+    const script = scripts.find((x) => x.includes('ai_use_link_clicked'));
+    expect(script, `${route} should carry the LinkAnalytics script`).toBeDefined();
+    const capture = vi.fn();
+    window.posthog = posthog ? { capture } : undefined;
+    const original = document.addEventListener.bind(document);
+    vi.spyOn(document, 'addEventListener').mockImplementation((type, fn, opts) => {
+      added.push([type, fn, opts]);
+      return original(type, fn, opts);
+    });
+    new Function(script)();
+    return capture;
+  }
+
+  beforeEach(() => {
+    added = [];
+    blocker = (e) => e.preventDefault();
+  });
+
+  afterEach(() => {
+    for (const [type, fn, opts] of added) document.removeEventListener(type, fn, opts);
+    document.removeEventListener('click', blocker);
+    vi.restoreAllMocks();
+    delete window.posthog;
+  });
+
+  const title = (route) =>
+    new DOMParser()
+      .parseFromString(readBuiltPage(route), 'text/html')
+      .querySelector('h1')
+      .textContent.trim();
+
+  it.each([
+    ['blog-panel', 'blog', blogPage, 'dd.blog-sidebar-ai .ai-use-link'],
+    ['blog-header', 'blog', blogPage, '.blog-header-ai .ai-use-link'],
+    ['project-actions', 'project', projectPage, '.project-actions .ai-use-link'],
+  ])('fires ai_use_link_clicked once for the %s surface', (surface, kind, route, selector) => {
+    const capture = load(route);
+    const link = document.querySelector(selector);
+    expect(link, `${selector} on ${route}`).not.toBeNull();
+    // Click the icon child, as a real pointer would, to prove delegation.
+    (link.querySelector('svg') ?? link).dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true }),
+    );
+
+    expect(capture).toHaveBeenCalledTimes(1);
+    expect(capture).toHaveBeenCalledWith('ai_use_link_clicked', {
+      surface,
+      title: title(route),
+      kind,
+    });
+  });
+
+  it.each([
+    ['ai-use-note', blogPage, 'section#ai-use .ai-use__more', 'blog'],
+    ['ai-use-note', projectPage, 'section#ai-use .ai-use__more', 'project'],
+  ])('fires how_i_write_link_clicked once for %s on a %s page', (source, route, selector, kind) => {
+    const capture = load(route);
+    document
+      .querySelector(selector)
+      .dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+    expect(capture).toHaveBeenCalledTimes(1);
+    expect(capture).toHaveBeenCalledWith('how_i_write_link_clicked', {
+      source,
+      title: title(route),
+      kind,
+    });
+  });
+
+  it.each([
+    ['homepage', 'index.html', 'a.availability-how-i-write'],
+    ['404', '404.html', 'a.nav-button[href="/how-i-write/"]'],
+    ['footer', blogPage, 'footer a[href="/how-i-write/"]'],
+    ['footer', projectPage, 'footer a[href="/how-i-write/"]'],
+  ])(
+    'fires how_i_write_link_clicked once with only source for %s on %s',
+    (source, route, selector) => {
+      const capture = load(route);
+      const link = document.querySelector(selector);
+      expect(link, `${selector} on ${route}`).not.toBeNull();
+      link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+      expect(capture).toHaveBeenCalledTimes(1);
+      expect(capture).toHaveBeenCalledWith('how_i_write_link_clicked', { source });
+    },
+  );
+
+  it('tags every link to /how-i-write/ on a page with a source', () => {
+    for (const route of ['index.html', '404.html', blogPage, projectPage]) {
+      writeSanitizedDOM(readBuiltPage(route));
+      const links = [...document.querySelectorAll('a[href="/how-i-write/"]')];
+      expect(links.length, route).toBeGreaterThan(0);
+      for (const a of links) {
+        expect(a.dataset.howIWriteSource, `${route}: ${a.outerHTML}`).toMatch(
+          /^(ai-use-note|footer|homepage|404)$/,
+        );
+      }
+    }
+  });
+
+  it('does not fire for unrelated links', () => {
+    const capture = load(blogPage);
+    document
+      .querySelector('a[href="/blog/"]')
+      .dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    expect(capture).not.toHaveBeenCalled();
+  });
+
+  it('fires nothing when PostHog is absent (analytics off, blocked or not loaded)', () => {
+    const capture = load(blogPage, { posthog: false });
+    expect(() => {
+      document
+        .querySelector('.ai-use-link')
+        .dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      document
+        .querySelector('section#ai-use .ai-use__more')
+        .dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    }).not.toThrow();
+    expect(capture).not.toHaveBeenCalled();
+  });
+
+  it('is a single guarded script with no free text or identifiers', () => {
+    const src = readFileSync(resolve(__dirname, '../src/components/LinkAnalytics.astro'), 'utf-8');
+    expect(src).toContain('window.posthog?.capture');
+    expect(src).not.toContain('window.posthog.capture');
+    expect(src).not.toMatch(/location\.|textContent|innerText|href/);
   });
 });
