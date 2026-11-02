@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 import { parseFrontmatter as astroParseFrontmatter } from '@astrojs/markdown-remark';
@@ -19,9 +20,10 @@ import { aiUseSchema, sha256Hex } from '../src/lib/content-stamp-schema.ts';
 // The AI-use disclosure stamp (#1492, epic #1490).
 //
 // Every blog post and case study that carries `aiUse` records, in
-// `aiUse.reviewed.content`, the hash of its reader-facing content when the
-// owner last confirmed `aiUse.statement`. This suite recomputes the hash and
-// fails, with the remedy, when the text changed since. The hash definition is
+// `aiUse.reviewed.content`, the hash of its reader-facing content and of
+// `aiUse.statement` when the owner last confirmed that statement (#1510 added
+// the statement). This suite recomputes the hash and fails, with the remedy,
+// when the text or the statement changed since. The hash definition is
 // src/lib/ai-use-stamp.mjs; the shape is src/lib/content-stamp-schema.ts.
 //
 // `aiUse` is optional during rollout, and no real entry carries it yet, so the
@@ -65,21 +67,21 @@ function staleAiUseStampMessage({ entryPath, recorded, actual, reviewedDate, tod
   const headline =
     recorded === undefined
       ? `${entryPath}: aiUse carries no reviewed.content stamp.`
-      : `${entryPath}: the aiUse stamp is stale—the entry's reader-facing content changed since the statement was last confirmed${reviewedDate ? ` on ${reviewedDate}` : ''}.`;
+      : `${entryPath}: the aiUse stamp is stale—the entry's reader-facing content or its aiUse statement changed since the statement was last confirmed${reviewedDate ? ` on ${reviewedDate}` : ''}.`;
   return [
     headline,
     `  expected (aiUse.reviewed.content): ${recorded ?? '(none)'}`,
     `  actual (current content):          ${actual}`,
     'A current stamp means the statement was confirmed since the text last changed. It does not prove the statement is accurate.',
     `  1. Confirm that aiUse.statement still describes the text of ${entryPath} as it stands now, frontmatter prose included: what agents did and what the owner did. If it does not, revise the statement first.`,
-    `  2. Then re-stamp aiUse.reviewed. Print the current hash with \`${aiUseHashCommand(entryPath)}\`, and set:`,
+    `  2. Then re-stamp aiUse.reviewed. The hash covers the statement, so print it only once the statement is final, with \`${aiUseHashCommand(entryPath)}\`, and set:`,
     '',
     'aiUse:',
     '  reviewed:',
     `    content: "${actual}"`,
     `    date: "${today}"`,
     '',
-    '     Quote both values, so YAML keeps the date a string. Editing the statement does not change the hash: aiUse is not reader-facing content.',
+    '     Quote both values, so YAML keeps the date a string. Editing the statement changes the hash; editing aiUse.reviewed does not, since it holds the stamp.',
   ].join('\n');
 }
 
@@ -140,7 +142,7 @@ describe('AI-use stamp — stamps are current', () => {
     const actual = aiUseContentHash(edited.source);
     expect(actual).not.toBe(recorded);
     expect(message).toContain(
-      "tests/fixtures/ai-use/stamped-post.md: the aiUse stamp is stale—the entry's reader-facing content changed since the statement was last confirmed on 2026-11-01.",
+      "tests/fixtures/ai-use/stamped-post.md: the aiUse stamp is stale—the entry's reader-facing content or its aiUse statement changed since the statement was last confirmed on 2026-11-01.",
     );
     expect(message).toContain(`  expected (aiUse.reviewed.content): ${recorded}`);
     expect(message).toContain(`  actual (current content):          ${actual}`);
@@ -240,9 +242,59 @@ describe('AI-use stamp — what the hash covers', () => {
     }
   });
 
-  it('does not change when aiUse changes, since the stamp lives inside it', () => {
-    expect(aiUseContentHash(base.replace('Fixture only.', 'Fixture only, reworded.'))).toBe(hash);
+  it('changes when only aiUse.statement changes, and fails the stamp (#1510)', () => {
+    // Regression: before #1510 the hash dropped all of aiUse, so a
+    // statement-only edit left the stamp current.
+    const edited = base.replace('Fixture only.', 'Fixture only, reworded.');
+    expect(splitEntry(edited).body).toBe(splitEntry(base).body);
+    expect(aiUseContentHash(edited)).not.toBe(hash);
+    expect(aiUseStampFailure({ ...fixture, source: edited }, '2026-11-02')).toContain(
+      'the aiUse stamp is stale',
+    );
+  });
+
+  it('does not change when only aiUse.reviewed changes, since it holds the stamp', () => {
+    const recorded = fixture.frontmatter.aiUse.reviewed.content;
+    expect(base).toContain(`content: "${recorded}"`);
+    expect(aiUseContentHash(base.replace(recorded, 'f'.repeat(64)))).toBe(hash);
     expect(aiUseContentHash(base.replace('date: "2026-11-01"', 'date: "2026-12-01"'))).toBe(hash);
+    const unstamped = base.replace(/^ {2}reviewed:\n(?: {4}.*\n)+/m, '');
+    expect(unstamped).not.toMatch(/^ {2}reviewed:/m);
+    expect(aiUseContentHash(unstamped)).toBe(hash);
+  });
+
+  it('hashes the statement as the schema renders it: trimmed, quoting and reflow ignored', () => {
+    const statementLine = /^ {2}statement: "(.*)"$/m;
+    const [, text] = base.match(statementLine);
+    expect(aiUseContentHash(base.replace(statementLine, `  statement: '${text}'`))).toBe(hash);
+    expect(aiUseContentHash(base.replace(statementLine, `  statement: "  ${text}  "`))).toBe(hash);
+    expect(
+      aiUseContentHash(
+        base.replace(statementLine, `  statement: >-\n    ${text.replace('. ', '.\n    ')}`),
+      ),
+    ).toBe(hash);
+    // Whitespace inside the statement is text, so it counts.
+    expect(aiUseContentHash(base.replace('Fixture only. An', 'Fixture only.  An'))).not.toBe(hash);
+  });
+
+  it('refuses to hash aiUse that carries no statement', () => {
+    const statementLine = /^ {2}statement: .*\n/m;
+    expect(base).toMatch(statementLine);
+    for (const replacement of ['', '  statement: ""\n', '  statement: "   "\n', '  statement:\n']) {
+      expect(() => aiUseContentHash(base.replace(statementLine, replacement)), replacement).toThrow(
+        /aiUse has no statement/,
+      );
+    }
+    expect(() =>
+      aiUseContentHash(setTopLevel(base.replace(/^aiUse:\n(?: {2}.*\n)+/m, ''), 'aiUse', '')),
+    ).toThrow(/aiUse has no statement/);
+  });
+
+  it('hashes a null statement for an entry without aiUse', () => {
+    const withoutAiUse = base.replace(/^aiUse:\n(?: {2}.*\n)+/m, '');
+    expect(withoutAiUse).not.toMatch(/^ *(?:aiUse|statement|reviewed):/m);
+    expect(readerFacingContent(withoutAiUse).statement).toBeNull();
+    expect(aiUseContentHash(withoutAiUse)).not.toBe(hash);
   });
 
   it('changes when the body changes, but not with its outer whitespace', () => {
@@ -288,6 +340,8 @@ describe('AI-use stamp — what the hash covers', () => {
       '{"a":{"c":null,"d":[2,{"e":0,"f":1}]},"b":1}',
     );
     const content = readerFacingContent(base);
+    expect(Object.keys(content).sort()).toEqual(['body', 'frontmatter', 'statement']);
+    expect(content.statement).toBe(fixture.frontmatter.aiUse.statement);
     expect(Object.keys(content.frontmatter)).not.toContain(AI_USE_FIELD);
     for (const field of AI_USE_NON_PROSE_FIELDS) {
       expect(Object.keys(content.frontmatter)).not.toContain(field);
@@ -296,6 +350,14 @@ describe('AI-use stamp — what the hash covers', () => {
       'A changed takeaway changes the hash.',
       'A changed homepage rank does not.',
     ]);
+    // The statement is its own member, outside frontmatter, so a frontmatter
+    // field cannot stand in for it.
+    expect(aiUseContentHash(base)).toBe(
+      createHash('sha256').update(canonicalJson(content), 'utf8').digest('hex'),
+    );
+    expect(
+      aiUseContentHash(setTopLevel(base, 'statement', JSON.stringify(content.statement))),
+    ).not.toBe(hash);
   });
 
   it('ends the frontmatter only at a whole `---` line', () => {
