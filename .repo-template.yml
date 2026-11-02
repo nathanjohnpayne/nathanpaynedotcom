@@ -4,3 +4,4 @@ generated_dirs: []
 spec_test_map:
   book-page: tests/book.test.js
   brand-page: tests/brand.test.js
+  how-i-write: tests/how-i-write.test.js

@@ -1466,7 +1466,7 @@ html[data-fonts-pending] .panel-label {
 
      prominent action  .about-resume-link, .availability-mailto,
                        .availability-booking, .availability-resume,
-                       .availability-privacy
+                       .availability-how-i-write, .availability-privacy
      exit action       .ribbon-exit (About, Projects, Connect)
      linked entity     .p-name.p-name-link (project titles), .effort-link
                        (organizations), .blog-callout-link (Latest Post)
@@ -1494,6 +1494,7 @@ html[data-fonts-pending] .panel-label {
 .availability-mailto .link-arrow,
 .availability-booking .link-arrow,
 .availability-resume .link-arrow,
+.availability-how-i-write .link-arrow,
 .availability-privacy .link-arrow,
 .ribbon-exit .link-arrow,
 .p-name.p-name-link .link-arrow,
@@ -2260,11 +2261,12 @@ body.blog-page {
   color: var(--paper);
 }
 
-/* The footer's Privacy link as an icon (PrivacyLink `icon`): a square button
-   the height of its text neighbours. The glyph is one line box tall (1.2em at
-   the button's font size), so equal padding on every side gives the same
-   height and a square. */
-.privacy-link--icon {
+/* The footer's icon-only links, Privacy (PrivacyLink `icon`) and How I write
+   (HowIWriteLink `icon`, #1494): a square button the height of its text
+   neighbours. The glyph is one line box tall (1.2em at the button's font
+   size), so equal padding on every side gives the same height and a square. */
+.privacy-link--icon,
+.nav-button--icon {
   justify-content: center;
   padding: 0.55rem;
 }
@@ -4205,6 +4207,27 @@ a.tag:hover {
   padding-left: 0;
 }
 
+/* The 404's eight destinations (#1494), each button filling its column.
+   Four columns need each column at least as wide as the widest button's
+   max-content (padding + icon + an unbreakable label, about 153px). Measured
+   on the built page, a column first clears that at 830px and has 8px to
+   spare from 870px, so four columns start at 900px (14px of margin there,
+   more above). From 481px to 899px two columns fit with at least 30px to
+   spare, so the order reads Homepage, Résumé / Projects, Blog / Book, Brand /
+   How I write, Privacy. At <=480 the shared .project-actions rule stacks
+   them full width. Guarded by tests/responsive/not-found-phone.spec.ts. */
+@media (min-width: 481px) {
+  .e-content .e-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 900px) {
+  .e-content .e-actions {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 .e-block {
   min-height: 0;
 }
@@ -6042,13 +6065,15 @@ a:focus-visible {
   }
 
   /* In the footer, each text button still takes its own full row, but the
-     basis leaves room for the Privacy icon (about 2.2rem plus the 0.75rem
-     gap), so the icon sits beside the last button instead of alone below. */
+     basis leaves room for the two icons, How I write and Privacy (each about
+     2.2rem plus the 0.75rem gap before it), so they sit beside the last
+     button instead of alone below. */
   .site-footer__nav .nav-button {
     width: auto;
-    flex: 1 1 calc(100% - 3rem);
+    flex: 1 1 calc(100% - 6rem);
   }
-  .site-footer__nav .privacy-link--icon {
+  .site-footer__nav .privacy-link--icon,
+  .site-footer__nav .nav-button--icon {
     flex: 0 0 auto;
   }
 
