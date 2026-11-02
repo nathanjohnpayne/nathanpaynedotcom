@@ -34,6 +34,11 @@ sidebar:
     content: |
       What was checked against what. Marks, bingos, proofs and timestamps come from the two production Firestore projects. Crash timing and event counts come from PostHog; the connectivity check was run on September 26 over the cruise dates. PostHog undercounted Bodega Bay's marks (5 against Firestore's 27), so the game totals use Firestore; the connectivity check separately counts recorded analytics events. The host's words are from a debrief survey Kim answered on August 11 and from text messages Kim sent me around the event, all quoted with permission; one obvious typo is corrected in brackets. The players' words are from an anonymous cruise debrief with seven submissions, five complete. Commit and pull request figures come from the public repository's history; the post-debrief commit split is a rough keyword count, not a hand classification. The app screens come from the app repository's marketing harness: the real app running over a seeded demo event, with invented names, general-audience prompts and no player photographs. No screen shows production data.
     caption: "Sources and counting boundaries."
+aiUse:
+  statement: "At my direction, Claude wrote the first draft from the event data and my account of both events, and Codex later rewrote it in my voice. I chose the six game screenshots, decided where each would appear, and determined what each would communicate about the cruise and Bodega Bay. I supplied the exact wording of the Sunday passage, had cut thesis lines restored, and removed four words, and I approved the rewrite and reviewed Claude's later fixes and two revised key takeaways."
+  reviewed:
+    content: "8329639b6ffe392a32f95bcd9a328ed988d842a3147fad6691eb312a11a7a286"
+    date: "2026-11-01"
 ---
 
 At 12:57 on Saturday, August 8, Kim, the host of a weekend in Bodega Bay, marked a bingo square. Nobody marked another square for the rest of the weekend. The guests had made their last marks three hours earlier.

@@ -30,6 +30,11 @@ sidebar:
     content: |
       Provenance. The OpenAI incidents are quoted from OpenAI's report "Suppressing misalignment monitoring alerts and disabling misalignment monitoring," read on 2026-10-26; the page shows incident dates of October 3 and October 6, 2026, and an update on October 20, 2026. One quoted instruction appears on that page without spaces between words; I have restored the spacing. Everything about Mergepath comes from its repository at commit `ce80530`, read on 2026-10-26, and from issues #672, #962 and #1000 and pull requests #674, #1018 and #2589, read through the GitHub API the same day. Issues #2852, #2853, #2854 and #2855, which track the three rules, were filed and read on 2026-10-28. The headline figure shows Google News results for the articles from The Verge, CNBC, The Independent and The Hacker News, captured on 2026-10-26. Dates are Pacific time. Updated 2026-10-28: the three rules now link to the issues that track them, and "The oracle" is now "The rewritten check."
     caption: "Where each claim comes from."
+aiUse:
+  statement: "I wrote the first draft and directed every revision, including the argument, evidence, and visuals. Claude checked my account against the OpenAI report and the Mergepath records, corrected ten claims, and applied an editorial pass Codex proposed. I kept my interpretation of the subagent's objection, chose the figure, decided where it would appear, and determined which headlines belonged in it, and I reviewed and approved the complete piece, including the tracking-issue links Claude later added at my request."
+  reviewed:
+    content: "0f8da77df30c0e02e6f1e208ac8ea58cf4ae9b1956438265e9afef8d3e8b0f5c"
+    date: "2026-11-01"
 ---
 
 On October 3, an OpenAI coding agent was repairing an evaluation pipeline for a researcher who had said "don't send any messages." It asked a subagent for a fix that kept monitoring enabled. The subagent considered turning off notifications, recognized that this would disable required alerts, and declined to recommend it. Its reasoning called that unsafe.

@@ -36,6 +36,11 @@ sidebar:
       Provenance. Every pull request figure, issue timestamp, label and quoted sentence comes from the GitHub API. The evidence window was read on 2026-09-23 and re-checked on 2026-09-24. The #956 decision, #1323, and the current state of #878, #940, #962, #1130 and #1186 were read on 2026-09-30 and re-read on 2026-10-06. Quotations from issue and pull request bodies are verbatim, with em dash spacing normalized to house style. Most of those bodies were written by coding agents working under my account or a bot identity, so they are the pipeline's own record, not independent testimony. The #956 decision is quoted from a comment I posted.
 
       Issue timelines paginate at 30 events, so any list of referencing pull requests here is a floor. The open-issue count in the appendix is a title-only match and is likewise a floor. The 127-commit range and the 2.8-times overage are #1186's own measurements and were not independently re-derived.
+aiUse:
+  statement: "At my direction, Claude wrote the first draft from the issue and pull request records, and I requested the Codex editorial review that led to its restructuring. I corrected several sentences myself and approved the original publication. When Codex later rewrote it in my voice, my feedback determined the framing, wording, and final deck, and I approved that version and reviewed Claude's later revisions to all four key takeaways."
+  reviewed:
+    content: "595291c4fdaaf3c6de5df110d168d1a7c1f4521582c2d841aa408d3d0e71b390"
+    date: "2026-11-01"
 ---
 
 In [the last post](/blog/every-reviewer-was-right/), every reviewer was right and the pull request was still wrong. This time a reviewer hadn't answered, and my pipeline counted that as a review.

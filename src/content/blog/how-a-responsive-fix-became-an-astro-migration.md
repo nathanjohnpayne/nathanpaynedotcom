@@ -52,6 +52,11 @@ sidebar:
           style F fill:#7bc67e,stroke:#4a8a4d,color:#333
           style G fill:#7bc67e,stroke:#4a8a4d,color:#333
     caption: "The scaffold merged four hours after the responsive fix; the last of the eleven phases closed the same Wednesday."
+aiUse:
+  statement: "At my direction, Claude wrote the first draft, and its later fact-checks corrected several claims about the original problem and the framework comparison. When Codex rewrote the piece in my voice, I sent it back with notes, kept the deck's account of what I'd actually observed, and made the final calls on framing and emphasis. I approved the result and reviewed Claude's later sentence corrections and revised first key takeaway."
+  reviewed:
+    content: "ad39b54677c8190e6858e11ef5ceff21728bb02ee341c984d03ff388dceb9b16"
+    date: "2026-11-01"
 ---
 
 On April 8, 2026, the newest post on my site was broken on a phone. Screenshots at their native width pushed the content past the viewport. Text, headings, and code blocks were cut off at the right edge, with no way to scroll to them. That morning I [filed an issue](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/28): make the blog post pages responsive.

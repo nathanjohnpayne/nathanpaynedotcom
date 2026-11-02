@@ -1,8 +1,8 @@
 # AI-use statements for the blog collection (#1495)
 
-Proposed `aiUse` statements for the 11 posts in `src/content/blog/`, drafts included, with the record each was drafted from. Part of epic #1490. **Status: proposed, not approved.** The owner approves every statement verbatim before any entry is stamped; no entry carries `aiUse` yet, and the stamped blocks land in a follow-up commit on the same pull request.
+The `aiUse` statements for the 11 posts in `src/content/blog/`, drafts included, with the record each was drafted from. Part of epic #1490. **Status: approved.** The owner revised the drafts and approved the final wording of every statement verbatim on PR #1508 ([approval comment](https://github.com/nathanjohnpayne/nathanpaynedotcom/pull/1508#issuecomment-6566767100), posted 2026-11-02T01:17:02Z, which is 2026-11-01 in Pacific time). That comment is the source of truth for the wording. Each post carries its statement in `aiUse.statement`, stamped with `aiUse.reviewed` dated 2026-11-01. The agent drafts this record proposed are superseded; they remain in commit `53c7ee6f`.
 
-Each statement follows the rules in #1495: two or three first-person sentences in the owner's voice, describing the text as it stands now; "edited" or "wrote" only where the record shows the owner's own wording; "approved" only where the record shows an approval; and a plain admission wherever the record is thin. Statements are written per post. Where two posts share a fact (most of them went through the same October passes), each says it in its own terms.
+Each draft followed the rules in #1495: two or three first-person sentences in the owner's voice, describing the text as it stands now; "edited" or "wrote" only where the record shows the owner's own wording; "approved" only where the record shows an approval; and a plain admission wherever the record is thin. Statements are written per post. Where two posts share a fact (most of them went through the same October passes), each says it in its own terms.
 
 ## How the record was read
 
@@ -11,9 +11,9 @@ For each post: its facts ledgers (`plans/759/`, `plans/correctness-pass-2026-10-
 Limits that apply to every post:
 
 - **Agents author as the owner's account.** Commits, pull requests and comments under `nathanjohnpayne` are usually agent-written (the `Authoring-Agent:` trailer and `Co-Authored-By` lines say which agent). An owner decision counts here only where an agent recorded it as the owner's (for example "at the owner's request", "the owner approved"), or where the owner's own words are quoted. Those records are agent-written; none is a comment the owner typed on GitHub.
-- **No drafting prompts are linked.** No commit that creates a post carries a `Claude-Session` trailer; the only such trailers in these files' histories are on cross-cutting commits (#636, #637). So the record rarely shows who chose a topic or what brief an agent drafted from, and no statement claims the owner chose the topic.
+- **No drafting prompts are linked.** No commit that creates a post carries a `Claude-Session` trailer; the only such trailers in these files' histories are on cross-cutting commits (#636, #637). So the record rarely shows who chose a topic or what brief an agent drafted from, and no draft claimed the owner chose the topic. The approved statements say each first draft was written at the owner's direction; that rests on the approval comment.
 - **The owner's own editing pass did not ship.** On 2026-09-11 the owner made 213 paragraph-level rewrites across the eight long-form posts then published (`f9f06560`, "Authored by Nathan Payne"). Review found 37 defects in it, and PR #1016 dropped every rewrite, keeping only spelling, dash and one arithmetic fix. None of that pass is in the current text, so no statement relies on it.
-- **Later agent changes without a recorded owner review.** After the owner approved each October voice rewrite, Claude's cross-agent review applied further fixes (inside the rewrite PRs and in #1148 and #1153; each comparison doc's "Cross-agent review corrections" section lists them, with the owner's in-review decisions where there were any). On 2026-10-13, PR #1357 (Claude) rewrote one to four key takeaways on each of the ten posts that existed then; its body records no owner review, and its only approval is the `nathanpayne-claude` reviewer identity. The statements say so per post.
+- **Later agent changes without a recorded owner review.** After the owner approved each October voice rewrite, Claude's cross-agent review applied further fixes (inside the rewrite PRs and in #1148 and #1153; each comparison doc's "Cross-agent review corrections" section lists them, with the owner's in-review decisions where there were any). On 2026-10-13, PR #1357 (Claude) rewrote one to four key takeaways on each of the ten posts that existed then; its body records no owner review, and its only approval is the `nathanpayne-claude` reviewer identity. The drafts said so per post; the approved statements say the owner reviewed those changes, on the authority of the approval comment.
 
 ## Cross-cutting passes
 
@@ -32,9 +32,11 @@ These touched most posts. Each per-post entry below says which applied.
 
 ## Statements
 
+Each entry gives the approved statement, then the records its draft was built from. Where the owner's approval states a contribution the record below doesn't show (for example, choosing the figures, or reviewing the later corrections and takeaways), the approval comment is the record of it.
+
 ### `agent-approval-workflow-genesis-of-mergepath`
 
-> Claude wrote the first draft in April 2026 and fact-checked it in August and October; I flagged its conclusion about agent reliability as an overclaim, and later confirmed from memory that the agents had quoted the no-direct-push rule back to me. Codex then rewrote the post for voice, and I asked for specific changes and approved the rewrite. Claude's small fixes after that approval, and its rewrite of the first key takeaway a week later, have no recorded review from me.
+> At my direction, Claude wrote the first draft and later fact-checked it, while I decided which conclusions the evidence could support. I challenged its claim about agent reliability as an overstatement and confirmed from memory that the agents had quoted the no-direct-push rule back to me. When Codex rewrote the piece in my voice, I requested further changes before approving it, and I reviewed Claude's later corrections and its revised key takeaway.
 
 Drafted from:
 
@@ -47,7 +49,7 @@ Record notes: the October ledger's S33 calls the two pullquotes "the author's ow
 
 ### `autofix-was-the-whole-cost`
 
-> Claude wrote the first draft in August 2026 from the commit history and review records, using the Codex session costs I supplied, and fact-checked it in two later passes. Codex rewrote it for voice in October; I had it restore argument lines it had cut, suggested a one-word copyedit, and approved the rewrite. Claude's fixes after that approval, and the key takeaway it rewrote a week later, have no recorded review from me.
+> At my direction, Claude wrote the first draft from the commit history, the review records, and the Codex session costs I supplied. I decided how to frame the cost argument, chose the supporting figures, decided where each would appear, and determined what each would communicate. When Codex rewrote the piece in my voice, I had it restore argument lines it had cut, and I approved the result and reviewed Claude's later corrections and key takeaway before they went live.
 
 Drafted from:
 
@@ -59,7 +61,7 @@ Record notes: "the Codex session costs I supplied" rests on the post's own "auth
 
 ### `every-reviewer-was-right`
 
-> The choices this post examines are mine, and Claude wrote the first draft in September 2026 from the pull requests and the session transcript that recorded my answers. Claude revised it after reader reviews and a fact-check, and Codex rewrote it for voice; I caught two places where the rewrite changed my meaning, had them repaired, and approved it. Claude's later fixes and the two key takeaways it rewrote a week after my approval have no recorded review from me.
+> The decisions this post examines are mine; at my direction, Claude wrote and revised the draft from the pull requests and the session transcript recording my answers. When Codex rewrote it in my voice, I caught two passages where it changed my meaning and had them corrected. I chose the four figures, decided where each would appear, and determined what each would communicate, and I approved the published piece and later updates.
 
 Drafted from:
 
@@ -71,7 +73,7 @@ Record notes: the two reader reviews behind #1006 and #1007 are not attributed t
 
 ### `how-a-responsive-fix-became-an-astro-migration`
 
-> Claude wrote the first draft in May 2026, and its fact-checks in August and October corrected several claims, including the opening symptom and the framework comparison. Codex rewrote it for voice; I sent it back with notes, kept the deck's account of what I saw, and approved the result. Claude changed a few sentences after that and rewrote the first key takeaway a week later, and the record doesn't show I reviewed those changes.
+> At my direction, Claude wrote the first draft, and its later fact-checks corrected several claims about the original problem and the framework comparison. When Codex rewrote the piece in my voice, I sent it back with notes, kept the deck's account of what I'd actually observed, and made the final calls on framing and emphasis. I approved the result and reviewed Claude's later sentence corrections and revised first key takeaway.
 
 Drafted from:
 
@@ -83,7 +85,7 @@ Record notes: none beyond the shared limits.
 
 ### `html-mockups-as-spec`
 
-> Claude wrote the first draft in May 2026, and its fact-checks in August and October corrected the post's account of the design history. Codex rewrote it for voice; I reviewed it through three rounds of notes, chose the wording of its later corrections, and approved it. Claude's fixes after that approval, and its rewrite of the first key takeaway a week later, have no recorded review from me.
+> At my direction, Claude wrote the first draft and later corrected its account of the design history. I chose the Mondrian reference, the process diagram, and the shipped editor screenshot, decided where each would appear, and determined what each would communicate about how the design process led to the finished product. I took Codex's voice rewrite through three rounds of feedback, chose the wording of later corrections, and approved the published version and later changes.
 
 Drafted from:
 
@@ -95,7 +97,7 @@ Record notes: no voice-comparison doc exists for this post; the owner's review i
 
 ### `perfect-score-wrong-axis`
 
-> Claude wrote the first draft in July 2026 after agents pulled the review records it counts, and fact-checked it in August and October. Codex rewrote it for voice; I approved its new structure, suggested the sentences on review capacity, and signed off on the draft. The current deck is copy I approved, but Claude's later fixes and the three key takeaways it rewrote a week after that have no recorded review from me.
+> At my direction, Claude wrote the first draft from review records the agents had collected, and Codex later restructured and rewrote it in my voice. I approved the new structure and suggested the sentences about review capacity. I chose all five figures, decided where each would appear and what each would communicate, and approved the published piece, including Claude's later fixes and three revised key takeaways.
 
 Drafted from:
 
@@ -107,7 +109,7 @@ Record notes: the comparison records five meaning or provenance errors caught du
 
 ### `silence-is-not-an-approval`
 
-> Claude wrote the first draft in September 2026 from the issue and pull request record, and restructured it after a Codex editorial review I'd asked for; I corrected several sentences myself and approved it before publication. In October, Claude fact-checked it again, Codex rewrote it for voice, and I approved the rewrite and the current deck. Claude rewrote all four key takeaways a week after that, and the record doesn't show I reviewed them.
+> At my direction, Claude wrote the first draft from the issue and pull request records, and I requested the Codex editorial review that led to its restructuring. I corrected several sentences myself and approved the original publication. When Codex later rewrote it in my voice, my feedback determined the framing, wording, and final deck, and I approved that version and reviewed Claude's later revisions to all four key takeaways.
 
 Drafted from:
 
@@ -120,7 +122,7 @@ Record notes: "corrected several sentences myself" rests on § I8's description 
 
 ### `six-prs-one-bug-agent-failure-modes`
 
-> The record doesn't show who wrote the first draft, published in April 2026. Claude corrected its chronology and claims in August and October, and Codex rewrote it for voice; I sent the rewrite back with notes on its ending and deck, then approved it. Claude's fixes after that approval, and its rewrite of the first key takeaway a week later, have no recorded review from me.
+> At my direction, Claude wrote the first draft and later corrected its chronology and factual claims. I chose the comparison screenshots and the rendering-path diagrams, decided where each would appear, and determined what each would communicate. When Codex rewrote the piece in my voice, I sent it back with changes to the ending and deck, then approved it and reviewed Claude's later corrections and its revised first key takeaway before they went live.
 
 Drafted from:
 
@@ -128,11 +130,11 @@ Drafted from:
 - Claude revisions: #338, #798 (`29d864ed`, issue #744), #799 (`06f3b96e`), #918 (`cdffd310`), #1023 (`29fe3d24`), #1124, #1129 (the owner's example: the post repeatedly reconstructed which invoice path the fix reached), #1148, #1357 (takeaway 1). Ledgers: `plans/759/six-prs-one-bug-agent-failure-modes-ledger.md`, `plans/correctness-pass-2026-10-06/six-prs-one-bug-agent-failure-modes-ledger.md`.
 - Codex voice rewrite: PR #1132 (`36dc9fdd`): "Nathan reviewed the prose, R44 evidence, ledger totals, and all three committed files and approved filing this PR"; `six-prs-voice-comparison.md` § "Owner feedback applied" (ending, thesis restorations, three-sentence deck).
 
-Record notes: the first-draft author is the thinnest record in the collection. That identity is a test fixture's leaking into the checkout's git config (the mergepath#777 leak PR #599 describes), so it doesn't identify a person or an agent. The post says its quoted prompts and its "Codex Task" document are the owner's; the ledgers rate those UNPROVABLE (unpublished session log), so the statement doesn't rely on them.
+Record notes: the first-draft author is the thinnest record in the collection. That identity is a test fixture's leaking into the checkout's git config (the mergepath#777 leak PR #599 describes), so it doesn't identify a person or an agent. The post says its quoted prompts and its "Codex Task" document are the owner's; the ledgers rate those UNPROVABLE (unpublished session log), so the draft didn't rely on them. The approved statement credits Claude with the first draft, at the owner's direction.
 
 ### `the-product-did-not-travel`
 
-> Claude wrote the first draft in September 2026 from the event data and my account of both events, and Codex and Claude later revised it for accuracy and argument. Codex then rewrote it for voice; I supplied the exact wording of the Sunday passage, asked for the thesis lines back, cut four words, and approved the rewrite. Claude's fixes after that approval, and the two key takeaways it rewrote a week later, have no recorded review from me.
+> At my direction, Claude wrote the first draft from the event data and my account of both events, and Codex later rewrote it in my voice. I chose the six game screenshots, decided where each would appear, and determined what each would communicate about the cruise and Bodega Bay. I supplied the exact wording of the Sunday passage, had cut thesis lines restored, and removed four words, and I approved the rewrite and reviewed Claude's later fixes and two revised key takeaways.
 
 Drafted from:
 
@@ -145,7 +147,7 @@ Record notes: none beyond the shared limits.
 
 ### `the-subagent-said-it-was-unsafe`
 
-> I wrote the first draft. Claude checked it against the OpenAI report and the Mergepath record, corrected ten claims, and applied an editorial pass Codex proposed; I kept my reading of the subagent's objection and set the rule for which headlines the figure shows. Two days later, at my request, Claude linked the three rules to their tracking issues; the record shows my review of that change but not of the whole text before publication.
+> I wrote the first draft and directed every revision, including the argument, evidence, and visuals. Claude checked my account against the OpenAI report and the Mergepath records, corrected ten claims, and applied an editorial pass Codex proposed. I kept my interpretation of the subagent's objection, chose the figure, decided where it would appear, and determined which headlines belonged in it, and I reviewed and approved the complete piece, including the tracking-issue links Claude later added at my request.
 
 Drafted from:
 
@@ -153,11 +155,11 @@ Drafted from:
 - Accuracy pass and editorial pass: PR #1465 (`29bb4f0d`; commits `508ee9e4`, `338eccc4`, `38c5212f`), `Co-Authored-By: Claude Opus 5.5`; the ten-row correction table; the `nathanpayne-codex` editorial review 5660512452 applied in `38c5212f` with one narrowing; ledger § F.
 - Owner decisions: "Keep the Outvoted framing as written; it's my interpretation" (ledger § A, "Outvoted" row, 2026-10-26); the headline selection rule (PR #1466, `e4113051`); the October 28 update "at the owner's request" with "starting" chosen over "building" in owner review (PR #1470, `581af594`; ledger § G).
 
-Record notes: two open questions for the owner. First, the record calls the draft "the owner's draft" but doesn't show how it was produced; if any agent drafted it, the first sentence must change. Second, neither the #1465 body nor its conversation records the owner approving the full final text, which the pending `/how-i-write/` copy (PR #1505) says happens for every piece. If the owner did approve it, the last clause can say so.
+Record notes: the draft raised two questions for the owner, and the approved statement answers both in his words. First, the repository calls the draft "the owner's draft" but doesn't show how it was produced; the owner states he wrote it. Second, neither the #1465 body nor its conversation records the owner approving the full final text, which the `/how-i-write/` copy says happens for every piece; the owner states he reviewed and approved the complete piece, and the approval comment is the record of that.
 
 ### `two-blues-one-composition`
 
-> The design decisions this post describes are mine, and Claude wrote the first draft in June 2026 from the palette tickets and its own color sampling. Claude and Codex later corrected its claims about the source images, one of which I'd flagged as an overclaim, and Codex rewrote it for voice; I approved the rewrite and chose one of its pullquotes. Claude's later fixes and its rewrite of one key takeaway have no recorded review from me.
+> The design decisions in this post are mine, and at my direction Claude wrote the first draft from the palette tickets and its own color sampling. I chose the painting reproductions and color-comparison figures, decided where each would appear, determined what each would communicate, flagged an overclaim about the source images, and chose a pullquote. Claude and Codex corrected the remaining claims, Codex rewrote the piece in my voice, and I approved that version and reviewed Claude's later corrections and its revised key takeaway.
 
 Drafted from:
 
@@ -169,10 +171,12 @@ Record notes: "The design decisions this post describes are mine" rests on the p
 
 ## Record gaps
 
+These describe the repository record the drafts were built from. The owner's approval comment speaks to several of them in his own words: it states that he directed each first draft, chose the figures, and reviewed the later corrections and takeaways, and that he wrote the first draft of *The Subagent Said It Was Unsafe* and approved the complete piece.
+
 - **First-draft briefs.** No post links the session or prompt it was drafted from, so topic choice and briefing are unrecorded for all eleven.
 - **Six PRs, One Bug.** The April first draft's author is unrecorded.
-- **The Subagent Said It Was Unsafe.** How the owner's draft was produced, and whether the owner approved the full #1465 text, are unrecorded.
-- **Post-approval agent changes.** Claude's cross-agent review fixes after each October approval, and the #1357 takeaway rewrites on 2026-10-13, have no recorded owner review. If the owner reviewed them, each statement's last sentence can say "reviewed and approved" instead.
-- **Owner approvals are agent-recorded.** Every approval cited here is an agent's record of the owner's decision, not a comment the owner wrote.
-- **Author-attested figures.** Autofix's Codex session costs, and several post claims the ledgers rate UNPROVABLE (Genesis U6; Six PRs' prompts; Two Blues R5, R12), rest on the owner's account; statements cite only those an owner action can stand on.
+- **The Subagent Said It Was Unsafe.** How the owner's draft was produced, and whether the owner approved the full #1465 text, were unrecorded in the repository; the approval comment now states both.
+- **Post-approval agent changes.** Claude's cross-agent review fixes after each October approval, and the #1357 takeaway rewrites on 2026-10-13, have no recorded owner review. The approved statements say the owner reviewed them; the approval comment is the record of that review.
+- **Owner approvals are agent-recorded.** Every approval cited in the draft sources is an agent's record of the owner's decision. The exception is the approval comment on #1508, which the owner posted.
+- **Author-attested figures.** Autofix's Codex session costs, and several post claims the ledgers rate UNPROVABLE (Genesis U6; Six PRs' prompts; Two Blues R5, R12), rest on the owner's account; the drafts cited only those an owner action could stand on.
 - **Autofix sidebar.** It says the Claude session "researched this post"; the record shows the session also wrote the first draft. Changing the sidebar is outside #1495's "no other content changes" rule.

@@ -27,6 +27,11 @@ pullquotes:
   - text: "By prompt 11, I was offering to throw the template away."
     label: "What I said to the agent"
     accent: red
+aiUse:
+  statement: "At my direction, Claude wrote the first draft and later corrected its chronology and factual claims. I chose the comparison screenshots and the rendering-path diagrams, decided where each would appear, and determined what each would communicate. When Codex rewrote the piece in my voice, I sent it back with changes to the ending and deck, then approved it and reviewed Claude's later corrections and its revised first key takeaway before they went live."
+  reviewed:
+    content: "6f535984aa9c9755496e081342c3dca7d5c2f20f12be70aa7b336b2b155f5dee"
+    date: "2026-11-01"
 ---
 
 [Friends & Family Billing](/projects/friends-and-family-billing/) sends invoices to my friends and family. In early April 2026, the template editor, Preview, and the email that arrived showed three versions of the same message. Text turned bold that nobody had bolded. The spacing changed between surfaces. [Issue #159](https://github.com/nathanjohnpayne/friends-and-family-billing/issues/159) records both regressions. If I'm asking someone for money, I need to know what the email will say.
