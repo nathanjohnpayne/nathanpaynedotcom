@@ -68,3 +68,54 @@ test.describe('@834px', () => {
     expect(m.railWidth).toBe(0);
   });
 });
+
+/**
+ * Above 480px the eight destinations form two even rows of four (#1494):
+ * Homepage, Résumé, Projects, Blog; then Book, Brand, How I write, Privacy.
+ * Every button sits inside the card and its label fits its column.
+ */
+for (const width of [1440, 834] as const) {
+  test.describe(`@${width}px grid`, () => {
+    test.use({ viewport: { width, height: 900 } });
+
+    test('404 destinations form two rows of four equal columns', async ({ page }) => {
+      await page.goto(PATH);
+      const m = await page.evaluate(() => {
+        const content = document.querySelector('.e-content')!.getBoundingClientRect();
+        return [...document.querySelectorAll('.e-content .nav-button')].map((b) => {
+          const r = b.getBoundingClientRect();
+          return {
+            label: b.textContent!.trim(),
+            top: Math.round(r.top),
+            left: Math.round(r.left),
+            width: Math.round(r.width),
+            inside: r.left >= content.left - 0.5 && r.right <= content.right + 0.5,
+            fits: (b as HTMLElement).scrollWidth <= (b as HTMLElement).clientWidth + 1,
+          };
+        });
+      });
+      expect(m.map((b) => b.label)).toEqual([
+        'Homepage',
+        'Résumé',
+        'Projects',
+        'Blog',
+        'Book',
+        'Brand',
+        'How I write',
+        'Privacy',
+      ]);
+      const rows = [...new Set(m.map((b) => b.top))];
+      expect(rows).toHaveLength(2);
+      for (const row of rows) expect(m.filter((b) => b.top === row)).toHaveLength(4);
+      // Columns line up between the rows, and every column is the same width.
+      expect(m.slice(0, 4).map((b) => b.left)).toEqual(m.slice(4).map((b) => b.left));
+      expect(
+        Math.max(...m.map((b) => b.width)) - Math.min(...m.map((b) => b.width)),
+      ).toBeLessThanOrEqual(1);
+      for (const b of m) {
+        expect(b.inside, b.label).toBe(true);
+        expect(b.fits, `${b.label} overflows its column`).toBe(true);
+      }
+    });
+  });
+}

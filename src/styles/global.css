@@ -4207,6 +4207,16 @@ a.tag:hover {
   padding-left: 0;
 }
 
+/* The 404's eight destinations (#1494): two even rows of four above 480px,
+   each button filling its column. At <=480 the shared .project-actions rule
+   stacks them full width. */
+@media (min-width: 481px) {
+  .e-content .e-actions {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 .e-block {
   min-height: 0;
 }

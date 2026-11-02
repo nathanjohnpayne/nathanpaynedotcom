@@ -30,11 +30,18 @@ import HowIWriteLink from '../components/HowIWriteLink.astro';
           decisions behind them",
           "The AI-Augmented PM"). Guarded by tests/nav-labels.test.js.
         */}
-        <div class="project-actions">
+        {/*
+          Eight destinations in two rows of four above 480px (owner decision,
+          #1494): the four content sections, then Book, Brand and the two
+          policy pages. At <=480 they stack full width as before.
+        */}
+        <div class="project-actions e-actions">
           <a class="nav-button" href="/"><NavIcon name="house" />Homepage</a>
           <a class="nav-button" href="/resume/"><NavIcon name="file-user" />Résumé</a>
           <a class="nav-button" href="/projects/"><NavIcon name="layout-grid" />Projects</a>
           <a class="nav-button" href="/blog/"><NavIcon name="newspaper" />Blog</a>
+          <a class="nav-button" href="/book/"><NavIcon name="calendar" />Book</a>
+          <a class="nav-button" href="/brand/"><NavIcon name="palette" />Brand</a>
           <HowIWriteLink class="nav-button" icon="label" />
           <PrivacyLink class="nav-button" icon="label" />
         </div>

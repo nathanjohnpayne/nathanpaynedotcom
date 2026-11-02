@@ -32,14 +32,24 @@ const graph = () =>
   JSON.parse(document.querySelector('script[type="application/ld+json"]').textContent)['@graph'];
 const node = (type) => graph().find((entry) => entry['@type'] === type);
 
-/** A body paragraph as the reader sees it: tags dropped, quotes and apostrophes straightened. */
-const plain = (value) =>
+/** Text as the reader sees it: quotes and apostrophes straightened, whitespace collapsed. */
+const normalize = (value) =>
   value
-    .replace(/<[^>]+>/g, '')
-    .replace(/[‘’]/g, "'")
-    .replace(/[“”]/g, '"')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
     .replace(/\s+/g, ' ')
     .trim();
+
+/**
+ * A Markdown source paragraph as the reader sees it. The only Markdown the
+ * copy uses is strong emphasis and an inline HTML link, so the emphasis marks
+ * are dropped and the HTML is read through the parser (textContent), never
+ * stripped with a pattern.
+ */
+const sourceText = (paragraph) =>
+  normalize(
+    new DOMParser().parseFromString(paragraph.replace(/\*\*/g, ''), 'text/html').body.textContent,
+  );
 
 const WORKFLOW_LINK =
   /^https:\/\/github\.com\/nathanjohnpayne\/nathanpaynedotcom\/blob\/([0-9a-f]{40})\/docs\/blog-writing-workflow\.md$/;
@@ -65,9 +75,9 @@ describe('/how-i-write/ page (specs/how-i-write.md)', () => {
   });
 
   it('renders every paragraph of the owning Markdown body, in order', () => {
-    const expected = body.split(/\n{2,}/).map(plain);
+    const expected = body.split(/\n{2,}/).map(sourceText);
     const rendered = [...document.querySelectorAll('.policy-copy > p')].map((p) =>
-      plain(p.textContent),
+      normalize(p.textContent),
     );
     // Control: the body is real prose, not an empty file that trivially matches.
     expect(expected.length).toBeGreaterThanOrEqual(4);
@@ -76,7 +86,7 @@ describe('/how-i-write/ page (specs/how-i-write.md)', () => {
 
   it('opens by naming what AI agents do (#1491)', () => {
     const first = text(document.querySelector('.policy-copy > p'));
-    expect(first).toMatch(/^AI agents write the posts and case studies/);
+    expect(first).toMatch(/^AI agents write most of the posts and case studies on this site\./);
   });
 
   it('links the public workflow pinned to a full commit SHA that contains it', () => {

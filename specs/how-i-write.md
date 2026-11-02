@@ -36,7 +36,7 @@ title: How I Write Page
 12. Every page links to `/how-i-write/` immediately before its Privacy link, through `src/components/HowIWriteLink.astro`, in that surface's own vocabulary, as `PrivacyLink.astro` does (specs/analytics-privacy.md § UI Hooks). The link is not behind the privacy flag. Its accessible name is "How I write" everywhere.
     - The shared footer (`Footer.astro`, every variant) shows Lucide's `pencil-sparkles` as an icon-only square button (`.nav-button--icon`) with `aria-label` and `title` "How I write", the same size as the Privacy icon. At ≤480px, where footer text buttons take full rows, the last text button's basis leaves room for both icons, so they share its row and cause no horizontal overflow.
     - The homepage, which has no footer, carries the worded link with the trailing arrow in the Connect panel's contact line, between Résumé and Privacy (`.availability-how-i-write`, on the accent-arrow list in `global.css`).
-    - The 404, which has no footer, leads the words with the icon in its destination buttons, between Blog and Privacy.
+    - The 404, which has no footer, leads the words with the icon in its destination buttons, between Brand and Privacy. Above 480px its eight buttons form two even rows of four: Homepage, Résumé, Projects, Blog; then Book, Brand, How I write, Privacy (owner decision, #1494). At ≤480px they stack full width.
 13. The icon lives in `src/components/NavIcon.astro` as `pencil-sparkles`, transcribed verbatim from Lucide (ISC), so the per-piece "AI use" link (#1493) reuses the same glyph.
 
 ## Keeping it current

@@ -357,6 +357,8 @@
   .app .error-mondrian{width:min(64rem,100%);display:grid;grid-template-columns:var(--line) 2.4fr var(--line) 1fr var(--line) 1.2fr var(--line) .5fr var(--line);grid-template-rows:var(--line) auto var(--line) 5rem var(--line) 3.5rem var(--line);background:var(--ink)}
   .app .e-content{grid-column:2/7;grid-row:2;background:var(--paper);padding:clamp(2rem,5cqw,4rem)}
   .app .e-content h1{font-size:clamp(2.4rem,5cqw,5.1rem);line-height:1.04}
+  /* The 404's eight destinations: two even rows of four above 480 (#1494). */
+  .app .e-content .ctas.e-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
   .app .e-content .deck{font-family:var(--font-body);color:#555;font-size:clamp(.95rem,1.1cqw,1.1rem)}
   .app .e-r{grid-column:8;grid-row:2;background:var(--red)}
   .app .e-y1{grid-column:2;grid-row:4;background:var(--yellow)}
@@ -579,6 +581,7 @@
     .app .ph-inset{padding-left:.5rem}
     .app .ph-inset h1{font-size:clamp(1.55rem,8cqw,2.4rem)}
     .app .ctas{flex-direction:column}
+    .app .e-content .ctas.e-actions{display:flex}
     .app .ctas .nav-button{text-align:center}
     .app .ctas .ai-use-link{align-self:flex-start}
     .app .inline-toc{flex-direction:column;gap:.35rem}
@@ -847,12 +850,12 @@ const EXP_COMPACT = [
 const NAV = {
   'file-user': '<path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M16 22a4 4 0 0 0-8 0"/><circle cx="12" cy="15" r="3"/>',
   calendar: '<path d="M8 2v3"/><path d="M16 2v3"/><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/>',
+  palette: '<path d="M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z"/><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/>',
   'pencil-sparkles': '<path d="M10 3H8"/><path d="m15.007 5.008 3.987 3.986"/><path d="M20 15v4"/><path d="M21.174 6.813a2.82 2.82 0 0 0-3.986-3.987L3.842 16.175a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="M22 17h-4"/><path d="M4 5v4"/><path d="M6 7H2"/><path d="M9 2v2"/>',
   newspaper: '<path d="M15 18h-5"/><path d="M18 14h-8"/><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-4 0v-9a2 2 0 0 1 2-2h2"/><rect width="8" height="4" x="10" y="6" rx="1"/>',
   'layout-grid': '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
   house: '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
   'shield-check': '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
-  'pencil-sparkles': '<path d="M10 3H8"/><path d="m15.007 5.008 3.987 3.986"/><path d="M20 15v4"/><path d="M21.174 6.813a2.82 2.82 0 0 0-3.986-3.987L3.842 16.175a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="M22 17h-4"/><path d="M4 5v4"/><path d="M6 7H2"/><path d="M9 2v2"/>',
 };
 const navIcon = (n) => `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${NAV[n]}</svg>`;
 // A footer label names its icon by its destination word.
@@ -919,19 +922,22 @@ function privacyPage() {
 }
 function howIWritePage() {
   return `<div class="app inner" style="--accent:var(--blue)"><div class="page-shell"><article class="page-canvas project-detail">
-    <header class="ph-gradient hero-rule"><div class="ph-inset">${bc('Nathan Payne', 'How I write')}<h1>How I write</h1><p class="deck">What AI agents do, and what I do, when a post or case study on this site gets written.</p></div></header>
-    <div class="project-copy"><p>AI agents write the posts and case studies on this site. An agent, usually Claude, writes the first draft from my direction, my own account of what happened, and the record of the work: commits, pull requests, issues, and session transcripts. Agents, mostly Claude and Codex, revise it from there, and AI reviewers flag problems for them to fix.</p>
-      <p>One of those revisions is a pass for voice. It works from my notes and from passages I chose as style examples. So far those examples are agent revisions I approved, not writing I did on my own.</p>
-      <p>Agents also check the facts. Every post and case study has a facts ledger in the site’s repository: an agent lists the piece’s claims, checks each one against the record, and marks it supported, wrong, stale, or unprovable. …</p>
-      <p>My part is direction and judgment. I choose what each piece covers, supply what I saw and decided, and send drafts back with notes. … I read every piece in full and approve it before it’s published.</p>
-      <p>Each post and case study ends with a statement headed “How this was written.” … The full process is public: <a>Blog drafting and voice review</a>.</p>
-      <p>This page covers the posts and case studies. …</p></div>
+    <header class="ph-gradient hero-rule"><div class="ph-inset">${bc('Nathan Payne', 'How I write')}<h1>How I write</h1><p class="deck">How AI agents write my posts and case studies—and how I shape the arguments, choose the visuals, and decide what gets published.</p></div></header>
+    <div class="project-copy"><p>AI agents write most of the posts and case studies on this site. I choose the stories, shape the arguments, and decide which evidence matters. Claude usually writes the first draft from my direction, my account of what happened, and the underlying record—commits, pull requests, issues, and session transcripts. …</p>
+      <p>My role isn’t limited to approving the result. I send drafts back when an argument overreaches, the wording changes my meaning, or the framing misses what matters. …</p>
+      <p>One revision pass focuses on voice. It draws on my notes and passages I’ve selected as examples of how I want the writing to sound. …</p>
+      <p>Another pass checks the facts. Every post and case study has a facts ledger in the site’s repository. …</p>
+      <p>I have the final say on what gets published. The workflow explicitly prohibits agents from fabricating my involvement, motives, or opinions. …</p>
+      <p>GitHub records many of my editorial decisions, though not every review leaves a separate approval record. …</p>
+      <p>The distinction matters: agents produce much of the prose, but the editorial choices and responsibility are mine. …</p>
+      <p>Every post and case study ends with a <b>“How this was written”</b> statement documenting what the agents and I did for that piece. … The full process is public: <a>Blog drafting and voice review</a>.</p>
+      <p>This disclosure covers posts and case studies, not every word on the site. …</p></div>
     ${footer('detail', { items: ['Back to Homepage'] })}
   </article></div></div>`;
 }
 function notFound() {
   return `<div class="app inner"><div class="error-shell"><div class="error-mondrian">
-    <div class="e-content">${bc('Nathan Payne', '404')}<h1>Page not found</h1><p class="deck">The page you’re looking for doesn’t exist or has been moved.</p><div class="ctas">${['Homepage', 'Résumé', 'Projects', 'Blog'].map(navItem).join('')}<a class="nav-button">${navIcon('pencil-sparkles')}How I write</a><a class="nav-button">${navIcon('shield-check')}Privacy</a></div></div>
+    <div class="e-content">${bc('Nathan Payne', '404')}<h1>Page not found</h1><p class="deck">The page you’re looking for doesn’t exist or has been moved.</p><div class="ctas e-actions">${['Homepage', 'Résumé', 'Projects', 'Blog'].map(navItem).join('')}<a class="nav-button">${navIcon('calendar')}Book</a><a class="nav-button">${navIcon('palette')}Brand</a><a class="nav-button">${navIcon('pencil-sparkles')}How I write</a><a class="nav-button">${navIcon('shield-check')}Privacy</a></div></div>
     <div class="e-r"></div><div class="e-y1"></div><div class="e-b"></div><div class="e-k"></div><div class="e-g1"></div><div class="e-g2"></div><div class="e-y2"></div><div class="e-w"></div>
   </div></div></div>`;
 }
@@ -1033,12 +1039,12 @@ const PAGES = [
       { id: 'tab', w: 'tab', kind: 'built', label: 'Tablet', fn: privacyPage, cap: 'Edge to edge, 6px border, no rails (detail frame).' },
       { id: 'ph', w: 'ph', kind: 'built', label: 'Phone', fn: privacyPage, cap: 'Contents list as a column; both choice buttons full width.' }] },
 
-  { id: 'howiwrite', title: '/how-i-write/ — How I write', url: 'nathanpayne.com/how-i-write/', sub: 'src/pages/how-i-write.astro (specs/how-i-write.md, #1494): the /privacy/ detail frame without its contents list, blue accent: blue hero bar, breadcrumb NATHAN PAYNE / HOW I WRITE, h1 “How I write”, the share line as deck, then six paragraphs from <code>src/content/site-copy/how-i-write.md</code> (shortened here), the one link pinned to a commit, and the detail footer. Every footer on the site now ends in two icon squares, <b>How I write</b> (Lucide pencil-sparkles) then <b>Privacy</b> (shield-check); the homepage Connect line and the 404 carry the worded link instead.',
+  { id: 'howiwrite', title: '/how-i-write/ — How I write', url: 'nathanpayne.com/how-i-write/', sub: 'src/pages/how-i-write.astro (specs/how-i-write.md, #1494): the /privacy/ detail frame without its contents list, blue accent: blue hero bar, breadcrumb NATHAN PAYNE / HOW I WRITE, h1 “How I write”, the share line as deck, then nine paragraphs from <code>src/content/site-copy/how-i-write.md</code> (shortened here), the one link pinned to a commit, and the detail footer. Every footer on the site now ends in two icon squares, <b>How I write</b> (Lucide pencil-sparkles) then <b>Privacy</b> (shield-check); the homepage Connect line and the 404 carry the worded link instead.',
     legend: [
       '<b>Footer icons</b>: 35×35 squares, the height of the text buttons, How I write first. At ≤480, where text buttons take full rows, the last text button’s basis leaves room for both icons, so the three share its row.',
       '<b>Page</b>: ≤1023 edge to edge, 6px border, no rails (detail frame); ≤480 the hero inset drops to .5rem.'],
     frames: [
-      { id: 'desk', w: 'desk', kind: 'built', label: 'Desktop', fn: howIWritePage, cap: 'Blue-barred hero, six paragraphs, then BACK TO HOMEPAGE beside the two icon squares.' },
+      { id: 'desk', w: 'desk', kind: 'built', label: 'Desktop', fn: howIWritePage, cap: 'Blue-barred hero, nine paragraphs, then BACK TO HOMEPAGE beside the two icon squares.' },
       { id: 'tab', w: 'tab', kind: 'built', label: 'Tablet', fn: howIWritePage, cap: 'Edge to edge, 6px border, no rails (detail frame); footer a centred column.' },
       { id: 'ph', w: 'ph', kind: 'built', label: 'Phone', fn: howIWritePage, cap: 'The first screen: hero and the opening paragraphs. Below the copy, the footer puts BACK TO HOMEPAGE and both icons on one row.' }] },
 
@@ -1051,12 +1057,12 @@ const PAGES = [
       { id: 'tab', w: 'tab', kind: 'built', label: 'Tablet', fn: brand, cap: 'Single column, planes hidden, no rails.' },
       { id: 'ph', w: 'ph', kind: 'built', label: 'Phone', fn: brand, cap: 'Same; chips wrap under each title.' }] },
 
-  { id: 'e404', title: '404 — page not found', url: 'nathanpayne.com/anything-else', sub: 'src/pages/404.astro: a flex-centred 100vh stage on #c4c3bc holding a 64rem Mondrian whose lines are 9px tracks — columns 2.4fr / 1fr / 1.2fr / .5fr, rows auto / 5rem / 3.5rem. The content cell (breadcrumb NATHAN PAYNE / 404, page h1, a #555 deck, outlined buttons HOMEPAGE · RÉSUMÉ · PROJECTS · BLOG · HOW I WRITE · PRIVACY, each led by its icon; at desktop width the last one wraps to a second row) spans columns 2–6 of the first row beside a red cell; below it yellow, blue (spanning two rows), #333 and #d4d4d4, then #d4d4d4, yellow and paper. There is no footer.',
+  { id: 'e404', title: '404 — page not found', url: 'nathanpayne.com/anything-else', sub: 'src/pages/404.astro: a flex-centred 100vh stage on #c4c3bc holding a 64rem Mondrian whose lines are 9px tracks — columns 2.4fr / 1fr / 1.2fr / .5fr, rows auto / 5rem / 3.5rem. The content cell (breadcrumb NATHAN PAYNE / 404, page h1, a #555 deck, eight outlined buttons, each led by its icon, in two even rows of four above 480px: HOMEPAGE · RÉSUMÉ · PROJECTS · BLOG, then BOOK · BRAND · HOW I WRITE · PRIVACY) spans columns 2–6 of the first row beside a red cell; below it yellow, blue (spanning two rows), #333 and #d4d4d4, then #d4d4d4, yellow and paper. There is no footer.',
     legend: [
       '<b>≤768</b>: the grid re-tracks to four equal columns; the content cell spans them with the red accent rail, the red block is hidden, and the other seven blocks keep their desktop rows below it. The shell aligns to the top, and the buttons are at least 44px tall. ≤1023 also drops the shell padding so the frame meets the edges; ≤480 stacks the buttons full width.'],
     frames: [
-      { id: 'desk', w: 'desk', kind: 'built', label: 'Desktop', fn: notFound, cap: 'The 64rem composition centred on the stage, content padded <code>clamp(2rem, 5vw, 4rem)</code>.' },
-      { id: 'tab', w: 'tab', kind: 'built', label: 'Tablet', fn: notFound, cap: 'At 834 (≤1023 but >768) the composition still shows its blocks, now edge to edge with 6px lines.' },
+      { id: 'desk', w: 'desk', kind: 'built', label: 'Desktop', fn: notFound, cap: 'The 64rem composition centred on the stage, content padded <code>clamp(2rem, 5vw, 4rem)</code>; the eight buttons in two rows of four equal columns.' },
+      { id: 'tab', w: 'tab', kind: 'built', label: 'Tablet', fn: notFound, cap: 'At 834 (≤1023 but >768) the composition still shows its blocks, now edge to edge with 6px lines; the buttons keep their two rows of four.' },
       { id: 'ph', w: 'ph', kind: 'built', label: 'Phone', fn: notFound, cap: 'The card starts at the top edge with the red accent rail, and the desktop’s lower two block rows follow at four equal tracks (yellow, blue over two rows, #333, gray; gray, yellow, paper), about 90px; the red block’s color moves to the rail. Buttons full width, 44px tall. Stage gray below.' }] }];
 
 // ---------------------------------------------------------------------------
