@@ -268,14 +268,27 @@ for (const width of BREAKPOINTS) {
       // bottom margin, so the title sat 8px closer to it than on a post
       // without the link (#1513). Read the post files the blog collection
       // loads (recursive `.md`, drafts excluded, as tests/ai-use-render.test.js
-      // does), so a new post is covered and no unrouted draft is visited;
+      // does), so a new post is covered and no unrouted draft is visited. A
+      // frontmatter `slug` wins over the path, as Astro's glob loader does.
       // six-prs stays first as the reference.
       const blogDir = fileURLToPath(new URL('../../src/content/blog/', import.meta.url));
       const publishedSlugs = findBlogMarkdownFiles(blogDir)
+        .map((file: string) => ({
+          file,
+          frontmatter: splitEntry(readFileSync(file, 'utf8')).frontmatter as Record<
+            string,
+            unknown
+          >,
+        }))
         .filter(
-          (file: string) => splitEntry(readFileSync(file, 'utf8')).frontmatter.draft !== 'true',
+          ({ frontmatter }: { frontmatter: Record<string, unknown> }) =>
+            frontmatter.draft !== 'true',
         )
-        .map((file: string) => blogSlugFromPath(file, blogDir));
+        .map(({ file, frontmatter }: { file: string; frontmatter: Record<string, unknown> }) =>
+          typeof frontmatter.slug === 'string' && frontmatter.slug.trim()
+            ? frontmatter.slug.trim()
+            : blogSlugFromPath(file, blogDir),
+        );
       const evennessPosts = [
         ...new Set(['six-prs-one-bug-agent-failure-modes', ...publishedSlugs]),
       ];

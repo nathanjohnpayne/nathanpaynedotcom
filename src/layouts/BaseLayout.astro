@@ -1,6 +1,7 @@
 ---
 import '../styles/global.css';
 import PostHog from '../components/posthog.astro';
+import LinkAnalytics from '../components/LinkAnalytics.astro';
 import PrivacyHead from '../components/privacy/PrivacyHead.astro';
 import PrivacyBody from '../components/privacy/PrivacyBody.astro';
 import { privacyControlsEnabled } from '../lib/privacy-flag';
@@ -270,6 +271,7 @@ const privacyEnabled = privacyControlsEnabled();
 </head>
 <body class={bodyClass} data-accent={dataAccent} data-palette={dataPalette}>
   <slot />
+  <LinkAnalytics />
   {privacyEnabled && <PrivacyBody />}
 </body>
 </html>

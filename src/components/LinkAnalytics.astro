@@ -1,0 +1,47 @@
+---
+/**
+ * LinkAnalytics.astro — one delegated click listener for the two named events
+ * on the AI-use disclosure links (#1511, epic #1490), rendered once by
+ * BaseLayout so every page carries it and a new surface cannot be missed.
+ *
+ * Surfaces opt in with data attributes the components already emit, so there
+ * is no per-page script and no selector built from page data:
+ *
+ * - `ai_use_link_clicked` — an `a[data-ai-use-surface]` (AiUseLink.astro).
+ *   Properties: `surface`, `title`, `kind` from `data-ai-use-*`.
+ * - `how_i_write_link_clicked` — an `a[data-how-i-write-source]`
+ *   (HowIWriteLink.astro, and the "More about how I write" link in
+ *   AiUseNote.astro). Properties: `source`, plus `title` and `kind` when the
+ *   link carries them (the ai-use-note source only).
+ *
+ * Consent: `window.posthog` is only defined once the privacy gate has granted
+ * analytics (posthog.astro), so `window.posthog?.capture` is a silent no-op
+ * when analytics is off, blocked or not yet loaded. Nothing here reads or
+ * sends free text or an identifier: the values are fixed enums and the
+ * piece's own title, already in the page.
+ */
+---
+<script is:inline>
+  document.addEventListener('click', function (event) {
+    const target = event.target;
+    if (!target || typeof target.closest !== 'function') return;
+
+    const aiUse = target.closest('a[data-ai-use-surface]');
+    if (aiUse) {
+      window.posthog?.capture('ai_use_link_clicked', {
+        surface: aiUse.dataset.aiUseSurface,
+        title: aiUse.dataset.aiUseTitle,
+        kind: aiUse.dataset.aiUseKind
+      });
+      return;
+    }
+
+    const howIWrite = target.closest('a[data-how-i-write-source]');
+    if (howIWrite) {
+      const props = { source: howIWrite.dataset.howIWriteSource };
+      if (howIWrite.dataset.howIWriteTitle) props.title = howIWrite.dataset.howIWriteTitle;
+      if (howIWrite.dataset.howIWriteKind) props.kind = howIWrite.dataset.howIWriteKind;
+      window.posthog?.capture('how_i_write_link_clicked', props);
+    }
+  });
+</script>

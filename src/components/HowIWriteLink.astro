@@ -23,17 +23,20 @@ interface Props {
   /** `true`: the pencil-sparkles icon in place of the words (the footer).
    *  `'label'`: the icon leading the words (the 404's button row). */
   icon?: boolean | 'label';
+  /** Which surface this link sits on; reported as `source` on
+   *  `how_i_write_link_clicked` (LinkAnalytics.astro). */
+  source: 'footer' | 'homepage' | '404';
 }
 
-const { class: className, arrow = false, icon = false } = Astro.props;
+const { class: className, arrow = false, icon = false, source } = Astro.props;
 ---
 
 {!icon && (
-  <a class={className} href={HOW_I_WRITE_PATH} data-how-i-write-link>{HOW_I_WRITE_TITLE}{arrow && <span class="link-arrow" aria-hidden="true">→</span>}</a>
+  <a class={className} href={HOW_I_WRITE_PATH} data-how-i-write-source={source}>{HOW_I_WRITE_TITLE}{arrow && <span class="link-arrow" aria-hidden="true">→</span>}</a>
 )}
 {icon === 'label' && (
-  <a class={className} href={HOW_I_WRITE_PATH} data-how-i-write-link><NavIcon name="pencil-sparkles" />{HOW_I_WRITE_TITLE}</a>
+  <a class={className} href={HOW_I_WRITE_PATH} data-how-i-write-source={source}><NavIcon name="pencil-sparkles" />{HOW_I_WRITE_TITLE}</a>
 )}
 {icon === true && (
-  <a class={[className, 'nav-button--icon'].filter(Boolean).join(' ')} href={HOW_I_WRITE_PATH} data-how-i-write-link aria-label={HOW_I_WRITE_TITLE} title={HOW_I_WRITE_TITLE}><NavIcon name="pencil-sparkles" /></a>
+  <a class={[className, 'nav-button--icon'].filter(Boolean).join(' ')} href={HOW_I_WRITE_PATH} data-how-i-write-source={source} aria-label={HOW_I_WRITE_TITLE} title={HOW_I_WRITE_TITLE}><NavIcon name="pencil-sparkles" /></a>
 )}

@@ -12,7 +12,7 @@ The site runs two analytics systems in parallel during the PostHog transition:
 - **Google Analytics 4 (gtag)**—fires a `section_view` event once per panel on
   first hover on hover-capable (fine-pointer) devices.
 - **PostHog**—product analytics + autocapture + session replay, loaded
-  site-wide, with twenty-one custom conversion/engagement events instrumented
+  site-wide, with twenty-three custom conversion/engagement events instrumented
   across the homepage, project pages, blog, and resume.
 
 GA4 is retained for continuity; PostHog is the forward-looking system. Either
@@ -88,6 +88,8 @@ may be removed later without affecting the other.
 | `resume_pdf_downloaded` | Click on the `/resume` header `.resume-download` button | — |
 | `resume_action_clicked` | Click on the `/resume` header row's Get in touch or Book time button | `action` |
 | `resume_cta_clicked` | Click on a `.resume-cta__link` in the end-of-page availability block | `cta` |
+| `ai_use_link_clicked` | Click on an `.ai-use-link` (`a[data-ai-use-surface]`) at the top of a post or case study (#1511). One delegated listener in `LinkAnalytics.astro`, rendered by `BaseLayout.astro`, reads the `data-ai-use-*` attributes `AiUseLink.astro` emits | `surface` (`blog-panel`, `blog-header`, `project-actions`), `title` (the piece's own title), `kind` (`blog`, `project`) |
+| `how_i_write_link_clicked` | Click on a link to `/how-i-write/` (`a[data-how-i-write-source]`): the footer icon, the homepage Connect line, the 404, and the "More about how I write" link in the piece's "How this was written" block (#1511). Same delegated listener, reading `data-how-i-write-*` from `HowIWriteLink.astro` and `AiUseNote.astro` | `source` (`ai-use-note`, `footer`, `homepage`, `404`); `title` and `kind` (`blog`, `project`) only when `source` is `ai-use-note` |
 
 ### Behavior
 
@@ -119,6 +121,18 @@ may be removed later without affecting the other.
    carrying which `panel` it left from. `writing_link_clicked` counts before
    and after that change are not comparable: the earlier figure includes
    index clicks.
+
+5. `ai_use_link_clicked` and `how_i_write_link_clicked` (#1511) are wired
+   by data attribute, not per page: a surface opts in by emitting the
+   attribute, and the one listener in `LinkAnalytics.astro` does the rest, so a
+   new surface cannot be missed by forgetting a script. The values are fixed
+   enums plus the piece's own title, already rendered on the page; no free text
+   and no identifier. They fire through `window.posthog?.capture`, which is
+   undefined until the privacy gate grants analytics (`posthog.astro`), so
+   nothing is sent with analytics off, withdrawn or blocked. GA4 gets neither;
+   it keeps only `section_view`. The two events are separate because the
+   first measures whether readers open the disclosure on a piece, and the
+   second measures who reads the policy page and from where.
 
 ### Layout alerting (#1045)
 

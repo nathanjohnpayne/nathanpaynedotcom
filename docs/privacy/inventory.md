@@ -55,8 +55,10 @@ Custom events, verified against every call site (all `window.posthog?.capture(..
 | `resume_pdf_downloaded` | `src/pages/resume.astro:333` | none | no |
 | `resume_action_clicked` | `src/pages/resume.astro:336` | `action` | no |
 | `resume_cta_clicked` | `src/pages/resume.astro:344` | `cta` | no |
+| `ai_use_link_clicked` | `src/components/LinkAnalytics.astro` (delegated; added by #1511 after this snapshot) | `surface`, `title`, `kind` | no |
+| `how_i_write_link_clicked` | `src/components/LinkAnalytics.astro` (delegated; added by #1511 after this snapshot) | `source`; `title` and `kind` for the `ai-use-note` source only | no |
 
-These are the twenty events `specs/analytics.md` lists, with matching properties. None carries visitor-entered data; `href` and `url` values are the site's own link targets.
+These are the twenty events `specs/analytics.md` listed at the snapshot, with matching properties, plus the two rows #1511 added afterward. None carries visitor-entered data; `href` and `url` values are the site's own link targets.
 
 SDK events observed: `$pageview`, `$autocapture` (clicks), `$$heatmap` (mouse movement and clicks, keyed by full URL), `$web_vitals` (FCP and LCP observed), and `$snapshot` (replay). `$exception` is on by remote config but was not triggered. `$pageleave` is enabled and present in the project's production data for the preceding 24 hours (SQL read), but in the capture it would have been sent at page exit, which the harness refused (capture, "Escape Incident").
 

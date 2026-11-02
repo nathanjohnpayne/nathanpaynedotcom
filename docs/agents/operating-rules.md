@@ -122,7 +122,7 @@ Two client analytics tools load only when the visitor's privacy choice allows it
 |-------|---------|------------|
 | `section_view` | First hover on a panel (hover-capable fine pointer only) | `section_name`, `event_category: "engagement"` |
 
-- **PostHog** via `src/components/posthog.astro`, through the `d.nathanpayne.com` proxy, with session replay and 20 custom events (`homepage_panel_opened`, `blog_post_viewed`, `project_page_viewed`, `resume_pdf_downloaded`, and others). `specs/analytics.md` is the canonical event list. Analytics calls guard on `typeof gtag === 'function'` and `window.posthog?.capture`.
+- **PostHog** via `src/components/posthog.astro`, through the `d.nathanpayne.com` proxy, with session replay and 23 custom events (`homepage_panel_opened`, `blog_post_viewed`, `project_page_viewed`, `resume_pdf_downloaded`, and others). `specs/analytics.md` is the canonical event list. Analytics calls guard on `typeof gtag === 'function'` and `window.posthog?.capture`.
 
 ---
 

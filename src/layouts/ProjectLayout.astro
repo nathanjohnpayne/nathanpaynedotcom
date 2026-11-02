@@ -175,7 +175,7 @@ const topics = kicker.split(/\s*×\s*/).join(' · ');
 
       {/* How this was written (#1493): between the prose and the Related list,
           rendered by the layout so no case study can omit or move it. */}
-      <AiUseNote statement={aiUse.statement} variant="project" />
+      <AiUseNote statement={aiUse.statement} title={headline} variant="project" />
 
       {related.length > 0 && (
         <section class="project-related" aria-labelledby="related-heading">
