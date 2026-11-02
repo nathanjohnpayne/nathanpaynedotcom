@@ -26,8 +26,8 @@ import { aiUseSchema, sha256Hex } from '../src/lib/content-stamp-schema.ts';
 // when the text or the statement changed since. The hash definition is
 // src/lib/ai-use-stamp.mjs; the shape is src/lib/content-stamp-schema.ts.
 //
-// `aiUse` is optional during rollout, and no real entry carries it yet, so the
-// fixture entry below is what exercises the check until the backfills land.
+// `aiUse` is required on every entry (#1498), drafts included; the fixture
+// entry below pins the hash definition on its own.
 // Like tests/resume-claims-review.test.js this reads source files only: the
 // stamp is a fact about content, defined over the bytes in the diff.
 
@@ -47,7 +47,6 @@ const entries = [
   ...findFilesRecursively(BLOG_DIR, (f) => f.endsWith('.md')),
   ...findFilesRecursively(PROJECTS_DIR, (f) => /\.mdx?$/.test(f)),
 ].map(loadEntry);
-const stampedEntries = entries.filter((e) => e.frontmatter[AI_USE_FIELD] !== undefined);
 const fixture = loadEntry(FIXTURE);
 
 /** Today in the local calendar, as `reviewed.date` wants it. */
@@ -119,8 +118,13 @@ describe('AI-use stamp — stamps are current', () => {
     expect(entries.filter((e) => e.file.startsWith(PROJECTS_DIR)).length).toBeGreaterThan(0);
   });
 
-  it('every entry that carries aiUse was confirmed since its text last changed', () => {
-    const failures = stampedEntries.map((e) => aiUseStampFailure(e)).filter(Boolean);
+  it('every entry carries aiUse, drafts included (#1498)', () => {
+    const missing = entries.filter((e) => e.frontmatter[AI_USE_FIELD] === undefined);
+    expect(missing.map((e) => e.path)).toEqual([]);
+  });
+
+  it('every entry was confirmed since its text last changed', () => {
+    const failures = entries.map((e) => aiUseStampFailure(e)).filter(Boolean);
     if (failures.length > 0) throw new Error(failures.join('\n\n'));
   });
 
@@ -448,15 +452,29 @@ describe('AI-use schema', () => {
     expect(parse({ statement: valid.statement })).toBe(false);
   });
 
-  it('is optional on blog and projects during rollout, so entries without it still build', () => {
-    // #1498 makes it required once every entry carries an approved statement.
-    // Until then an entry without aiUse must build; `npm test` builds every
-    // entry, and the schema below is what lets it.
+  it('rejects an entry without aiUse', () => {
+    expect(aiUseSchema.safeParse(undefined).success).toBe(false);
+    expect(aiUseSchema.safeParse(null).success).toBe(false);
+    expect(aiUseSchema.safeParse({}).success).toBe(false);
+  });
+
+  it('is required, with no default, on both blog and projects (#1498)', () => {
+    // The collections load through astro:content, which a unit test cannot
+    // import, so this pins the config source: each schema takes `aiUseSchema`
+    // bare. `.optional()` or `.default(...)` would let an entry without aiUse
+    // build, and the build is where a missing statement is rejected for real
+    // (the #1498 PR shows a fixture entry failing it).
     const config = readFileSync(resolve(ROOT, 'src/content.config.ts'), 'utf8');
     expect(config).toContain(
       "import { aiUseSchema, sha256Hex } from './lib/content-stamp-schema';",
     );
-    expect(config.match(/^\s+aiUse: aiUseSchema\.optional\(\),$/gm)).toHaveLength(2);
-    expect(aiUseSchema.optional().safeParse(undefined).success).toBe(true);
+    expect(config.match(/^\s+aiUse: aiUseSchema,$/gm)).toHaveLength(2);
+    expect(config).not.toMatch(/aiUse: aiUseSchema\./);
+  });
+
+  it('every real entry satisfies the schema, drafts included', () => {
+    for (const e of entries) {
+      expect(parse(e.frontmatter[AI_USE_FIELD]), e.path).toBe(true);
+    }
   });
 });

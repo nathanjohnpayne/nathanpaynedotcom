@@ -30,7 +30,9 @@
  *   unquoted date hashes the same as a quoted one. `aiUse` is dropped whole.
  * - Statement: `aiUse.statement` from the same FAILSAFE parse, with leading and
  *   trailing whitespace removed, as the schema trims it before it renders. It
- *   is `null` for an entry without `aiUse`, which has no stamp to check. An
+ *   is `null` for an entry without `aiUse`. The schema rejects such an entry
+ *   (#1498), so no real entry reaches that case; it stays defined so the hash
+ *   never changes for any input. An
  *   entry that carries `aiUse` without a non-empty string statement throws:
  *   the schema rejects it, and a hash printed for it could only ever stamp a
  *   statement nobody has written.

@@ -25,9 +25,9 @@
  * - `githubUrl` (optional): repository link. Omitted for private
  *   repositories, where the CTA is suppressed rather than rendering a
  *   button that 404s for every reader but the owner (#874).
- * - `aiUse` (optional, #1493): when the case study carries an AI-use
- *   disclosure, the "AI use" link closes the action row, after the CTAs
- *   (alone when the project has neither).
+ * - The "AI use" link (#1493) always closes the action row, after the CTAs
+ *   (alone when the project has neither); every case study carries `aiUse`
+ *   (#1498).
  */
 import Breadcrumbs from './Breadcrumbs.astro';
 import AiUseLink from './AiUseLink.astro';
@@ -43,10 +43,9 @@ interface Props {
   liveUrl?: string;
   liveLabel?: string;
   githubUrl?: string;
-  aiUse?: boolean;
 }
 
-const { variant, title, deck, breadcrumbLabel, liveUrl, liveLabel, githubUrl, aiUse = false } = Astro.props;
+const { variant, title, deck, breadcrumbLabel, liveUrl, liveLabel, githubUrl } = Astro.props;
 const liveCtaLabel = liveLabel || DEFAULT_LIVE_LABEL;
 ---
 
@@ -70,7 +69,7 @@ const liveCtaLabel = liveLabel || DEFAULT_LIVE_LABEL;
         {githubUrl && (
           <a class="nav-button" href={githubUrl} target="_blank" rel="noopener noreferrer" data-cta="github">View on GitHub</a>
         )}
-        {aiUse && <AiUseLink surface="project-actions" title={title} />}
+        <AiUseLink surface="project-actions" title={title} />
       </div>
     </div>
   </div>

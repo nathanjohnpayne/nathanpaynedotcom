@@ -221,9 +221,9 @@ const projects = defineCollection({
 
       // The AI-use disclosure and its reader-facing-content stamp (#1492,
       // epic #1490). Shape and rationale: src/lib/content-stamp-schema.ts;
-      // the hash: src/lib/ai-use-stamp.mjs. Optional during rollout; #1498
-      // makes it required.
-      aiUse: aiUseSchema.optional(),
+      // the hash: src/lib/ai-use-stamp.mjs. Required, with no default
+      // (#1498): an entry without it fails the build.
+      aiUse: aiUseSchema,
     })
     // `githubUrl` is optional so a private-repo project can suppress its dead
     // CTA (#874), but `heroRefresh: 'github-social'` refreshes the hero from
@@ -331,9 +331,9 @@ const blog = defineCollection({
       .optional()
       .default([]),
 
-    // The AI-use disclosure, as on `projects` above (#1492). Optional during
-    // rollout; #1498 makes it required.
-    aiUse: aiUseSchema.optional(),
+    // The AI-use disclosure, as on `projects` above (#1492). Required, with no
+    // default (#1498).
+    aiUse: aiUseSchema,
   }),
 });
 

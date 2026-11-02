@@ -32,8 +32,8 @@ export const sha256Hex = z
  * `date` in YAML: an unquoted `2026-11-01` parses as a Date, which
  * `z.iso.date()` rejects.
  *
- * Optional on both collections during rollout (#1490), so the build stays green
- * until every entry carries an approved statement; #1498 makes it required.
+ * Required on both collections, with no default (#1490, #1498): an entry
+ * without it fails the build.
  */
 export const aiUseSchema = z.strictObject({
   statement: z.string().trim().min(1),

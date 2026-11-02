@@ -1,5 +1,8 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { test, expect, type Page } from '@playwright/test';
+import { blogSlugFromPath, findBlogMarkdownFiles } from '../../scripts/lib/blog-file-inventory.mjs';
+import { splitEntry } from '../../src/lib/ai-use-stamp.mjs';
 import { contrastRatio, parseComputedColor, type ParsedColor } from '../helpers/contrast';
 
 /**
@@ -260,17 +263,35 @@ for (const width of BREAKPOINTS) {
     });
 
     if (width <= 1023) {
-      // The six-prs post is the reference. Every post that carries `aiUse` is
-      // checked too: its phone kicker ends in the AI-use link, and that line
-      // once closed the kicker without .post-meta's bottom margin, so the
-      // title sat 8px closer to it than on a post without the link (#1513).
-      // Read from the content files, so the check follows the rollout (#1490).
-      const blogDir = new URL('../../src/content/blog/', import.meta.url);
-      const aiUsePosts = readdirSync(blogDir)
-        .filter((file) => /\.mdx?$/.test(file))
-        .filter((file) => /^aiUse:/m.test(readFileSync(new URL(file, blogDir), 'utf8')))
-        .map((file) => file.replace(/\.mdx?$/, ''));
-      const evennessPosts = [...new Set(['six-prs-one-bug-agent-failure-modes', ...aiUsePosts])];
+      // Every post carries `aiUse` (#1498), so its phone kicker ends in the
+      // AI-use link, and that line once closed the kicker without .post-meta's
+      // bottom margin, so the title sat 8px closer to it than on a post
+      // without the link (#1513). Read the post files the blog collection
+      // loads (recursive `.md`, drafts excluded, as tests/ai-use-render.test.js
+      // does), so a new post is covered and no unrouted draft is visited. A
+      // frontmatter `slug` wins over the path, as Astro's glob loader does.
+      // six-prs stays first as the reference.
+      const blogDir = fileURLToPath(new URL('../../src/content/blog/', import.meta.url));
+      const publishedSlugs = findBlogMarkdownFiles(blogDir)
+        .map((file: string) => ({
+          file,
+          frontmatter: splitEntry(readFileSync(file, 'utf8')).frontmatter as Record<
+            string,
+            unknown
+          >,
+        }))
+        .filter(
+          ({ frontmatter }: { frontmatter: Record<string, unknown> }) =>
+            frontmatter.draft !== 'true',
+        )
+        .map(({ file, frontmatter }: { file: string; frontmatter: Record<string, unknown> }) =>
+          typeof frontmatter.slug === 'string' && frontmatter.slug.trim()
+            ? frontmatter.slug.trim()
+            : blogSlugFromPath(file, blogDir),
+        );
+      const evennessPosts = [
+        ...new Set(['six-prs-one-bug-agent-failure-modes', ...publishedSlugs]),
+      ];
 
       for (const slug of evennessPosts) {
         test(`article title sits evenly between its kicker and its deck (${slug})`, async ({
