@@ -12,7 +12,7 @@ draft: true
 aiUse:
   statement: "Fixture only. An agent wrote this entry to exercise the stamp test, and nobody reviewed it as prose."
   reviewed:
-    content: "230ba4b8947a46198c3d3dab365e7e42f39ab15b1796f355c154b909f0d466b4"
+    content: "c3f93a355b310a75eb6b6bcb45b5e55424dcf0b84fcea24c16fdd4193459bcef"
     date: "2026-11-01"
 keyTakeaways:
   - "A changed takeaway changes the hash."

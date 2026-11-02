@@ -200,7 +200,7 @@ The Autofix sample produces advisory items for the authentic trust-burden contra
 
 ## The `aiUse` statement
 
-Every post and case study must carry an `aiUse` statement (`aiUse.statement`) saying how the text as it stands was written, and a stamp (`aiUse.reviewed`) recording the hash of the reader-facing content when the owner last confirmed it (#1490, #1492). The field is optional in the schema until the backfills land; #1498 makes it required. Any revision that changes the text puts the statement in question in the same diff. The review packet for the revision includes the proposed or updated statement, and the owner's approval in step 10 of the [blog writing workflow](../blog-writing-workflow.md#draft-and-review-step-by-step) covers it.
+Every post and case study must carry an `aiUse` statement (`aiUse.statement`) saying how the text as it stands was written, and a stamp (`aiUse.reviewed`) recording the hash of the reader-facing content and of the statement itself when the owner last confirmed the statement (#1490, #1492, #1510). Editing either the text or the statement invalidates the stamp; the stamp binds the two together but does not prove the statement is accurate. The field is optional in the schema until the backfills land; #1498 makes it required. Any revision that changes the text puts the statement in question in the same diff. The review packet for the revision includes the proposed or updated statement, and the owner's approval in step 10 of the [blog writing workflow](../blog-writing-workflow.md#draft-and-review-step-by-step) covers it.
 
 Style rules. Every statement is written for its own piece; there are no shared or template statements.
 
@@ -212,7 +212,7 @@ Style rules. Every statement is written for its own piece; there are no shared o
 
 Two rules bind the agent:
 
-- An agent may draft or update a statement, but it re-stamps `reviewed` only after the owner confirms the statement in the PR. Recompute the value with `npm run --silent ai-use:hash -- <entry path>` (for example `src/content/blog/<slug>.md` or `src/content/projects/<slug>.mdx`); printing the hash is not a review.
+- An agent may draft or update a statement, but it re-stamps `reviewed` only after the owner confirms the statement in the PR. Recompute the value with `npm run --silent ai-use:hash -- <entry path>` (for example `src/content/blog/<slug>.md` or `src/content/projects/<slug>.mdx`) once the statement is final, since the hash covers it; printing the hash is not a review.
 - An agent never edits a statement to describe less agent involvement than the record shows. Where the record is thin, say so in the statement rather than guess.
 
 ## Revisions move the post's "Updated" date
