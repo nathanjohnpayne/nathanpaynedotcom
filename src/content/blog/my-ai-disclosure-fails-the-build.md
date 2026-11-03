@@ -2,8 +2,8 @@
 title: "My AI Disclosure Fails the Build"
 seoTitle: "My AI Disclosure Fails the Build"
 shortTitle: "My AI Disclosure Fails the Build"
-description: "A disclosure that is true when published goes false when the text changes afterward, so every post and case study here carries its own statement of what agents did and what I did, and the build fails when either changes without a re-stamp."
-seoDescription: "Every post and case study here states what AI agents did and what I did. A SHA-256 stamp fails the build when text or statement changes unstamped."
+description: "A disclosure that is true when published goes false when the text changes afterward, so every post and case study here carries its own statement of what agents did and what I did, and the site's tests fail when either changes without a re-stamp."
+seoDescription: "Every post and case study here states what AI agents did and what I did. A SHA-256 stamp fails CI when text or statement changes unstamped."
 category: "Agent Systems"
 author: "Nathan Payne"
 date: 2026-11-03
@@ -13,7 +13,7 @@ image: "/og/blog/my-ai-disclosure-fails-the-build.png"
 keyTakeaways:
   - "A disclosure is a claim about one version of the text. After an agent revises the piece, the statement at the bottom can be wrong without anyone lying."
   - "A SHA-256 stamp binds each piece's reader-facing text to its AI-use statement. Change either one, and the test fails until I confirm the statement and re-stamp. The statement is hashed too, so a reworded disclosure can't slip past."
-  - "The stamp shows the statement was confirmed since the text last changed. It doesn't show the statement is accurate or that I read anything. That judgment stays mine; the check only makes it hard to skip."
+  - "The stamp shows that the covered text and the statement match the recorded fingerprint. It doesn't show the statement is accurate or that I confirmed it; my confirmation is a workflow rule the hash can't prove. That judgment stays mine; the check only makes it hard to skip."
   - "Specific statements give readers, including the ones evaluating me for jobs, a fair reason to discount the prose as evidence that I can write. I'd rather pay that than have the public record establish the gap first."
 pullquotes:
   - text: "Nobody lied. The text moved and the disclosure didn't."
@@ -28,18 +28,18 @@ pullquotes:
 sidebar:
   - type: text
     content: |
-      Provenance. The Dartmouth findings are quoted from the Dartmouth president's "An Update on the Provost Review" (October 28, 2026) and from The New York Times' report of the same day, read on 2026-11-03; the provost's own description of his AI use is quoted from the Times. The headline figure shows Google News results for the articles from The New York Times, Valley News, Inside Higher Ed and The Washington Post, captured on 2026-11-03. Everything about this site comes from its public repository at commit `4d196f66`, issue #1490 and its sub-issues, and the pull requests that closed them, read on 2026-11-03. Dates are Pacific time.
+      Provenance. The Dartmouth findings are quoted from the advisory committee's report to the president (dated October 27, 2026), the president's "An Update on the Provost Review" (October 28), and The New York Times' report of October 28, all read on 2026-11-03; the provost's own description of his AI use is quoted from the Times. The headline figure shows Google News results for the articles from The New York Times, Valley News, Inside Higher Ed and The Washington Post, captured on 2026-11-03. Everything about this site comes from its public repository at commit `4d196f66`, issue #1490 and its sub-issues, and the pull requests that closed them, read on 2026-11-03. Dates are Pacific time.
     caption: "Where each claim comes from."
 aiUse:
-  statement: "I wrote the paragraphs this post is built from, chose the argument, and set its structure. At my direction, Claude built the facts ledger from the repository, the #1490 record, and the news coverage I supplied, then rewrote my paragraphs against that ledger, correcting five of my claims and cutting the text by a fifth. I directed the headline figure and chose its style; Claude selected the four articles, assembled the composite, and added it. I reviewed and approved the result."
+  statement: "I wrote the paragraphs this post is built from, chose the argument, and set its structure. At my direction, Claude built the facts ledger from the repository, the #1490 record, and the news coverage I supplied, then rewrote my paragraphs against that ledger, correcting five of my claims and cutting the text by a fifth. I directed the headline figure and chose its style; Claude selected the four articles, assembled the composite, and added it. I reviewed the draft, had Claude make four corrections to the Dartmouth framing and the technical claims, and approved the result."
   reviewed:
-    content: "e400569802803ad70e9da79154c7933763401e86334d4042af141cc8fed233c2"
+    content: "fedbbf3598a698785cf7dcc1f396734ea4d0f60b548eb1ec028b61b0638e4557"
     date: "2026-11-03"
 ---
 
-On October 28, 2026, Dartmouth's provost [resigned](https://www.nytimes.com/2026/10/28/us/dartmouth-santiago-schnell-ai.html) after a [faculty-led review](https://president.dartmouth.edu/news/2026/10/update-provost-review) found that he had used AI to "meaningfully alter his writing" and had "failed to disclose his use of AI," in violation of at least one publication's disclosure requirement. One of the pieces was a Washington Post commentary about the use of AI to cheat in school. Before the review concluded, he had said his AI use was limited to "language refinement, copy editing, improving clarity and organization and making writing processes more efficient." The committee found that his account understated what he had done.
+On October 28, 2026, Dartmouth's provost [resigned](https://www.nytimes.com/2026/10/28/us/dartmouth-santiago-schnell-ai.html) after a [faculty-led review](https://president.dartmouth.edu/news/2026/10/update-provost-review) found that he had used AI to "meaningfully alter his writing" and had "failed to disclose his use of AI," in violation of at least one publication's requirement. One of the pieces was a Washington Post commentary about the use of AI to cheat in school, and the Post's policy bars submissions "created or manipulated with artificial intelligence," so disclosure alone would not have settled that one. Before the review concluded, he had said his AI use was limited to "language refinement, copy editing, improving clarity and organization and making writing processes more efficient." The [committee's report](https://president.dartmouth.edu/sites/president/files/2026-10/Advisory%20Committee%20Report%20to%20President%202026-10-27.pdf) found that his use "went beyond his other public descriptions" of it.
 
-The headlines split on what he had done. Two named the undisclosed use. Two said he resigned over AI use. As I read the published findings, they turn on disclosure and candor, not on the use itself. That gap between the description and the record is a failure I could reproduce on this site without meaning to. Agents write and revise most of what I publish here. A disclosure can describe their contribution accurately on Monday and be wrong by Friday, after another round of revisions. So I made the disclosures part of the build.
+The headlines split between the undisclosed use and the use itself. The findings cover both, and what runs through them is the distance between his account and the record. That is not a disclosure that went stale; nothing in the report says his description was true when he gave it. But the same gap can open here without anyone intending it. Agents write and revise most of what I publish, and a disclosure that describes their work accurately on Monday can be wrong by Friday, after another round of revisions. So I made the disclosures something the site's tests check.
 
 ![Google News results for four October 28 stories, top to bottom. The New York Times: "A Top Dartmouth Leader Steps Down Over Undisclosed A.I. Use in Writings." Valley News: "Dartmouth provost resigns after review finds undisclosed AI use." Inside Higher Ed: "Dartmouth Provost Resigns Over AI Use." The Washington Post: "Senior official at Dartmouth College resigns over AI use." Two headlines name the disclosure; two name the use. Captured from Google News on November 3; the stack is my composite.](/blog/my-ai-disclosure-fails-the-build/img/news-headlines-google.png "Articles: [The New York Times](https://www.nytimes.com/2026/10/28/us/dartmouth-santiago-schnell-ai.html), [Valley News](https://vnews.com/2026/10/28/dartmouth-provost-resigns-ai-misconduct/), [Inside Higher Ed](https://www.insidehighered.com/news/governance/executive-leadership/2026/10/28/dartmouth-provost-resigns-over-ai-use) and [The Washington Post](https://www.washingtonpost.com/education/2026/10/28/senior-official-dartmouth-college-resigns-over-ai-use/).")
 
@@ -55,7 +55,7 @@ A statement that was accurate in August would have been wrong by November, three
 
 ## What the check covers
 
-Every post and case study now carries a required `aiUse` field. It has two parts: a `statement`, two or three first-person sentences saying what agents did and what I did to produce the text as it stands, and a `reviewed` block holding a SHA-256 hash and the date I last confirmed the statement. An entry without the field fails the build, drafts included.
+Every post and case study now carries a required `aiUse` field. It has two parts: a `statement`, a short first-person account of what agents did and what I did to produce the text as it stands, and a `reviewed` block holding a SHA-256 hash and the date I last confirmed the statement. An entry without the field fails the build, drafts included.
 
 The design decision was what to hash.
 
@@ -63,7 +63,7 @@ Hashing only the Markdown body would have been easy, and it would have missed mu
 
 The statement is hashed too. Rewording the disclosure without changing the article invalidates the fingerprint, the same as rewriting the article. Only the `reviewed` block is left out, so the stamp doesn't try to hash itself. The payload is canonical JSON with sorted keys, so reordering frontmatter changes nothing.
 
-A test recomputes the hash for every entry on every run. When one doesn't match, the failure names the entry, prints the recorded and current hashes, and gives the remedy in order: confirm that the statement still describes the text, revise it if not, then run
+A test recomputes the hash for every entry on every run, and CI runs that test before anything merges. When one doesn't match, the failure names the entry, prints the recorded and current hashes, and gives the remedy in order: confirm that the statement still describes the text, revise it if not, then run
 
 ```bash
 npm run --silent ai-use:hash -- <path>
@@ -87,13 +87,13 @@ Each statement sits where a reader will find it. An "AI use" link at the top of 
 
 A hash shows that the content matches the version it was computed from. It shows nothing about whether the statement is true.
 
-An agent can compute a hash as easily as I can. If I approve a statement that understates what an agent did, the build passes. If I say "confirmed" without rereading the piece, the build passes. The fingerprint doesn't prove I reviewed the text, read the disclosure, or exercised any judgment at all, and presenting it as evidence of those things would be its own kind of understatement.
+An agent can compute a hash as easily as I can. If I approve a statement that understates what an agent did, the tests pass. If I say "confirmed" without rereading the piece, the tests pass. The fingerprint doesn't prove I reviewed the text, read the disclosure, or exercised any judgment at all, and presenting it as evidence of those things would be its own kind of understatement.
 
 What it guarantees is narrower. A change to covered content can't merge without a visible change to `aiUse` in the same diff. The question of whether the statement still describes the text I'm about to publish lands in front of a reviewer every time the text moves. The check can't answer it. It makes it harder to skip.
 
 That's the difference between this and a policy page. Most AI-use policies describe what someone should do. This one is enforced at the point in the workflow where the decision has to happen. The judgment is still mine.
 
-The scope is narrow too. Statements cover posts and case studies. The homepage, résumé, and other site copy fall under the general policy. Writing I publish elsewhere inherits none of this; each venue has its own rules, and following them is my job, not the build's. And the repository isn't a complete record of my involvement. I don't leave a comment every time I read a paragraph. A missing review record doesn't show I skipped the review, and a current hash doesn't show I did it.
+The scope is narrow too. Statements cover posts and case studies. The homepage, résumé, and other site copy fall under the general policy. Writing I publish elsewhere inherits none of this; each venue has its own rules, and following them is my job, not the site's. And the repository isn't a complete record of my involvement. I don't leave a comment every time I read a paragraph. A missing review record doesn't show I skipped the review, and a current hash doesn't show I did it.
 
 ## What it costs
 
@@ -107,4 +107,4 @@ What the posts do show is my choice of subject, the argument, the evidence I dec
 
 That's why the cost is worth paying. The Dartmouth review turned on a description of AI involvement that was narrower than the record. My record is public. If I claimed less than it shows, someone else could establish the difference. I'd rather describe the work accurately, including the parts that make me look less impressive.
 
-The hash doesn't make that description honest. I still have to. What the build does is refuse to let an old description quietly survive a new version of the text. It puts the decision back in front of me, with a visible record that the text changed. That's a smaller guarantee than proving authorship. It's one I can actually enforce.
+The hash doesn't make that description honest. I still have to. What the check does is refuse to let an old description quietly survive a new version of the text. It puts the decision back in front of me, with a visible record that the text changed. That's a smaller guarantee than proving authorship. It's one I can actually enforce.
