@@ -1,5 +1,7 @@
 # Agent Operating Rules
 
+> This file is this repository's local overlay. Read [Shared Agent Operating Rules](shared-operating-rules.md) first: it owns the rules that hold across every repository (1Password CLI authentication failures, bug fix escalation policy, and the rest). This file keeps only what is specific to this repo.
+
 ### Key Design Decisions
 
 #### Mondrian Grid
@@ -126,100 +128,17 @@ Two client analytics tools load only when the visitor's privacy choice allows it
 
 ---
 
-## 1Password CLI authentication failures
+## Escalation rule anchors
 
-If any `op` command (`op read`, `op inject`, `op run`, `op document get`,
-or any script that wraps them) fails with a sign-in or authentication
-error—including but not limited to:
-
-- `[ERROR] ... not currently signed in`
-- `session expired`
-- `biometric unlock ... timed out`
-- `authorization prompt dismissed`
-- `error initializing client: authorization`
-
-Then follow this procedure:
-
-1. **Stop immediately.** Do not retry the command, do not attempt
-   workarounds (manual token entry, environment variable overrides,
-   fallback credential paths, or skipping the credential step).
-2. **Check if preflight was run.** If `OP_PREFLIGHT_DONE` is not set,
-   suggest running the preflight script:
-   > "1Password auth failed. Would you like to run credential preflight
-   > to cache all credentials at once?
-   > `eval \"$(scripts/op-preflight.sh --agent claude --mode all)\"`"
-3. **If preflight was already run** but credentials expired (rare—only after 1Password locks or the 12-hour hard limit), prompt the human and suggest re-running preflight:
-   > "Preflight credentials appear to have expired. Could you re-run
-   > preflight when you're back? I need to resume the review."
-4. **Wait for the human to confirm** they are present and ready before
-   re-running preflight (not individual `op read` commands).
-5. After confirmation, re-run preflight. If it fails again, report the
-   full error output and wait—do not loop.
-
-This rule applies only to 1Password CLI sign-in and authentication
-errors. Other `op` failures (wrong item ID, missing field, network
-errors, vault permission errors) should be diagnosed and resolved
-normally.
-
-## Bug fix escalation policy
-
-These rules prevent agents from repeatedly patching symptoms of a
-structural defect. They are derived from a real failure where one agent
-made six unsuccessful fix attempts on the same issue because every
-attempt preserved the same broken architectural assumption.
+The bug-fix escalation rules (two-strike audit, agent rotation, serialization-layer review) live in [Shared Agent Operating Rules](shared-operating-rules.md#bug-fix-escalation-policy). The two headings below stay in this file only as link anchors: a published blog post (`src/content/blog/six-prs-one-bug-agent-failure-modes.md`) links to them, and editing that post invalidates its `aiUse` stamp. They carry no rule text of their own.
 
 ### Two-strike audit rule
 
-If an agent has made **two or more failed fix attempts** on the same
-issue (i.e., two merged PRs that were each intended to resolve the issue
-but did not), the next attempt **must** begin with a written audit of
-all prior attempts before any code changes. The audit must:
-
-1. List every prior PR that targeted this issue.
-2. For each, state what it changed and why it was insufficient.
-3. Identify the **shared assumption** across all prior attempts.
-4. Propose a fix that addresses that assumption directly, not another
-   symptom within it.
-
-The audit should appear in the PR description under a section titled
-"Audit Of Prior Failed Fixes."
-
-If the agent cannot identify a shared assumption, it must flag the issue
-to the human rather than filing another incremental fix.
-
-### Agent rotation for retries
-
-When an agent's fixes are not resolving an issue after two attempts,
-**hand the problem to a different agent**. A fresh agent without the
-prior context is less likely to inherit implicit assumptions about the
-system's architecture. The new agent should be given:
-
-- The issue description
-- Links to all prior fix PRs
-- No additional narrative framing (let it form its own model)
-
-This is a recommendation, not a hard rule. The human decides when to
-rotate.
+See [Two-strike audit rule](shared-operating-rules.md#two-strike-audit-rule) in the shared rules.
 
 ### Serialization layer review requirement
 
-When reviewing a PR that introduces or modifies a **serialization or
-deserialization layer**---any code that converts structured data to a flat
-format (strings, JSON, markdown, plain text) and back---the reviewer must
-verify:
-
-1. **Losslessness:** Does the round-trip preserve all semantically
-   meaningful information? If not, what is discarded?
-2. **Consumer parity:** Do all consumers of the serialized format
-   produce identical output from identical input? If there are multiple
-   parsers/renderers, are they tested for equivalence?
-3. **Necessity:** Is the intermediate format required, or can consumers
-   read the structured format directly?
-
-If the round-trip is lossy, the reviewer must flag the information loss
-as a design risk and require either:
-- An explicit justification for why the loss is acceptable, or
-- A plan to eliminate the intermediate format
+See [Serialization layer review requirement](shared-operating-rules.md#serialization-layer-review-requirement) in the shared rules.
 
 ## Worktree lifecycle
 
