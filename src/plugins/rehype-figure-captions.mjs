@@ -188,6 +188,11 @@ const imageDimensions = {
   '/blog/the-product-did-not-travel/img/gcb-feed.png': { width: 786, height: 1550 },
   '/blog/the-product-did-not-travel/img/vacay-saturday-card.png': { width: 786, height: 1550 },
   '/blog/the-product-did-not-travel/img/vacay-bodega-ranks.png': { width: 786, height: 1550 },
+  // My AI Disclosure Fails the Build: composite of four Google News results (#1544).
+  '/blog/my-ai-disclosure-fails-the-build/img/news-headlines-google.png': {
+    width: 1480,
+    height: 1271,
+  },
 };
 
 const TITLE_LINK_START = /\[([^\]]+)\]\((?=https:\/\/)/g;

@@ -28,6 +28,7 @@ describe('blog chronology-only surfaces', () => {
     );
 
     expect(links).toEqual([
+      'https://nathanpayne.com/blog/my-ai-disclosure-fails-the-build/',
       'https://nathanpayne.com/blog/the-subagent-said-it-was-unsafe/',
       'https://nathanpayne.com/blog/silence-is-not-an-approval/',
       'https://nathanpayne.com/blog/the-product-did-not-travel/',
