@@ -7,7 +7,7 @@ title: How I Write Page
 
 ## Overview
 
-`/how-i-write/` is the site-level policy page on how the posts and case studies are written (#1494, part of #1490). It states the general practice, names what AI agents do and what the owner does, links the public drafting workflow pinned to a commit, says that each piece's own "How this was written" statement is the specific account, and scopes itself to this site's posts and case studies. The path and title were decided in #1491. Every page links to it, beside the Privacy link.
+`/how-i-write/` is the site-level policy page on how the posts and case studies are written (#1494, part of #1490). It states the general practice, names what AI agents do and what the owner does, links the public drafting workflow pinned to a commit, says that each piece's own "How this was written" statement is the specific account, explains in a short section how the AI-use disclosures are flagged for review when the text changes (#1537), and scopes itself to this site's posts and case studies in a closing section. The path and title were decided in #1491. Every page links to it, beside the Privacy link.
 
 ## Requirements
 
@@ -18,6 +18,12 @@ title: How I Write Page
 3. The opening names the AI role plainly (#1491): agents write the posts and case studies.
 4. The copy links the public workflow, `docs/blog-writing-workflow.md`, on GitHub at a full 40-character commit SHA. The link opens in a new tab with `rel="noopener"`, as every off-site link does. The pinned commit must contain the file; `tests/how-i-write.test.js` checks both with local Git.
 5. The copy says every post and case study has a facts ledger in the repository. `tests/how-i-write.test.js` keeps that true: every entry in `src/content/blog/` and `src/content/projects/`, drafts included, must have a ledger named `<slug>-ledger.md` under `plans/`, `plans/759/` or `plans/correctness-pass-2026-10-06/`. A new entry without one fails the test until its ledger lands or the sentence changes.
+
+5a. The body is eight paragraphs, then two level-two sections, in this order (#1537):
+    - The eight paragraphs run from the opening through the one that introduces each piece's "How this was written" statement and links the public workflow.
+    - "When the text changes" says that each post and case study has a fingerprint of its text and its statement, and that when either changes the site's tests flag the change for review. It says the owner confirms the statement still describes how the piece was made, revising it if needed, before the fingerprint is updated, and that the check catches changes that need another look without proving the owner reviewed the piece or that the statement and article are accurate. It describes the mechanism in `src/lib/ai-use-stamp.mjs` and `docs/agents/blog-revision-process.md` § The `aiUse` statement and changes neither.
+    - "What this page covers" holds the scoping paragraph: posts and case studies, not every word on the site, and not writing published elsewhere or how the software was built.
+    The headings use the existing `.project-copy h2` treatment (ruled, italic); the page adds no styles for them. `tests/how-i-write.test.js` checks the rendered blocks against the source in order and the heading structure: one `<h1>`, and the two sections as `<h2>` directly inside `.policy-copy`.
 
 ### Page
 

@@ -1,5 +1,5 @@
 ---
-description: "AI agents draft and fact-check my posts and case studies. I direct the arguments, select the evidence and visuals, and approve every published piece."
+description: "AI agents draft my posts and case studies and check claims against available evidence. I direct the arguments, select the evidence and visuals, and approve every published piece."
 ogDescription: "How AI agents write my posts and case studies—and how I shape the arguments, choose the visuals, and decide what gets published."
 ---
 
@@ -17,6 +17,14 @@ GitHub records many of my editorial decisions, though not every review leaves a 
 
 The distinction matters: agents produce much of the prose, but the editorial choices and responsibility are mine. I won't claim to have written sentences I didn't write, but I won't disown an argument because an agent typed it, either. That includes the decisions that turn out to be wrong.
 
-Every post and case study ends with a **"How this was written"** statement documenting what the agents and I did for that piece. This page outlines the general practice; each statement provides the specific account. The full process is public: <a href="https://github.com/nathanjohnpayne/nathanpaynedotcom/blob/56bb6610e23c2f355fb658df670b7b1a0e72fd41/docs/blog-writing-workflow.md" target="_blank" rel="noopener">Blog drafting and voice review</a>.
+Every post and case study ends with a **"How this was written"** statement documenting what the agents and I did for that piece. This page outlines the general practice; each statement provides the specific account. The full process is public: <a href="https://github.com/nathanjohnpayne/nathanpaynedotcom/blob/ec27898f319cedad309652498db50b1722215aac/docs/blog-writing-workflow.md" target="_blank" rel="noopener">Blog drafting and voice review</a>.
+
+## When the text changes
+
+Each post and case study has a fingerprint of its text and its "How this was written" statement. When either changes, the site's tests flag the change for review.
+
+I confirm the statement still describes how the piece was made, revising it if needed, before the fingerprint is updated. The check catches changes that need another look; it doesn't prove that I reviewed the piece or that the statement and article are accurate.
+
+## What this page covers
 
 This disclosure covers posts and case studies, not every word on the site. Agents also write and edit the homepage, résumé, and other site copy, which don't carry individual disclosures. I also direct and review that material before publication. This page doesn't cover writing I publish elsewhere or how the software itself was built. Each case study addresses the development of its own project.

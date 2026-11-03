@@ -933,7 +933,9 @@ function howIWritePage() {
       <p>GitHub records many of my editorial decisions, though not every review leaves a separate approval record. …</p>
       <p>The distinction matters: agents produce much of the prose, but the editorial choices and responsibility are mine. …</p>
       <p>Every post and case study ends with a <b>“How this was written”</b> statement documenting what the agents and I did for that piece. … The full process is public: <a>Blog drafting and voice review</a>.</p>
-      <p>This disclosure covers posts and case studies, not every word on the site. …</p></div>
+      <h2>When the text changes</h2><p>Each post and case study has a fingerprint of its text and its “How this was written” statement. When either changes, the site’s tests flag the change for review.</p>
+      <p>I confirm the statement still describes how the piece was made, revising it if needed, before the fingerprint is updated. The check catches changes that need another look; it doesn’t prove that I reviewed the piece … accurate.</p>
+      <h2>What this page covers</h2><p>This disclosure covers posts and case studies, not every word on the site. …</p></div>
     ${footer('detail', { items: ['Back to Homepage'] })}
   </article></div></div>`;
 }
@@ -1041,12 +1043,12 @@ const PAGES = [
       { id: 'tab', w: 'tab', kind: 'built', label: 'Tablet', fn: privacyPage, cap: 'Edge to edge, 6px border, no rails (detail frame).' },
       { id: 'ph', w: 'ph', kind: 'built', label: 'Phone', fn: privacyPage, cap: 'Contents list as a column; both choice buttons full width.' }] },
 
-  { id: 'howiwrite', title: '/how-i-write/ — How I write', url: 'nathanpayne.com/how-i-write/', sub: 'src/pages/how-i-write.astro (specs/how-i-write.md, #1494): the /privacy/ detail frame without its contents list, blue accent: blue hero bar, breadcrumb NATHAN PAYNE / HOW I WRITE, h1 “How I write”, the share line as deck, then nine paragraphs from <code>src/content/site-copy/how-i-write.md</code> (shortened here), the one link pinned to a commit, and the detail footer. Every footer on the site now ends in two icon squares, <b>How I write</b> (Lucide pencil-sparkles) then <b>Privacy</b> (shield-check); the homepage Connect line and the 404 carry the worded link instead.',
+  { id: 'howiwrite', title: '/how-i-write/ — How I write', url: 'nathanpayne.com/how-i-write/', sub: 'src/pages/how-i-write.astro (specs/how-i-write.md, #1494): the /privacy/ detail frame without its contents list, blue accent: blue hero bar, breadcrumb NATHAN PAYNE / HOW I WRITE, h1 “How I write”, the share line as deck, then eight paragraphs and two headed sections (#1537) from <code>src/content/site-copy/how-i-write.md</code> (shortened here), the one link pinned to a commit, and the detail footer. The two h2s, “When the text changes” and “What this page covers”, reuse the <code>.project-copy h2</code> treatment (italic Cormorant over a hairline); no new styles. Every footer on the site now ends in two icon squares, <b>How I write</b> (Lucide pencil-sparkles) then <b>Privacy</b> (shield-check); the homepage Connect line and the 404 carry the worded link instead.',
     legend: [
       '<b>Footer icons</b>: 35×35 squares, the height of the text buttons, How I write first. At ≤480, where text buttons take full rows, the last text button’s basis leaves room for both icons, so the three share its row.',
       '<b>Page</b>: ≤1023 edge to edge, 6px border, no rails (detail frame); ≤480 the hero inset drops to .5rem.'],
     frames: [
-      { id: 'desk', w: 'desk', kind: 'built', label: 'Desktop', fn: howIWritePage, cap: 'Blue-barred hero, nine paragraphs, then BACK TO HOMEPAGE beside the two icon squares.' },
+      { id: 'desk', w: 'desk', kind: 'built', label: 'Desktop', fn: howIWritePage, cap: 'Blue-barred hero, eight paragraphs, two ruled italic h2 sections, then BACK TO HOMEPAGE beside the two icon squares.' },
       { id: 'tab', w: 'tab', kind: 'built', label: 'Tablet', fn: howIWritePage, cap: 'Edge to edge, 6px border, no rails (detail frame); footer a centred column.' },
       { id: 'ph', w: 'ph', kind: 'built', label: 'Phone', fn: howIWritePage, cap: 'The first screen: hero and the opening paragraphs. Below the copy, the footer puts BACK TO HOMEPAGE and both icons on one row.' }] },
 

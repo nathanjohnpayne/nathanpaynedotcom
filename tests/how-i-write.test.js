@@ -74,14 +74,40 @@ describe('/how-i-write/ page (specs/how-i-write.md)', () => {
     expect(text(crumbs.querySelector('[aria-current="page"]'))).toBe(HOW_I_WRITE_TITLE);
   });
 
-  it('renders every paragraph of the owning Markdown body, in order', () => {
-    const expected = body.split(/\n{2,}/).map(sourceText);
-    const rendered = [...document.querySelectorAll('.policy-copy > p')].map((p) =>
-      normalize(p.textContent),
-    );
-    // Control: the body is real prose, not an empty file that trivially matches.
-    expect(expected.length).toBeGreaterThanOrEqual(4);
+  it('renders every block of the owning Markdown body, in order', () => {
+    // The body holds paragraphs and level-two headings, separated by blank
+    // lines; a heading is a block that starts with "## ".
+    const expected = body
+      .split(/\n{2,}/)
+      .map((block) =>
+        block.startsWith('## ')
+          ? { tag: 'H2', text: normalize(block.slice(3)) }
+          : { tag: 'P', text: sourceText(block) },
+      );
+    const rendered = [...document.querySelector('.policy-copy').children].map((el) => ({
+      tag: el.tagName,
+      text: normalize(el.textContent),
+    }));
+    // Control: the body is real prose with its headings, not an empty file
+    // that trivially matches.
+    expect(expected.filter((block) => block.tag === 'P').length).toBeGreaterThanOrEqual(4);
+    expect(expected.filter((block) => block.tag === 'H2')).toHaveLength(2);
     expect(rendered).toEqual(expected);
+  });
+
+  it('keeps one h1 and sets the two sections as h2 inside the reading column', () => {
+    expect(document.querySelectorAll('h1')).toHaveLength(1);
+    expect(document.querySelector('h1').closest('.policy-copy')).toBeNull();
+    const headings = [...document.querySelectorAll('.policy-copy h2')];
+    expect(headings.map((h) => text(h))).toEqual([
+      'When the text changes',
+      'What this page covers',
+    ]);
+    for (const h of headings) {
+      expect(h.parentElement.classList.contains('policy-copy')).toBe(true);
+    }
+    // No heading skips a level: nothing below h2 appears on the page.
+    expect(document.querySelectorAll('h3, h4, h5, h6')).toHaveLength(0);
   });
 
   it('opens by naming what AI agents do (#1491)', () => {
