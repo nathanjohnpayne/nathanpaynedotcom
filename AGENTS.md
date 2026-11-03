@@ -5,13 +5,15 @@ Agent instructions are organized into focused sub-files under `docs/agents/`. Re
 ## Sections
 
 1. **[Repository Overview](docs/agents/repository-overview.md)** --- Project description, tech stack, agent role
-2. **[Agent Operating Rules](docs/agents/operating-rules.md)** --- Reading order, conflict resolution
-3. **[Code Modification Rules](docs/agents/code-modification-rules.md)** --- File creation, duplication, directory constraints
-4. **[Documentation Rules](docs/agents/documentation-rules.md)** --- When and what to update
-5. **[Testing Requirements](docs/agents/testing-requirements.md)** --- Coverage expectations, test deletion policy
-6. **[Deployment Process](docs/agents/deployment-process.md)** --- Build/deploy flow, 1Password-backed auth
-7. **[Prose Line-Wrapping](docs/agents/prose-line-wrapping.md)** --- Soft-wrap Markdown prose; repository scope is listed in Documentation Rules
-8. **[Blog Revision Process](docs/agents/blog-revision-process.md)** --- Two-pass order for audited posts, facts ledgers, brevity verification, the `aiUse` statement and its re-stamp rules
+2. **[Shared Agent Operating Rules](docs/agents/shared-operating-rules.md)** --- Rules shared across every repository: 1Password auth failures, bug fix escalation, secret handling, PR and issue conventions
+3. **[Agent Operating Rules](docs/agents/operating-rules.md)** --- This repository's local overlay on the shared rules: design decisions, coding conventions, content updates, analytics, worktree lifecycle
+4. **[Code Modification Rules](docs/agents/code-modification-rules.md)** --- File creation, duplication, directory constraints
+5. **[Documentation Rules](docs/agents/documentation-rules.md)** --- When and what to update
+6. **[Testing Requirements](docs/agents/testing-requirements.md)** --- Coverage expectations, test deletion policy
+7. **[Deployment Process](docs/agents/deployment-process.md)** --- Build/deploy flow, 1Password-backed auth
+8. **[Prose Line-Wrapping](docs/agents/prose-line-wrapping.md)** --- Soft-wrap Markdown prose; repository scope is listed in Documentation Rules
+9. **[Blog Revision Process](docs/agents/blog-revision-process.md)** --- Two-pass order for audited posts, facts ledgers, brevity verification, the `aiUse` statement and its re-stamp rules
+10. **[Code Review Requirements](docs/agents/code-review-requirements.md)** --- Pointer to REVIEW_POLICY.md and .github/review-policy.yml
 
 ## Code Review Policy
 
