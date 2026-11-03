@@ -29,12 +29,12 @@ pullquotes:
 sidebar:
   - type: text
     content: |
-      Provenance. The Dartmouth findings are quoted from the advisory committee's report to the president (dated October 27, 2026), the president's "An Update on the Provost Review" (October 28), and The New York Times' report of October 28, all read on 2026-11-03; the provost's own description of his AI use is quoted from the Times. The headline figure shows Google News results for the articles from The New York Times, Valley News, Inside Higher Ed and The Washington Post, captured on 2026-11-03. Everything about this site comes from its public repository at commit `4d196f66`, issue #1490 and its sub-issues, and the pull requests that closed them, read on 2026-11-03. Dates are Pacific time.
+      Provenance. The Dartmouth findings are quoted from the advisory committee's report to the president (dated October 27, 2026), the president's "An Update on the Provost Review" (October 28), and The New York Times' report of October 28, all read on 2026-11-03; the provost's own description of his AI use is quoted from the Times. The headline figure shows Google News results for the articles from The New York Times, Valley News, Inside Higher Ed and The Washington Post, captured on 2026-11-03. The conference figure is an edited composite of Dartmouth's conference page at ai.dartmouth.edu, captured on 2026-11-03: the page headline, breadcrumb, and side navigation are removed, and the header, artwork, date line, and opening paragraph are joined in one column. Everything about this site comes from its public repository at commit `4d196f66`, issue #1490 and its sub-issues, and the pull requests that closed them, read on 2026-11-03. Dates are Pacific time.
     caption: "Where each claim comes from."
 aiUse:
-  statement: "I wrote the paragraphs this post is built from, chose the argument, and set its structure. At my direction, Claude built the facts ledger from the repository, the #1490 record, and the news coverage I supplied, then rewrote my paragraphs against that ledger, correcting five of my claims and cutting the text by a fifth. I directed the headline figure and chose its style; Claude selected the four articles, assembled the composite, and added it. I reviewed the draft, had Claude make four corrections to the Dartmouth framing and the technical claims, and approved the result."
+  statement: "I wrote the paragraphs this post is built from, chose the argument, and set its structure. At my direction, Claude built the facts ledger from the repository, the #1490 record, and the news coverage I supplied, then rewrote my paragraphs against that ledger, correcting five of my claims and cutting the text by a fifth. I directed both figures and chose their styles; Claude selected the four headlines, assembled the two composites, and added them. I reviewed the draft, had Claude make four corrections to the Dartmouth framing and the technical claims, and approved the result."
   reviewed:
-    content: "fedbbf3598a698785cf7dcc1f396734ea4d0f60b548eb1ec028b61b0638e4557"
+    content: "a60ed1399b991ed063ab731e36e136f4829c827f98cff0d13871834b6d722877"
     date: "2026-11-03"
 ---
 
@@ -93,6 +93,8 @@ An agent can compute a hash as easily as I can. If I approve a statement that un
 What it guarantees is narrower. A change to covered content can't merge without a visible change to `aiUse` in the same diff. The question of whether the statement still describes the text I'm about to publish lands in front of a reviewer every time the text moves. The check can't answer it. It makes it harder to skip.
 
 That's the difference between this and a policy page. Most AI-use policies describe what someone should do. This one is enforced at the point in the workflow where the decision has to happen. The judgment is still mine.
+
+![Dartmouth's "What Must Remain Human?" conference opened October 29, the day after the university announced its provost's resignation. Edited composite of Dartmouth's conference page: the Dartmouth bar and the AI at Dartmouth banner, the conference artwork with the AI at 70 mark, the dates October 29–31, 2026, in Hanover, New Hampshire, and the page's opening paragraph, which ends "not on what AI can do, but on what humans must do in its presence."](/blog/my-ai-disclosure-fails-the-build/img/conference-page.png "Source: [Dartmouth's conference page](https://ai.dartmouth.edu/ai-70-events/what-must-remain-human-conference).")
 
 The scope is narrow too. Statements cover posts and case studies. The homepage, résumé, and other site copy fall under the general policy. Writing I publish elsewhere inherits none of this; each venue has its own rules, and following them is my job, not the site's. And the repository isn't a complete record of my involvement. I don't leave a comment every time I read a paragraph. A missing review record doesn't show I skipped the review, and a current hash doesn't show I did it.
 

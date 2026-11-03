@@ -204,7 +204,7 @@ Every post and case study must carry an `aiUse` statement (`aiUse.statement`) sa
 
 Style rules. Every statement is written for its own piece; there are no shared or template statements.
 
-- Two or three first-person sentences: what the owner did, what AI actually did, and who made the final decisions. It is not a production log; `/how-i-write/` explains the general process.
+- A short first-person statement, usually two or three sentences: what the owner did, what AI actually did, and who made the final decisions. A fourth sentence is fine when the record needs it (the disclosure post's own statement is four, by owner decision on 2026-11-03); never cut a true disclosure to fit a count. It is not a production log; `/how-i-write/` explains the general process.
 - Name the role plainly: "an agent wrote the first draft," not "AI helped draft." Use concrete verbs, never soft ones such as helped, assisted or supported, and never a bare "AI-assisted."
 - Describe the current text, including later model revisions, not the first draft. Change the statement wherever the record changes.
 - Say "edited" only where the record shows the owner changed the text. Where the owner read and accepted an agent's revision, say "reviewed and approved."
