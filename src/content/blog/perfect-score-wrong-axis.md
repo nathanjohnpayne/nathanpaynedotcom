@@ -5,7 +5,6 @@ shortTitle: "Perfect Score, Wrong Axis"
 description: "An eleven-PR batch recorded 122 dispositions; no finding was rejected as factually wrong. A P1 shipped; its post-merge finding joined the tally. The rule it broke had been raised on a sibling PR twelve hours earlier, then fixed and validated there before this PR merged."
 seoDescription: "An AI review batch recorded 122 finding dispositions with zero findings rejected as factually wrong and still shipped a P1. The reviews were scoped to one diff. The second implementation still broke a rule already corrected on its sibling."
 category: "Agent Systems"
-homepageRank: 3
 author: "Nathan Payne"
 date: 2026-07-30
 tags: ["AI", "Engineering", "Systems", "Code Review", "Debugging"]
