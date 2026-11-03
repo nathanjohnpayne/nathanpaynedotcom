@@ -185,3 +185,17 @@ These describe the repository record when the drafts were written. The owner's a
 - **Who wrote the condition wording.** The Device Source of Truth, Swipe Watch and Mergepath packets record owner-requested sentences without saying whether the owner wrote or chose them. The statements say "asked for." Only Matchline's packet says the owner supplied words.
 - **Session transcripts.** The parent chat `01a1135d-d82d-7790-9c5e-8c5198d03dd0` and the `Claude-Session` links are not readable from this repository; the approvals above rest on the packets and pull request bodies that quote them.
 - **Conflict with the draft policy page.** The unapproved `/how-i-write/` copy on #1505 says "I read every piece in full and approve it before it's published." The record supports that for each page's October 12 version, not for the later Claude edits listed above.
+
+## Revisions
+
+### 2026-11-02: Matchline and Friends & Family Billing (#1324, #1325, #1309)
+
+Claude made three post-review clarifications. On Matchline, it reworded the owner's sentence "Both claims carry a number." to name the two claims (#1324), and replaced two undefined references to "the audit" (#1325): the read-gate sentence now states the property directly, and the deployment sentence says an agent's fact-check read the anonymous sign-in shell and its bundle, as the facts ledgers record (`plans/759/project-pages-ledger.md` §D; `plans/correctness-pass-2026-10-06/matchline-ledger.md` R11, R12, R38). On Friends & Family Billing, it smoothed the Settlement decision's "Then consider a service credit…" sentence (#1309). Both statements were revised to cover those changes, and the owner confirmed both verbatim in the Claude Code session on 2026-11-02 ("Confirm both"); the pull request records that confirmation.
+
+Matchline, now:
+
+> At my direction, Claude wrote the first draft from the Matchline repository, and Codex later rewrote it in my voice. I supplied my real résumé example, wrote the three sentences weighing its two claims, and decided how the evidence and visuals should support that assessment. I approved that version and reviewed Claude's later changes before they went live: the bar-before-the-ruler lesson, the restart section, the corrected latency figures, and wording clarifications, including a rewording of my first sentence so it names both claims.
+
+Friends & Family Billing, now:
+
+> At my direction, Claude wrote the first draft from the product's repository; when the opening got the households wrong, I corrected the account, supplied the actual count, and had Claude rewrite it. Codex later rewrote the piece in my voice, and I requested two wording fixes before approving it. When the app was redesigned, I selected and directed the visual presentation and gave feedback on the new screenshots, and I reviewed Claude's later changes—updated lessons, captions, the card summary, and a wording fix—before they went live.

@@ -38,7 +38,7 @@ decisions:
     status: "mixed"
   - title: "The coordinator doesn't keep the change"
     lens: "Settlement"
-    context: "The vanilla-JS app had three balance states: outstanding, partial, settled. Then consider a service credit applied after someone has paid. I'm holding money that belongs to them, and none of those states says so."
+    context: "The vanilla-JS app had three balance states: outstanding, partial, settled. Then a service credit is applied after someone has paid. I'm holding money that belongs to them, and none of those states says so."
     chosen: "I added overpaid as a fourth state in the React port on 2026-03-21, in a Phase 2a commit rather than an ADR. ADR-0004 later made the rule explicit: I have to return an overpayment as a refund or carry it forward. I can't absorb it."
     rejected: "Writing it off. A coordinator can quietly keep a small overpayment in an informal arrangement. I deliberately removed that option; ADR-0004 records the absence of a forgive-credit action as intentional."
     rationale: "If I can call a balance settled but can't say that I owe someone money, I can turn the household's error into my gain and call it even. Between people sharing a phone plan, returning the money matters to whether the arrangement feels fair."
@@ -65,10 +65,10 @@ related:
   - label: "Project: Override"
     href: "/projects/override/"
 aiUse:
-  statement: "At my direction, Claude wrote the first draft from the product's repository; when the opening got the households wrong, I corrected the account, supplied the actual count, and had Claude rewrite it. Codex later rewrote the piece in my voice, and I requested two wording fixes before approving it. When the app was redesigned, I selected and directed the visual presentation, gave feedback on the new screenshots, and reviewed Claude's updated lessons, captions, and card summary before they went live."
+  statement: "At my direction, Claude wrote the first draft from the product's repository; when the opening got the households wrong, I corrected the account, supplied the actual count, and had Claude rewrite it. Codex later rewrote the piece in my voice, and I requested two wording fixes before approving it. When the app was redesigned, I selected and directed the visual presentation and gave feedback on the new screenshots, and I reviewed Claude's later changes—updated lessons, captions, the card summary, and a wording fix—before they went live."
   reviewed:
-    content: "748e9c5fed9b324a7548fbf5a51eba2f7ea280b999d87e544f429716c26cca9d"
-    date: "2026-11-01"
+    content: "71486c60d3c9b16ddfe1dc5285ed22889c111aa0a3f036cfd3d4c1d5a5b3ec41"
+    date: "2026-11-02"
 ---
 
 import ConstraintStrip from '../../components/projects/ConstraintStrip.astro';
