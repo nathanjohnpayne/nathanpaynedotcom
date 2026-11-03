@@ -193,6 +193,8 @@ const imageDimensions = {
     width: 1480,
     height: 1271,
   },
+  // The Dartmouth conference-page composite on the same post (1480x1590).
+  '/blog/my-ai-disclosure-fails-the-build/img/conference-page.png': { width: 1480, height: 1590 },
 };
 
 const TITLE_LINK_START = /\[([^\]]+)\]\((?=https:\/\/)/g;
