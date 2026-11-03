@@ -20,9 +20,9 @@ export const EXPECTED_BLOG_EDITORIAL_ORDER = [
 // above. Pinned as a literal for the same reason: a rendered-order test should
 // catch a changed rank, not recompute it.
 export const EXPECTED_HOMEPAGE_WRITING = [
+  'my-ai-disclosure-fails-the-build',
   'the-product-did-not-travel',
   'every-reviewer-was-right',
-  'perfect-score-wrong-axis',
   'agent-approval-workflow-genesis-of-mergepath',
   'html-mockups-as-spec',
 ];

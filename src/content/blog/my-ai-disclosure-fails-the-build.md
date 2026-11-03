@@ -5,6 +5,7 @@ shortTitle: "My AI Disclosure Fails the Build"
 description: "A disclosure that is true when published goes false when the text changes afterward, so every post and case study here carries its own statement of what agents did and what I did, and the site's tests fail when either changes without a re-stamp."
 seoDescription: "Every post and case study here states what AI agents did and what I did. A SHA-256 stamp fails CI when text or statement changes unstamped."
 category: "Agent Systems"
+homepageRank: 1
 author: "Nathan Payne"
 date: 2026-11-03
 draft: false
