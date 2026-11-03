@@ -79,10 +79,10 @@ related:
   - label: "Project: Five Across"
     href: "/projects/five-across/"
 aiUse:
-  statement: "At my direction, Claude wrote the first draft from the Matchline repository, and Codex later rewrote it in my voice. I supplied my real résumé example, wrote the three sentences weighing its two claims, and decided how the evidence and visuals should support that assessment. I approved that version and reviewed Claude's later additions—the bar-before-the-ruler lesson, the restart section, and the corrected latency figures—before they went live."
+  statement: "At my direction, Claude wrote the first draft from the Matchline repository, and Codex later rewrote it in my voice. I supplied my real résumé example, wrote the three sentences weighing its two claims, and decided how the evidence and visuals should support that assessment. I approved that version and reviewed Claude's later changes before they went live: the bar-before-the-ruler lesson, the restart section, the corrected latency figures, and wording clarifications, including a rewording of my first sentence so it names both claims."
   reviewed:
-    content: "c68561b8d07072de2ef1cdd73bf293df5bc9cddf0b87ecf3283b4167b04e5f92"
-    date: "2026-11-01"
+    content: "0ca5114bd41e370d87cb827737b6d9dd970147940a5e3073fb58576632f883c4"
+    date: "2026-11-02"
 ---
 
 import ConstraintStrip from '../../components/projects/ConstraintStrip.astro';
@@ -199,7 +199,7 @@ flowchart TD
     style X fill:#11100d,stroke:#11100d,stroke-width:1.5px,color:#fffdf8
 ```
 
-The two orange nodes are the whole product. The first sits after the graph: unapproved Units are stored immediately, then filtered out when something reads the evidence. The audit calls it a read gate because it doesn't stop a Unit from being written. Those two checks carry the thesis. The rest is plumbing a competent team would build the same way.
+The two orange nodes are the whole product. The first sits after the graph: unapproved Units are stored immediately, then filtered out when something reads the evidence. That makes it a read gate, not a write gate: it doesn't stop a Unit from being written. Those two checks carry the thesis. The rest is plumbing a competent team would build the same way.
 
 I put requirements with no qualifying evidence in a gaps panel above the match list, inside the same tab. I wanted to see the gaps when I looked at the matches. They were the point, not an embarrassment to bury.
 
@@ -249,7 +249,7 @@ I spent the last session before the pause on the instrument rather than the prod
 
 A validator that says "looks fine" can score well if every input is honest. I needed a case that should fail. The repository has a hand-labeled fabricated paragraph attached to my own résumé, the one the Unit above comes from. It claims a multi-year x86 and Arm CPU roadmap, a hundred-million-VM fleet, a 40% throughput gain on SAP HANA, and $400M in contracts displacing a competitor.
 
-Both claims carry a number. The 7.4-to-4-day cycle time traces to the Unit above. I've never worked on SAP HANA, so a 40% throughput gain on it is a claim I couldn't defend, however plausible the sentence sounds. None of those four claims traces to an Experience Unit. The fixture lists all four, explains why each fails, and expects validation to fail.
+The real cycle-time result and the fabricated SAP HANA claim both carry a number. The 7.4-to-4-day cycle time traces to the Unit above. I've never worked on SAP HANA, so a 40% throughput gain on it is a claim I couldn't defend, however plausible the sentence sounds. None of those four claims traces to an Experience Unit. The fixture lists all four, explains why each fails, and expects validation to fail.
 
 That test runs in continuous integration against the Firestore emulator. Passing means the gate blocked the Export control, whose handler is still a stub. It proves the orchestration refuses a known untraceable claim. The model checks are mocked, so it doesn't establish that the model catches a new one. The integration reaches the database, not the model API. The one live run, under the first decision above, is a single data point, not a rate.
 
@@ -269,7 +269,7 @@ Product commits resumed on 2026-08-31 and, as of 2026-09-01, were still landing.
 
 A development build is deployed behind a sign-in wall, and the "View Live Product" button above goes to it. It was redeployed on the evening of 2026-08-31, replacing the 2026-05-02 build it had served until then, and again on 2026-10-02. The served build checked for this page carries the June and July work and the fixes that followed. I redeployed it on 2026-10-26 with the October work, so the Pipeline and the follow-up tasks are in it, and again on the evening of 2026-10-27 with the validation fix. The screenshots on this page come from the app's test build, seeded with invented data.
 
-Since 2026-09-30, the source rules and callable gates restrict reads and calls to my owner allowlist. The audit read the anonymous sign-in shell and its bundle; it didn't verify the deployed rules or try another account. The link shows that shell, not the corpus.
+Since 2026-09-30, the source rules and callable gates restrict reads and calls to my owner allowlist. An agent's fact-check of this page read the anonymous sign-in shell and its bundle; it didn't verify the deployed rules or try another account. The link shows that shell, not the corpus.
 
 ## What would restart it
 
