@@ -196,6 +196,11 @@ describe('verify-brevity', () => {
     expect(run(before.replace('JST', 'KST'), before)).toBe(1);
   });
 
+  it('does not read a same-line all-caps word as a zone', () => {
+    const before = 'It merged at 2:11 pm TEST builds aside.\n';
+    expect(run(before.replace('TEST', 'TEXT'), before)).toBe(0);
+  });
+
   it('still passes on a pure prose edit near protected tokens', () => {
     expect(run(UNITS.replace('The grid line', 'The grid rule'), UNITS)).toBe(0);
   });
