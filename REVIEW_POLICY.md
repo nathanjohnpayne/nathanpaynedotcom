@@ -658,7 +658,9 @@ Agents must automate identity switching so that commits and PR activity are attr
 
 ### Git commit identity (user.name / user.email)
 
-Commit identity is **not** switched per session, and never per repository. Every agent commits as the human author identity, which lives in the machine's **global** git config (`~/.gitconfig`) next to `user.signingkey`—so `git commit` attributes and signs correctly in every repo and every worktree with no per-session step. Reviewer identities (`nathanpayne-{agent}`) never author commits; they exist for GitHub API activity only, and that attribution comes from the PAT wrappers described below, not from git config.
+Commit identity is **not** switched per session, and never per repository. Every agent commits as the human author identity, which lives in the machine's **global** git config (`~/.gitconfig`) next to `user.signingkey`—so `git commit` attributes correctly in every repo and every worktree with no per-session step, and signs the same way whenever global signing is on. Reviewer identities (`nathanpayne-{agent}`) never author commits; they exist for GitHub API activity only, and that attribution comes from the PAT wrappers described below, not from git config.
+
+**Local signing is currently off.** Signing is the intended configuration and stays fully set up (`user.signingkey`, `gpg.format ssh`, and 1Password's `op-ssh-sign` as `gpg.ssh.program`), but global `commit.gpgsign` is `false` by owner choice (decided 2026-11-03), so commits made locally on branches are unsigned. That blocks nothing: no repo requires signed commits, and every repo squash-merges, so the commits that land on `main` are created and signed by GitHub. Don't add a repo- or worktree-local `commit.gpgsign` override to work around it (`check_git_identity_hygiene` rejects those). If signing is turned back on, test one commit first, because 1Password may prompt per commit and stall unattended agents.
 
 ```bash
 # Verify the identity a commit here would use, and where it comes from.
