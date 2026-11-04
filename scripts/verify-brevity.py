@@ -72,6 +72,18 @@ _WORD_NUMBERS = (
     "eighteenth|nineteenth|twentieth|dozen|twice|thrice"
 )
 
+# The optional zone after a clock time. It must sit on the same line, after
+# horizontal whitespace only, and come from a closed set: common zone
+# abbreviations (US, Atlantic, Europe, Asia, Australia, New Zealand) or a
+# spelled-out US zone. An open `[A-Z][a-zA-Z]+` also captured the first word of
+# the next sentence ("2:11 pm. Then") or paragraph, so a prose-only edit there
+# failed as a changed time; an open all-caps shape would do the same to a
+# same-line word such as TEST. A zone outside the set is not protected.
+_ZONE = (r"(?:[ \t]+(?:UTC|GMT|BST|IST|CES?T|EES?T|WES?T|[ECMPA][SD]?T|HST|AK[SD]T"
+         r"|JST|KST|HKT|SGT|A[ECW][SD]T|NZ[SD]T"
+         r"|(?:Pacific|Eastern|Central|Mountain)(?:[ \t]+(?:Standard|Daylight))?(?:[ \t]+Time)?)"
+         r"(?![A-Za-z]))?")
+
 TOKEN_CLASSES = (
     # The token ends on the last character that can belong to a URL, so an
     # ordinary sentence break after one is prose, not a changed destination.
@@ -112,8 +124,8 @@ TOKEN_CLASSES = (
                    r"(?:,?\s+\d{4})?"
                    r"|\d{4}-\d{2}-\d{2}"
                    r"(?:[T ]\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)?"
-                   r"|\b\d{1,2}:\d{2}\s*(?:[ap]\.?m\.?)?(?:\s+[A-Z][a-zA-Z]+)?"
-                   r"|\b\d{1,2}\s*[ap]\.?m\.?(?:\s+[A-Z][a-zA-Z]+)?"),
+                   r"|\b\d{1,2}:\d{2}(?:\s*[ap]\.?m\.?)?" + _ZONE +
+                   r"|\b\d{1,2}\s*[ap]\.?m\.?" + _ZONE),
     # The token carries whatever changes the claim: a currency symbol, a
     # sign, a percent, or a unit. `$4` and `EUR4` are different prices, `-3.8%`
     # and `+3.8%` opposite directions, `9px` and `8px` different grids.

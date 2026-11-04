@@ -174,6 +174,33 @@ describe('verify-brevity', () => {
     expect(run(UNITS.replace('10:04am Pacific', '10:04am Eastern'), UNITS)).toBe(1);
   });
 
+  it('does not read the next sentence as part of a time', () => {
+    const before = 'It merged at 2:11 pm. Then nothing happened.\n';
+    const after = 'It merged at 2:11 pm. Nothing happened.\n';
+    expect(run(after, before)).toBe(0);
+  });
+
+  it('does not read the next paragraph as part of a time', () => {
+    const before = 'It merged at 2:11 pm.\n\nThe rest followed.\n';
+    const after = 'It merged at 2:11 pm.\n\nWhat followed was quiet.\n';
+    expect(run(after, before)).toBe(0);
+  });
+
+  it('still fails when a closed-set zone changes', () => {
+    const before = 'It merged at 14:11 UTC and stayed.\n';
+    expect(run(before.replace('UTC', 'PDT'), before)).toBe(1);
+  });
+
+  it('still fails when a zone abbreviation outside the US set changes', () => {
+    const before = 'It merged at 14:11 JST and stayed.\n';
+    expect(run(before.replace('JST', 'KST'), before)).toBe(1);
+  });
+
+  it('does not read a same-line all-caps word as a zone', () => {
+    const before = 'It merged at 2:11 pm TEST builds aside.\n';
+    expect(run(before.replace('TEST', 'TEXT'), before)).toBe(0);
+  });
+
   it('still passes on a pure prose edit near protected tokens', () => {
     expect(run(UNITS.replace('The grid line', 'The grid rule'), UNITS)).toBe(0);
   });
