@@ -73,10 +73,12 @@ _WORD_NUMBERS = (
 )
 
 # The optional zone after a clock time. It must sit on the same line, after
-# horizontal whitespace only, and come from a closed set: an open
-# `[A-Z][a-zA-Z]+` also captured the first word of the next sentence ("2:11 pm.
-# Then") or paragraph, so a prose-only edit there failed as a changed time.
-_ZONE = (r"(?:[ \t]+(?:UTC|GMT|CEST|CET|BST|[ECMP][SD]?T"
+# horizontal whitespace only, and take a zone's shape: UTC, an all-caps
+# abbreviation ending in T (ET, PDT, GMT, BST, CEST, JST, AEST), or a spelled-out
+# US zone. An open `[A-Z][a-zA-Z]+` also captured the first word of the next
+# sentence ("2:11 pm. Then") or paragraph, so a prose-only edit there failed as
+# a changed time; the abbreviation shape keeps JST -> KST a changed time.
+_ZONE = (r"(?:[ \t]+(?:UTC|[A-Z]{1,4}T"
          r"|(?:Pacific|Eastern|Central|Mountain)(?:[ \t]+(?:Standard|Daylight))?(?:[ \t]+Time)?)"
          r"(?![A-Za-z]))?")
 

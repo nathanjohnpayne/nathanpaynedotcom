@@ -191,6 +191,11 @@ describe('verify-brevity', () => {
     expect(run(before.replace('UTC', 'PDT'), before)).toBe(1);
   });
 
+  it('still fails when a zone abbreviation outside the US set changes', () => {
+    const before = 'It merged at 14:11 JST and stayed.\n';
+    expect(run(before.replace('JST', 'KST'), before)).toBe(1);
+  });
+
   it('still passes on a pure prose edit near protected tokens', () => {
     expect(run(UNITS.replace('The grid line', 'The grid rule'), UNITS)).toBe(0);
   });
