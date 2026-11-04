@@ -27,7 +27,9 @@ commit.
     scripts/verify-brevity.py before.md after.md
     scripts/verify-brevity.py --quiet before.md after.md && git commit
 
-Advisory notes and the manual-review reminder print even under --quiet, since
+Under --quiet, passing checks and word totals are suppressed, but FAIL lines and
+the RESULT line still print, so a failing gate run names what failed. Advisory
+notes and the manual-review reminder print even under --quiet, since
 suppressing them in the gate path would hide exactly what they exist to surface.
 
 Known blind spot: comparisons are global multisets, so an edit that SWAPS two
@@ -358,7 +360,8 @@ def compare(before: str, after: str, quiet: bool) -> int:
     def report(ok: bool, label: str, detail: str = "") -> None:
         if not ok:
             failures.append(label)
-        if not quiet:
+        # Under --quiet only failing checks print; passing ones stay silent.
+        if not quiet or not ok:
             status = "ok  " if ok else "FAIL"
             print(f"  {status}  {label}{detail}")
 
@@ -419,7 +422,8 @@ def compare(before: str, after: str, quiet: bool) -> int:
         pd = (pa - pb) / pb * 100 if pb else 0.0
         print(f"\n  words {wb} -> {wa}  (whole file, including tables and code)")
         print(f"  prose {pb} -> {pa}  ({pd:+.1f}%)  <- the figure to report")
-        print(f"  RESULT: {'PASS' if not failures else str(len(failures)) + ' FAILURE(S)'}")
+    # Always printed, so a quiet gate run never reads as silent success.
+    print(f"  RESULT: {'PASS' if not failures else str(len(failures)) + ' FAILURE(S)'}")
     print("  Complete manual meaning review remains required; token counts do not prove meaning.")
 
     return 1 if failures else 0
