@@ -207,6 +207,16 @@ describe('verify-brevity', () => {
     expect(run(after, before)).toBe(0);
   });
 
+  it('does not read a zone word after a dotless pm sentence end as the zone', () => {
+    const before = 'It merged at 2:11 pm. Eastern teams followed.\n';
+    expect(run(before.replace('Eastern', 'Western'), before)).toBe(0);
+  });
+
+  it('still reads a zone after a dotted a.m. abbreviation', () => {
+    const before = 'It merged at 10:04 a.m. ET and stayed.\n';
+    expect(run(before.replace('ET', 'PT'), before)).toBe(1);
+  });
+
   it('still fails when a closed-set zone changes', () => {
     const before = 'It merged at 14:11 UTC and stayed.\n';
     expect(run(before.replace('UTC', 'PDT'), before)).toBe(1);

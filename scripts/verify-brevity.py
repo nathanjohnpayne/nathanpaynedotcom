@@ -94,6 +94,14 @@ _WORD_NUMBERS = (
 # the next sentence ("2:11 pm. Then") or paragraph, so a prose-only edit there
 # failed as a changed time; an open all-caps shape would do the same to a
 # same-line word such as TEST. A zone outside the set is not protected.
+# A trailing period separates the two readings of an am/pm marker: the dotted
+# `a.m.` / `p.m.` keeps its period as part of the abbreviation, so a zone after
+# it still belongs to the time ("10:04 a.m. ET"); the dotless `am` / `pm` has no
+# period of its own, so one after it ends the sentence and no zone is read past
+# it ("2:11 pm. Eastern teams"). Accepted residual: a sentence that follows a
+# dotted marker and opens on a zone word ("2:11 p.m. Eastern teams") is still
+# read as the time's zone, because it is indistinguishable from "10:04 a.m. ET".
+_AMPM = r"(?:[ap]\.m\.?|[ap]m)"
 _ZONE = (r"(?:[ \t]+(?:UTC|GMT|BST|IST|CES?T|EES?T|WES?T|[ECMPA][SD]?T|HST|AK[SD]T"
          r"|JST|KST|HKT|SGT|A[ECW][SD]T|NZ[SD]T"
          r"|(?:Pacific|Eastern|Central|Mountain)(?:[ \t]+(?:Standard|Daylight))?(?:[ \t]+Time)?)"
@@ -139,8 +147,8 @@ TOKEN_CLASSES = (
                    r"(?:,?\s+\d{4})?"
                    r"|\d{4}-\d{2}-\d{2}"
                    r"(?:[T ]\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)?"
-                   r"|\b\d{1,2}:\d{2}(?:\s*[ap]\.?m\.?)?" + _ZONE +
-                   r"|\b\d{1,2}\s*[ap]\.?m\.?" + _ZONE),
+                   r"|\b\d{1,2}:\d{2}(?:\s*" + _AMPM + r")?" + _ZONE +
+                   r"|\b\d{1,2}\s*" + _AMPM + _ZONE),
     # The token carries whatever changes the claim: a currency symbol, a
     # sign, a percent, or a unit. `$4` and `EUR4` are different prices, `-3.8%`
     # and `+3.8%` opposite directions, `9px` and `8px` different grids.
