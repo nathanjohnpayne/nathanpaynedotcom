@@ -35,7 +35,9 @@
     "check_coderabbit_wait",
     "check_dependabot_coupled_groups",
     "check_doc_ownership",
+    "check_gh_projects_backfill_route_markers",
     "check_gh_projects_move_item",
+    "check_gh_projects_read_route",
     "check_merge_clearance_gate",
     "check_no_token_in_output",
     "check_phase_4b_accounting",
@@ -254,6 +256,8 @@
     "check_codex_scripts": [
       "scripts/lib/credential-class.sh",
       "scripts/lib/codex-request-evidence.sh",
+      "scripts/lib/p4b-review-provenance.sh",
+      "scripts/phase-4b-review.sh",
       "tests/test_codex_request_evidence.sh",
       "tests/fixtures/codex_late_review_format_1120.json",
       "tests/test_late_codex_findings.sh",
@@ -332,9 +336,12 @@
       "tests/test_external_review_rename_protection.sh",
       "tests/test_load_review_config.sh",
       "tests/test_resolve_base_policy.sh",
+      "tests/test_review_cost_preview.sh",
       "scripts/codex-review-check.sh",
       "scripts/merge-clearance-gate.sh",
-      "scripts/lib/review-policy-scalar.sh"
+      "scripts/lib/review-policy-scalar.sh",
+      "scripts/review-cost-preview.sh",
+      "scripts/phase-4b-classifier.sh"
     ],
     "check_feedback_policy_helpers": [
       "tests/test_feedback_policy_helpers.sh"
@@ -388,10 +395,21 @@
       "scripts/lib/reviewers-helpers.sh",
       "scripts/workflow/external_review_classify.sh"
     ],
+    "check_gh_projects_backfill_route_markers": [
+      "scripts/gh-projects/backfill-route-markers.sh",
+      "scripts/gh-projects/read-route.sh",
+      "scripts/gh-as-author.sh",
+      "scripts/lib/ci-check-modes.sh"
+    ],
     "check_gh_projects_move_item": [
       "scripts/gh-projects/move-item.sh",
       "scripts/lib/ci-check-modes.sh",
       "scripts/identity-check.sh"
+    ],
+    "check_gh_projects_read_route": [
+      "scripts/gh-projects/read-route.sh",
+      "docs/agents/shared-operating-rules.md",
+      "scripts/lib/ci-check-modes.sh"
     ],
     "check_git_identity_hygiene": [
       "tests/test_git_identity_hygiene.sh"
@@ -455,6 +473,7 @@
       "tests/test_helper_autosource.sh",
       "tests/test_local_agent_handback.sh",
       "tests/test_op_preflight_check.sh",
+      "tests/test_op_preflight_pr_assets.sh",
       "tests/test_op_preflight_token_mode.sh",
       "tests/test_preflight_agent_name.sh",
       "scripts/agent-capability-probe.sh",
@@ -482,6 +501,7 @@
     ],
     "check_phase_4b_automation": [
       "scripts/lib/gh-comment-trigger-guard.sh",
+      "scripts/lib/p4b-review-provenance.sh",
       "scripts/workflow/gh-comment-trigger-guard.py",
       "scripts/lib/credential-class.sh",
       "scripts/lib/coderabbit-fence.sh",
@@ -547,6 +567,12 @@
       ".github/workflows/trusted-policy-mutations.yml",
       ".github/workflows/weekly-drift-audit.yml",
       ".github/workflows/weekly-feedback-sweep.yml"
+    ],
+    "check_pr_assets_upload": [
+      "tests/test_pr_assets_upload.sh",
+      "scripts/pr-assets-upload.sh",
+      "scripts/identity-check.sh",
+      "scripts/lib/credential-class.sh"
     ],
     "check_pr_audit_codex_clearance": [
       "scripts/ci/fixtures/pr-audit-codex-clearance/*",
