@@ -166,6 +166,13 @@ describe('verify-brevity', () => {
     expect(run(BEFORE.replace('Pinned exactly.', 'Reworded.'))).toBe(1);
   });
 
+  it('fails when resumeTitle changes, and does not pin a nonexistent slug field', () => {
+    const mk = (r, slug) =>
+      `---\ntitle: "T"\nresumeTitle: "${r}"\nslug: "${slug}"\n---\n\nBody text here.\n`;
+    expect(run(mk('Short', 'a'), mk('Other', 'a'))).toBe(1);
+    expect(run(mk('Short', 'a'), mk('Short', 'b'))).toBe(0);
+  });
+
   it('fails when a table row changes', () => {
     expect(run(BEFORE.replace('| Peak | 1,721 |', '| Peak | 1,720 |'))).toBe(1);
   });

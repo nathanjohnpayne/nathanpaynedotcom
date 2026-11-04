@@ -32,7 +32,7 @@ Three rules that cost the most to learn:
 
 ## Verifying a brevity pass
 
-Run `scripts/verify-brevity.py BEFORE AFTER`. It fails on any change to URLs, `#NNN` references, timestamps, numerals or code spans (compared by occurrence count, not distinct value), to code, Mermaid or table blocks, or to the frontmatter fields tests pin as exact strings.
+Run `scripts/verify-brevity.py BEFORE AFTER`. It fails on any change to URLs, `#NNN` references, timestamps, numerals or code spans (compared by occurrence count, not distinct value), to code, Mermaid or table blocks, or to the frontmatter fields tests pin or constrain by wording (`title`, `seoTitle`, `shortTitle`, `resumeTitle`, `seoDescription`). A `description` change is reported as an advisory note, since no test pins it byte-for-byte.
 
 **It does not catch swapped values.** The comparisons are global multisets, so an edit that exchanges two protected values between claims passes with every count unchanged: a date moved from one PR to another, two figures traded between rows. Catching that needs token-to-claim association, which this tool deliberately does not attempt. Read swaps yourself when a passage pairs values with subjects.
 

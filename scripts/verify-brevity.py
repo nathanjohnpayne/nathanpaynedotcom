@@ -49,17 +49,30 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-# Frontmatter values that tests assert as exact strings. Changing one of these
-# without updating its assertion breaks the suite; changing it deliberately is
-# a content decision, not a brevity edit.
-PINNED_FIELDS = ("title", "seoTitle", "shortTitle", "slug", "seoDescription")
+# Frontmatter values that tests assert as exact strings or constrain by
+# wording. Changing one of these without updating its assertion breaks the
+# suite; changing it deliberately is a content decision, not a brevity edit.
+# Derived from the blog suites by test name, not line number (line numbers
+# drift): `blog post page includes article metadata and screenshot embeds` and
+# `blog post structured data declares a BlogPosting entity` in
+# tests/blog-pages.test.js pin one post's title/seoTitle/seoDescription
+# strings; `keeps seoTitle recognisably the same headline as title` and
+# `keeps shortTitle an abbreviation of title, not a rename` in
+# tests/blog-title-consistency.test.js constrain seoTitle and shortTitle
+# against title; `titles each selected essay from its post, honoring
+# resumeTitle` in tests/content-owners.test.js requires every resumeTitle word
+# to come from title. There is no `slug` field: the blog schema does not
+# define one (the slug is the filename).
+PINNED_FIELDS = ("title", "seoTitle", "shortTitle", "resumeTitle", "seoDescription")
 
-# Advisory rather than pinned. `tests/blog-pages.test.js:75` pins ONE post's
-# `description` byte-for-byte, and this script cannot tell which file it is
-# reading. Gating on it rejected three of the four brevity edits this repo
-# has already merged, all of which tightened `description` legitimately;
-# staying silent would let a change through that breaks a byte-exact
-# assertion. So it is surfaced and not failed, like the spelled-out numbers.
+# Advisory rather than pinned. No test asserts any post's `description`
+# byte-for-byte: the strings tests/blog-pages.test.js pins for the six-PRs
+# post are its `seoDescription`, which is already pinned above. `description`
+# is only required to be non-empty (`all blog markdown files have required
+# frontmatter fields` in tests/content-schema.test.js), and tightening it is
+# the normal brevity edit, so gating on it would reject legitimate passes.
+# It is surfaced and not failed, like the spelled-out numbers, because it
+# still renders on cards and as the meta-description fallback.
 ADVISORY_FIELDS = ("description",)
 
 # Numbers written as words. These are the reason this script exists: a prose
