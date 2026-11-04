@@ -53,5 +53,8 @@
   "dependencies": {
     "@mux/mux-background-video": "^0.2.3",
     "mux-embed": "^5.19.0"
+  },
+  "overrides": {
+    "minimatch": "^11.0.1"
   }
 }
