@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { execFileSync } from 'child_process';
+import { execFileSync, spawnSync } from 'child_process';
 import { mkdtempSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join, resolve } from 'path';
@@ -125,7 +125,21 @@ describe('verify-brevity', () => {
     const [a, b] = paths(after, before);
     const out = execFileSync('python3', [script, '--quiet', a, b], { encoding: 'utf-8' });
     expect(out).toContain('Complete manual meaning review remains required');
-    expect(out).not.toContain('RESULT:');
+    expect(out).toContain('RESULT: PASS');
+    expect(out).not.toMatch(/\b(?:words|prose) \d+ ->/);
+  });
+
+  it('names the failing check and prints RESULT under --quiet', () => {
+    // A quiet gate run must not look like a clean run when a check fails:
+    // the FAIL line and the RESULT line both print, passing checks do not.
+    const after = BEFORE.replace('22 hours', '20 hours');
+    const [a, b] = paths(after);
+    const res = spawnSync('python3', [script, '--quiet', a, b], { encoding: 'utf-8' });
+    expect(res.status).toBe(1);
+    const out = res.stdout;
+    expect(out).toMatch(/FAIL\s+numerals/);
+    expect(out).toContain('RESULT: 1 FAILURE(S)');
+    expect(out).not.toMatch(/^\s+ok\s/m);
     expect(out).not.toMatch(/\b(?:words|prose) \d+ ->/);
   });
 
