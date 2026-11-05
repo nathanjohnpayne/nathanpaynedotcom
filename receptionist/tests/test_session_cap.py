@@ -135,3 +135,22 @@ def test_goodbye_must_precede_hang_up():
             goodbye_after=60,
             hang_up_after=30,
         )
+
+
+async def test_failed_hang_up_is_logged(caplog):
+    # The cap's task is never awaited, so an unlogged hang-up failure would
+    # vanish (CodeRabbit, #1568).
+    time = FakeTime()
+
+    async def hang_up() -> None:
+        raise RuntimeError("delete_room failed")
+
+    cap = SessionCap(
+        on_goodbye=lambda: None,
+        on_hang_up=hang_up,
+        clock=time.clock,
+        sleep=time.sleep,
+    )
+    with caplog.at_level("ERROR", logger="session-cap"), pytest.raises(RuntimeError):
+        await cap.run()
+    assert "hang-up failed" in caplog.text

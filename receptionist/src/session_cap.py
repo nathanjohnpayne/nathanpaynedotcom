@@ -84,7 +84,12 @@ class SessionCap:
         await self._sleep_until(self._hang_up_after)
         logger.info("session cap: hanging up at %.0fs", self._elapsed())
         self._hanging_up = True
-        await _call(self._on_hang_up)
+        try:
+            await _call(self._on_hang_up)
+        except Exception:
+            # This task is never awaited, so log here or the failure is lost.
+            logger.exception("session cap: hang-up failed")
+            raise
 
 
 async def _call(callback: Callback) -> None:

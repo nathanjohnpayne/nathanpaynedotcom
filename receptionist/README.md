@@ -74,9 +74,11 @@ Then run the agent on your machine:
 
 ```console
 lk agent console    # talk to it in the terminal
-lk agent dev        # connect it to LiveKit Cloud for the Agent Console or a phone call
+lk agent dev        # connect it to LiveKit Cloud and try it in the Agent Console
 lk agent debugger start && lk agent debugger say "I'd like to book a call"
 ```
+
+With LiveKit CLI 2.19.0 or later, `lk agent dev` registers the agent under a random `dev-` deployment, so dev traffic stays apart from production and a phone call to the number never reaches it; it prints an Agent Console link that does. Test by phone against the deployed agent instead (#1565). Don't run `lk agent dev --deployment production`: that serves real callers from your machine.
 
 Before the first run, `uv run src/agent.py download-files` fetches the local model files that plugins use, such as the turn detector's local fallback; the Dockerfile does the same at build time. With real Cal.com settings, a console booking lands on Nathan's real calendar, so cancel test bookings afterward.
 
