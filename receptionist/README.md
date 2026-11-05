@@ -34,7 +34,7 @@ The model interprets the conversation; code in `src/booking.py` enforces the rul
 - The agent asks for an email address only if the caller wants a calendar invite, and spells it back.
 - Calendar writes can't be interrupted (`disallow_interruptions()`), and every Cal.com failure, such as a slot that was just taken or a booking limit, becomes a sentence the agent can say.
 
-The Cal.com event type itself carries the rest of the limits: 15 or 30 minutes, at least two hours' notice, a 14-day window, and at most two bookings a day and five a week. The event type ID comes from `CAL_EVENT_TYPE_ID` at runtime and isn't stored in the code.
+The Cal.com event type itself carries the rest of the limits: 15 or 30 minutes, at least two hours' notice, a 14-day window, and at most two bookings a day and five a week. Its phone field is required and its email field is optional but **visible**. Cal.com discards the email of an attendee whose event type hides the email field, and books with a phone placeholder (`<digits>@sms.cal.com`), so a hidden field means no caller ever gets an invite. If that happens, the agent logs `cal.com dropped the attendee email`. The event type ID comes from `CAL_EVENT_TYPE_ID` at runtime and isn't stored in the code.
 
 ## Free Plan Limits
 
@@ -143,16 +143,14 @@ Revoke the old key in Cal.com afterward.
 
 ### Dispatch Rule
 
-Calls reach the agent through an inbound SIP dispatch rule, `receptionist-inbound` (`SDR_CWDPeQsrxdqQ`). It is an individual rule with room prefix `call-` and an explicit agent dispatch of `receptionist`, so each call gets its own room and the agent is dispatched by name. Inspect it with:
+Calls reach the agent through an inbound SIP dispatch rule, `receptionist-inbound` (`SDR_fMK47p98cH36`). It's a callee rule: each call gets its own room, named `call-` plus our own number and a random suffix, and the rule dispatches the agent by name (`receptionist`). Rooms are named after the called number, not the caller, because room names appear in logs and traces without PII redaction ([dispatch rules](https://docs.livekit.io/telephony/accepting-calls/dispatch-rule/)). Inspect it with:
 
 ```console
 lk sip dispatch list
-lk number list                      # the SIP Dispatch Rules column shows what's attached to the number
+lk number list                      # the SIP Dispatch Rules column must show SDR_fMK47p98cH36
 ```
 
-Attach the rule to the phone number (ID `PN_PPN_wUSnKQ2hfeNU`, the 415 number ending in 6465) with `lk number update --id PN_PPN_wUSnKQ2hfeNU --sip-dispatch-rule-id SDR_CWDPeQsrxdqQ`, or from the dashboard's Phone Numbers page with Assign dispatch rule. See [LiveKit Phone Numbers](https://docs.livekit.io/telephony/start/phone-numbers/).
-
-An individual rule names each room after the caller's phone number, and room names appear in logs and traces ([dispatch rules](https://docs.livekit.io/telephony/accepting-calls/dispatch-rule/)). Moving to a rule that doesn't carry the caller's number in the room name is tracked separately from the deploy.
+A LiveKit phone number routes calls only to a rule assigned to it ([testing your telephony setup](https://docs.livekit.io/telephony/testing/)). The documented CLI assignment, `lk number update --id PN_PPN_wUSnKQ2hfeNU --sip-dispatch-rule-id <rule>`, failed every time on 2026-11-05 with `twirp error invalid_argument: Failed to update phone number`, on CLI 2.19.3, for both individual and callee rules. Assign the rule in the dashboard instead: Telephony, then Phone numbers, then the number's **⋮** menu, **Configure with existing dispatch rules**, then pick the rule and save. The number is ID `PN_PPN_wUSnKQ2hfeNU`, the 415 number ending in 6465. If you ever replace the rule, assign the new one the same way, or calls stop reaching the agent.
 
 ### Checking Usage
 

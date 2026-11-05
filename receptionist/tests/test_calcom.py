@@ -361,3 +361,30 @@ def test_unknown_error_is_generic_and_speakable():
     error = classify_error(400, {"status": "error", "error": {"message": "nope"}})
     assert type(error) is CalComError
     assert "website" in error.spoken
+
+
+def _created(attendee_email: str) -> dict:
+    body = load_fixture("booking_created_2024_08_13.json")
+    body["data"]["attendees"] = [{"name": "Alex Example", "email": attendee_email}]
+    return body
+
+
+async def test_booking_that_keeps_the_email_logs_no_warning(api, client, caplog):
+    api.reply("POST /v2/bookings", status=201, payload=_created("alex@example.org"))
+    with caplog.at_level("INFO", logger="calcom"):
+        await client.create_booking(booking_request(email="alex@example.org"))
+    assert "email=given" in caplog.text
+    assert "dropped the attendee email" not in caplog.text
+
+
+async def test_booking_that_drops_the_email_logs_a_warning(api, client, caplog):
+    # Cal.com swaps in a phone placeholder when the email field is hidden, so
+    # the caller's invite silently never goes out (#1565).
+    api.reply(
+        "POST /v2/bookings", status=201, payload=_created("15555550123@sms.cal.com")
+    )
+    with caplog.at_level("INFO", logger="calcom"):
+        result = await client.create_booking(booking_request(email="alex@example.org"))
+    assert result.uid  # the booking itself still stands
+    assert "dropped the attendee email" in caplog.text
+    assert "alex@example.org" not in caplog.text  # no PII in the log

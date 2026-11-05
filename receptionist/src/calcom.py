@@ -250,6 +250,18 @@ def classify_error(status: int, body: Any) -> CalComError:
     return CalComError(detail, status=status)
 
 
+def _attendee_email_kept(data: dict, email: str) -> bool:
+    """True if the booking response lists ``email`` as an attendee's email."""
+    attendees = data.get("attendees")
+    if not isinstance(attendees, list):
+        return False
+    wanted = email.strip().lower()
+    return any(
+        isinstance(a, dict) and str(a.get("email", "")).strip().lower() == wanted
+        for a in attendees
+    )
+
+
 # --- client -----------------------------------------------------------------
 
 
@@ -383,5 +395,18 @@ class CalComClient:
         if isinstance(data.get("start"), str):
             with contextlib.suppress(ValueError):
                 start = dt.datetime.fromisoformat(data["start"].replace("Z", "+00:00"))
-        logger.info("cal.com booking created: uid=%s", data["uid"])
+        logger.info(
+            "cal.com booking created: uid=%s email=%s",
+            data["uid"],
+            "given" if request.email else "none",
+        )
+        if request.email and not _attendee_email_kept(data, request.email):
+            # The booking stands, but no invite will reach the caller. Cal.com
+            # replaces the email with a phone placeholder when the event
+            # type's email field is hidden (#1565).
+            logger.warning(
+                "cal.com dropped the attendee email on booking uid=%s; "
+                "check that the event type's email field is visible",
+                data["uid"],
+            )
         return BookingResult(uid=str(data["uid"]), start=start)
