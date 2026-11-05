@@ -97,9 +97,70 @@ uv run pytest
 
 Fixtures use fictional numbers from the 555-0100 to 555-0199 range and contain no API key or event type slug. CI runs Ruff and the test suite on every pull request that touches this folder; the behavior tests skip there.
 
-## Deploy
+## Deploy and Operate
 
-Deploying the agent to LiveKit Cloud, claiming the free phone number, and creating the SIP dispatch rule that targets the `receptionist` agent are tracked in #1565.
+The agent runs on LiveKit Cloud as agent `CA_duPLhGiviC5X` in the `us-east` region, in project `nathanpayne-com`. `livekit.toml` in this folder records the project subdomain and agent ID, so the commands below find the agent from this folder. It holds no secrets.
+
+### First Create
+
+The first deploy was one command, run from this folder:
+
+```console
+lk agent create --region us-east --secrets-file <file> --yes .
+```
+
+`<file>` held three lines: `CAL_API_KEY` (read from 1Password with `op read`), `CAL_EVENT_TYPE_ID`, and `OWNER_TIMEZONE`. It was created with mode 600 outside the repo and deleted right after. Don't set `DEV_CALLER_PHONE`: the agent refuses to start in production with it set. `lk agent create` builds the image from the Dockerfile on LiveKit's build service, starts it, and writes `livekit.toml`. The region can't be changed after creation; the available regions are listed under [regions and endpoints](https://docs.livekit.io/deploy/admin/regions/endpoints/).
+
+### Later Deploys
+
+```console
+lk agent deploy
+```
+
+Each deploy builds a new version and rolls it out. `lk agent versions` lists versions with their git commit and branch (the CLI records both by default), and `lk agent rollback --version <version>` returns to an earlier one. Secrets carry over between deploys; pass `--secrets` or `--secrets-file` only to change them. How quickly a rollback takes effect on the Build plan is unverified.
+
+### Status and Logs
+
+```console
+lk agent status                     # one row per agent: version, region, status, replicas
+lk agent logs                       # runtime logs (tails until interrupted)
+lk agent logs --log-type build      # image build logs
+lk agent versions                   # every version and which one is in production
+```
+
+A healthy startup logs `starting worker` followed by `registered worker` with `"agent_name": "receptionist"`. `lk agent logs` tails a single agent instance.
+
+### Rotating the Cal.com Key
+
+Create the new key in Cal.com, then update the secret. This restarts the agent:
+
+```console
+lk agent update --secrets-file <file> .
+lk agent secrets                    # lists secret names and timestamps, never values
+```
+
+Revoke the old key in Cal.com afterward.
+
+### Dispatch Rule
+
+Calls reach the agent through an inbound SIP dispatch rule, `receptionist-inbound` (`SDR_CWDPeQsrxdqQ`). It is an individual rule with room prefix `call-` and an explicit agent dispatch of `receptionist`, so each call gets its own room and the agent is dispatched by name. Inspect it with:
+
+```console
+lk sip dispatch list
+lk number list                      # the SIP Dispatch Rules column shows what's attached to the number
+```
+
+Attach the rule to the phone number (ID `PN_PPN_wUSnKQ2hfeNU`, the 415 number ending in 6465) with `lk number update --id PN_PPN_wUSnKQ2hfeNU --sip-dispatch-rule-id SDR_CWDPeQsrxdqQ`, or from the dashboard's Phone Numbers page with Assign dispatch rule. See [LiveKit Phone Numbers](https://docs.livekit.io/telephony/start/phone-numbers/).
+
+An individual rule names each room after the caller's phone number, and room names appear in logs and traces ([dispatch rules](https://docs.livekit.io/telephony/accepting-calls/dispatch-rule/)). Moving to a rule that doesn't carry the caller's number in the room name is tracked separately from the deploy.
+
+### Checking Usage
+
+The Build plan allowances in [Free Plan Limits](#free-plan-limits) reset on the first of each month. LiveKit Cloud shows the project's quotas under Settings, then the Project tab, and per-session usage under Agent insights ([quotas and limits](https://docs.livekit.io/deploy/admin/quotas-and-limits/)). I found no `lk` command that prints the month's inference or telephony totals, so use the dashboard.
+
+### When an Allowance Runs Out
+
+On the Build plan an exhausted allowance is a hard cap: new requests fail instead of incurring charges. The LiveKit docs don't say what a phone caller hears in that case, so that is unverified. Turn detection and interruption handling fall back to local models; the speech, language, and voice models don't have a documented fallback.
 
 ## Privacy
 
