@@ -1,0 +1,23 @@
+{
+  "status": "success",
+  "data": {
+    "id": 123,
+    "uid": "booking-uid-fixture-0001",
+    "title": "Phone Call between Nathan Payne and Alex Example",
+    "status": "accepted",
+    "start": "2033-09-05T16:00:00.000Z",
+    "end": "2033-09-05T16:30:00.000Z",
+    "duration": 30,
+    "eventTypeId": 1000001,
+    "location": "+15555550123",
+    "attendees": [
+      {
+        "name": "Alex Example",
+        "timeZone": "America/Los_Angeles",
+        "phoneNumber": "+15555550123",
+        "language": "en",
+        "absent": false
+      }
+    ]
+  }
+}

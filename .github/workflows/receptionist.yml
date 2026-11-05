@@ -1,0 +1,53 @@
+# Lint and test the LiveKit receptionist agent in receptionist/.
+# Behavior tests that need LiveKit Inference skip here: no secrets are passed.
+name: Receptionist
+
+on:
+  pull_request:
+    paths:
+      - "receptionist/**"
+      - ".github/workflows/receptionist.yml"
+  push:
+    branches: [main]
+    paths:
+      - "receptionist/**"
+      - ".github/workflows/receptionist.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: receptionist-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  receptionist-tests:
+    name: receptionist-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: receptionist
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
+        with:
+          version: "0.13.6"
+          working-directory: receptionist
+          cache-dependency-glob: receptionist/uv.lock
+
+      - name: Install dependencies (Python from .python-version)
+        run: uv sync --locked
+
+      - name: Ruff lint
+        run: uv run ruff check --output-format=github .
+
+      - name: Ruff format check
+        run: uv run ruff format --check --diff .
+
+      - name: Tests
+        run: uv run pytest -rs
