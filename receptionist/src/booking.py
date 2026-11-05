@@ -194,13 +194,18 @@ class Review:
 
 
 def user_replied_after(items: Iterable[object], call_id: str) -> bool:
-    """True if a user message follows the function call ``call_id``.
+    """True if the caller answered a read-back they heard in full.
 
-    ``items`` is the session's chat history, in order. This is the evidence
-    that the caller answered after the read-back; whether the answer was a
-    yes is the model's call, made when it decides to call ``book_call``.
+    ``items`` is the session's chat history, in order. After the review
+    function call ``call_id``, it needs an assistant message whose speech
+    finished without interruption (the read-back), followed by a user
+    message (the answer). A caller turn that arrives before the read-back
+    finished, or during one that was cut off, doesn't count: the caller
+    hadn't heard the details yet. Whether the answer was a yes is the
+    model's call, made when it decides to call ``book_call``.
     """
     seen_call = False
+    heard_read_back = False
     for item in items:
         item_type = getattr(item, "type", None)
         if not seen_call:
@@ -210,7 +215,14 @@ def user_replied_after(items: Iterable[object], call_id: str) -> bool:
             ):
                 seen_call = True
             continue
-        if item_type == "message" and getattr(item, "role", None) == "user":
+        if item_type != "message":
+            continue
+        role = getattr(item, "role", None)
+        if role == "assistant":
+            # A cut-off read-back means the caller didn't hear it all, so
+            # it doesn't count, and any earlier complete one is superseded.
+            heard_read_back = not getattr(item, "interrupted", False)
+        elif role == "user" and heard_read_back:
             return True
     return False
 
@@ -439,8 +451,8 @@ class BookingDesk:
             )
         if not user_replied_after(history, self.review.call_id):
             raise ToolError(
-                "The caller hasn't answered the read-back yet. Read the details "
-                "back and wait for a yes."
+                "The caller hasn't answered a complete read-back yet. Read the "
+                "details back in full and wait for a yes."
             )
 
     async def commit(self, details: BookingDetails) -> str:

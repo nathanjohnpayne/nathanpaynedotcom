@@ -40,6 +40,7 @@ class Item:
     type: str
     role: str | None = None
     call_id: str | None = None
+    interrupted: bool = False
 
 
 def make_desk(
@@ -311,6 +312,26 @@ def test_user_replied_after():
     assert not user_replied_after(
         [Item("message", role="user"), Item("function_call", call_id="c1")], "c1"
     )
+
+
+def test_reply_must_follow_a_complete_read_back():
+    # CodeRabbit, #1568: the caller can speak while the read-back is still
+    # playing or cut it off, so only a reply after a finished read-back counts.
+    call = Item("function_call", call_id="c1")
+    output = Item("function_call_output", call_id="c1")
+    read_back = Item("message", role="assistant")
+    cut_off = Item("message", role="assistant", interrupted=True)
+    caller = Item("message", role="user")
+
+    # The caller spoke before the read-back was in the history.
+    assert not user_replied_after([call, output, caller, read_back], "c1")
+    # The read-back was interrupted, so the reply that cut it off doesn't count.
+    assert not user_replied_after([call, output, cut_off, caller], "c1")
+    # A complete read-back, then an interrupted one, then a reply: the latest
+    # read-back wasn't heard in full.
+    assert not user_replied_after([call, output, read_back, cut_off, caller], "c1")
+    # Interrupted, then read back in full, then answered: that counts.
+    assert user_replied_after([call, output, cut_off, read_back, caller], "c1")
 
 
 async def test_review_reads_back_everything_with_caller_id_digits_only():
