@@ -84,6 +84,24 @@ class CalendarUnavailableError(CalComError):
     )
 
 
+class BookingOutcomeUnknownError(CalComError):
+    """A booking write may or may not have landed.
+
+    Raised when Cal.com could have created the booking but didn't confirm it:
+    the request timed out or the connection dropped after it was sent, the
+    server answered with a 5xx, or a success response carried no booking uid.
+    The caller must not be told that nothing was booked, and the call must not
+    try to book again.
+    """
+
+    spoken = (
+        "I sent that booking, but Nathan's calendar didn't confirm it, so I can't "
+        "tell whether it went through. To avoid booking you twice, I won't try "
+        "again on this call. If it didn't go through, you can book on the "
+        f"website at {WEBSITE_FALLBACK}."
+    )
+
+
 # --- data -------------------------------------------------------------------
 
 
@@ -286,7 +304,15 @@ class CalComClient:
         api_version: str,
         params: dict[str, str] | None = None,
         json: dict | None = None,
+        write: bool = False,
     ) -> Any:
+        """Send one request. ``write`` marks a request that changes data.
+
+        For a write, any failure after the request may have reached Cal.com is
+        a ``BookingOutcomeUnknownError``, not a plain failure: only a refused
+        connection proves nothing was sent, and only a 4xx proves Cal.com
+        rejected it.
+        """
         url = self._base_url + path
         try:
             async with self._http().request(
@@ -305,7 +331,12 @@ class CalComClient:
                     isinstance(body, dict) and body.get("status") == "error"
                 )
                 if failed:
-                    error = classify_error(resp.status, body)
+                    if write and resp.status >= 500:
+                        error = BookingOutcomeUnknownError(
+                            f"HTTP {resp.status} on a write", status=resp.status
+                        )
+                    else:
+                        error = classify_error(resp.status, body)
                     logger.warning("cal.com %s %s failed: %s", method, path, error)
                     raise error
                 return body
@@ -313,6 +344,8 @@ class CalComClient:
             raise
         except (aiohttp.ClientError, TimeoutError) as exc:
             logger.warning("cal.com %s %s unreachable: %r", method, path, exc)
+            if write and not isinstance(exc, aiohttp.ClientConnectorError):
+                raise BookingOutcomeUnknownError(f"write unconfirmed: {exc!r}") from exc
             raise CalendarUnavailableError(f"request failed: {exc!r}") from exc
 
     async def get_slots(
@@ -338,12 +371,13 @@ class CalComClient:
             "bookings",
             api_version=BOOKINGS_API_VERSION,
             json=build_booking_payload(request, event_type_id=self._event_type_id),
+            write=True,
         )
         data = body.get("data") if isinstance(body, dict) else None
         if isinstance(data, list):  # recurring event types return a list
             data = data[0] if data else None
         if not isinstance(data, dict) or not data.get("uid"):
-            raise CalComError("booking response had no booking uid")
+            raise BookingOutcomeUnknownError("booking response had no booking uid")
 
         start = request.start
         if isinstance(data.get("start"), str):

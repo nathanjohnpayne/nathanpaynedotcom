@@ -27,7 +27,7 @@ from booking import (
     speak_when,
     user_replied_after,
 )
-from calcom import BookingLimitError, SlotUnavailableError
+from calcom import BookingLimitError, BookingOutcomeUnknownError, SlotUnavailableError
 
 # Thursday, September 1, 2033, noon Pacific.
 NOW = dt.datetime(2033, 9, 1, 12, 0, tzinfo=PACIFIC)
@@ -209,6 +209,28 @@ async def test_relisting_keeps_slot_labels_stable():
     assert desk.offered == first
 
 
+async def test_labels_never_reuse_a_removed_slots_label():
+    # Losing slot-1 to another booker must not free "slot-1"'s number for a
+    # different time, or let a relisting overwrite slot-3 (Codex, #1568).
+    calendar = FakeCalendar(
+        weekday_slots(NOW), booking_error=SlotUnavailableError("HTTP 400: taken")
+    )
+    desk, _ = await offered_desk(calendar=calendar)
+    before = {ref: slot.start for ref, slot in desk.offered.items()}
+    assert sorted(before) == ["slot-1", "slot-2", "slot-3"]
+    with pytest.raises(ToolError):
+        await book(desk, details())
+    assert "slot-1" not in desk.offered
+
+    await desk.list_slots(duration_minutes=30)
+    for ref in ("slot-2", "slot-3"):
+        assert desk.offered[ref].start == before[ref]
+    relabelled = [r for r, s in desk.offered.items() if s.start == before["slot-1"]]
+    assert relabelled == ["slot-4"]
+    starts = [slot.start for slot in desk.offered.values()]
+    assert len(starts) == len(set(starts))
+
+
 # --- guards -----------------------------------------------------------------
 
 
@@ -386,6 +408,26 @@ async def test_cal_errors_become_speakable_tool_errors():
     with pytest.raises(ToolError) as caught:
         await book(desk, details("slot-2"), call_id="review-2")
     assert caught.value.message == BookingLimitError.spoken
+
+
+async def test_unconfirmed_booking_blocks_further_booking_and_is_reported():
+    calendar = FakeCalendar(
+        weekday_slots(NOW),
+        booking_error=BookingOutcomeUnknownError("write unconfirmed: timeout"),
+    )
+    desk, _ = await offered_desk(calendar=calendar)
+    with pytest.raises(ToolError) as caught:
+        await book(desk, details())
+    assert caught.value.message == BookingOutcomeUnknownError.spoken
+    assert desk.unconfirmed is not None and desk.booking is None
+
+    # Even once Cal.com would accept, the call books nothing else.
+    calendar.booking_error = None
+    with pytest.raises(ToolError, match="may already have gone through"):
+        desk.review_booking(details("slot-2"), call_id="review-2")
+    assert calendar.bookings == []
+    status = desk.status_for_goodbye()
+    assert "not confirmed" in status and "Nothing was booked" not in status
 
 
 async def test_goodbye_status_reports_booking():

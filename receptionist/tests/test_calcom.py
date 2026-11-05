@@ -6,6 +6,7 @@ answers with the fixtures in ``tests/fixtures``.
 
 from __future__ import annotations
 
+import asyncio
 import datetime as dt
 from dataclasses import dataclass, field
 
@@ -19,6 +20,7 @@ from calcom import (
     SLOTS_API_VERSION,
     USER_AGENT,
     BookingLimitError,
+    BookingOutcomeUnknownError,
     BookingRequest,
     BookingWindowError,
     CalComClient,
@@ -229,12 +231,71 @@ async def test_create_booking_posts_payload_and_returns_uid(api, client):
     assert "email" not in call.json["attendee"]
 
 
-async def test_create_booking_without_uid_is_an_error(api, client):
+async def test_create_booking_without_uid_is_an_unconfirmed_outcome(api, client):
+    # A success with no uid may still have created the booking.
     api.reply(
         "POST /v2/bookings", status=201, payload={"status": "success", "data": {}}
     )
-    with pytest.raises(CalComError):
+    with pytest.raises(BookingOutcomeUnknownError):
         await client.create_booking(booking_request())
+
+
+@pytest.mark.parametrize("status", [500, 502, 503])
+async def test_server_error_on_a_booking_is_an_unconfirmed_outcome(api, client, status):
+    api.reply("POST /v2/bookings", status=status, text="upstream error")
+    with pytest.raises(BookingOutcomeUnknownError) as caught:
+        await client.create_booking(booking_request())
+    assert caught.value.status == status
+
+
+async def test_server_error_on_a_read_stays_unavailable(api, client):
+    api.reply("GET /v2/slots", status=503, text="upstream error")
+    with pytest.raises(CalendarUnavailableError):
+        await client.get_slots(
+            start=dt.datetime(2033, 9, 5, tzinfo=dt.UTC),
+            end=dt.datetime(2033, 9, 6, tzinfo=dt.UTC),
+            duration_minutes=30,
+        )
+
+
+async def test_booking_timeout_is_an_unconfirmed_outcome():
+    # The request reaches the server, which answers too late: Cal.com may
+    # have created the booking, so the outcome is unknown, not a failure.
+    async def slow(_request: web.Request) -> web.Response:
+        await asyncio.sleep(2)
+        return web.json_response({"status": "success", "data": {"uid": "late"}})
+
+    app = web.Application()
+    app.router.add_route("POST", "/v2/bookings", slow)
+    server = TestServer(app)
+    await server.start_server()
+    slow_client = CalComClient(
+        api_key=TEST_KEY,
+        event_type_id=EVENT_TYPE_ID,
+        base_url=str(server.make_url("/v2/")),
+        timeout_seconds=0.2,
+    )
+    try:
+        with pytest.raises(BookingOutcomeUnknownError):
+            await slow_client.create_booking(booking_request())
+    finally:
+        await slow_client.aclose()
+        await server.close()
+
+
+async def test_refused_connection_on_a_booking_is_a_plain_failure():
+    # Nothing was sent, so nothing can have been booked.
+    unreachable = CalComClient(
+        api_key=TEST_KEY,
+        event_type_id=EVENT_TYPE_ID,
+        base_url="http://127.0.0.1:9/v2/",
+        timeout_seconds=2,
+    )
+    try:
+        with pytest.raises(CalendarUnavailableError):
+            await unreachable.create_booking(booking_request())
+    finally:
+        await unreachable.aclose()
 
 
 # --- errors -----------------------------------------------------------------

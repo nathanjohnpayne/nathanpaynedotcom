@@ -23,6 +23,7 @@ from livekit.agents import ToolError
 
 from calcom import (
     WEBSITE_FALLBACK,
+    BookingOutcomeUnknownError,
     BookingRequest,
     BookingResult,
     CalComError,
@@ -231,9 +232,15 @@ class BookingDesk:
         self._clock = clock or (lambda: dt.datetime.now(dt.UTC))
         self.caller_tz: ZoneInfo | None = None
         self.offered: dict[str, OfferedSlot] = {}
+        # Labels come from a counter, never from len(offered): a slot removed
+        # after it was taken must not free its label for a different time.
+        self._slot_counter = 0
         self.review: Review | None = None
         self.booking: BookingResult | None = None
         self.booked_details: BookingDetails | None = None
+        # A write Cal.com may have accepted without confirming. Once set, the
+        # call books nothing else, so it can't double-book.
+        self.unconfirmed: OfferedSlot | None = None
         self._lock = asyncio.Lock()
 
     # -- clock and zones --
@@ -341,8 +348,9 @@ class BookingDesk:
         for slot in self.offered.values():
             if slot.start == start and slot.duration_minutes == duration_minutes:
                 return slot
+        self._slot_counter += 1
         slot = OfferedSlot(
-            ref=f"slot-{len(self.offered) + 1}",
+            ref=f"slot-{self._slot_counter}",
             start=start,
             duration_minutes=duration_minutes,
         )
@@ -350,6 +358,14 @@ class BookingDesk:
         return slot
 
     def _validate(self, details: BookingDetails) -> tuple[BookingDetails, OfferedSlot]:
+        if self.unconfirmed is not None:
+            raise ToolError(
+                "A booking for "
+                f"{self._speak_both(self.unconfirmed.start)} may already have gone "
+                "through but wasn't confirmed. To avoid a double booking, nothing "
+                "else can be booked on this call; the caller can check or book on "
+                f"the website at {WEBSITE_FALLBACK}."
+            )
         if self.booking is not None:
             raise ToolError(
                 "This call already booked a phone call with Nathan "
@@ -442,6 +458,10 @@ class BookingDesk:
             )
             try:
                 result = await self._calendar.create_booking(request)
+            except BookingOutcomeUnknownError as exc:
+                self.unconfirmed = slot
+                self.review = None
+                raise ToolError(exc.spoken) from exc
             except CalComError as exc:
                 if isinstance(exc, SlotUnavailableError):
                     self.offered.pop(slot.ref, None)
@@ -463,6 +483,13 @@ class BookingDesk:
         )
 
     def status_for_goodbye(self) -> str:
+        if self.unconfirmed is not None:
+            return (
+                "A booking for "
+                f"{self._speak_both(self.unconfirmed.start)} was sent but not "
+                "confirmed, so it may or may not have gone through. If it didn't, "
+                f"the caller can book on the website at {WEBSITE_FALLBACK}."
+            )
         if self.booking is not None and self.booked_details is not None:
             return (
                 "A call is booked: Nathan will call on "
