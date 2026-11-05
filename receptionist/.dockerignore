@@ -72,6 +72,5 @@ GEMINI.md
 .github/personal-instructions.md
 .github/instructions/
 
-# CI workflow body (moved into the parent repo's .github/workflows)
-ci/
-NOTICE
+# NOTICE and LICENSES/ stay in the image: they carry the license notices the
+# adapted LiveKit code requires.

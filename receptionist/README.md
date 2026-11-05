@@ -53,7 +53,7 @@ The five-minute session cap exists to keep a single call from eating a large sha
 
 ## Local Development
 
-Run everything from this folder. You need [uv](https://docs.astral.sh/uv/) and the [LiveKit CLI](https://docs.livekit.io/intro/basics/cli/) (2.18.8 or later). The project pins Python 3.12 in `.python-version`; `livekit-agents` doesn't support Python 3.15 yet.
+Run everything from this folder. You need [uv](https://docs.astral.sh/uv/) and the [LiveKit CLI](https://docs.livekit.io/intro/basics/cli/) (2.19.0 or later). The project pins Python 3.12 in `.python-version`; `livekit-agents` doesn't support Python 3.15 yet.
 
 ```console
 uv sync
@@ -78,7 +78,7 @@ lk agent dev        # connect it to LiveKit Cloud and try it in the Agent Consol
 lk agent debugger start && lk agent debugger say "I'd like to book a call"
 ```
 
-With LiveKit CLI 2.19.0 or later, `lk agent dev` registers the agent under a random `dev-` deployment, so dev traffic stays apart from production and a phone call to the number never reaches it; it prints an Agent Console link that does. Test by phone against the deployed agent instead (#1565). Don't run `lk agent dev --deployment production`: that serves real callers from your machine.
+With LiveKit CLI 2.19.0 or later, `lk agent dev` registers the agent under a random `dev-` deployment, so dev traffic stays apart from production and a phone call to the number never reaches it; it prints an Agent Console link that does. Test by phone against the deployed agent instead (#1565). Don't run `lk agent dev --deployment production`, and check that `LIVEKIT_AGENT_DEPLOYMENT` (which the CLI also reads, including from `.env.local`) is unset or names a non-production deployment: either one serves real callers from your machine.
 
 Before the first run, `uv run src/agent.py download-files` fetches the local model files that plugins use, such as the turn detector's local fallback; the Dockerfile does the same at build time. With real Cal.com settings, a console booking lands on Nathan's real calendar, so cancel test bookings afterward.
 
