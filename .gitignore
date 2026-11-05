@@ -35,6 +35,12 @@ screenshots/*
 !screenshots/privacy/
 !screenshots/privacy/**
 
+# receptionist/ (the Python LiveKit agent, #1563)
+receptionist/.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+
 # Logs
 *.log
 logs/

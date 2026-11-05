@@ -1,4 +1,4 @@
-extra_top_level_dirs: [public, screenshots, src]
+extra_top_level_dirs: [public, receptionist, screenshots, src]
 test_globs: ["tests/**/*.test.*", "tests/**/*.spec.*"]
 generated_dirs: []
 spec_test_map:
