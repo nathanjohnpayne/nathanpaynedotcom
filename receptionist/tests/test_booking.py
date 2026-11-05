@@ -435,3 +435,12 @@ async def test_goodbye_status_reports_booking():
     assert "Nothing was booked" in desk.status_for_goodbye()
     await book(desk, details())
     assert "Friday, September 2 at 10 AM Pacific time" in desk.status_for_goodbye()
+
+
+@pytest.mark.parametrize("name", ["Pacific", "America", "Not/A_Zone", "../etc"])
+async def test_bad_caller_timezone_is_a_speakable_tool_error(name):
+    # Folder names like "America" raise IsADirectoryError under the tzdata
+    # package, not ZoneInfoNotFoundError; the caller must still get a sentence.
+    desk, _ = make_desk()
+    with pytest.raises(ToolError, match="not a time zone name"):
+        await desk.list_slots(duration_minutes=30, caller_timezone=name)

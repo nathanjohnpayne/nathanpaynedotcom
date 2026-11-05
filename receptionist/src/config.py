@@ -57,7 +57,9 @@ class Settings:
         tz_name = env.get("OWNER_TIMEZONE", "").strip() or DEFAULT_OWNER_TIMEZONE
         try:
             owner_tz = ZoneInfo(tz_name)
-        except (ZoneInfoNotFoundError, ValueError):
+        # OSError: with the tzdata package, a folder name such as "Pacific"
+        # raises IsADirectoryError rather than ZoneInfoNotFoundError.
+        except (ZoneInfoNotFoundError, ValueError, OSError):
             raise ConfigError(
                 f"OWNER_TIMEZONE {tz_name!r} is not an IANA time zone name."
             ) from None

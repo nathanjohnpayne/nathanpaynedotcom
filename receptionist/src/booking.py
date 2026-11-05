@@ -266,7 +266,9 @@ class BookingDesk:
             return
         try:
             self.caller_tz = ZoneInfo(name.strip())
-        except (ZoneInfoNotFoundError, ValueError):
+        # OSError: with the tzdata package, a folder name such as "America"
+        # raises IsADirectoryError rather than ZoneInfoNotFoundError.
+        except (ZoneInfoNotFoundError, ValueError, OSError):
             raise ToolError(
                 f"{name!r} is not a time zone name. Use an IANA name such as "
                 "America/New_York, or leave it empty."
