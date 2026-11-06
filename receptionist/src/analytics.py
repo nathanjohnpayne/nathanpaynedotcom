@@ -36,6 +36,10 @@ import uuid
 from collections.abc import Callable
 from typing import Any, Protocol
 
+# Imported here, not on first use: posthog imports distro at load time, which
+# blocked the call's event loop for 310 ms when it happened mid-call.
+import posthog
+
 from calcom import (
     BookingLimitError,
     BookingOutcomeUnknownError,
@@ -160,8 +164,6 @@ class PostHogSink:
         _send: bool = True,
         _observe: Callable[[dict], None] | None = None,
     ) -> None:
-        import posthog
-
         self._observe = _observe
         self._client = posthog.Posthog(
             project_token,

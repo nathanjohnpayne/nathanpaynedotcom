@@ -223,3 +223,38 @@ def test_a_client_that_fails_to_start_turns_analytics_off(monkeypatch):
     monkeypatch.setattr(agent, "PostHogSink", broken)
     settings = Settings.from_env({**BASE_ENV, "POSTHOG_PROJECT_TOKEN": "phc_test"})
     assert agent.build_analytics(settings, internal=True).enabled is False
+
+
+# --- pronunciation ---------------------------------------------------------------
+
+
+def test_livekit_is_spoken_with_phoneme_tags_even_when_split_across_chunks():
+    import asyncio
+
+    from agent import LIVEKIT_PHONEMES, TTS_TEXT_TRANSFORMS
+
+    async def run(chunks: list[str]) -> str:
+        async def source():
+            for chunk in chunks:
+                yield chunk
+
+        stream = source()
+        for transform in TTS_TEXT_TRANSFORMS:
+            if callable(transform):
+                stream = transform(stream)
+        return "".join([piece async for piece in stream])
+
+    spoken = asyncio.run(run(["Nathan built me on Live", "Kit Agents."]))
+    assert LIVEKIT_PHONEMES in spoken
+    assert "LiveKit" not in spoken
+    # The default filters stay on: setting the transforms replaces them.
+    assert "filter_markdown" in TTS_TEXT_TRANSFORMS
+    assert "filter_emoji" in TTS_TEXT_TRANSFORMS
+
+
+def test_posthog_is_imported_when_the_process_loads_not_during_a_call():
+    # posthog imports distro at module load, which blocked the event loop for
+    # 310 ms on the first call when it was imported inside PostHogSink.
+    import analytics
+
+    assert hasattr(analytics, "posthog")

@@ -28,6 +28,7 @@ from livekit.agents import (
     function_tool,
     inference,
     room_io,
+    text_transforms,
 )
 from livekit.agents.beta.tools import EndCallTool
 from livekit.agents.beta.workflows import GetEmailTask
@@ -52,6 +53,19 @@ LLM_MODEL = "google/gemma-4-31b-it"
 STT_MODEL = "assemblyai/universal-3-6-pro"
 TTS_MODEL = "fishaudio/s2.1-pro"
 TTS_VOICE = "fa4c9eb3dccc4806b382b40d61c6b10a"
+
+# Fish Audio says "LivKit" without help. Arpabet phoneme tags, one per spoken
+# word, as LiveKit's Fish Audio docs recommend; the transform changes only what
+# the TTS hears, so transcripts keep "LiveKit". Setting the transforms replaces
+# the defaults, so the two default filters are listed again.
+LIVEKIT_PHONEMES = (
+    "<|phoneme_start|>L AY V<|phoneme_end|> <|phoneme_start|>K IH T<|phoneme_end|>"
+)
+TTS_TEXT_TRANSFORMS = [
+    "filter_markdown",
+    "filter_emoji",
+    text_transforms.replace({"LiveKit": LIVEKIT_PHONEMES}),
+]
 
 SIP_PHONE_ATTRIBUTE = "sip.phoneNumber"
 
@@ -300,6 +314,7 @@ async def receptionist(ctx: JobContext) -> None:
             keyterm_detection={"enabled": True},
         ),
         tts=inference.TTS(model=TTS_MODEL, voice=TTS_VOICE),
+        tts_text_transforms=TTS_TEXT_TRANSFORMS,
         turn_handling=TurnHandlingOptions(
             turn_detection=inference.TurnDetector(),
             preemptive_generation={"enabled": True},
