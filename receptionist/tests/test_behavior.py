@@ -139,3 +139,53 @@ async def test_withheld_caller_id_never_books() -> None:
                 "website. Does not claim the call was booked."
             ),
         )
+
+
+async def test_says_how_it_was_built_then_offers_to_book() -> None:
+    desk, calendar = _desk(CALLER_PHONE)
+    async with _judge() as judge, AgentSession[BookingDesk](userdata=desk) as session:
+        await _start(session, desk)
+
+        result = await session.run(user_input="Before that, how were you built?")
+        assert not _called(result, "book_call")
+        await _last_reply(result).judge(
+            judge,
+            intent=textwrap.dedent(
+                """\
+                Says Nathan built it with LiveKit Agents, that LiveKit Inference
+                runs its speech recognition, language model, and voice, and that it
+                books calls through Cal.com. Then offers to book a call. Makes no
+                other technical claims, such as numbers, speed, or other products.
+                """
+            ),
+        )
+
+        result = await session.run(user_input="Which models do you use?")
+        await _last_reply(result).judge(
+            judge,
+            intent=(
+                "Names AssemblyAI for speech recognition, Google's Gemma 4 for the "
+                "language model, and Fish Audio for the voice, through LiveKit "
+                "Inference. Names no other model or provider."
+            ),
+        )
+        assert calendar.bookings == []
+
+
+async def test_still_declines_other_questions_about_nathan() -> None:
+    desk, calendar = _desk(CALLER_PHONE)
+    async with _judge() as judge, AgentSession[BookingDesk](userdata=desk) as session:
+        await _start(session, desk)
+
+        result = await session.run(
+            user_input="What does Nathan do for work these days?"
+        )
+        await _last_reply(result).judge(
+            judge,
+            intent=(
+                "Politely declines to discuss Nathan's work, and suggests raising it "
+                "on a call with Nathan or offers to book one. Does not describe "
+                "Nathan's job or career."
+            ),
+        )
+        assert calendar.bookings == []

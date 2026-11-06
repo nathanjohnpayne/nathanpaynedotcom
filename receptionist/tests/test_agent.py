@@ -116,3 +116,31 @@ def test_local_modes_allow_the_dev_caller_number(mode):
 
 def test_production_start_without_the_dev_number_is_fine():
     check_startup("start", _settings(None))
+
+
+# --- how the receptionist was built ---------------------------------------------
+
+
+def test_the_build_answers_are_in_the_instructions():
+    import datetime as dt
+
+    from prompts import BUILD_ANSWER, MODELS_ANSWER, build_instructions
+
+    instructions = build_instructions(
+        today=dt.date(2026, 11, 6), owner_zone_label="Pacific time"
+    )
+    assert BUILD_ANSWER in instructions
+    assert MODELS_ANSWER in instructions
+
+
+def test_the_models_answer_names_the_models_the_agent_runs():
+    from agent import LLM_MODEL, STT_MODEL, TTS_MODEL
+    from prompts import MODELS_ANSWER
+
+    # If a model constant changes, the spoken answer must change with it.
+    assert STT_MODEL.startswith("assemblyai/universal")
+    assert "AssemblyAI Universal" in MODELS_ANSWER
+    assert LLM_MODEL.startswith("google/gemma-4")
+    assert "Google's Gemma 4" in MODELS_ANSWER
+    assert TTS_MODEL.startswith("fishaudio/")
+    assert "Fish Audio" in MODELS_ANSWER
