@@ -577,3 +577,19 @@ async def test_removing_the_email_after_booking_does_not_promise_no_invite():
     message = desk.clear_email()
     assert "can't withdraw the invite" in message
     assert "no calendar invite will be sent" not in message.lower()
+
+
+async def test_removing_the_email_after_an_unconfirmed_booking_promises_nothing():
+    # Codex and CodeRabbit, #1572: after a timeout or 5xx, Cal.com may already
+    # hold the booking and its address, so no-invite can't be promised.
+    calendar = FakeCalendar(
+        weekday_slots(NOW),
+        booking_error=BookingOutcomeUnknownError("write unconfirmed: timeout"),
+    )
+    desk, _ = await offered_desk(calendar=calendar)
+    desk.set_email("alex@example.com")
+    with pytest.raises(ToolError):
+        await book(desk, details(email=desk.email))
+    message = desk.clear_email()
+    assert "unconfirmed" in message
+    assert "no calendar invite will be sent" not in message.lower()

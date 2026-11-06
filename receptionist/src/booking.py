@@ -563,6 +563,17 @@ class BookingDesk:
                 "caller they can ignore or decline it, and that Nathan will still "
                 "call at the booked time."
             )
+        if self.unconfirmed is not None:
+            # Cal.com may have accepted the booking, address included, without
+            # confirming it, so neither the booking nor its invite is known
+            # (#1572).
+            return (
+                "That booking may already have gone through with that address, "
+                "so I can't promise no invite will arrive or withdraw it from "
+                "here. Tell the caller the booking and its invite are "
+                "unconfirmed, and that they can ignore or decline an invite if "
+                "one comes."
+            )
         had_email = self.email is not None
         self.email = None
         self.review = None
