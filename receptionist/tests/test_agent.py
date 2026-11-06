@@ -81,11 +81,16 @@ def test_list_tool_arguments():
     ]
 
 
-def test_greeting_discloses_ai_transcription_and_offer():
+def test_greeting_discloses_ai_transcription_retention_and_offer():
     text = GREETING.lower()
     assert "nathan payne's ai receptionist" in text
     assert "transcribed by ai" in text
-    assert "not recorded" in text
+    # Agent observability keeps the transcript for LiveKit's 30 days; audio
+    # recording is off in code (record={"audio": False}). The greeting must
+    # not say the call is "not recorded" without qualification (#1566).
+    assert "the transcript is kept for 30 days" in text
+    assert "the audio isn't recorded" in text
+    assert "is not recorded" not in text
     assert "15 or 30 minute" in text
 
 
