@@ -6,6 +6,8 @@ Every claim cites a file and line at commit `5d688d69`, the sanitized capture in
 
 **Updated 2026-10-11** (#1265) for the vendor-setting changes Nathan directed on 2026-10-10 and 2026-10-11, and for the read-only checks made after them, each recorded on #1232: the [#1232 GA4 record](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/1232#issuecomment-6105586339), the [#1232 PostHog record](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/1232#issuecomment-6105630826), the [#1232 NEL record](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/1232#issuecomment-6105664682), the [#1232 GeoIP check](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/1232#issuecomment-6110241475), and the [#1232 decision 6 read](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/1232#issuecomment-6110326941). Each changed fact below says what it was on 2026-10-08 and what it is now. The baseline stays as history. Production ran with the privacy flag off until #1233 turned it on; what the flag-on runtime changes is under [Consequences of Opt-Out and GPC](#consequences-of-opt-out-and-gpc).
 
+**Updated 2026-11-05** (#1566) for the phone receptionist (#1561), which adds recipients that a phone call reaches and no page load does. Its facts are under [Phone Booking Line](#phone-booking-line), with the sources that section names.
+
 ## Summary
 
 - **These services receive requests when a visitor loads a page** (capture, "Requests Observed"; [Hosting and CDN](#hosting-and-cdn); [Other Third Parties](#other-third-parties)): the hosting path: Cloudflare's CDN, which receives every request, and Firebase Hosting, which receives only the requests Cloudflare forwards to the origin; PostHog (product analytics, heatmaps, web vitals, error tracking, and session replay, through the first-party proxy `d.nathanpayne.com`), Google Analytics 4, Cloudflare Web Analytics (injected at Cloudflare's edge, not in the repository), and, on specific pages, Logo.dev (`/resume/`) and Mux (`/projects/swipe-watch/`).
@@ -15,6 +17,7 @@ Every claim cites a file and line at commit `5d688d69`, the sanitized capture in
 - **IP addresses and location** (settings read; SQL presence counts; [Demographics](#demographics)): PostHog enriches events with GeoIP location: in the week to 2026-10-08 every `$pageview` carried country, latitude and longitude, and time zone, while city, subdivision, and postal code were present only when GeoIP resolved them (252, 237, and 236 of 283). It also stored the client IP on every event until **2026-10-11, when Nathan turned on "Discard client IP data"** ([#1232 PostHog record](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/1232#issuecomment-6105630826)). Events since then carry no `$ip` and still carry GeoIP location ([#1232 GeoIP check](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/1232#issuecomment-6110241475)). GA4 has no source of age, gender, or interests here: Google signals is off and user-provided data collection is off (property read 2026-10-11, [#1232 decision 6 read](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/1232#issuecomment-6110326941); the served tag shows both) ([Demographics](#demographics)).
 - **Replay retention is already 30 days**, the approved maximum (settings read).
 - **Cloudflare Web Analytics cannot be controlled by an in-page opt-out** in its current, edge-injected form ([Cloudflare](#cloudflare)).
+- **A call to the booking line reaches recipients no page load does** ([Phone Booking Line](#phone-booking-line)): LiveKit Cloud, which carries the call and keeps each call's transcript, traces, and logs unredacted for 30 days (no audio is recorded); the speech, language, and voice models behind LiveKit Inference, which LiveKit states keep nothing; and Cal.com, which receives a booking's details. The site's opt-out and GPC do not reach a call.
 - **Production SDKs:** posthog-js **1.438.3** (byte-identical to the npm release), and a `gtag.js` whose bytes Google rotates while its embedded configuration stays the same, so the acceptance suite records and tests the configuration by fingerprint ([Production SDK Versions](#production-sdk-versions); [`capture-2026-10-10-gtag.md`](capture-2026-10-10-gtag.md)).
 
 ## PostHog
@@ -137,11 +140,49 @@ Every request for a page or asset reaches Cloudflare, which proxies the zone; re
 | Mux Video (`stream.mux.com`, `image.mux.com`) | `/projects/swipe-watch/` | HLS stream and poster | IP, user agent, origin-only `Referer` | `src/components/ProjectMuxPlayer.astro:42`, `:48`; `src/content/projects/swipe-watch.mdx:10`; capture |
 | Mux Data (`*.litix.io`; `inferred.litix.io` observed) | `/projects/swipe-watch/` | playback beacons from `mux-embed`, bundled same-origin and loaded only on Mux pages | viewer and playback data, including `page_url`, which `mux-embed` 5.18.1 sets from `window.location.href`, so the full page URL with any query string and fragment is sent unscrubbed (`mux-embed` 5.18.1 source, `dist/mux.cjs.js`, as installed by `package-lock.json`); sets the first-party `muxData` cookie (365 days) | `src/components/ProjectMuxPlayer.astro:313-348`; `.ai_context.md:105`; capture; Mux privacy docs |
 | GitHub (public issues in this repository) | PostHog destinations, not the browser | issue creation when an error-tracking alert fires | since 2026-10-11: the error type in the title and a fixed body linking to PostHog, with no error message. Before that, the body copied the exception's name and description and the error-tracking issue's ID; that ID was never a visitor's `distinct_id` (correction, [#1232 PostHog record](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/1232#issuecomment-6105630826)) | `docs/error-tracking.md:39-58`; settings read (destinations) |
-| Cal.com | links only, all on `/book/` (`src/pages/book.astro`), which lists the public event types and loads nothing from cal.com; `tests/book.test.js` keeps it to anchors. The homepage, résumé, projects index and blog posts link to `/book/`, not to cal.com | none until a visitor clicks | nothing on page load | source |
+| Cal.com | on the website, links only, all on `/book/` (`src/pages/book.astro`), which lists the public event types and loads nothing from cal.com; `tests/book.test.js` keeps it to anchors. The homepage, résumé, projects index and blog posts link to `/book/`, not to cal.com. Separately, the phone receptionist sends a booking's details to Cal.com's API from LiveKit Cloud, never from the browser ([Phone Booking Line](#phone-booking-line)) | from the website, none until a visitor clicks; from the receptionist, one booking request per booked call | from the website, nothing on page load; from the receptionist, the caller's name, caller-ID phone number, time zone, and any topic and invite email address | source; `receptionist/src/calcom.py` |
 
 Google Fonts was a recipient on every page until #1250 self-hosted the typefaces (`src/styles/global.css`, `public/fonts/site/`). The capture of 2026-10-08 predates that change and still records the requests; a page no longer contacts `fonts.googleapis.com` or `fonts.gstatic.com`.
 
 Mux documents that its cookie holds a random viewer ID, a sampling value, and session ID, start, and expiry; that it truncates IPv4 addresses to /24 after deriving country- and state-level location; and that it keeps pseudonymized view data up to 100 days (Mux privacy docs). The site only loads `mux-embed` (5.18.1) and hands it to `@mux/mux-background-video` (`src/components/ProjectMuxPlayer.astro:320-329`); that package (0.2.3, per `package-lock.json`) calls `mux.monitor` with only `debug` and player metadata, so neither `disableCookies` nor `respectDoNotTrack` is set, and Mux documents both as off by default (Mux HTML5 monitoring docs). In the capture the Mux Data beacon was attempted only at page exit, because the stream itself was blocked.
+
+## Phone Booking Line
+
+Added 2026-11-05 (#1566). The phone receptionist (#1561) is a voice agent, kept in `receptionist/`, that answers a LiveKit phone number and books a 15- or 30-minute phone call with Nathan through Cal.com (`receptionist/README.md`). It is not part of the website build or deploy, and no page loads anything from LiveKit. The number is to appear on `/book/` only as a plain `tel:` link (#1567), so a page load sends nothing anywhere for it; every recipient below receives data only from a phone call. The site's analytics opt-out and Global Privacy Control do not reach a call, because nothing links a caller to a browser.
+
+Sources for this section: the agent code at commit `5c8b4698`; the owner's read of the LiveKit Cloud project's Settings → Observability on 2026-11-05 ("observability read"); the deployed agent's runtime logs and `lk agent secrets` (secret names only), read 2026-11-05; a read-only read of the Cal.com account's connected calendars and the phone event type on 2026-11-05 ("Cal.com read"); and the LiveKit documentation listed under [Sources](#sources). Owner decision, 2026-11-05: keep transcripts, traces, and logs unredacted for LiveKit's 30 days, with audio off, and say so plainly; redaction stays off and the observability setting is unchanged.
+
+### Data Flow
+
+1. A caller dials the number. LiveKit Telephony answers, and a callee dispatch rule (`SDR_fMK47p98cH36`) puts the call in its own room, named `call-` plus the called number and a random suffix, so a room name never carries the caller's number (`receptionist/README.md` § Dispatch Rule).
+2. The agent, deployed on LiveKit Cloud, reads the caller's number from the SIP participant's `sip.phoneNumber` attribute (`SIP_PHONE_ATTRIBUTE` in `receptionist/src/agent.py`). That participant's identity is `sip_` followed by the number, as the deployed agent's logs show.
+3. It speaks a fixed greeting: the call is transcribed by AI, the transcript is kept for 30 days, and the audio isn't recorded (`GREETING` in `receptionist/src/prompts.py`). `tests/privacy-ui.test.js` checks that `/privacy/` states the same.
+4. The caller's audio passes through ai-coustics background noise suppression (`QUAIL_L`), then through LiveKit Inference to the speech-to-text model and the turn detector. The text goes to the LLM, and the agent's replies go to the text-to-speech model (`receptionist/src/agent.py`).
+5. To book, the agent asks Cal.com for open times, asks for a name and an optional topic, and asks for an email address only if the caller wants a calendar invite, spelling it back for a yes. It reads the booking back, which includes the last four digits of the caller's number, and books through Cal.com's API v2 with the caller-ID number (`receptionist/src/booking.py`, `receptionist/src/calcom.py`).
+6. Traces and logs stream to LiveKit Cloud during the call, and the transcript is uploaded after it ends (LiveKit Agent insights docs, "Ingestion timing").
+
+Calls send nothing to PostHog, GA4, or any other analytics tool today. #1573 is to add anonymous call events and will extend this section when it does.
+
+### Recipients
+
+| Recipient | What It Receives | Retention | Source |
+|---|---|---|---|
+| LiveKit Cloud, agent observability (Agent insights) | **Transcript:** each turn of the call, so whatever the caller says, including their name, the topic, and an invite email address as the agent spells it back, with the agent's tool calls on the same timeline. **Traces and logs:** the caller's phone number, as the SIP participant identity, and the room name. **No audio:** the session passes `record={"audio": False}`. **PII redaction is off,** so all of it is stored unredacted. Only project admins can read it; LiveKit support can see a session only if the owner shares it (support is offered on the Ship plan and above). | deleted 30 days after the session ends, LiveKit's default; an admin can download a session before then. Runtime-log retention is the same window (LiveKit log docs) | observability read: Agent observability on; PII redaction off, every category "0 of N"; `receptionist/src/agent.py` (`record`); deployed agent's logs; LiveKit session recording options and Agent insights docs (Permissions, Retention window, PII redaction) |
+| LiveKit Cloud, runtime logs outside a session | what the agent server prints, which `lk agent logs` tails with a short snapshot of recent lines. No log drain is configured: the agent's only secrets are `CAL_API_KEY`, `CAL_EVENT_TYPE_ID`, and `OWNER_TIMEZONE`, and a drain needs its own secret | not documented for the tail and its snapshot; **not verified** (Nathan to Verify item 21) | `lk agent secrets`, 2026-11-05; LiveKit log docs |
+| LiveKit Cloud, Telephony call log and session views | the Telephony dashboard lists calls on a Calls page, and each session has Session analytics and Session events views (participants joining and leaving), which LiveKit documents as present for every session and visible to every project role. Which fields they hold, including whether they show the caller's number, was not read | **not verified** (Nathan to Verify item 21) | owner's dashboard; LiveKit Agent insights docs ("Agent insights compared to the other session views") |
+| LiveKit Inference model providers | the caller's audio, sent to AssemblyAI Universal 3.6 Pro (speech-to-text) and LiveKit's turn detector; the conversation text, sent to Gemma 4 31B (the LLM), an open-weight Google model that LiveKit states it serves on its own infrastructure; and the agent's replies, sent to Fish Audio S2.1 Pro (text-to-speech) | none, per LiveKit: Inference is zero data retention on every plan, and "neither LiveKit nor the underlying model providers log, store, or train on your data." This is LiveKit's statement, not independently verified; the providers' own terms were not read | `receptionist/src/agent.py` (`STT_MODEL`, `LLM_MODEL`, `TTS_MODEL`, `inference.TurnDetector`); LiveKit Inference docs (Zero data retention, models) |
+| ai-coustics noise suppression | the caller's audio, before speech-to-text | LiveKit documents the model as included with LiveKit Cloud and metered through it, and does not say whether audio leaves the agent for it; **not verified** (Nathan to Verify item 22) | `receptionist/src/agent.py`; LiveKit noise cancellation docs |
+| Cal.com | through API v2, from LiveKit Cloud: the caller's name, the caller-ID phone number, their time zone, and, only if given, the topic and an email address for the invite. Without an email address, the booking carries a Cal.com placeholder, `<digits>@sms.cal.com` (observed live, #1565). Cal.com stores the booking like any other booking on the account, writes it to the account's destination calendar, which is Google Calendar (the event type's API record names no separate destination), and sends the invite and any reminders by email | kept on the account like any other booking; Cal.com's own retention, and whether it sends anything to the placeholder address or the phone number, **not verified** (Nathan to Verify item 23) | `receptionist/src/calcom.py`; Cal.com read; `receptionist/README.md` § Booking Rules |
+
+The hidden phone event type is never entered in `src/content/booking/`, and its slug is not written in this repository (specs/book-page.md item 3).
+
+### Not Verified
+
+- **The project's data region,** which LiveKit documents as where observability data is stored and as fixed at project creation (Agent insights docs). The settings page showed the label, but its value was not captured. The agent runs in `us-east` (`receptionist/README.md`), which is the agent's deployment region, not the data region. Whether Inference region restriction is on was not read either; LiveKit documents that without it, requests can go to a provider in any region (LiveKit Inference docs). Nathan to Verify item 24.
+- **Telephony call log, session views, and runtime-log tail:** what they hold and how long LiveKit keeps them (item 21).
+- **ai-coustics:** whether any audio leaves the agent for it (item 22).
+- **Cal.com:** booking retention, and whether it messages the placeholder address or the phone number (item 23).
+- **Model providers:** zero data retention is LiveKit's statement; no provider's terms were read.
 
 ## Identifiers and Storage
 
@@ -190,6 +231,10 @@ No new demographic, identity, or enrichment feature was enabled and none was dis
 | `ph_<token>_posthog` cookie | 365 days | verified (capture) |
 | `_ga`, `_ga_<ID>` cookies | rolling: 2 years per Google from the last refresh, capped at 400 days per write in Chrome; renewed on each visit that allows GA4 | verified (capture; Google cookie-usage docs) |
 | `muxData` cookie | 365 days with the flag off; not set with the flag on (#1264) | verified (capture; `tests/privacy-runtime/mux-data.pw.ts`) |
+| Phone receptionist: transcripts, traces, and logs in LiveKit agent observability | 30 days after the call ends, unredacted; no audio is recorded | project setting read 2026-11-05 (observability on, PII redaction off); the period is LiveKit's documented default (Agent insights docs); `record={"audio": False}` in `receptionist/src/agent.py` ([Phone Booking Line](#phone-booking-line)) |
+| Phone receptionist: model providers through LiveKit Inference | none, per LiveKit's zero-data-retention statement | vendor statement (LiveKit Inference docs) |
+| Phone receptionist: LiveKit Telephony call log, session views, and runtime-log tail | not documented | **Nathan to verify** (item 21) |
+| Phone receptionist: Cal.com bookings and their Google Calendar events | kept on the account like any other booking | Cal.com's retention **Nathan to verify** (item 23) |
 
 ## Production SDK Versions
 
@@ -226,6 +271,13 @@ On 2026-10-08 each item needed a dashboard read or a decision this track could n
 18. **One stray replay record.** The inventory's second browser run leaked one replay event from its test session into PostHog at 19:13:59 UTC on 2026-10-08 (capture, "Escape Incident"). The session ID is in the #1227 report, not in the repository. Deleting it is a vendor write. **Done 2026-10-11:** Nathan deleted it ([#1232](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/1232#issuecomment-6105632127)).
 19. **Hosting and CDN request logs.** Cloudflare dashboard → nathanpayne.com → Analytics & Logs (Logpush jobs and log retention), and, in the Firebase console, whether Hosting is linked to Cloud Logging (the web request log export) and the retention of that log bucket. Cloudflare sees every request's full URL and IP, and Firebase sees those of requests forwarded to the origin, regardless of the opt-out; the capture recorded no cache-status evidence of which requests reached Firebase.
 20. **PostHog's managed proxy.** Confirm in PostHog's DPA and subprocessor list how long Cloudflare, as the proxy subprocessor, keeps proxied request data, and whether the notice should name Cloudflare in that role.
+
+Items 21–24 were added on 2026-11-05 for the phone receptionist (#1566).
+
+21. **LiveKit call records outside Agent insights.** LiveKit Cloud → Telephony → Calls, and a call's Session analytics and Session events views: which fields each holds (in particular whether the caller's number appears) and how long LiveKit keeps them. Also how long the runtime-log snapshot that `lk agent logs` prints reaches back. LiveKit's docs state no period for any of them.
+22. **ai-coustics noise suppression.** Whether the `QUAIL_L` model runs inside the agent or sends audio elsewhere. LiveKit's noise cancellation docs describe it as included with LiveKit Cloud and metered through it, and say nothing about where audio goes.
+23. **Cal.com bookings.** How long Cal.com keeps a booking and its attendee details, and whether it sends any message to a booking's `<digits>@sms.cal.com` placeholder or to the attendee's phone number.
+24. **LiveKit data region and Inference region restriction.** LiveKit Cloud → Settings: the project's data region (Observability showed the label, not the value) and, under Data and privacy, Inference region restriction.
 
 ## Capture Conflicts
 
@@ -308,3 +360,14 @@ Vendor documentation (read 2026-10-08):
 - Mux HTML5 video monitoring: <https://www.mux.com/docs/guides/data/monitor-html5-video-element>
 - Logo.dev privacy policy: <https://www.logo.dev/legal/privacy>
 - PostHog pricing (data retention by plan, read 2026-10-11): <https://posthog.com/pricing>
+
+Phone receptionist reads (2026-11-05, #1566): the owner's read of LiveKit Cloud → Settings → Observability for project `nathanpayne-com`; the deployed agent's runtime logs; `lk agent secrets` (names and timestamps only); and, through the Cal.com API, the account's connected calendars and the phone event type. No write was made in any of these reads.
+
+LiveKit documentation (read 2026-11-05):
+
+- Session recording options (`record`): <https://docs.livekit.io/reference/agents/session-recording-options/>
+- Agent insights (permissions, ingestion timing, retention window, PII redaction, other session views): <https://docs.livekit.io/testing/observability/insights/>
+- LiveKit Inference (zero data retention, region restriction, models): <https://docs.livekit.io/agents/models/inference/>
+- Agent log collection and retention: <https://docs.livekit.io/deploy/agents/logs/>
+- Noise and echo cancellation (ai-coustics): <https://docs.livekit.io/transport/media/noise-cancellation/>
+- SIP dispatch rules: <https://docs.livekit.io/telephony/accepting-calls/dispatch-rule/>
