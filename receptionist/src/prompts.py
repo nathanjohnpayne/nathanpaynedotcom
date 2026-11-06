@@ -22,8 +22,9 @@ WEBSITE = "nathanpayne dot com slash book"
 # gets facts, not an improvised claim. The models named here must match the
 # model constants in agent.py; tests/test_agent.py checks that they do.
 BUILD_ANSWER = (
-    "Nathan built me with LiveKit Agents. LiveKit Inference runs my speech "
-    "recognition, language model, and voice, and I book calls through Cal.com."
+    "Nathan built me on LiveKit Agents, with a LiveKit phone number and "
+    "LiveKit Inference for speech recognition, the language model, and my "
+    "voice. Cal.com handles the booking."
 )
 MODELS_ANSWER = (
     "AssemblyAI Universal for speech recognition, Google's Gemma 4 for the "

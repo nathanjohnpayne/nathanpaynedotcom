@@ -152,10 +152,11 @@ async def test_says_how_it_was_built_then_offers_to_book() -> None:
             judge,
             intent=textwrap.dedent(
                 """\
-                Says Nathan built it with LiveKit Agents, that LiveKit Inference
-                runs its speech recognition, language model, and voice, and that it
-                books calls through Cal.com. Then offers to book a call. Makes no
-                other technical claims, such as numbers, speed, or other products.
+                Says Nathan built it on LiveKit Agents, with a LiveKit phone number
+                and LiveKit Inference for speech recognition, the language model,
+                and its voice, and that Cal.com handles the booking. Then offers to
+                book a call. Makes no other technical claims, such as numbers,
+                speed, or other products.
                 """
             ),
         )
