@@ -3813,12 +3813,18 @@ body.blog-page {
   min-height: 2.75rem;
 }
 
-/* The shared row 1 floor (16rem) is sized for /projects and /blog cards; an
-   event-type card is a kicker, title, one line and a tag, so on /book/ that
-   floor left the top row about 140px of empty paper. Row 1 takes row 2's
-   floor here. Desktop only: the mobile stack resets every row to auto. */
+/* The shared row floors (16rem, 13rem, 14rem, 14rem) are sized for /projects
+   and /blog cards; an event-type card is a kicker, title, one line and a tag,
+   so on /book/ the taller floors left rows of empty paper. Every row here
+   takes one floor, so rows match unless their content runs longer. Desktop
+   only: the mobile stack resets every row to auto. */
 @media (min-width: 1024px) {
-  .book-grid .grid-row--1 {
+  .book-grid .grid-row--1,
+  .book-grid .grid-row--2,
+  .book-grid .grid-row--3,
+  .book-grid .grid-row--4,
+  .book-grid .grid-row--overflow-a,
+  .book-grid .grid-row--overflow-b {
     min-height: 13rem;
   }
 }
