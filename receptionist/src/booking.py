@@ -15,7 +15,7 @@ import asyncio
 import datetime as dt
 import logging
 import re
-from collections.abc import Callable, Iterable
+from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass, replace
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -533,8 +533,36 @@ class BookingDesk:
             "next; it includes this address."
         )
 
+    async def capture_email(self, capture: Callable[[], Awaitable[str]]) -> str:
+        """Run an email capture and record its result.
+
+        If the capture fails (the caller declines, or the address can't be
+        confirmed), any earlier address is cleared too, so a booking made
+        "without an invite" can't still carry an old one (#1572).
+        """
+        try:
+            email = await capture()
+        except ToolError as exc:
+            self.email = None
+            self.review = None
+            raise ToolError(
+                f"{exc.message} No invite address is stored now. Ask whether to "
+                "try again or book without an invite, and review the booking "
+                "again before book_call."
+            ) from exc
+        return self.set_email(email)
+
     def clear_email(self) -> str:
         """Drop the invite address when the caller no longer wants an invite."""
+        if self.booking is not None:
+            # The booking already went to Cal.com with this address; clearing
+            # local state can't recall the invite (#1572).
+            return (
+                "The call is already booked, and Nathan's calendar already has "
+                "that address, so I can't withdraw the invite from here. Tell the "
+                "caller they can ignore or decline it, and that Nathan will still "
+                "call at the booked time."
+            )
         had_email = self.email is not None
         self.email = None
         self.review = None

@@ -105,18 +105,22 @@ class Receptionist(Agent):
         spoken spelling, and confirms it with the caller. Never write an email
         address into any other tool yourself.
         """
+
         # GetEmailTask normalizes spoken addresses ("dot", "underscore",
         # letter-by-letter spelling) and confirms with the caller, which a
         # free-text tool argument transcribed from speech did not (#1565).
         # The LLM lives on this agent, not the session, so the task needs it
         # passed in or it has no model to reply with.
-        result = await GetEmailTask(
-            llm=self.llm,
-            chat_ctx=self.chat_ctx,
-            require_explicit_ask=True,
-            verify_spelling=True,
-        )
-        return context.userdata.set_email(result.email_address)
+        async def capture() -> str:
+            result = await GetEmailTask(
+                llm=self.llm,
+                chat_ctx=self.chat_ctx,
+                require_explicit_ask=True,
+                verify_spelling=True,
+            )
+            return result.email_address
+
+        return await context.userdata.capture_email(capture)
 
     @function_tool
     async def remove_email(self, context: RunContext[BookingDesk]) -> str:

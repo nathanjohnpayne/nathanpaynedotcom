@@ -538,3 +538,42 @@ async def test_kept_invite_email_is_confirmed():
     desk.set_email("alex@example.com")
     result = await book(desk, details(email=desk.email))
     assert "A calendar invite goes to alex@example.com." in result
+
+
+async def test_failed_email_capture_clears_the_earlier_address():
+    # CodeRabbit, #1572: a caller who declines a replacement address must not
+    # be booked "without an invite" that still goes to the old one.
+    desk, calendar = await offered_desk()
+    desk.set_email("alex@example.com")
+    desk.review_booking(details(email=desk.email), call_id="review-1")
+
+    async def declined() -> str:
+        raise ToolError("couldn't get the email address: caller declined")
+
+    with pytest.raises(ToolError, match="No invite address is stored now"):
+        await desk.capture_email(declined)
+    assert desk.email is None and desk.review is None
+
+    await book(desk, details(email=desk.email), call_id="review-2")
+    assert calendar.bookings[-1].email is None
+
+
+async def test_successful_email_capture_records_the_address():
+    desk, _ = await offered_desk()
+
+    async def confirmed() -> str:
+        return "Alex@Example.com"
+
+    assert "alex@example.com" in await desk.capture_email(confirmed)
+    assert desk.email == "alex@example.com"
+
+
+async def test_removing_the_email_after_booking_does_not_promise_no_invite():
+    # CodeRabbit, #1572: the booking already carries the address, so the
+    # agent mustn't tell the caller no invite will be sent.
+    desk, _ = await offered_desk()
+    desk.set_email("alex@example.com")
+    await book(desk, details(email=desk.email))
+    message = desk.clear_email()
+    assert "can't withdraw the invite" in message
+    assert "no calendar invite will be sent" not in message.lower()
