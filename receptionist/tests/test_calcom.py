@@ -217,12 +217,12 @@ async def test_create_booking_posts_payload_and_returns_uid(api, client):
     api.reply(
         "POST /v2/bookings",
         status=201,
-        payload=load_fixture("booking_created_2024_08_13.json"),
+        payload=load_fixture("booking_created_2026_02_25.json"),
     )
     result = await client.create_booking(booking_request())
     call = api.only_request()
 
-    assert result.uid == "booking-uid-fixture-0001"
+    assert result.uid == "booking-uid-fixture-0002"
     assert result.start == dt.datetime(2033, 9, 5, 16, 0, tzinfo=dt.UTC)
     assert call.method == "POST"
     assert_headers(call.headers, BOOKINGS_API_VERSION)
@@ -306,9 +306,16 @@ async def test_refused_connection_on_a_booking_is_a_plain_failure():
 @pytest.mark.parametrize(
     ("fixture", "status", "expected"),
     [
-        ("error_slot_taken.json", 400, SlotUnavailableError),
-        ("error_booking_limit.json", 400, BookingLimitError),
-        ("error_out_of_bounds.json", 400, BookingWindowError),
+        # Every fixture is a real response from the live API on 2026-11-06,
+        # cal-api-version 2026-02-25, with its real HTTP status (#1570).
+        ("error_slot_taken.json", 409, SlotUnavailableError),
+        # Cal.com answers a reached booking limit with 401, not 400, so the
+        # limit must be recognized before a 401 is read as a bad key.
+        ("error_booking_limit.json", 401, BookingLimitError),
+        ("error_min_notice.json", 400, BookingWindowError),
+        # Beyond the rolling 14-day window Cal.com says "not available", the
+        # same 409 as a taken slot. The agent only books offered slots.
+        ("error_out_of_bounds.json", 409, SlotUnavailableError),
         ("error_unauthorized.json", 401, CalendarUnavailableError),
     ],
 )
@@ -366,7 +373,7 @@ def test_unknown_error_is_generic_and_speakable():
 
 
 def _created(attendee_email: str) -> dict:
-    body = load_fixture("booking_created_2024_08_13.json")
+    body = load_fixture("booking_created_2026_02_25.json")
     body["data"]["attendees"] = [{"name": "Alex Example", "email": attendee_email}]
     return body
 

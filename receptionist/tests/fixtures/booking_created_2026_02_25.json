@@ -1,0 +1,60 @@
+{
+  "status": "success",
+  "data": {
+    "id": 123,
+    "uid": "booking-uid-fixture-0002",
+    "title": "Phone Call between Nathan Payne and Alex Example",
+    "description": "",
+    "hosts": [
+      {
+        "id": 1,
+        "name": "Nathan Payne",
+        "email": "host@example.com",
+        "displayEmail": "host@example.com",
+        "username": "host",
+        "timeZone": "America/Los_Angeles"
+      }
+    ],
+    "status": "accepted",
+    "cancellationReason": null,
+    "cancelledByEmail": null,
+    "rescheduledByEmail": null,
+    "start": "2033-09-05T16:00:00.000Z",
+    "end": "2033-09-05T16:30:00.000Z",
+    "duration": 30,
+    "eventTypeId": 1000001,
+    "eventType": {
+      "id": 1000001,
+      "slug": "phone-call-fixture"
+    },
+    "eventUuid": "00000000-0000-0000-0000-000000000001",
+    "meetingUrl": null,
+    "location": "+15555550123",
+    "absentHost": false,
+    "createdAt": "2033-09-01T12:00:00.000Z",
+    "updatedAt": "2033-09-01T12:00:00.000Z",
+    "metadata": {},
+    "rating": null,
+    "icsUid": "fixture-ics-uid@example.com",
+    "attendees": [
+      {
+        "name": "Alex Example",
+        "email": "15555550123@sms.cal.com",
+        "displayEmail": "15555550123@sms.cal.com",
+        "timeZone": "America/Los_Angeles",
+        "language": "en",
+        "absent": false,
+        "phoneNumber": "+15555550123"
+      }
+    ],
+    "bookingFieldsResponses": {
+      "name": "Alex Example",
+      "attendeePhoneNumber": "+15555550123",
+      "location": {
+        "value": "attendeePhone",
+        "optionValue": "+15555550123"
+      }
+    },
+    "isPlatformManagedUserBooking": false
+  }
+}

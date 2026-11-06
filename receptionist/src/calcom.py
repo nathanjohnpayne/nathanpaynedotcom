@@ -26,12 +26,14 @@ logger = logging.getLogger("calcom")
 
 BASE_URL = "https://api.cal.com/v2/"
 
-# Each Cal.com v2 endpoint is versioned by the cal-api-version header. Both
-# values were checked against the live API on 2026-11-05. (The current
-# bookings reference lists 2026-02-25 for create-a-booking; the request body
-# schema is the same, and 2024-08-13 is the version proven to work here.)
+# Each Cal.com v2 endpoint is versioned by the cal-api-version header.
+# Bookings use 2026-02-25, the version Cal.com's create and cancel references
+# require; it was proven live on 2026-11-06 with a phone-only booking that was
+# then cancelled (#1571). The request and response schemas are the same as
+# 2024-08-13, which the agent used until then. Slots use 2024-09-04, checked
+# live on 2026-11-05.
 SLOTS_API_VERSION = "2024-09-04"
-BOOKINGS_API_VERSION = "2024-08-13"
+BOOKINGS_API_VERSION = "2026-02-25"
 
 # Cal.com's edge rejects some default client User-Agents with a non-JSON
 # error, so every request names this client explicitly.
@@ -222,11 +224,22 @@ def parse_slots(body: Any) -> list[dt.datetime]:
 def classify_error(status: int, body: Any) -> CalComError:
     """Map a failed Cal.com response to a typed error.
 
-    Cal.com reports failures as ``{"status": "error", "error": {"message":
-    ...}}``. The message strings matched here are best guesses from the
-    front-desk example and Cal.com's booking errors; they are unverified
-    against the live API, and anything unmatched falls back to the generic
-    error, which is still safe to say.
+    Cal.com reports failures as ``{"status": "error", "error": {"code": ...,
+    "message": ...}}``. The cases below were captured from the live API on
+    2026-11-06 (cal-api-version 2026-02-25, #1570); the fixtures in
+    ``tests/fixtures/error_*.json`` are those responses:
+
+    - slot taken: 409 ConflictException, "User either already has booking at
+      this time or is not available". A start beyond the booking window gets
+      the same 409.
+    - booking limit: 401 HttpError, "This booking link has reached its
+      booking limit". It is a 401, so it is checked before the bad-key rule.
+    - inside the minimum notice: 400 BadRequestException, "...it's too soon
+      (violating the minimum booking notice) or too far in the future...".
+    - bad key: 401 UnauthorizedException, "...Invalid API Key".
+
+    Anything unmatched falls back to the generic error, which is still safe
+    to say.
     """
     message = ""
     if isinstance(body, dict):
@@ -239,6 +252,9 @@ def classify_error(status: int, body: Any) -> CalComError:
     detail = f"HTTP {status}: {message}" if message else f"HTTP {status}"
     text = message.lower()
 
+    # Before the 401 rule: Cal.com reports a reached booking limit as a 401.
+    if "booking limit" in text or "booking_limit" in text:
+        return BookingLimitError(detail, status=status)
     if status in (401, 403) or status == 429 or status >= 500:
         return CalendarUnavailableError(detail, status=status)
     # Observed live on 2026-11-05: HTTP 400 "This email address cannot receive

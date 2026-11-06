@@ -1,9 +1,16 @@
 {
+  "statusCode": 401,
+  "message": "booking_limit_reached",
   "status": "error",
-  "timestamp": "2033-09-01T12:00:00.000Z",
+  "timestamp": "2026-11-06T17:42:06.913Z",
   "path": "/v2/bookings",
   "error": {
-    "code": "BadRequestException",
-    "message": "booking_limit_reached"
+    "code": "HttpError",
+    "message": "This booking link has reached its booking limit",
+    "details": {
+      "message": "This booking link has reached its booking limit",
+      "error": "Unauthorized",
+      "statusCode": 401
+    }
   }
 }
