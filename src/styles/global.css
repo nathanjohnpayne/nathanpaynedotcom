@@ -3803,6 +3803,16 @@ body.blog-page {
   margin-top: var(--sp-md);
 }
 
+/* ── The phone option on /book/ (#1567) ─────────────────────────────────
+   A fourth row styled like the event-type cards; the only difference is the
+   action. The call button is the shared .nav-button (the footer's style),
+   with full ink for its border and label and a 44px touch target, since a
+   thumb tap is its whole purpose. */
+.book-call-card .nav-button {
+  color: var(--ink);
+  min-height: 2.75rem;
+}
+
 /* /brand/ (specs/brand-page.md): each card opens on its preview, set
    straight on the card's surface with no backdrop, so a transparent file
    reads as transparent. The box has a fixed height and the image keeps its

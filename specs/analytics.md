@@ -12,7 +12,7 @@ The site runs two analytics systems in parallel during the PostHog transition:
 - **Google Analytics 4 (gtag)**—fires a `section_view` event once per panel on
   first hover on hover-capable (fine-pointer) devices.
 - **PostHog**—product analytics + autocapture + session replay, loaded
-  site-wide, with twenty-three custom conversion/engagement events instrumented
+  site-wide, with twenty-four custom conversion/engagement events instrumented
   across the homepage, project pages, blog, and resume.
 
 GA4 is retained for continuity; PostHog is the forward-looking system. Either
@@ -84,6 +84,7 @@ may be removed later without affecting the other.
 | `blog_post_nav_clicked` | Click on a `.blog-postnav__card` prev/next card | `direction`, `from_post_title`, `to_post_href` |
 | `rss_subscribe_clicked` | Click on the blog index `.rss-link` | — |
 | `booking_event_type_clicked` | Click on a `.booking-event-type` link on `/book/`: an event type's title or its "Pick a time" tag, both of which open that event type's Cal.com booking page (specs/book-page.md) | `event_type` (the Cal.com event slug) |
+| `booking_phone_clicked` | Click on a `.booking-phone` link on `/book/`: the phone receptionist row's title or its call button, both plain `tel:` links (specs/book-page.md item 14). The number is not sent | `link` (`title`, `button`) |
 | `resume_viewed` | The resume page loads | — |
 | `resume_pdf_downloaded` | Click on the `/resume` header `.resume-download` button | — |
 | `resume_action_clicked` | Click on the `/resume` header row's Get in touch or Book time button | `action` |

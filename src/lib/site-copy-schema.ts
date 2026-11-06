@@ -23,6 +23,13 @@ const copy = () => z.string().trim().min(1);
 /** Placeholder the projects description carries for the derived project count. */
 export const PROJECT_COUNT_PLACEHOLDER = '{count}';
 
+/**
+ * Placeholder the `/book/` call button carries for the receptionist's display
+ * number. The number lives only in `RECEPTIONIST_PHONE` (src/lib/booking.ts),
+ * so the copy never types it; `fillPhoneNumber` (src/lib/booking.ts) fills it.
+ */
+export const PHONE_NUMBER_PLACEHOLDER = '{number}';
+
 export const SITE_COPY_SCHEMAS = {
   /** `/blog/` and the publication it indexes ("The AI-Augmented PM"). */
   blog: z.strictObject({
@@ -85,6 +92,16 @@ export const SITE_COPY_SCHEMAS = {
     description: copy(),
     /** og:description and twitter:description, the hero deck, and the share card's line. */
     ogDescription: copy(),
+    /** The phone receptionist row (#1567), which is not a Cal.com event type: its kicker (the card's `.post-meta`). */
+    phoneKicker: copy(),
+    /** The phone row's title, a `tel:` link. */
+    phoneTitle: copy(),
+    /** The phone row's description. */
+    phoneDescription: copy(),
+    /** The call button's label; `{number}` is filled with `RECEPTIONIST_PHONE.display`. */
+    phoneButton: copy().refine((value) => value.includes(PHONE_NUMBER_PLACEHOLDER), {
+      message: `must carry the ${PHONE_NUMBER_PLACEHOLDER} placeholder`,
+    }),
   }),
   /** `/brand/` (specs/brand-page.md), the download page for the logo system. */
   brand: z.strictObject({

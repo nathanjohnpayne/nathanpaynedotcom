@@ -23,14 +23,23 @@ import Footer from '../components/Footer.astro';
 import Breadcrumbs from '../components/Breadcrumbs.astro';
 import { getIndexGridRow, getMobileRail } from '../lib/index-grid';
 import { getSiteCopy } from '../lib/site-copy';
-import { BOOK_TITLE, CAL_PROFILE_URL, bookingUrl, formatDurations } from '../lib/booking';
+import NavIcon from '../components/NavIcon.astro';
+import {
+  BOOK_TITLE,
+  CAL_PROFILE_URL,
+  RECEPTIONIST_TEL_HREF,
+  bookingUrl,
+  fillPhoneNumber,
+  formatDurations,
+} from '../lib/booking';
 
 const BOOK_PAGE_TITLE = `${BOOK_TITLE} | Nathan Payne`;
 
 // Metadata and the share line are owned by src/content/site-copy/book.md
 // (#1166 convention). The deck reads the share line, so the page and its
 // unfurl open on the same sentence.
-const { description, ogDescription } = await getSiteCopy('book');
+const { description, ogDescription, phoneKicker, phoneTitle, phoneDescription, phoneButton } =
+  await getSiteCopy('book');
 
 const eventTypes = (await getCollection('booking')).sort((a, b) => a.data.order - b.data.order);
 
@@ -145,12 +154,41 @@ const PAGE_ACCENT = 'red';
           );
         })}
 
+        {/* ── The phone option (#1567) ──
+             A fourth row in the same geometry as the cards: kicker, title and
+             description read like an event type, and the only difference is
+             the action, a call button in place of "Pick a time". It is not a
+             Cal.com event type, so it stays out of the booking collection and
+             the JSON-LD ItemList above. Its copy is owned by
+             src/content/site-copy/book.md and its number by RECEPTIONIST_PHONE;
+             both links are plain tel: hrefs, so nothing loads. */}
+        {(() => {
+          const row = getIndexGridRow(eventTypes.length);
+          return (
+            <div class={row.rowClass} data-rail={getMobileRail(PAGE_ACCENT, eventTypes.length + 1)}>
+              <article class="post-card book-card book-call-card">
+                <p class="post-meta">{phoneKicker}</p>
+                <h2 class="post-title">
+                  <a class="booking-phone" href={RECEPTIONIST_TEL_HREF} data-phone-link="title">{phoneTitle}</a>
+                </h2>
+                <p class="post-desc">{phoneDescription}</p>
+                <div class="tag-row">
+                  <a class="nav-button booking-phone" href={RECEPTIONIST_TEL_HREF} data-phone-link="button"><NavIcon name="phone" />{fillPhoneNumber(phoneButton)}</a>
+                </div>
+              </article>
+              {row.accentClasses.map((accentClass) => (
+                <div class={accentClass} aria-hidden="true"></div>
+              ))}
+            </div>
+          );
+        })()}
+
         {/* ── Closing band ──
              The practical notes a visitor wants before picking, and the
              profile link for anyone who would rather see Cal.com's own list.
              Plain prose, so nothing here has to be re-mirrored when an event
              type changes. */}
-        <div class="grid-row--book-note" data-rail={getMobileRail(PAGE_ACCENT, eventTypes.length + 1)}>
+        <div class="grid-row--book-note" data-rail={getMobileRail(PAGE_ACCENT, eventTypes.length + 2)}>
           <div class="book-note">
             <p>Times show in your time zone; mine is Pacific. Cal.com asks what you would like to discuss before it confirms, and the invite follows once you verify your email.</p>
             <p>
@@ -170,7 +208,7 @@ const PAGE_ACCENT = 'red';
       <Footer
         attribution="Nathan Payne"
         variant="grid"
-        rail={getMobileRail(PAGE_ACCENT, eventTypes.length + 2)}
+        rail={getMobileRail(PAGE_ACCENT, eventTypes.length + 3)}
         links={[
           { href: "/resume/", label: "Résumé", icon: "file-user" },
           { href: "/", label: "Back to Homepage", icon: "house" },
@@ -190,6 +228,15 @@ const PAGE_ACCENT = 'red';
       link.addEventListener('click', function () {
         window.posthog?.capture('booking_event_type_clicked', {
           event_type: link.dataset.eventType,
+        });
+      });
+    }
+    // #1567: either tel: link of the phone row. Same optional contract; `link`
+    // says which of the two was used. Nothing is captured about the number.
+    for (const link of document.querySelectorAll('.booking-phone')) {
+      link.addEventListener('click', function () {
+        window.posthog?.capture('booking_phone_clicked', {
+          link: link.dataset.phoneLink,
         });
       });
     }
