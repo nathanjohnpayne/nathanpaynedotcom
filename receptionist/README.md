@@ -49,7 +49,7 @@ The agent is sized to stay within LiveKit Cloud's free Build plan. On the Build 
 | Agent session minutes | 1,000 minutes a month | Not the binding limit. |
 | Concurrent agent sessions | 5 | At most five calls at once. |
 | Agent deployments | 1 | This is the project's only deployed agent. |
-| Cold starts | Up to 10 to 20 seconds | A deployed agent can shut down when idle, so the first caller after a quiet period may wait before the greeting. |
+| Cold starts | Up to 10 to 20 seconds | A deployed agent can shut down when idle, so the first caller after a quiet period may wait before the greeting. Observed on 2026-11-05: after 27 minutes with no calls the worker was still running, and the call was answered in under 5 seconds. No idle shutdown has been seen yet, so a true cold start is still unmeasured. |
 
 The five-minute session cap exists to keep a single call from eating a large share of the monthly inference and phone minutes.
 
