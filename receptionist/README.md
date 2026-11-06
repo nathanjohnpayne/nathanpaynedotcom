@@ -1,6 +1,6 @@
 # Receptionist
 
-A voice agent that answers a phone number and books a 15- or 30-minute phone call with Nathan Payne. You call the number, the agent offers open times from Nathan's calendar, reads the booking back, and books it once you say yes. Nathan then calls you back at the number you called from. It's a working demo built for a LiveKit role application, on LiveKit Cloud's free Build plan.
+A voice agent that answers a phone number and books a 15- or 30-minute phone call with Nathan Payne. You call the number, the agent offers open times from Nathan's calendar, reads the booking back, and books it once you say yes. Nathan then calls you back at the number you called from. It's a working demo built for a LiveKit role application. It was built on LiveKit Cloud's free Build plan; the project moved to the Ship plan on 2026-11-06 for the application's demo and is meant to return to Build afterward (see [Plan and Limits](#plan-and-limits)).
 
 The agent was built from LiveKit's [`agent-starter-python`](https://github.com/livekit-examples/agent-starter-python) template, with a Cal.com client adapted from the [front-desk example](https://github.com/livekit/agents/tree/main/examples/frontdesk) in `livekit/agents`. See [`NOTICE`](NOTICE) for both.
 
@@ -16,7 +16,8 @@ caller ──▶ LiveKit phone number ──▶ SIP dispatch rule ──▶ agen
 1. A call to the LiveKit phone number matches a SIP dispatch rule, which puts the caller in a new room and dispatches the agent by its registered name, `receptionist` (`AGENT_NAME` in `src/agent.py`).
 2. The agent reads the caller's number from the SIP participant's `sip.phoneNumber` attribute. That caller ID is the only number it ever books; it never takes a number from speech or from the model.
 3. It speaks a fixed greeting (`GREETING` in `src/prompts.py`): it is Nathan Payne's AI receptionist, the call is transcribed by AI and the transcript is kept for 30 days, the audio isn't recorded, and it can book a 15- or 30-minute call. The site's `/privacy/` page states the same retention, and `tests/privacy-ui.test.js` checks that the two agree.
-4. The voice pipeline runs on [LiveKit Inference](https://docs.livekit.io/agents/models/inference/), using the starter's models: AssemblyAI Universal 3.6 Pro for speech-to-text, Gemma 4 31B for the LLM, and Fish Audio S2.1 Pro for text-to-speech, with the LiveKit turn detector and ai-coustics background noise suppression.
+4. The voice pipeline runs on [LiveKit Inference](https://docs.livekit.io/agents/models/inference/), using the starter's models: AssemblyAI Universal 3.6 Pro for speech-to-text, Gemma 4 31B for the LLM, and Fish Audio S2.1 Pro for text-to-speech, with the LiveKit turn detector and ai-coustics background noise suppression. Expressive mode is on, so the LLM can mark up tone and pauses for the voice. A text transform rewrites "LiveKit" as Arpabet phoneme tags before it reaches the voice, because Fish Audio otherwise says "LivKit" (#1583); transcripts keep the spelling.
+   - Asked how it was built, the agent says two fixed answers instead of improvising: `BUILD_ANSWER` (LiveKit Agents, a LiveKit phone number, LiveKit Inference, and Cal.com) and, if asked which models, `MODELS_ANSWER`, both in `src/prompts.py` (#1581). `tests/test_agent.py` ties `MODELS_ANSWER` to the model constants. Any other question about Nathan it declines, and it offers to book a call.
 5. The agent has five booking tools, backed by the Cal.com API v2:
    - `list_available_slots(duration_minutes, day?, caller_timezone?)` returns at most three upcoming open times, in Pacific time and in the caller's time zone if they gave one. Each time gets a label like `slot-2`; the exact start time stays on the server.
    - `collect_email()` runs LiveKit's `GetEmailTask` when the caller wants a calendar invite: it asks for the address, normalizes spoken spelling, and spells it back for a yes. The confirmed address is stored for the call; the model never types one.
@@ -36,22 +37,27 @@ The model interprets the conversation; code in `src/booking.py` enforces the rul
 - The agent asks for an email address only if the caller wants a calendar invite, and spells it back.
 - Calendar writes can't be interrupted (`disallow_interruptions()`), and every Cal.com failure, such as a slot that was just taken or a booking limit, becomes a sentence the agent can say.
 
-The Cal.com event type itself carries the rest of the limits: 15 or 30 minutes, at least two hours' notice, a 14-day window, and at most five bookings a day and ten a week. Its phone field is required and its email field is optional but **visible**. Cal.com discards the email of an attendee whose event type hides the email field, and books with a phone placeholder (`<digits>@sms.cal.com`), so a hidden field means no caller ever gets an invite. If that happens, the agent logs `cal.com dropped the attendee email`. The event type ID comes from `CAL_EVENT_TYPE_ID` at runtime and isn't stored in the code.
+The Cal.com event type itself carries the rest of the limits: 15 or 30 minutes, at least two hours' notice, a rolling 14-day window, and at most five bookings a day and ten a week. The window is rolling: it counts 14 days that have open times, so it reaches past 14 calendar days. A 20-day-out booking was accepted on 2026-11-06. Its phone field is required and its email field is optional but **visible**. Cal.com discards the email of an attendee whose event type hides the email field, and books with a phone placeholder (`<digits>@sms.cal.com`), so a hidden field means no caller ever gets an invite. If that happens, the agent logs `cal.com dropped the attendee email`. The event type ID comes from `CAL_EVENT_TYPE_ID` at runtime and isn't stored in the code.
 
-## Free Plan Limits
+The client sends `cal-api-version: 2026-02-25` for bookings and `2024-09-04` for slots. How Cal.com reports each booking failure was captured from the live API on 2026-11-06 (#1570): a taken slot and a start beyond the window are both HTTP 409 `ConflictException`, a start inside the notice period is 400 `BadRequestException`, and a reached booking limit is **401** `HttpError`, which `classify_error` in `src/calcom.py` checks before treating a 401 as a bad key.
 
-The agent is sized to stay within LiveKit Cloud's free Build plan. On the Build plan the included allowances are hard caps: once one runs out, new requests fail instead of incurring charges, and allowances reset on the first of each month without rolling over ([quotas and limits](https://docs.livekit.io/deploy/admin/quotas-and-limits/)). The limits that matter here, from the [pricing page](https://livekit.com/pricing) and the quotas page:
+## Plan and Limits
 
-| Resource | Build Plan Allowance | What It Means for This Agent |
-| --- | --- | --- |
-| LiveKit Inference credits | $2.50 a month, about 50 minutes at model prices | Roughly 10 full five-minute calls a month across STT, LLM, and TTS. |
-| US local inbound minutes | 50 minutes a month, one free local number | The same budget measured on the phone line. |
-| Agent session minutes | 1,000 minutes a month | Not the binding limit. |
-| Concurrent agent sessions | 5 | At most five calls at once. |
-| Agent deployments | 1 | This is the project's only deployed agent. |
-| Cold starts | Up to 10 to 20 seconds | A deployed agent can shut down when idle, so the first caller after a quiet period may wait before the greeting. Observed on 2026-11-05: after 27 minutes with no calls the worker was still running, and the call was answered in under 5 seconds. No idle shutdown has been seen yet, so a true cold start is still unmeasured. |
+The agent was sized for LiveKit Cloud's free Build plan. On 2026-11-06 the owner moved the project to the Ship plan for the LiveKit application's demo, mainly so the production agent stays warm, and plans to move it back to Build afterward. Check the current plan in the dashboard under Settings, then Billing. Figures are from the [pricing page](https://livekit.com/pricing) and [quotas and limits](https://docs.livekit.io/deploy/admin/quotas-and-limits/), read 2026-11-06:
 
-The five-minute session cap exists to keep a single call from eating a large share of the monthly inference and phone minutes.
+| Resource | Build (Free) | Ship ($50 a Month) | What It Means for This Agent |
+| --- | --- | --- | --- |
+| LiveKit Inference credits | $2.50 a month, about 50 minutes | $5, about 100 minutes, then billed at model prices | On Build, roughly 10 full five-minute calls a month. |
+| US local inbound minutes | 50 a month, one free number | 100, then $0.01 a minute | The same budget measured on the phone line. |
+| Agent session minutes | 1,000 a month | 5,000, then $0.01 a minute | Not the binding limit. |
+| Concurrent agent sessions | 5 | 20 | Calls at once. |
+| Agent deployments | 1 | 2 | This is the project's only deployed agent. |
+| Cold start prevention | No | Yes | On Build an idle agent can shut down, and LiveKit says the first call after that can take 10 to 20 seconds to answer. On 2026-11-05, after 27 idle minutes on Build, the worker was still up and answered in under 5 seconds, so a true cold start was never measured. On Ship the production agent stays warm. |
+| Instant rollback | No | Yes | See [Later Deploys](#later-deploys). |
+
+On Build every allowance is a hard cap: once one runs out, new requests fail instead of incurring charges, and allowances reset on the first of each month without rolling over. On Ship, usage past an allowance is billed instead.
+
+The five-minute session cap keeps one call from eating a large share of the monthly inference and phone minutes on either plan.
 
 ## Local Development
 
@@ -92,7 +98,7 @@ uv run ruff format --check
 uv run pytest
 ```
 
-- `tests/test_calcom.py` checks the Cal.com client against hand-written fixtures served by a local test server: slot parsing, the phone-only booking payload, headers, and error mapping. No test calls Cal.com.
+- `tests/test_calcom.py` checks the Cal.com client against fixtures served by a local test server: slot parsing, the phone-only booking payload, headers, and error mapping. The booking and error fixtures are real Cal.com responses captured on 2026-11-06, with every personal value replaced (#1570). No test calls Cal.com.
 - `tests/test_booking.py`, `tests/test_session_cap.py`, `tests/test_config.py`, and `tests/test_agent.py` cover the booking rules, the five-minute cap on a fake clock, configuration, and caller ID handling.
 - `tests/test_session_wiring.py` runs the real agent in an `AgentSession` with a scripted LLM, proving the guards hold inside the SDK without any model calls.
 - `tests/test_behavior.py` uses LiveKit Inference with an LLM judge to check that the agent reads a booking back before booking, that a "no" never books, and that a withheld caller ID never books. These tests skip unless `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` are set; run them with `uv run pytest -m behavior`.
@@ -111,7 +117,7 @@ The first deploy was one command, run from this folder:
 lk agent create --region us-east --secrets-file <file> --yes .
 ```
 
-`<file>` held three lines: `CAL_API_KEY` (read from 1Password with `op read`), `CAL_EVENT_TYPE_ID`, and `OWNER_TIMEZONE`. It was created with mode 600 outside the repo and deleted right after. Don't set `DEV_CALLER_PHONE`: the agent refuses to start in production with it set. `lk agent create` builds the image from the Dockerfile on LiveKit's build service, starts it, and writes `livekit.toml`. The region can't be changed after creation; the available regions are listed under [regions and endpoints](https://docs.livekit.io/deploy/admin/regions/endpoints/).
+`<file>` held three lines: `CAL_API_KEY` (read from 1Password with `op read`), `CAL_EVENT_TYPE_ID`, and `OWNER_TIMEZONE`. The analytics secrets, `POSTHOG_PROJECT_TOKEN` and `OWNER_PHONE`, were added on 2026-11-06 with `lk agent update-secrets` (see [Call Analytics](#call-analytics)). It was created with mode 600 outside the repo and deleted right after. Don't set `DEV_CALLER_PHONE`: the agent refuses to start in production with it set. `lk agent create` builds the image from the Dockerfile on LiveKit's build service, starts it, and writes `livekit.toml`. The region can't be changed after creation; the available regions are listed under [regions and endpoints](https://docs.livekit.io/deploy/admin/regions/endpoints/).
 
 ### Later Deploys
 
@@ -121,7 +127,9 @@ lk agent deploy
 
 Each deploy builds a new version and rolls it out. `lk agent versions` lists versions with their git commit and branch (the CLI records both by default). Secrets carry over between deploys; pass `--secrets` or `--secrets-file` only to change them.
 
-To recover from a bad deploy on the Build plan, revert the code and redeploy: `git revert` the bad commit (or check out the last good one), then run `lk agent deploy` from this folder. `lk agent rollback` is instant and needs no rebuild, but LiveKit offers it only on paid plans ([managing deployments](https://docs.livekit.io/deploy/agents/managing-deployments/)).
+To recover from a bad deploy on Ship, run `lk agent rollback` from this folder: it is instant and needs no rebuild. On Build, rollback isn't offered ([managing deployments](https://docs.livekit.io/deploy/agents/managing-deployments/)), so revert the code and redeploy: `git revert` the bad commit (or check out the last good one), then run `lk agent deploy`. Either way, fix `main` too, or the next deploy brings the bad change back.
+
+Deploy from an up-to-date `main` checkout, not a branch: `lk agent versions` records the commit, so a version built from `main` can be traced to a merged PR. A deploy is rolling, so a call in progress finishes on the old version. The new version shows `Scheduling` in `lk agent status` for a minute or two before `Running`.
 
 ### Status and Logs
 
@@ -177,7 +185,7 @@ The agent sends call events to the website's PostHog project (469428), so a funn
   - `tests/test_analytics.py` checks that no event carries the caller's number, name, email, topic, or time zone.
 - **User agent:** every event carries `$raw_user_agent: nathanpayne-receptionist/1.0`. PostHog treats an event with no user agent as a bot, and the project's default filter hides bots.
 - **Test calls:**
-  - A call from `OWNER_PHONE` makes a one-off person with only `$internal_or_test_user: true`, which puts it in the internal cohort the project's default filter excludes. A console or Agent Console session does the same.
+  - A call from `OWNER_PHONE` makes a one-off person with `$internal_or_test_user: true` (PostHog also records the agent's user agent on it), which puts it in the internal cohort the project's default filter excludes. A console or Agent Console session does the same.
   - The number is compared inside the agent and never sent.
   - The cohort is dynamic and PostHog recalculates it on its own schedule, so a new test person can count in default views until then. On 2026-11-06 the cohort's last calculation was 14 hours old and none of the three test calls had joined it yet.
 - **Failure:** analytics can't break a call. Capture only queues the event, the SDK sends batches every half second from its own thread, and the flush when a call ends has a 3-second limit. With PostHog unreachable, booking works unchanged; this was checked on 2026-11-06 with `POSTHOG_HOST` pointed at an unroutable address.
@@ -193,11 +201,11 @@ A malformed `OWNER_PHONE` or a non-`https://` `POSTHOG_HOST` turns analytics off
 
 ### Checking Usage
 
-The Build plan allowances in [Free Plan Limits](#free-plan-limits) reset on the first of each month. LiveKit Cloud shows the project's quotas under Settings, then the Project tab, and per-session usage under Agent insights ([quotas and limits](https://docs.livekit.io/deploy/admin/quotas-and-limits/)). I found no `lk` command that prints the month's inference or telephony totals, so use the dashboard.
+The allowances in [Plan and Limits](#plan-and-limits) reset on the first of each month. LiveKit Cloud shows the project's quotas under Settings, then the Project tab, and per-session usage under Agent insights ([quotas and limits](https://docs.livekit.io/deploy/admin/quotas-and-limits/)). I found no `lk` command that prints the month's inference or telephony totals, so use the dashboard.
 
 ### When an Allowance Runs Out
 
-On the Build plan an exhausted allowance is a hard cap: new requests fail instead of incurring charges. The LiveKit docs don't say what a phone caller hears in that case, so that is unverified. Turn detection and interruption handling fall back to local models; the speech, language, and voice models don't have a documented fallback.
+On Ship, usage past an allowance is billed, so nothing stops. On Build an exhausted allowance is a hard cap: new requests fail instead of incurring charges. The LiveKit docs don't say what a phone caller hears in that case, so that is unverified. Turn detection and interruption handling fall back to local models; the speech, language, and voice models don't have a documented fallback.
 
 ## Privacy
 

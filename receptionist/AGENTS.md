@@ -42,7 +42,7 @@ Voice AI agents are highly sensitive to latency. Design complex agents in a stru
 
 Run `uv run pytest`. The suite has three layers:
 
-- Unit tests for the Cal.com client (`tests/test_calcom.py`), the booking rules (`tests/test_booking.py`), the session cap, and the configuration. They use hand-written fixtures in `tests/fixtures/` and a local test server, never the live Cal.com API.
+- Unit tests for the Cal.com client (`tests/test_calcom.py`), the booking rules (`tests/test_booking.py`), the session cap, the configuration, and call analytics (`tests/test_analytics.py`). They use fixtures in `tests/fixtures/` and a local test server, never the live Cal.com API. The Cal.com booking and error fixtures are real responses captured on 2026-11-06 with every personal value replaced; to refresh one, capture it from the live API, scrub it the same way, and cancel any booking the capture created.
 - Offline session tests (`tests/test_session_wiring.py`) that run the real agent and tools in an `AgentSession` driven by a scripted LLM, so the booking guards are proven inside the SDK without model calls.
 - Behavior tests (`tests/test_behavior.py`) that use LiveKit Inference and an LLM judge. They skip unless `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` are set; run them with `uv run pytest -m behavior`.
 

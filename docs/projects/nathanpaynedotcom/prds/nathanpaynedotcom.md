@@ -11,7 +11,7 @@ generated_by: scripts/project-doc-sync.sh
 do_not_edit: true
 source_repo: nathanjohnpayne/docs
 source_path: projects/nathanpaynedotcom/prds/nathanpaynedotcom.md
-source_ref: 785ca7211dac2fedf8719c015d927aa9c3aaaa3a
+source_ref: 33bc62c3fd2baf94a37153b85b46c34be556ca55
 project: nathanpaynedotcom
 document_class: prd
 document_slug: nathanpaynedotcom
@@ -22,7 +22,7 @@ sync_direction: central-to-repo
 
 **Author:** Nathan Payne
 **Status:** Approved - living document
-**Last Updated:** 2026-10-05
+**Last Updated:** 2026-11-06
 
 ---
 
@@ -166,6 +166,7 @@ src/
   plugins/
   styles/
 public/
+receptionist/
 tests/
 .github/screenshots/
 screenshots/og/
@@ -208,6 +209,10 @@ must stay in sync from one source file per project.
 
 The resume is a native web page built from content collections and section
 components. It must work as a screen experience and remain print/PDF-sensitive.
+
+### Book and the Phone Receptionist
+
+`/book/` is the site's booking page: it lists the public Cal.com event types and hands off to Cal.com to book (specs/book-page.md). Its last row offers an AI phone receptionist (epic #1561, live since 2026-11-06): a caller dials a LiveKit number, and a voice agent books a 15- or 30-minute phone call through the Cal.com API. The agent lives in `receptionist/` as a separate Python project on LiveKit Cloud, with its own spec (specs/phone-receptionist.md), privacy disclosures (`/privacy/#booking-line`), and anonymous call analytics. The page itself gains only a `tel:` link.
 
 ### 404, RSS, SEO, and Social Metadata
 
@@ -398,6 +403,8 @@ the weights/styles the site actually uses.
 The site should remain static unless a future requirement truly needs runtime
 server behavior. Static output keeps the deployment simple, cacheable, and easy
 for agents to verify locally.
+
+The phone receptionist doesn't change this: it runs on LiveKit Cloud, outside the site build and deploy, and the site only links to its number.
 
 ### Prefer Structured Content
 

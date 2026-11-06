@@ -2,6 +2,12 @@ extra_top_level_dirs: [public, receptionist, screenshots, src]
 test_globs: ["tests/**/*.test.*", "tests/**/*.spec.*"]
 generated_dirs: []
 spec_test_map:
+  phone-receptionist:
+    - receptionist/tests/test_agent.py
+    - receptionist/tests/test_booking.py
+    - receptionist/tests/test_calcom.py
+    - receptionist/tests/test_analytics.py
+    - receptionist/tests/test_session_cap.py
   book-page: tests/book.test.js
   brand-page: tests/brand.test.js
   how-i-write: tests/how-i-write.test.js
