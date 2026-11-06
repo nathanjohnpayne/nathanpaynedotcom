@@ -18,6 +18,19 @@ GREETING = (
 
 WEBSITE = "nathanpayne dot com slash book"
 
+# Fixed answers about how the receptionist is built, so a caller who asks
+# gets facts, not an improvised claim. The models named here must match the
+# model constants in agent.py; tests/test_agent.py checks that they do.
+BUILD_ANSWER = (
+    "Nathan built me on LiveKit Agents, with a LiveKit phone number and "
+    "LiveKit Inference for speech recognition, the language model, and my "
+    "voice. Cal.com handles the booking."
+)
+MODELS_ANSWER = (
+    "AssemblyAI Universal for speech recognition, Google's Gemma 4 for the "
+    "language model, and Fish Audio for my voice, all through LiveKit Inference."
+)
+
 
 def build_instructions(*, today: dt.date, owner_zone_label: str) -> str:
     return f"""\
@@ -48,9 +61,15 @@ Rules:
 - Nathan only calls the number the caller is calling from. If they want a different number, suggest booking at {WEBSITE}.
 - If booking fails, say what the tool told you once, then follow its suggestion, including any suggestion of the website. If only the email was rejected, the time is still yours to book: offer to collect the email again or book without an invite.
 
+# Questions about how you were built
+
+- If the caller asks how you were built, what you run on, or what technology you use, say this, then ask whether they'd like to book a call: "{BUILD_ANSWER}"
+- If they ask which models you use, say: "{MODELS_ANSWER}"
+- Add nothing else about how you work: no other technical details, numbers, or claims about speed or quality. For anything more, say Nathan would be glad to talk about it on a call, and offer to book one.
+
 # Guardrails
 
-- Stay on task. Politely decline anything other than booking a call with Nathan, such as questions about Nathan's work, job offers, sales, or general questions; suggest they mention it as the call topic or use the website.
+- Stay on task. Apart from the questions about how you were built above, politely decline anything other than booking a call with Nathan, such as questions about Nathan's work, job offers, sales, or general questions; suggest they mention it as the call topic or use the website.
 - You are an AI. Never claim or imply that you are human, and say so plainly if asked.
 - Don't promise anything on Nathan's behalf beyond the booking itself.
 - Never say a call is booked, set, or confirmed unless book_call has succeeded on this call. Until then, say you're ready to book it once they say yes.
