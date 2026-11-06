@@ -295,6 +295,7 @@ describe('PostHog', () => {
       21: 'twenty-one',
       22: 'twenty-two',
       23: 'twenty-three',
+      24: 'twenty-four',
     };
     const expected = words[rowCount];
     expect(expected, `no spelling on file for ${rowCount} — extend the map`).toBeDefined();
@@ -347,6 +348,9 @@ describe('PostHog', () => {
     // specs/book-page.md requirement 11 says what it carries.
     expect(bookPageSrc).toContain(`capture('booking_event_type_clicked'`);
     expect(bookPageSrc).toContain('event_type: link.dataset.eventType');
+    // The phone row's event (#1567): the link position, never the number.
+    expect(bookPageSrc).toContain(`capture('booking_phone_clicked'`);
+    expect(bookPageSrc).toContain('link: link.dataset.phoneLink');
   });
 
   it('keeps the resume PDF download on its own event name', () => {

@@ -25,7 +25,7 @@ title: Book Page
 
 ### Metadata and copy owners
 
-7. Descriptive copy is owned by `src/content/site-copy/book.md` (specs/seo-metadata.md § Descriptive Copy Owners): `description` is the meta description and the `CollectionPage` JSON-LD description; `ogDescription` is the og and twitter description, the hero deck, and the share card's line. The headline is `BOOK_TITLE` in `src/lib/booking.ts`, read by the `<h1>`, the breadcrumb, the `ItemList` name and the share card.
+7. Descriptive copy is owned by `src/content/site-copy/book.md` (specs/seo-metadata.md § Descriptive Copy Owners): `description` is the meta description and the `CollectionPage` JSON-LD description; `ogDescription` is the og and twitter description, the hero deck, and the share card's line; `phoneKicker`, `phoneTitle`, `phoneDescription` and `phoneButton` are the phone row's copy (item 12). The headline is `BOOK_TITLE` in `src/lib/booking.ts`, read by the `<h1>`, the breadcrumb, the `ItemList` name and the share card.
 8. JSON-LD carries a `CollectionPage` whose `mainEntity` is an `ItemList` of the cards in order, each `ListItem.item` a `WebPage` with the booking URL, title and description, and a `BreadcrumbList` (Nathan Payne → Book time).
 9. The share card is `src/pages/og-templates/book.astro`, rendered to `og/book.png` by the build with its own alt text (specs/seo-metadata.md § OG image targets).
 10. The route has no reliable content date, so the sitemap entry carries no `lastmod` (specs/seo-metadata.md § Sitemap).
@@ -33,6 +33,12 @@ title: Book Page
 ### Analytics
 
 11. A click on either link of a card captures `booking_event_type_clicked` with the event type's slug as `event_type` (specs/analytics.md § Events), through the same optional `window.posthog` contract as every other page event, so the links work with analytics off or absent.
+
+### The phone row
+
+12. After the event-type cards, one more row from the same geometry (`getIndexGridRow(eventTypes.length)`, mobile rail `eventTypes.length + 1`; the closing band and footer follow at `+ 2` and `+ 3`) offers the phone receptionist (#1561, #1567). It reads like a card (kicker, title, description) and differs only in its action: a `.nav-button` with the Lucide `phone` icon (`NavIcon`) in place of "Pick a time", at least 44 px tall. It is not a Cal.com event type, so it is not in the `booking` collection and not in the JSON-LD `ItemList`, and the hidden Cal.com event type behind it is never named on the page (item 3).
+13. Its number is `RECEPTIONIST_PHONE` in `src/lib/booking.ts` and nowhere else: the title and the button are the only two links to it, both plain `tel:` hrefs equal to `RECEPTIONIST_PHONE.e164`, and the button label's digits are `RECEPTIONIST_PHONE.display`. Its kicker, title, description and button label (with a `{number}` placeholder) are owned by `src/content/site-copy/book.md` (item 7). Nothing loads for it: a `tel:` link is not a request, so item 5 still holds.
+14. A click on either `tel:` link captures `booking_phone_clicked` with `link` set to `title` or `button` (specs/analytics.md § Events), through the same optional `window.posthog` contract as item 11, so both links dial with analytics off or absent.
 
 ## Keeping it current
 

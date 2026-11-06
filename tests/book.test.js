@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { getMobileRail } from '../src/lib/index-grid';
 import { parseFrontmatter } from '../scripts/lib/parse-frontmatter.mjs';
 import { DIST, readBuiltPage, writeSanitizedDOM } from './helpers/dom.js';
 import {
@@ -8,6 +9,7 @@ import {
   BOOK_TITLE,
   CAL_PROFILE_URL,
   CAL_USERNAME,
+  RECEPTIONIST_PHONE,
   bookingUrl,
   formatDurations,
 } from '../src/lib/booking';
@@ -55,6 +57,11 @@ const entries = readdirSync(BOOKING_DIR)
  * both places.
  */
 const PUBLIC_SLUGS = ['quick-intro', 'real-conversation', 'in-person'];
+
+/** The page's owned copy, including the phone row's (site-copy/book.md). */
+const siteCopy = parseFrontmatter(
+  readFileSync(resolve(ROOT, 'src/content/site-copy/book.md'), 'utf-8'),
+);
 
 const text = (el) => el.textContent.replace(/\s+/g, ' ').trim();
 
@@ -120,7 +127,8 @@ describe('/book/ (specs/book-page.md)', () => {
   });
 
   it('renders one card per entry, in order, from the entry', () => {
-    const cards = [...document.querySelectorAll('.book-card')];
+    // The phone row is a card in look only, and is covered below.
+    const cards = [...document.querySelectorAll('.book-card:not(.book-call-card)')];
     expect(cards.length).toBe(entries.length);
     cards.forEach((card, i) => {
       const entry = entries[i];
@@ -136,6 +144,65 @@ describe('/book/ (specs/book-page.md)', () => {
       expect(tag.getAttribute('href'), entry.file).toBe(url);
       expect(text(tag), entry.file).toMatch(/^Pick a time/);
     });
+  });
+
+  it('renders the phone row after the cards, as a card with a call button', () => {
+    const rows = [...document.querySelectorAll('.book-grid > div[data-rail]')];
+    const phoneRow = document.querySelector('.book-call-card').closest('.book-grid > div');
+    // Cards first, then the phone row, then the closing band, and nothing else.
+    expect(rows.indexOf(phoneRow)).toBe(entries.length);
+    expect(rows[entries.length + 1].classList.contains('grid-row--book-note')).toBe(true);
+    expect(rows.length).toBe(entries.length + 2);
+    // The phone row is a card in look only: the collection's cards are the others.
+    expect(document.querySelectorAll('.book-card').length).toBe(entries.length + 1);
+    const card = phoneRow.querySelector('.book-call-card');
+    expect(text(card.querySelector('.post-meta'))).toBe(siteCopy.phoneKicker);
+    expect(text(card.querySelector('.post-title a'))).toBe(siteCopy.phoneTitle);
+    expect(text(card.querySelector('.post-desc'))).toBe(siteCopy.phoneDescription);
+    const button = card.querySelector('.tag-row a.nav-button');
+    expect(text(button)).toBe(siteCopy.phoneButton.replace('{number}', RECEPTIONIST_PHONE.display));
+    expect(button.querySelector('svg.nav-icon'), 'the call button lost its icon').not.toBeNull();
+  });
+
+  it('links the number only as two tel: hrefs, both in the phone row', () => {
+    const tel = `tel:${RECEPTIONIST_PHONE.e164}`;
+    const phoneRow = document.querySelector('.book-call-card').closest('.book-grid > div');
+    // Every tel: link on the page is the receptionist's, and there are two.
+    const allTel = [...document.querySelectorAll('a[href^="tel:"]')];
+    expect(allTel.map((a) => a.getAttribute('href'))).toEqual([tel, tel]);
+    const inRow = [...phoneRow.querySelectorAll('a[href^="tel:"]')];
+    expect(inRow.length).toBe(2);
+    expect(inRow.map((a) => a.getAttribute('data-phone-link'))).toEqual(['title', 'button']);
+    // The E.164 form appears nowhere but those two hrefs: not in prose, the
+    // JSON-LD or a script. The display form appears once, in the button label.
+    expect(raw.split(RECEPTIONIST_PHONE.e164).length - 1).toBe(2);
+    expect(raw.split(RECEPTIONIST_PHONE.display).length - 1).toBe(1);
+    // Control: the count above can see a number when one is there.
+    expect(`call ${RECEPTIONIST_PHONE.e164} now`.split(RECEPTIONIST_PHONE.e164).length - 1).toBe(1);
+  });
+
+  it('keeps the phone row out of the JSON-LD ItemList', () => {
+    const graph = JSON.parse(
+      document.querySelector('script[type="application/ld+json"]').textContent,
+    )['@graph'];
+    const list = graph.find((n) => n['@type'] === 'ItemList');
+    expect(list.itemListElement.length).toBe(entries.length);
+    const ld = JSON.stringify(graph);
+    expect(ld).not.toContain('tel:');
+    expect(ld).not.toContain(siteCopy.phoneTitle);
+  });
+
+  it('sequences the mobile rails: cards, phone row, band, footer', () => {
+    const rails = [...document.querySelectorAll('.book-grid > div[data-rail]')].map((el) =>
+      el.getAttribute('data-rail'),
+    );
+    const footer = document.querySelector('.site-footer').getAttribute('data-rail');
+    const expected = Array.from({ length: entries.length + 3 }, (_, i) =>
+      getMobileRail('red', i + 1),
+    );
+    expect([...rails, footer]).toEqual(expected);
+    // Control: the sequence is not constant, so a shifted rail would show.
+    expect(new Set(expected).size).toBeGreaterThan(1);
   });
 
   it('opens every Cal.com link in a new tab with rel="noopener", as a plain href', () => {

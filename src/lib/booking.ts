@@ -28,6 +28,25 @@ export const BOOK_PAGE_PATH = '/book/';
  */
 export const BOOK_TITLE = 'Book time';
 
+/**
+ * The phone receptionist's number (#1567): `e164` for `tel:` hrefs, `display`
+ * for the label beside it. The single source: no template, copy file or test
+ * retypes the digits. The receptionist is not a Cal.com event type, so none of
+ * this belongs in the `booking` collection (specs/book-page.md item 12).
+ */
+export const RECEPTIONIST_PHONE = {
+  e164: '+14154176465',
+  display: '(415) 417-6465',
+} as const;
+
+/** The `tel:` href for the receptionist. */
+export const RECEPTIONIST_TEL_HREF = `tel:${RECEPTIONIST_PHONE.e164}`;
+
+/** Fills the call button copy's `{number}` placeholder with the display number. */
+export function fillPhoneNumber(template: string): string {
+  return template.replace(/\{number\}/g, RECEPTIONIST_PHONE.display);
+}
+
 /** The booking page for one event type: the profile URL plus the event slug. */
 export function bookingUrl(slug: string): string {
   return `${CAL_PROFILE_URL}/${slug}`;
