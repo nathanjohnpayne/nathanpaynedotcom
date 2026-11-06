@@ -160,19 +160,55 @@ Sources for this section: the agent code at commit `5c8b4698`; the owner's read 
 4. The caller's audio passes through ai-coustics background noise suppression (`QUAIL_L`), then through LiveKit Inference to the speech-to-text model and the turn detector. The text goes to the LLM, and the agent's replies go to the text-to-speech model (`receptionist/src/agent.py`).
 5. To book, the agent asks Cal.com for open times, asks for a name and an optional topic, and asks for an email address only if the caller wants a calendar invite, spelling it back for a yes. It reads the booking back, which includes the last four digits of the caller's number, and books through Cal.com's API v2 with the caller-ID number (`receptionist/src/booking.py`, `receptionist/src/calcom.py`).
 6. Traces and logs stream to LiveKit Cloud during the call, and the transcript is uploaded after it ends (LiveKit Agent insights docs, "Ingestion timing").
+7. Added 2026-11-06 (#1573): when the agent has a PostHog project token (the `POSTHOG_PROJECT_TOKEN` agent secret), it sends call events to this site's PostHog project, 469428, from LiveKit Cloud through PostHog's Python SDK (`receptionist/src/analytics.py`). See the PostHog row under [Recipients](#recipients). Nothing goes to GA4 or any other analytics tool.
 
-Calls send nothing to PostHog, GA4, or any other analytics tool today. #1573 is to add anonymous call events and will extend this section when it does.
+The website's analytics opt-out can't reach these events, because the agent has no way to know a caller's browser setting. So the events are limited to what the allowlist below permits, and the copy on `/privacy/` lists what they leave out rather than calling them anonymous (PRIV-11).
 
 ### Recipients
 
 | Recipient | What It Receives | Retention | Source |
 |---|---|---|---|
 | LiveKit Cloud, agent observability (Agent insights) | **Transcript:** each turn of the call, so whatever the caller says, including their name, the topic, and an invite email address as the agent spells it back, with the agent's tool calls on the same timeline. **Traces and logs:** the caller's phone number, as the SIP participant identity, and the room name. **No audio:** the session passes `record={"audio": False}`. **PII redaction is off,** so all of it is stored unredacted. Only project admins can read it; LiveKit support can see a session only if the owner shares it (support is offered on the Ship plan and above). | deleted 30 days after the session ends, LiveKit's default; an admin can download a session before then. Runtime-log retention is the same window (LiveKit log docs) | observability read: Agent observability on; PII redaction off, every category "0 of N"; `receptionist/src/agent.py` (`record`); deployed agent's logs; LiveKit session recording options and Agent insights docs (Permissions, Retention window, PII redaction) |
-| LiveKit Cloud, runtime logs outside a session | what the agent server prints, which `lk agent logs` tails with a short snapshot of recent lines. No log drain is configured: the agent's only secrets are `CAL_API_KEY`, `CAL_EVENT_TYPE_ID`, and `OWNER_TIMEZONE`, and a drain needs its own secret | not documented for the tail and its snapshot; **not verified** (Nathan to Verify item 21) | `lk agent secrets`, 2026-11-05; LiveKit log docs |
+| LiveKit Cloud, runtime logs outside a session | what the agent server prints, which `lk agent logs` tails with a short snapshot of recent lines. No log drain is configured: on 2026-11-05 the agent's only secrets were `CAL_API_KEY`, `CAL_EVENT_TYPE_ID`, and `OWNER_TIMEZONE`; #1573 adds `POSTHOG_PROJECT_TOKEN`, `OWNER_PHONE`, and an optional `POSTHOG_HOST`. None of them configures a drain, which needs its own secret | not documented for the tail and its snapshot; **not verified** (Nathan to Verify item 21) | `lk agent secrets`, 2026-11-05; LiveKit log docs |
 | LiveKit Cloud, Telephony call log and session views | the Telephony dashboard lists calls on a Calls page, and each session has Session analytics and Session events views (participants joining and leaving), which LiveKit documents as present for every session and visible to every project role. Which fields they hold, including whether they show the caller's number, was not read | **not verified** (Nathan to Verify item 21) | owner's dashboard; LiveKit Agent insights docs ("Agent insights compared to the other session views") |
 | LiveKit Inference model providers | the caller's audio, sent to AssemblyAI Universal 3.6 Pro (speech-to-text) and LiveKit's turn detector; the conversation text, sent to Gemma 4 31B (the LLM), an open-weight Google model that LiveKit states it serves on its own infrastructure; and the agent's replies, sent to Fish Audio S2.1 Pro (text-to-speech) | none, per LiveKit: Inference is zero data retention on every plan, and "neither LiveKit nor the underlying model providers log, store, or train on your data." This is LiveKit's statement, not independently verified; the providers' own terms were not read | `receptionist/src/agent.py` (`STT_MODEL`, `LLM_MODEL`, `TTS_MODEL`, `inference.TurnDetector`); LiveKit Inference docs (Zero data retention, models) |
 | ai-coustics noise suppression | the caller's audio, before speech-to-text | LiveKit documents the model as included with LiveKit Cloud and metered through it, and does not say whether audio leaves the agent for it; **not verified** (Nathan to Verify item 22) | `receptionist/src/agent.py`; LiveKit noise cancellation docs |
+| PostHog, project 469428 (added 2026-11-06, #1573) | from LiveKit Cloud, through PostHog's Python SDK, only when the `POSTHOG_PROJECT_TOKEN` agent secret is set: the call events in [PostHog Call Events](#posthog-call-events-1573), each with a random per-call ID and no caller details. A public call makes no person profile; an owner test call makes one whose only property is the internal flag | the PostHog events period under [Retention](#retention) | `receptionist/src/analytics.py`; `tests/test_analytics.py`; events read in project 469428 on 2026-11-06 |
 | Cal.com | through API v2, from LiveKit Cloud: the caller's name, the caller-ID phone number, their time zone, and, only if given, the topic and an email address for the invite. Without an email address, the booking carries a Cal.com placeholder, `<digits>@sms.cal.com` (observed live, #1565). Cal.com stores the booking like any other booking on the account, writes it to the account's destination calendar, which is Google Calendar (the event type's API record names no separate destination), and, only when the caller gave an email address, emails them the invite and any reminders | kept on the account like any other booking; Cal.com's own retention, and whether it sends anything to the placeholder address or the phone number, **not verified** (Nathan to Verify item 23) | `receptionist/src/calcom.py`; Cal.com read; `receptionist/README.md` § Booking Rules |
+
+#### PostHog Call Events (#1573)
+
+The allowlist is `EVENT_PROPERTIES` in `receptionist/src/analytics.py`. An event or property not in it, or a value of the wrong type, drops the whole event, and a `before_send` hook then strips every property the SDK adds except its own markers, so the server's operating system and Python version are not sent either (`tests/test_analytics.py`, which runs the real SDK up to the wire).
+
+| Event | Properties |
+|---|---|
+| `receptionist_call_started` | `caller_id_present` |
+| `receptionist_slots_offered` | `duration_minutes`, `slot_count`, `day_requested` |
+| `receptionist_booking_reviewed` | `duration_minutes`, `invite_requested` |
+| `receptionist_booking_created` | `duration_minutes`, `invite_requested`, `email_kept` |
+| `receptionist_booking_failed` | `reason`: one of `slot_taken`, `limit`, `window`, `email_rejected`, `unconfirmed`, `unavailable`, `other` |
+| `receptionist_call_ended` | `duration_seconds`, `booked`, `ended_by`: one of `caller`, `agent`, `cap`, `error`, `other` |
+
+- **Every event also carries:**
+  - `call_id`, a random UUID4 made for the call, which is also its `distinct_id`;
+  - `$raw_user_agent: nathanpayne-receptionist/1.0`, which names the agent;
+  - `$geoip_disable: true`;
+  - the SDK's `$lib`, `$lib_version`, and `$is_server`.
+- **The user agent is there for a reason:** PostHog classifies an event with no user agent as a bot (`isLikelyBot('')` is true in this project), and the project's default filter drops bots, so the events would be hidden from default views. Checked 2026-11-06: `$virt_is_bot` is false on these events, and they pass the project's `$host` filters.
+- **Never sent:**
+  - the caller's number, not even hashed;
+  - their name, email address, or topic;
+  - the transcript;
+  - the Cal.com booking UID;
+  - the room name;
+  - the caller's time zone.
+
+  The test suite checks every event of a full booked call for each of these, against a known positive.
+- **Person profiles:**
+  - A public call makes none (`$process_person_profile: false`), and GeoIP is off, since the request comes from LiveKit Cloud, not the caller. On 2026-11-06 the events showed no GeoIP properties.
+  - The owner's test calls are the one exception. A call whose caller ID matches the `OWNER_PHONE` agent secret, and any console session, makes a one-off person whose only property is `$internal_or_test_user: true`, through `$set`. That puts it in the internal cohort (360946), which the project's default test-account filter excludes. The comparison happens in the agent, and the number is not sent.
+- **Retention:** the PostHog events period under [Retention](#retention), the same as the site's other events. The one-off test-call persons follow the PostHog person-profile row there.
+- **Turning it off:** remove the `POSTHOG_PROJECT_TOKEN` agent secret, and the agent sends nothing (`receptionist/README.md` § Call Analytics).
 
 The hidden phone event type is never entered in `src/content/booking/`, and its slug is not written in this repository (specs/book-page.md item 3).
 

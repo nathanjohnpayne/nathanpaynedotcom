@@ -46,3 +46,35 @@ def test_owner_timezone_is_validated():
     )
     with pytest.raises(ConfigError, match="OWNER_TIMEZONE"):
         Settings.from_env({**BASE, "OWNER_TIMEZONE": "Pacific"})
+
+
+def test_analytics_settings_default_to_off():
+    settings = Settings.from_env(BASE)
+    assert settings.posthog_project_token is None
+    assert settings.posthog_host == "https://us.i.posthog.com"
+    assert settings.owner_phone is None
+
+
+def test_analytics_settings_are_read():
+    settings = Settings.from_env(
+        {
+            **BASE,
+            "POSTHOG_PROJECT_TOKEN": " phc_test ",
+            "POSTHOG_HOST": "https://eu.i.posthog.com",
+            "OWNER_PHONE": "+15555550100",
+        }
+    )
+    assert settings.posthog_project_token == "phc_test"
+    assert settings.posthog_host == "https://eu.i.posthog.com"
+    assert settings.owner_phone == "+15555550100"
+
+
+def test_a_malformed_owner_phone_fails_without_echoing_it():
+    with pytest.raises(ConfigError, match="OWNER_PHONE") as caught:
+        Settings.from_env({**BASE, "OWNER_PHONE": "555-0100"})
+    assert "555-0100" not in str(caught.value)
+
+
+def test_posthog_host_must_be_https():
+    with pytest.raises(ConfigError, match="POSTHOG_HOST"):
+        Settings.from_env({**BASE, "POSTHOG_HOST": "http://us.i.posthog.com"})

@@ -12,6 +12,7 @@ dependencies = [
     "aiohttp>=3.14.3",
     "livekit-agents~=1.8",
     "livekit-plugins-ai-coustics~=0.3",
+    "posthog>=7.84.1",
     "python-dotenv",
     "tzdata>=2026.6",
 ]

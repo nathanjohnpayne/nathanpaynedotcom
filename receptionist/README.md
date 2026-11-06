@@ -156,6 +156,37 @@ lk number list                      # the SIP Dispatch Rules column must show SD
 
 A LiveKit phone number routes calls only to a rule assigned to it ([testing your telephony setup](https://docs.livekit.io/telephony/testing/)). The documented CLI assignment, `lk number update --id PN_PPN_wUSnKQ2hfeNU --sip-dispatch-rule-id <rule>`, failed every time on 2026-11-05 with `twirp error invalid_argument: Failed to update phone number`, on CLI 2.19.3, for both individual and callee rules. Assign the rule in the dashboard instead: Telephony, then Phone numbers, then the number's **â‹®** menu, **Configure with existing dispatch rules**, then pick the rule and save. The number is ID `PN_PPN_wUSnKQ2hfeNU`, the 415 number ending in 6465. If you ever replace the rule, assign the new one the same way, or calls stop reaching the agent.
 
+### Call Analytics
+
+The agent sends call events to the website's PostHog project (469428), so a funnel can show calls turning into bookings next to the site's own booking clicks (#1573). The code is `src/analytics.py`:
+
+| Event | When | Properties |
+| --- | --- | --- |
+| `receptionist_call_started` | the agent picks up | `caller_id_present` |
+| `receptionist_slots_offered` | `list_available_slots` returns times | `duration_minutes`, `slot_count`, `day_requested` |
+| `receptionist_booking_reviewed` | `review_booking` succeeds | `duration_minutes`, `invite_requested` |
+| `receptionist_booking_created` | `book_call` books | `duration_minutes`, `invite_requested`, `email_kept` |
+| `receptionist_booking_failed` | Cal.com refuses or doesn't confirm a booking | `reason` |
+| `receptionist_call_ended` | the session closes | `duration_seconds`, `booked`, `ended_by` |
+
+- **Identity:** each call gets a random UUID4 as its `call_id` and `distinct_id`.
+  - **Public calls** make no PostHog person, and GeoIP is off.
+- **Allowlist:**
+  - Events and properties come from `EVENT_PROPERTIES`. Anything else, or a value of the wrong type, drops the event.
+  - A `before_send` hook strips what the SDK adds, apart from its own markers.
+  - `tests/test_analytics.py` checks that no event carries the caller's number, name, email, topic, or time zone.
+- **User agent:** every event carries `$raw_user_agent: nathanpayne-receptionist/1.0`. PostHog treats an event with no user agent as a bot, and the project's default filter hides bots.
+- **Test calls:**
+  - A call from `OWNER_PHONE` makes a one-off person with only `$internal_or_test_user: true`, which puts it in the internal cohort the project's default filter excludes. A console or Agent Console session does the same.
+  - The number is compared inside the agent and never sent.
+- **Failure:** analytics can't break a call. Capture only queues the event, the SDK sends batches every half second from its own thread, and the flush when a call ends has a 3-second limit. With PostHog unreachable, booking works unchanged; this was checked on 2026-11-06 with `POSTHOG_HOST` pointed at an unroutable address.
+
+Its settings are agent secrets. `lk agent update-secrets --secrets KEY=VALUE .` adds or changes one and leaves the others alone; it restarts the agent. To remove one, rerun with `--overwrite` and a secrets file holding every secret to keep, since `--overwrite` replaces them all.
+
+- `POSTHOG_PROJECT_TOKEN`: the site's public project token (the site ships it to every browser). **Remove it to turn analytics off.**
+- `OWNER_PHONE`: your own number, E.164, for test calls. Optional.
+- `POSTHOG_HOST`: optional; defaults to `https://us.i.posthog.com`.
+
 ### Checking Usage
 
 The Build plan allowances in [Free Plan Limits](#free-plan-limits) reset on the first of each month. LiveKit Cloud shows the project's quotas under Settings, then the Project tab, and per-session usage under Agent insights ([quotas and limits](https://docs.livekit.io/deploy/admin/quotas-and-limits/)). I found no `lk` command that prints the month's inference or telephony totals, so use the dashboard.
@@ -171,7 +202,6 @@ The full record, with a source for each claim, is [`docs/privacy/inventory.md` Â
 - **LiveKit Cloud** carries the call. Audio recording is off for every session in code (`record={"audio": False}`), so no audio is kept. The project's agent observability setting is on and PII redaction is off (owner decision, 2026-11-05), so each call's transcript, traces, and logs are uploaded unredacted and kept for LiveKit's default 30 days ([Agent insights](https://docs.livekit.io/testing/observability/insights/#retention-window)). The transcript holds whatever the caller says, including their name, topic, and any invite email address; the logs and traces carry the caller's phone number, as the SIP participant identity. Only project admins can read them. LiveKit Telephony also lists each call; how long it keeps that list isn't verified.
 - **LiveKit Inference** runs the voice pipeline: audio goes to the speech-to-text model (AssemblyAI Universal 3.6 Pro) and the turn detector, the transcript to the LLM (Gemma 4 31B), and the agent's replies to the text-to-speech model (Fish Audio S2.1 Pro). LiveKit states that Inference is [zero data retention](https://docs.livekit.io/agents/models/inference/#zero-data-retention): neither LiveKit nor the model providers log, store, or train on that data.
 - **Cal.com** receives a booking's details: the caller's name, phone number from caller ID, time zone, and, only if given, the topic and an email address for the calendar invite. It keeps the booking like any other on the account, writes it to the account's Google Calendar, and, only if the caller gave an email address, emails them the invite and any reminders. Without an email address, the booking carries a Cal.com placeholder (`<digits>@sms.cal.com`); whether Cal.com sends anything to it, or to the phone number, isn't verified.
-
-Calls send nothing to PostHog or any other analytics tool. The website's analytics opt-out and Global Privacy Control don't apply to a phone call, because nothing links a caller to a browser.
+- **PostHog** receives call events for a calls-to-bookings funnel, only when `POSTHOG_PROJECT_TOKEN` is set: see [Call Analytics](#call-analytics). They carry a random per-call ID and none of the caller's details. Nothing goes to any other analytics tool. The website's analytics opt-out and Global Privacy Control don't apply to a phone call, because nothing links a caller to a browser.
 
 Don't turn on audio recording, and don't change the observability or redaction settings, without updating the greeting, the inventory, and `/privacy/` in the same change.

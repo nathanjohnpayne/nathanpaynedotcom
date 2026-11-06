@@ -21,6 +21,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from livekit.agents import ToolError
 
+from analytics import CallAnalytics, failure_reason
 from calcom import (
     WEBSITE_FALLBACK,
     BookingOutcomeUnknownError,
@@ -238,8 +239,11 @@ class BookingDesk:
         owner_tz: ZoneInfo,
         caller_phone: str | None,
         clock: Callable[[], dt.datetime] | None = None,
+        analytics: CallAnalytics | None = None,
     ) -> None:
         self._calendar = calendar
+        # Anonymous call events (#1573); a disabled one sends nothing.
+        self.analytics = analytics or CallAnalytics()
         self.owner_tz = owner_tz
         self.caller_phone = normalize_phone(caller_phone)
         self._clock = clock or (lambda: dt.datetime.now(dt.UTC))
@@ -358,6 +362,12 @@ class BookingDesk:
         for start_at in picks:
             slot = self._offer(start_at, duration_minutes)
             lines.append(f"{slot.ref}: {self._speak_both(slot.start)}")
+        self.analytics.capture(
+            "receptionist_slots_offered",
+            duration_minutes=duration_minutes,
+            slot_count=len(picks),
+            day_requested=requested is not None,
+        )
         if self.caller_phone is None:
             lines.append(NO_CALLER_ID_MESSAGE)
         return "\n".join(lines)
@@ -422,6 +432,11 @@ class BookingDesk:
         details, slot = self._validate(details)
         self.review = Review(details=details, call_id=call_id)
         assert self.caller_phone is not None  # checked by _validate
+        self.analytics.capture(
+            "receptionist_booking_reviewed",
+            duration_minutes=slot.duration_minutes,
+            invite_requested=details.email is not None,
+        )
         parts = [
             "Read this back to the caller and ask whether to book it:",
             f"when: {self._speak_both(slot.start)}",
@@ -477,6 +492,7 @@ class BookingDesk:
             try:
                 result = await self._calendar.create_booking(request)
             except EmailRejectedError as exc:
+                self._report_failure(exc)
                 # Nothing was booked and the slot is still offered; only the
                 # address has to change, so the caller must hear a new review.
                 domain = (request.email or "").rpartition("@")[2] or "?"
@@ -489,10 +505,12 @@ class BookingDesk:
                     "way, call review_booking again and get a yes before book_call."
                 ) from exc
             except BookingOutcomeUnknownError as exc:
+                self._report_failure(exc)
                 self.unconfirmed = slot
                 self.review = None
                 raise ToolError(exc.spoken) from exc
             except CalComError as exc:
+                self._report_failure(exc)
                 if isinstance(exc, SlotUnavailableError):
                     self.offered.pop(slot.ref, None)
                 raise ToolError(exc.spoken) from exc
@@ -500,6 +518,12 @@ class BookingDesk:
             self.booking = result
             self.booked_details = details
             self.review = None
+            self.analytics.capture(
+                "receptionist_booking_created",
+                duration_minutes=slot.duration_minutes,
+                invite_requested=details.email is not None,
+                email_kept=result.email_kept,
+            )
 
         if not details.email:
             invite = "No calendar invite will be sent."
@@ -516,6 +540,13 @@ class BookingDesk:
             f"Booked. Nathan will call {details.name} on "
             f"{self._speak_both(result.start)} for {slot.duration_minutes} "
             f"minutes, at the number this call came from. {invite}"
+        )
+
+    def _report_failure(self, exc: CalComError) -> None:
+        # Only Cal.com's outcome counts, as a fixed reason label; a guard
+        # refusal in _validate is the model being corrected, not a failure.
+        self.analytics.capture(
+            "receptionist_booking_failed", reason=failure_reason(exc)
         )
 
     def set_email(self, email: str) -> str:

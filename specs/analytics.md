@@ -92,6 +92,23 @@ may be removed later without affecting the other.
 | `ai_use_link_clicked` | Click on an `.ai-use-link` (`a[data-ai-use-surface]`) at the top of a post or case study (#1511). One delegated listener in `LinkAnalytics.astro`, rendered by `BaseLayout.astro`, reads the `data-ai-use-*` attributes `AiUseLink.astro` emits | `surface` (`blog-panel`, `blog-header`, `project-actions`), `title` (the piece's own title), `kind` (`blog`, `project`) |
 | `how_i_write_link_clicked` | Click on a link to `/how-i-write/` (`a[data-how-i-write-source]`): the footer icon, the homepage Connect line, the 404, and the "More about how I write" link in the piece's "How this was written" block (#1511). Same delegated listener, reading `data-how-i-write-*` from `HowIWriteLink.astro` and `AiUseNote.astro` | `source` (`ai-use-note`, `footer`, `homepage`, `404`); `title` and `kind` (`blog`, `project`) only when `source` is `ai-use-note` |
 
+### Phone Receptionist Events (#1573)
+
+The phone receptionist (`receptionist/`) sends its own events to the same project from LiveKit Cloud, through PostHog's Python SDK, not from a page. They are not in the table above, since no page fires them, and the website's analytics gate and opt-out don't apply to them. The event and property allowlist is `EVENT_PROPERTIES` in `receptionist/src/analytics.py`. `receptionist/README.md` § Call Analytics is the runbook, and `docs/privacy/inventory.md` § PostHog Call Events is the privacy record.
+
+| Event | When | Properties |
+|---|---|---|
+| `receptionist_call_started` | The agent picks up a call | `caller_id_present` |
+| `receptionist_slots_offered` | `list_available_slots` returns at least one time | `duration_minutes`, `slot_count`, `day_requested` |
+| `receptionist_booking_reviewed` | `review_booking` succeeds | `duration_minutes`, `invite_requested` |
+| `receptionist_booking_created` | `book_call` books on Cal.com | `duration_minutes`, `invite_requested`, `email_kept` (null without an invite) |
+| `receptionist_booking_failed` | Cal.com refuses or doesn't confirm a booking. A guard refusal, such as booking before a read-back, isn't counted | `reason` (`slot_taken`, `limit`, `window`, `email_rejected`, `unconfirmed`, `unavailable`, `other`) |
+| `receptionist_call_ended` | The session closes, or the job shuts down first | `duration_seconds`, `booked`, `ended_by` (`caller`, `agent`, `cap`, `error`, `other`) |
+
+1. Every event's `distinct_id` is the call's `call_id`, a random UUID4. A public call makes no person, and GeoIP is off.
+2. Every event carries `$raw_user_agent: nathanpayne-receptionist/1.0`, so PostHog's bot classification, which flags an empty user agent, doesn't hide calls behind the project's `$virt_is_bot` test filter.
+3. An owner test call (caller ID equal to `OWNER_PHONE`, or a console session) sets `$internal_or_test_user: true` on a one-off person, so the internal cohort and the default test-account filter exclude it.
+
 ### Behavior
 
 1. `homepage_panel_opened` is deduped against the last captured panel. Because
