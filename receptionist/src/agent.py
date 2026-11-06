@@ -18,6 +18,8 @@ from livekit.agents import (
     Agent,
     AgentServer,
     AgentSession,
+    CloseEvent,
+    CloseReason,
     JobContext,
     RunContext,
     STTContextOptions,
@@ -31,6 +33,7 @@ from livekit.agents.beta.tools import EndCallTool
 from livekit.agents.beta.workflows import GetEmailTask
 from livekit.plugins import ai_coustics
 
+from analytics import CallAnalytics, PostHogSink
 from booking import BookingDesk, BookingDetails, normalize_phone, zone_label
 from calcom import CalComClient
 from config import ConfigError, Settings
@@ -203,6 +206,48 @@ def caller_phone_for(
     return normalize_phone(dev_caller_phone)
 
 
+def is_internal_call(
+    *, is_sip: bool, caller_phone: str | None, owner_phone: str | None
+) -> bool:
+    """Whether analytics should mark this call as the owner's own test.
+
+    A session with no SIP caller (console mode, the browser Agent Console) is
+    always the owner testing. A phone call counts only when caller ID matches
+    OWNER_PHONE; the comparison happens here and only the answer is sent.
+    """
+    if not is_sip:
+        return True
+    return owner_phone is not None and caller_phone == owner_phone
+
+
+def ended_by_for(reason: CloseReason, *, cap_hung_up: bool) -> str:
+    """Who ended the call, for the call_ended event."""
+    if cap_hung_up:
+        return "cap"
+    if reason == CloseReason.PARTICIPANT_DISCONNECTED:
+        return "caller"
+    # EndCallTool and the session cap both end the session with
+    # session.shutdown(), which closes as USER_INITIATED; the cap is caught
+    # above by its own flag, so this is the agent's goodbye.
+    if reason == CloseReason.USER_INITIATED:
+        return "agent"
+    if reason == CloseReason.ERROR:
+        return "error"
+    return "other"
+
+
+def build_analytics(settings: Settings, *, internal: bool) -> CallAnalytics:
+    """A call's analytics: off without a token, and never fatal to the call."""
+    if not settings.posthog_project_token:
+        return CallAnalytics(internal=internal)
+    try:
+        sink = PostHogSink(settings.posthog_project_token, host=settings.posthog_host)
+    except Exception:
+        logger.exception("analytics: PostHog client failed to start; analytics off")
+        return CallAnalytics(internal=internal)
+    return CallAnalytics(sink, internal=internal)
+
+
 server = AgentServer()
 
 
@@ -212,6 +257,7 @@ async def receptionist(ctx: JobContext) -> None:
     ctx.log_context_fields = {"room": ctx.room.name}
 
     participant_identity: str | None = None
+    is_sip = False
     if ctx.is_fake_job():
         # Console mode has no room participants to wait for.
         caller_phone = caller_phone_for(
@@ -220,12 +266,21 @@ async def receptionist(ctx: JobContext) -> None:
     else:
         participant = await ctx.wait_for_participant()
         participant_identity = participant.identity
+        is_sip = participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_SIP
         caller_phone = caller_phone_for(
-            is_sip=participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_SIP,
+            is_sip=is_sip,
             attributes=participant.attributes,
             dev_caller_phone=settings.dev_caller_phone,
         )
     logger.info("caller id %s", "present" if caller_phone else "absent")
+
+    analytics = build_analytics(
+        settings,
+        internal=is_internal_call(
+            is_sip=is_sip, caller_phone=caller_phone, owner_phone=settings.owner_phone
+        ),
+    )
+    analytics.call_started(caller_id_present=caller_phone is not None)
 
     calendar = CalComClient(
         api_key=settings.cal_api_key, event_type_id=settings.cal_event_type_id
@@ -234,6 +289,7 @@ async def receptionist(ctx: JobContext) -> None:
         calendar=calendar,
         owner_tz=settings.owner_timezone,
         caller_phone=caller_phone,
+        analytics=analytics,
     )
 
     session = AgentSession[BookingDesk](
@@ -262,12 +318,35 @@ async def receptionist(ctx: JobContext) -> None:
             tool_choice="none",
         )
 
+    cap_hung_up = False
+
     async def hang_up() -> None:
+        nonlocal cap_hung_up
+        cap_hung_up = True
         session.shutdown(drain=False)
         await ctx.delete_room()
 
     cap = SessionCap(on_goodbye=goodbye, on_hang_up=hang_up)
-    session.on("close", lambda _ev: cap.cancel())
+
+    def on_close(ev: CloseEvent) -> None:
+        cap.cancel()
+        analytics.call_ended(
+            booked=desk.booking is not None,
+            ended_by=ended_by_for(ev.reason, cap_hung_up=cap_hung_up),
+        )
+
+    session.on("close", on_close)
+
+    async def send_analytics() -> None:
+        # If the job ends without a session close event, the call still gets
+        # its last event; call_ended ignores a second call.
+        analytics.call_ended(
+            booked=desk.booking is not None,
+            ended_by="cap" if cap_hung_up else "other",
+        )
+        await analytics.aclose()
+
+    ctx.add_shutdown_callback(send_analytics)
     # The clock starts when the agent picks up, before the greeting.
     cap.start()
 

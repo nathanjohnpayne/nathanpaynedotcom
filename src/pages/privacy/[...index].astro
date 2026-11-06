@@ -61,7 +61,7 @@ const canonical = new URL('/privacy/', Astro.site).href;
 const SETTINGS_DATE = '2026-10-11';
 
 /** The date of the phone receptionist facts (docs/privacy/inventory.md § Phone Booking Line, added 2026-11-05). */
-const PHONE_SETTINGS_DATE = '2026-11-05';
+const PHONE_SETTINGS_DATE = '2026-11-06';
 
 const sections = [
   { id: 'np-privacy-controls', label: 'Your choices' },
@@ -344,7 +344,7 @@ const sections = [
           <li>Mux Data playback data: up to 100 days, per Mux.</li>
           <li>Error-alert issues on GitHub: until the issue is deleted; PostHog's retention does not reach them.</li>
           <li>Firebase Hosting request logs, if exported to Cloud Logging: 30 days by default, per Firebase.</li>
-          <li>Calls to the booking line: LiveKit keeps each call's transcript, logs, and traces, unredacted, for 30 days after the call. The audio isn't recorded.</li>
+          <li>Calls to the booking line: LiveKit keeps each call's transcript, logs, and traces, unredacted, for 30 days after the call. The audio isn't recorded. A call's PostHog events are kept as long as this site's other PostHog events.</li>
           <li>Other retention periods (PostHog visitor profiles, Cloudflare's own logs, LiveKit's list of calls, and Cal.com bookings) are set in each vendor's account, were not verified, and are not stated here.</li>
         </ul>
 
@@ -379,7 +379,9 @@ const sections = [
 
         {/* ── Phone receptionist ───────────────────────────────────────
             Sources: inventory § Phone Booking Line (Data Flow, Recipients,
-            Not Verified) and § Retention, as checked on 2026-11-05 (#1566);
+            Not Verified) and § Retention, as checked on 2026-11-05 (#1566),
+            and the call events added on 2026-11-06 (#1573), whose property
+            allowlist is EVENT_PROPERTIES in receptionist/src/analytics.py;
             the greeting (GREETING in receptionist/src/prompts.py) states the
             same retention, and tests/privacy-ui.test.js checks that they
             agree. The number is published on /book/ (#1567), never here.
@@ -416,6 +418,9 @@ const sections = [
           <li>
             <strong>Cal.com</strong> receives the booking: your name, phone number, and time zone, and, if you gave them, the topic and your email address. It keeps the booking with my other bookings, adds it to my Google Calendar, and, if you gave an email address, emails you the calendar invite and any reminders.
           </li>
+          <li>
+            <strong>PostHog</strong>, the analytics tool this site uses, receives a few events from each call, so I can see how many calls end in a booking: that the call started and whether it had caller ID, how many times were offered and for how long a call, whether a booking was read back, made, or failed (with a short reason, such as the time being taken), whether you asked for a calendar invite, and how long the call lasted and who ended it. The events carry a random ID made for that one call. They don't include your phone number, name, email address, what you said, your time zone, or your location, and PostHog makes no visitor profile for them. My own test calls are marked as tests so they stay out of the counts.
+          </li>
         </ul>
 
         <h3>How long a call is kept</h3>
@@ -427,7 +432,7 @@ const sections = [
 
         <h3>This site's analytics controls</h3>
         <p>
-          The controls on this page and Global Privacy Control don't apply to a call, because nothing links a call to your browser. A call sends nothing to PostHog, Google Analytics, or any other analytics tool.
+          The controls on this page and Global Privacy Control don't apply to a call, because nothing links a call to your browser. A call's PostHog events, described above, are sent whatever the setting here, and they leave out your number, your name, and anything you said. A call sends nothing to Google Analytics or any other analytics tool.
         </p>
 
         <h2 id="contact">Contact</h2>

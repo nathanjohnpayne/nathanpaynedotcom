@@ -46,3 +46,64 @@ def test_owner_timezone_is_validated():
     )
     with pytest.raises(ConfigError, match="OWNER_TIMEZONE"):
         Settings.from_env({**BASE, "OWNER_TIMEZONE": "Pacific"})
+
+
+def test_analytics_settings_default_to_off():
+    settings = Settings.from_env(BASE)
+    assert settings.posthog_project_token is None
+    assert settings.posthog_host == "https://us.i.posthog.com"
+    assert settings.owner_phone is None
+
+
+def test_analytics_settings_are_read():
+    settings = Settings.from_env(
+        {
+            **BASE,
+            "POSTHOG_PROJECT_TOKEN": " phc_test ",
+            "POSTHOG_HOST": "https://eu.i.posthog.com",
+            "OWNER_PHONE": "+15555550100",
+        }
+    )
+    assert settings.posthog_project_token == "phc_test"
+    assert settings.posthog_host == "https://eu.i.posthog.com"
+    assert settings.owner_phone == "+15555550100"
+
+
+def test_a_malformed_owner_phone_turns_analytics_off_without_echoing_it(caplog):
+    # Analytics must never stop the receptionist from starting. A bad owner
+    # number would let the owner's test calls count as real callers, so
+    # analytics go off instead, and the warning names only the setting.
+    settings = Settings.from_env(
+        {**BASE, "POSTHOG_PROJECT_TOKEN": "phc_test", "OWNER_PHONE": "555-0100"}
+    )
+    assert settings.posthog_project_token is None
+    assert settings.owner_phone is None
+    assert "OWNER_PHONE" in caplog.text
+    assert "555-0100" not in caplog.text
+
+
+def test_a_non_https_posthog_host_turns_analytics_off(caplog):
+    settings = Settings.from_env(
+        {
+            **BASE,
+            "POSTHOG_PROJECT_TOKEN": "phc_test",
+            "POSTHOG_HOST": "http://us.i.posthog.com",
+        }
+    )
+    assert settings.posthog_project_token is None
+    assert "POSTHOG_HOST" in caplog.text
+    assert "http://us.i.posthog.com" not in caplog.text
+
+
+def test_valid_analytics_settings_survive_alongside_each_other():
+    settings = Settings.from_env(
+        {
+            **BASE,
+            "POSTHOG_PROJECT_TOKEN": "phc_test",
+            "POSTHOG_HOST": "https://eu.i.posthog.com",
+            "OWNER_PHONE": "+15555550100",
+        }
+    )
+    assert settings.posthog_project_token == "phc_test"
+    assert settings.posthog_host == "https://eu.i.posthog.com"
+    assert settings.owner_phone == "+15555550100"

@@ -144,3 +144,82 @@ def test_the_models_answer_names_the_models_the_agent_runs():
     assert "Google's Gemma 4" in MODELS_ANSWER
     assert TTS_MODEL.startswith("fishaudio/")
     assert "Fish Audio" in MODELS_ANSWER
+
+
+# --- analytics wiring (#1573) -------------------------------------------------
+
+
+def test_a_console_session_is_always_an_internal_test():
+    from agent import is_internal_call
+
+    assert is_internal_call(is_sip=False, caller_phone=None, owner_phone=None)
+
+
+def test_only_the_owners_number_marks_a_phone_call_internal():
+    from agent import is_internal_call
+
+    assert is_internal_call(
+        is_sip=True, caller_phone=CALLER_PHONE, owner_phone=CALLER_PHONE
+    )
+    assert not is_internal_call(
+        is_sip=True, caller_phone=OTHER_PHONE, owner_phone=CALLER_PHONE
+    )
+    assert not is_internal_call(
+        is_sip=True, caller_phone=CALLER_PHONE, owner_phone=None
+    )
+    # A withheld caller ID never matches, even with no owner number set.
+    assert not is_internal_call(is_sip=True, caller_phone=None, owner_phone=None)
+
+
+@pytest.mark.parametrize(
+    ("reason", "cap_hung_up", "expected"),
+    [
+        ("participant_disconnected", False, "caller"),
+        ("user_initiated", False, "agent"),
+        ("user_initiated", True, "cap"),
+        ("participant_disconnected", True, "cap"),
+        ("error", False, "error"),
+        ("job_shutdown", False, "other"),
+        ("task_completed", False, "other"),
+    ],
+)
+def test_who_ended_the_call(reason, cap_hung_up, expected):
+    from livekit.agents import CloseReason
+
+    from agent import ended_by_for
+
+    assert ended_by_for(CloseReason(reason), cap_hung_up=cap_hung_up) == expected
+
+
+BASE_ENV = {"CAL_API_KEY": "cal_test_not_a_real_key", "CAL_EVENT_TYPE_ID": "1000001"}
+
+
+def test_analytics_is_off_without_a_token():
+    from agent import build_analytics
+
+    analytics = build_analytics(Settings.from_env(BASE_ENV), internal=False)
+    assert analytics.enabled is False
+
+
+def test_analytics_is_on_with_a_token(monkeypatch):
+    import agent
+
+    made = []
+    monkeypatch.setattr(
+        agent, "PostHogSink", lambda token, host: made.append((token, host)) or object()
+    )
+    settings = Settings.from_env({**BASE_ENV, "POSTHOG_PROJECT_TOKEN": "phc_test"})
+    analytics = agent.build_analytics(settings, internal=False)
+    assert analytics.enabled is True
+    assert made == [("phc_test", "https://us.i.posthog.com")]
+
+
+def test_a_client_that_fails_to_start_turns_analytics_off(monkeypatch):
+    import agent
+
+    def broken(token, host):
+        raise RuntimeError("no network")
+
+    monkeypatch.setattr(agent, "PostHogSink", broken)
+    settings = Settings.from_env({**BASE_ENV, "POSTHOG_PROJECT_TOKEN": "phc_test"})
+    assert agent.build_analytics(settings, internal=True).enabled is False

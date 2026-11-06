@@ -802,7 +802,7 @@ describe('/privacy/ page and footer link (PRIV-11, PRIV-15)', () => {
     // The section the /book/ phone card links to (#1567), listed in the page's contents.
     expect(PAGE_TEMPLATE).toContain('<h2 id="booking-line">If you call the booking line</h2>');
     expect(PAGE_ASTRO).toContain("{ id: 'booking-line', label: 'Calling the booking line' }");
-    expect(PAGE_ASTRO).toContain("const PHONE_SETTINGS_DATE = '2026-11-05';");
+    expect(PAGE_ASTRO).toContain("const PHONE_SETTINGS_DATE = '2026-11-06';");
     // Every recipient the inventory's Phone Booking Line table names that the
     // page states (ai-coustics stays off the page while it is unverified).
     for (const name of [
@@ -833,10 +833,22 @@ describe('/privacy/ page and footer link (PRIV-11, PRIV-15)', () => {
     expect(PAGE_TEMPLATE).toContain(
       'How long Cal.com keeps it, and how long LiveKit keeps its list of calls, were not verified.',
     );
-    // The site's controls do not reach a call, and calls send no analytics.
+    // The site's controls do not reach a call. A call sends PostHog only the
+    // call events the receptionist's allowlist permits (#1573), named here
+    // by what they leave out, and nothing to any other analytics tool.
     expect(PAGE_TEMPLATE).toContain("Global Privacy Control don't apply to a call");
+    expect(PAGE_TEMPLATE).toContain('The events carry a random ID made for that one call.');
     expect(PAGE_TEMPLATE).toContain(
-      'A call sends nothing to PostHog, Google Analytics, or any other analytics tool.',
+      "They don't include your phone number, name, email address, what you said, your time zone, or your location, and PostHog makes no visitor profile for them.",
+    );
+    expect(PAGE_TEMPLATE).toContain(
+      'A call sends nothing to Google Analytics or any other analytics tool.',
+    );
+    expect(PAGE_TEMPLATE).not.toContain('A call sends nothing to PostHog');
+    // No anonymity claim (PRIV-11): the copy lists what is left out instead.
+    const bookingLine = PAGE_TEMPLATE.slice(PAGE_TEMPLATE.indexOf('id="booking-line"'));
+    expect(bookingLine.slice(0, bookingLine.indexOf('id="contact"'))).not.toMatch(
+      /anonymous|anonymi[sz]/i,
     );
     // The number is published on /book/ by #1567, never on this page, and the
     // hidden phone event type's booking path never appears in the repository's copy.
