@@ -59,11 +59,17 @@ def _tool_params(tool) -> list[str]:
     return [name for name in params if name not in ("self", "context")]
 
 
-def test_booking_tools_take_no_phone_number():
+def test_booking_tools_take_no_phone_number_or_email():
+    # Caller ID supplies the number, and collect_email supplies the invite
+    # address after GetEmailTask confirms it: the model types neither (#1565).
     for tool in (Receptionist.book_call, Receptionist.review_booking):
         params = _tool_params(tool)
-        assert params == ["slot", "duration_minutes", "name", "notes", "email"]
-        assert not any("phone" in p for p in params)
+        assert params == ["slot", "duration_minutes", "name", "notes"]
+        assert not any("phone" in p or "email" in p for p in params)
+
+
+def test_collect_email_takes_no_arguments():
+    assert _tool_params(Receptionist.collect_email) == []
 
 
 def test_list_tool_arguments():

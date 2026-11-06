@@ -26,6 +26,7 @@ from calcom import (
     CalComClient,
     CalComError,
     CalendarUnavailableError,
+    EmailRejectedError,
     SlotUnavailableError,
     build_booking_payload,
     classify_error,
@@ -388,3 +389,17 @@ async def test_booking_that_drops_the_email_logs_a_warning(api, client, caplog):
     assert result.uid  # the booking itself still stands
     assert "dropped the attendee email" in caplog.text
     assert "alex@example.org" not in caplog.text  # no PII in the log
+
+
+def test_undeliverable_email_is_its_own_error():
+    # The exact body Cal.com returned on 2026-11-05.
+    body = {
+        "status": "error",
+        "error": {
+            "code": "BadRequestException",
+            "message": "This email address cannot receive mail. Please use a valid email.",
+        },
+    }
+    error = classify_error(400, body)
+    assert isinstance(error, EmailRejectedError)
+    assert error.status == 400

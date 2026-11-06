@@ -27,7 +27,12 @@ from booking import (
     speak_when,
     user_replied_after,
 )
-from calcom import BookingLimitError, BookingOutcomeUnknownError, SlotUnavailableError
+from calcom import (
+    BookingLimitError,
+    BookingOutcomeUnknownError,
+    EmailRejectedError,
+    SlotUnavailableError,
+)
 
 # Thursday, September 1, 2033, noon Pacific.
 NOW = dt.datetime(2033, 9, 1, 12, 0, tzinfo=PACIFIC)
@@ -465,3 +470,37 @@ async def test_bad_caller_timezone_is_a_speakable_tool_error(name):
     desk, _ = make_desk()
     with pytest.raises(ToolError, match="not a time zone name"):
         await desk.list_slots(duration_minutes=30, caller_timezone=name)
+
+
+def test_set_email_records_a_confirmed_address_and_resets_review():
+    desk, _ = make_desk()
+    desk.review = object()  # an earlier review no longer matches
+    assert "alex@example.com" in desk.set_email("  Alex@Example.com ")
+    assert desk.email == "alex@example.com"
+    assert desk.review is None
+    with pytest.raises(ToolError, match="doesn't look complete"):
+        desk.set_email("alex at example")
+
+
+async def test_rejected_email_keeps_the_slot_and_allows_booking_without_it():
+    # Cal.com, 2026-11-05: HTTP 400 "This email address cannot receive mail."
+    # The time is still free, so the caller keeps it; only the invite changes.
+    calendar = FakeCalendar(
+        weekday_slots(NOW),
+        booking_error=EmailRejectedError(
+            "HTTP 400: This email address cannot receive mail."
+        ),
+    )
+    desk, _ = await offered_desk(calendar=calendar)
+    desk.set_email("alex@exmaple.com")
+    with pytest.raises(ToolError, match="collect_email") as caught:
+        await book(desk, details(email=desk.email))
+    assert EmailRejectedError.spoken in caught.value.message
+    assert "slot-1" in desk.offered
+    assert desk.email is None and desk.review is None and desk.booking is None
+
+    # Without the invite, the same slot books after a fresh review.
+    calendar.booking_error = None
+    await book(desk, details(email=desk.email), call_id="review-2")
+    assert desk.booking is not None
+    assert calendar.bookings[-1].email is None

@@ -28,6 +28,7 @@ from calcom import (
     BookingResult,
     CalComError,
     Calendar,
+    EmailRejectedError,
     SlotUnavailableError,
 )
 
@@ -253,6 +254,9 @@ class BookingDesk:
         # A write Cal.com may have accepted without confirming. Once set, the
         # call books nothing else, so it can't double-book.
         self.unconfirmed: OfferedSlot | None = None
+        # The invite address, set only by collect_email after GetEmailTask has
+        # confirmed it with the caller. The model never types it.
+        self.email: str | None = None
         self._lock = asyncio.Lock()
 
     # -- clock and zones --
@@ -472,6 +476,18 @@ class BookingDesk:
             )
             try:
                 result = await self._calendar.create_booking(request)
+            except EmailRejectedError as exc:
+                # Nothing was booked and the slot is still offered; only the
+                # address has to change, so the caller must hear a new review.
+                domain = (request.email or "").rpartition("@")[2] or "?"
+                logger.warning("cal.com rejected the invite email (domain %s)", domain)
+                self.email = None
+                self.review = None
+                raise ToolError(
+                    f"{exc.spoken} Ask the caller which they prefer. To retry, call "
+                    "collect_email. To skip the invite, go ahead without it. Either "
+                    "way, call review_booking again and get a yes before book_call."
+                ) from exc
             except BookingOutcomeUnknownError as exc:
                 self.unconfirmed = slot
                 self.review = None
@@ -494,6 +510,21 @@ class BookingDesk:
             f"Booked. Nathan will call {details.name} on "
             f"{self._speak_both(result.start)} for {slot.duration_minutes} "
             f"minutes, at the number this call came from. {invite}"
+        )
+
+    def set_email(self, email: str) -> str:
+        """Record the confirmed invite address and say what to do next."""
+        cleaned = (email or "").strip().lower()
+        if not EMAIL.match(cleaned):
+            raise ToolError(
+                "That email address doesn't look complete. Collect it again, or "
+                "book without a calendar invite."
+            )
+        self.email = cleaned
+        self.review = None
+        return (
+            f"Recorded {cleaned} for the calendar invite. Call review_booking "
+            "next; it includes this address."
         )
 
     def status_for_goodbye(self) -> str:
