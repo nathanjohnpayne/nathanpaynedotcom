@@ -798,6 +798,95 @@ describe('/privacy/ page and footer link (PRIV-11, PRIV-15)', () => {
     expect(PAGE_TEMPLATE).toContain('Session replay is off on this page.');
   });
 
+  it('discloses the phone receptionist as the inventory records it (#1566)', () => {
+    // The section the /book/ phone card links to (#1567), listed in the page's contents.
+    expect(PAGE_TEMPLATE).toContain('<h2 id="booking-line">If you call the booking line</h2>');
+    expect(PAGE_ASTRO).toContain("{ id: 'booking-line', label: 'Calling the booking line' }");
+    expect(PAGE_ASTRO).toContain("const PHONE_SETTINGS_DATE = '2026-11-05';");
+    // Every recipient the inventory's Phone Booking Line table names that the
+    // page states (ai-coustics stays off the page while it is unverified).
+    for (const name of [
+      'LiveKit',
+      'AssemblyAI',
+      'Gemma 4 31B',
+      'Fish Audio',
+      'Cal.com',
+      'Google Calendar',
+    ]) {
+      expect(PAGE_TEMPLATE, name).toContain(name);
+    }
+    // Owner decision, 2026-11-05: transcripts, logs and traces kept unredacted
+    // for LiveKit's 30 days, audio off, said plainly.
+    expect(PAGE_TEMPLATE).toContain('They are kept unredacted');
+    expect(PAGE_TEMPLATE).toContain(
+      'The transcript, logs, and traces: 30 days after the call ends',
+    );
+    expect(PAGE_TEMPLATE).toContain('The audio: not recorded.');
+    expect(PAGE_TEMPLATE).toContain(
+      "Calls to the booking line: LiveKit keeps each call's transcript, logs, and traces, unredacted, for 30 days after the call.",
+    );
+    // Zero data retention is LiveKit's statement, attributed to LiveKit.
+    expect(PAGE_TEMPLATE).toContain(
+      'LiveKit states that neither it nor these providers keep or train',
+    );
+    // Unverified retention is said to be unverified, never given a period.
+    expect(PAGE_TEMPLATE).toContain(
+      'How long Cal.com keeps it, and how long LiveKit keeps its list of calls, were not verified.',
+    );
+    // The site's controls do not reach a call, and calls send no analytics.
+    expect(PAGE_TEMPLATE).toContain("Global Privacy Control don't apply to a call");
+    expect(PAGE_TEMPLATE).toContain(
+      'A call sends nothing to PostHog, Google Analytics, or any other analytics tool.',
+    );
+    // The number is published on /book/ by #1567, never on this page, and the
+    // hidden phone event type's booking path never appears in the repository's copy.
+    expect(PAGE_TEMPLATE).not.toMatch(/tel:|\(?\b\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}\b|\+1\d{10}/);
+    expect(PAGE_TEMPLATE).not.toMatch(/cal\.com\/nathanpayne\//);
+  });
+
+  it('says what the receptionist greeting says about retention (#1566)', () => {
+    // GREETING is a parenthesized run of adjacent Python string literals.
+    const block = /^GREETING = \(\n([\s\S]*?)\n\)$/m.exec(read('receptionist/src/prompts.py'));
+    expect(block, 'GREETING in receptionist/src/prompts.py').not.toBeNull();
+    const greeting = [...block[1].matchAll(/"([^"]*)"/g)].map((m) => m[1]).join('');
+    for (const claim of ['the transcript is kept for 30 days', "the audio isn't recorded"]) {
+      expect(greeting, `greeting: ${claim}`).toContain(claim);
+      expect(PAGE_TEMPLATE, `/privacy/: ${claim}`).toContain(claim);
+    }
+    // The pre-#1566 claim, true of audio but not of the call, is gone.
+    expect(greeting).not.toContain('is not recorded');
+  });
+
+  it('records the phone receptionist in the inventory, and Cal.com is no longer links only (#1566)', () => {
+    const inventory = read('docs/privacy/inventory.md');
+    const start = inventory.indexOf('\n## Phone Booking Line\n');
+    expect(start, '§ Phone Booking Line').toBeGreaterThan(-1);
+    const section = inventory.slice(start, inventory.indexOf('\n## ', start + 1));
+    for (const heading of ['### Data Flow', '### Recipients', '### Not Verified']) {
+      expect(section, heading).toContain(heading);
+    }
+    for (const recipient of [
+      '| LiveKit Cloud, agent observability (Agent insights) |',
+      '| LiveKit Cloud, Telephony call log and session views |',
+      '| LiveKit Inference model providers |',
+      '| Cal.com |',
+    ]) {
+      expect(section, recipient).toContain(recipient);
+    }
+    expect(section).toContain('PII redaction is off');
+    expect(section).toContain('`record={"audio": False}`');
+    expect(section).toContain(
+      "The site's analytics opt-out and Global Privacy Control do not reach a call",
+    );
+    // The Other Third Parties row qualifies "links only" to the website.
+    expect(inventory).not.toMatch(/^\| Cal\.com \| links only/m);
+    expect(inventory).toMatch(
+      /^\| Cal\.com \| on the website, links only[^\n]*phone receptionist/m,
+    );
+    // The hidden event type's slug never enters the repository.
+    expect(inventory).not.toMatch(/cal\.com\/nathanpayne\//);
+  });
+
   it('renders the footer link through one self-gated component on every surface', () => {
     expect(LINK_ASTRO).toContain('privacyControlsEnabled()');
     expect(LINK_ASTRO).toContain('href="/privacy/" data-np-privacy-ui="footer-link"');

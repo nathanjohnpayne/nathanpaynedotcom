@@ -15,8 +15,10 @@
  * replay console, canvas, and network capture off; PostHog IP discarded;
  * GA4 enhanced measurement limited to page views and scrolls; user-provided
  * data off; NEL off; Mux Data under the opt-out; error issues without the
- * error text. Facts the inventory could not verify are not stated: no
- * PostHog person-profile retention, no Cloudflare log retention. Nothing
+ * error text. The phone receptionist section is as checked on 2026-11-05
+ * (#1566). Facts the inventory could not verify are not stated: no
+ * PostHog person-profile retention, no Cloudflare log retention, no LiveKit
+ * call-list or Cal.com booking retention. Nothing
  * here claims anonymity, compliance, legal sufficiency, or that data is "not
  * sold" (PRIV-11).
  *
@@ -58,6 +60,9 @@ const canonical = new URL('/privacy/', Astro.site).href;
 /** The date of the settings this page describes (docs/privacy/inventory.md, "Updated 2026-10-11"). */
 const SETTINGS_DATE = '2026-10-11';
 
+/** The date of the phone receptionist facts (docs/privacy/inventory.md § Phone Booking Line, added 2026-11-05). */
+const PHONE_SETTINGS_DATE = '2026-11-05';
+
 const sections = [
   { id: 'np-privacy-controls', label: 'Your choices' },
   { id: 'collected', label: 'What is collected' },
@@ -66,6 +71,7 @@ const sections = [
   { id: 'retention', label: 'How long it is kept' },
   { id: 'gpc', label: 'Global Privacy Control' },
   { id: 'limits', label: 'What turning analytics off does not do' },
+  { id: 'booking-line', label: 'Calling the booking line' },
   { id: 'contact', label: 'Contact' },
 ];
 ---
@@ -226,7 +232,7 @@ const sections = [
             replay exclusion. ────────────────────────────────────────── */}
         <h2 id="collected">What is collected</h2>
         <p>
-          Two analytics tools, PostHog and Google Analytics 4, run on every page unless you turn them off here, your browser sends Global Privacy Control, or JavaScript is off. On the one page with video, Mux Data, Mux's playback analytics, follows the same setting. Cloudflare's own web analytics can run as well, depending on its settings and only where JavaScript runs, and the controls above do not reach it. This section says what each one receives.
+          Two analytics tools, PostHog and Google Analytics 4, run on every page unless you turn them off here, your browser sends Global Privacy Control, or JavaScript is off. On the one page with video, Mux Data, Mux's playback analytics, follows the same setting. Cloudflare's own web analytics can run as well, depending on its settings and only where JavaScript runs, and the controls above do not reach it. This section says what each one receives. A call to the booking line is a separate case, covered under <a href="#booking-line">If you call the booking line</a>.
         </p>
 
         <h3>PostHog</h3>
@@ -338,7 +344,8 @@ const sections = [
           <li>Mux Data playback data: up to 100 days, per Mux.</li>
           <li>Error-alert issues on GitHub: until the issue is deleted; PostHog's retention does not reach them.</li>
           <li>Firebase Hosting request logs, if exported to Cloud Logging: 30 days by default, per Firebase.</li>
-          <li>Other retention periods (PostHog visitor profiles and Cloudflare's own logs) are set in each vendor's account, were not verified, and are not stated here.</li>
+          <li>Calls to the booking line: LiveKit keeps each call's transcript, logs, and traces, unredacted, for 30 days after the call. The audio isn't recorded.</li>
+          <li>Other retention periods (PostHog visitor profiles, Cloudflare's own logs, LiveKit's list of calls, and Cal.com bookings) are set in each vendor's account, were not verified, and are not stated here.</li>
         </ul>
 
         {/* ── GPC ──────────────────────────────────────────────────────
@@ -369,6 +376,59 @@ const sections = [
             Your choice is kept in your browser's local storage under the key <code>np-privacy</code>. No cookie is set for it, and it is not sent to a server. Turning analytics back on takes effect on the next page you load, provided your browser saves the choice; if it cannot, your earlier setting still applies.
           </li>
         </ul>
+
+        {/* ── Phone receptionist ───────────────────────────────────────
+            Sources: inventory § Phone Booking Line (Data Flow, Recipients,
+            Not Verified) and § Retention, as checked on 2026-11-05 (#1566);
+            the greeting (GREETING in receptionist/src/prompts.py) states the
+            same retention, and tests/privacy-ui.test.js checks that they
+            agree. The number is published on /book/ (#1567), never here.
+            Zero data retention for the model providers is LiveKit's
+            statement, and is attributed to LiveKit. LiveKit's call list and
+            Cal.com's retention are not verified and not stated. ──────── */}
+        <h2 id="booking-line">If you call the booking line</h2>
+        <p class="privacy-dated">This section describes the phone line as checked on {PHONE_SETTINGS_DATE}.</p>
+        <p>
+          The booking line is a phone number answered by an AI receptionist that books a phone call with me. It runs on LiveKit Cloud, not on this website, and no page on this site loads anything for it. At the start of each call it says that the call is transcribed, that the transcript is kept for 30 days, and that the audio isn't recorded.
+        </p>
+
+        <h3>What a call collects</h3>
+        <ul>
+          <li>
+            Your phone number, from caller ID. The receptionist books a call only to that number, and that is the number I call.
+          </li>
+          <li>
+            What you say, turned into text as you speak: for example your name, what you'd like to discuss, and an email address if you want a calendar invite.
+          </li>
+          <li>
+            The booking: the time and length you choose, your time zone, and the details above.
+          </li>
+        </ul>
+
+        <h3>Who receives it</h3>
+        <ul>
+          <li>
+            <strong>LiveKit</strong> carries the call and runs the receptionist. For each call it keeps a transcript of the conversation, and logs and traces of what the receptionist did, which include your phone number. They are kept unredacted: LiveKit's option to remove personal details from them is off. Only administrators of my LiveKit project can read them, and LiveKit's support staff can see a call only if I share it with them. The call's audio is not recorded. LiveKit's phone service also keeps a list of calls.
+          </li>
+          <li>
+            <strong>The speech, language, and voice models</strong> the receptionist uses, through LiveKit: AssemblyAI turns your speech into text, Gemma 4 31B (an open-weight Google model that LiveKit serves itself) writes the replies, and Fish Audio speaks them. LiveKit states that neither it nor these providers keep or train on what is sent to the models. That is separate from the transcript LiveKit keeps, above.
+          </li>
+          <li>
+            <strong>Cal.com</strong> receives the booking: your name, phone number, and time zone, and, if you gave them, the topic and your email address. It keeps the booking with my other bookings, adds it to my Google Calendar, and, if you gave an email address, emails you the calendar invite and any reminders.
+          </li>
+        </ul>
+
+        <h3>How long a call is kept</h3>
+        <ul>
+          <li>The transcript, logs, and traces: 30 days after the call ends, when LiveKit deletes them.</li>
+          <li>The audio: not recorded.</li>
+          <li>A booking stays in Cal.com and on my calendar like any other booking. How long Cal.com keeps it, and how long LiveKit keeps its list of calls, were not verified.</li>
+        </ul>
+
+        <h3>This site's analytics controls</h3>
+        <p>
+          The controls on this page and Global Privacy Control don't apply to a call, because nothing links a call to your browser. A call sends nothing to PostHog, Google Analytics, or any other analytics tool.
+        </p>
 
         <h2 id="contact">Contact</h2>
         <p>

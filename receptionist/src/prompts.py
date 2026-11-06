@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import datetime as dt
 
-# Spoken word for word at the start of every call. The privacy page quotes
-# this text, so change it only together with that page.
+# Spoken word for word at the start of every call. The /privacy/ page's
+# #booking-line section states the same retention (transcripts kept for
+# LiveKit's 30 days, audio not recorded; docs/privacy/inventory.md § Phone
+# Booking Line), and tests/privacy-ui.test.js checks that the two agree, so
+# change it only together with that page.
 GREETING = (
     "Hi, you've reached Nathan Payne's AI receptionist. This call is "
-    "transcribed by AI and is not recorded. I can book a 15 or 30 minute "
-    "phone call with Nathan. Would you like to set one up?"
+    "transcribed by AI, and the transcript is kept for 30 days, but the "
+    "audio isn't recorded. I can book a 15 or 30 minute phone call with "
+    "Nathan. Would you like to set one up?"
 )
 
 WEBSITE = "nathanpayne dot com slash book"

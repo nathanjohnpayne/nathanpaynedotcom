@@ -15,7 +15,7 @@ caller ──▶ LiveKit phone number ──▶ SIP dispatch rule ──▶ agen
 
 1. A call to the LiveKit phone number matches a SIP dispatch rule, which puts the caller in a new room and dispatches the agent by its registered name, `receptionist` (`AGENT_NAME` in `src/agent.py`).
 2. The agent reads the caller's number from the SIP participant's `sip.phoneNumber` attribute. That caller ID is the only number it ever books; it never takes a number from speech or from the model.
-3. It speaks a fixed greeting (`GREETING` in `src/prompts.py`): it is Nathan Payne's AI receptionist, the call is transcribed by AI and not recorded, and it can book a 15- or 30-minute call.
+3. It speaks a fixed greeting (`GREETING` in `src/prompts.py`): it is Nathan Payne's AI receptionist, the call is transcribed by AI and the transcript is kept for 30 days, the audio isn't recorded, and it can book a 15- or 30-minute call. The site's `/privacy/` page states the same retention, and `tests/privacy-ui.test.js` checks that the two agree.
 4. The voice pipeline runs on [LiveKit Inference](https://docs.livekit.io/agents/models/inference/), using the starter's models: AssemblyAI Universal 3.6 Pro for speech-to-text, Gemma 4 31B for the LLM, and Fish Audio S2.1 Pro for text-to-speech, with the LiveKit turn detector and ai-coustics background noise suppression.
 5. The agent has five booking tools, backed by the Cal.com API v2:
    - `list_available_slots(duration_minutes, day?, caller_timezone?)` returns at most three upcoming open times, in Pacific time and in the caller's time zone if they gave one. Each time gets a label like `slot-2`; the exact start time stays on the server.
@@ -166,10 +166,12 @@ On the Build plan an exhausted allowance is a hard cap: new requests fail instea
 
 ## Privacy
 
-A call sends data to three places:
+The full record, with a source for each claim, is [`docs/privacy/inventory.md` § Phone Booking Line](../docs/privacy/inventory.md#phone-booking-line), and the public version is the [booking line section](https://nathanpayne.com/privacy/#booking-line) of the site's privacy page. In short, a call sends data to these places:
 
-- **LiveKit Cloud** carries the call audio. Audio recording is turned off for every session in code (`record={"audio": False}`). Transcripts, traces, and logs follow the project's agent observability setting and are kept for LiveKit's 30-day retention window.
-- **LiveKit Inference providers** process the call to run the voice pipeline: audio goes to the speech-to-text model, the transcript to the LLM, and the agent's replies to the text-to-speech model. LiveKit describes Inference as [zero data retention](https://docs.livekit.io/agents/models/inference/#zero-data-retention).
-- **Cal.com** receives a booking's details: the caller's name, phone number from caller ID, time zone, and, only if given, the topic and an email address for the calendar invite.
+- **LiveKit Cloud** carries the call. Audio recording is off for every session in code (`record={"audio": False}`), so no audio is kept. The project's agent observability setting is on and PII redaction is off (owner decision, 2026-11-05), so each call's transcript, traces, and logs are uploaded unredacted and kept for LiveKit's default 30 days ([Agent insights](https://docs.livekit.io/testing/observability/insights/#retention-window)). The transcript holds whatever the caller says, including their name, topic, and any invite email address; the logs and traces carry the caller's phone number, as the SIP participant identity. Only project admins can read them. LiveKit Telephony also lists each call; how long it keeps that list isn't verified.
+- **LiveKit Inference** runs the voice pipeline: audio goes to the speech-to-text model (AssemblyAI Universal 3.6 Pro) and the turn detector, the transcript to the LLM (Gemma 4 31B), and the agent's replies to the text-to-speech model (Fish Audio S2.1 Pro). LiveKit states that Inference is [zero data retention](https://docs.livekit.io/agents/models/inference/#zero-data-retention): neither LiveKit nor the model providers log, store, or train on that data.
+- **Cal.com** receives a booking's details: the caller's name, phone number from caller ID, time zone, and, only if given, the topic and an email address for the calendar invite. It keeps the booking like any other on the account, writes it to the account's Google Calendar, and, only if the caller gave an email address, emails them the invite and any reminders. Without an email address, the booking carries a Cal.com placeholder (`<digits>@sms.cal.com`); whether Cal.com sends anything to it, or to the phone number, isn't verified.
 
-The site's privacy notice is at [nathanpayne.com/privacy](https://nathanpayne.com/privacy/). The details in this section are being verified in #1566.
+Calls send nothing to PostHog or any other analytics tool. The website's analytics opt-out and Global Privacy Control don't apply to a phone call, because nothing links a caller to a browser.
+
+Don't turn on audio recording, and don't change the observability or redaction settings, without updating the greeting, the inventory, and `/privacy/` in the same change.
