@@ -1,0 +1,14 @@
+{
+  "status": "error",
+  "timestamp": "2026-11-06T17:41:24.083Z",
+  "path": "/v2/bookings",
+  "error": {
+    "code": "BadRequestException",
+    "message": "The event type can't be booked at the \"start\" time provided. This could be because it's too soon (violating the minimum booking notice) or too far in the future (outside the event's scheduling window). Try fetching available slots first using the GET /v2/slots endpoint and then make a booking with \"start\" time equal to one of the available slots: https://cal.com/docs/api-reference/v2/slots",
+    "details": {
+      "message": "The event type can't be booked at the \"start\" time provided. This could be because it's too soon (violating the minimum booking notice) or too far in the future (outside the event's scheduling window). Try fetching available slots first using the GET /v2/slots endpoint and then make a booking with \"start\" time equal to one of the available slots: https://cal.com/docs/api-reference/v2/slots",
+      "error": "Bad Request",
+      "statusCode": 400
+    }
+  }
+}
