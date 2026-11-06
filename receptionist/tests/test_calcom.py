@@ -16,7 +16,6 @@ from aiohttp.test_utils import TestServer
 from fakes import CALLER_PHONE, PACIFIC, load_fixture
 
 from calcom import (
-    BOOKINGS_API_VERSION,
     SLOTS_API_VERSION,
     USER_AGENT,
     BookingLimitError,
@@ -225,7 +224,9 @@ async def test_create_booking_posts_payload_and_returns_uid(api, client):
     assert result.uid == "booking-uid-fixture-0002"
     assert result.start == dt.datetime(2033, 9, 5, 16, 0, tzinfo=dt.UTC)
     assert call.method == "POST"
-    assert_headers(call.headers, BOOKINGS_API_VERSION)
+    # Pinned literally: Cal.com's create and cancel references require
+    # 2026-02-25, proven live on 2026-11-06 (#1571).
+    assert_headers(call.headers, "2026-02-25")
     assert call.json == build_booking_payload(
         booking_request(), event_type_id=EVENT_TYPE_ID
     )
