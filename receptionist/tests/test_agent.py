@@ -223,3 +223,70 @@ def test_a_client_that_fails_to_start_turns_analytics_off(monkeypatch):
     monkeypatch.setattr(agent, "PostHogSink", broken)
     settings = Settings.from_env({**BASE_ENV, "POSTHOG_PROJECT_TOKEN": "phc_test"})
     assert agent.build_analytics(settings, internal=True).enabled is False
+
+
+# --- pronunciation ---------------------------------------------------------------
+
+
+def test_livekit_is_spoken_with_phoneme_tags_even_when_split_across_chunks():
+    import asyncio
+
+    from agent import LIVEKIT_PHONEMES, TTS_TEXT_TRANSFORMS
+
+    async def run(chunks: list[str]) -> str:
+        async def source():
+            for chunk in chunks:
+                yield chunk
+
+        stream = source()
+        for transform in TTS_TEXT_TRANSFORMS:
+            if callable(transform):
+                stream = transform(stream)
+        return "".join([piece async for piece in stream])
+
+    spoken = asyncio.run(run(["Nathan built me on Live", "Kit Agents."]))
+    assert LIVEKIT_PHONEMES in spoken
+    assert "LiveKit" not in spoken
+    # The default filters stay on: setting the transforms replaces them.
+    assert "filter_markdown" in TTS_TEXT_TRANSFORMS
+    assert "filter_emoji" in TTS_TEXT_TRANSFORMS
+
+
+def test_posthog_is_imported_when_the_process_loads_not_during_a_call():
+    # posthog imports distro at module load, which blocked the event loop for
+    # 310 ms on the first call when it was imported inside PostHogSink.
+    import analytics
+
+    assert hasattr(analytics, "posthog")
+
+
+def test_a_broken_posthog_install_turns_analytics_off_not_the_agent(monkeypatch):
+    import analytics
+    from agent import build_analytics
+    from config import Settings
+
+    monkeypatch.setattr(analytics, "posthog", None)
+    settings = Settings.from_env(
+        {
+            "CAL_API_KEY": "cal_test_not_a_real_key",
+            "CAL_EVENT_TYPE_ID": "1000001",
+            "POSTHOG_PROJECT_TOKEN": "phc_test",
+        }
+    )
+    assert not build_analytics(settings, internal=False).enabled
+
+
+def test_analytics_still_loads_when_posthog_cannot_be_imported(monkeypatch):
+    import importlib
+    import sys
+
+    import analytics
+
+    # A None entry in sys.modules makes "import posthog" raise ImportError.
+    monkeypatch.setitem(sys.modules, "posthog", None)
+    try:
+        reloaded = importlib.reload(analytics)
+        assert reloaded.posthog is None
+    finally:
+        monkeypatch.undo()
+        importlib.reload(analytics)
