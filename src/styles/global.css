@@ -3803,14 +3803,30 @@ body.blog-page {
   margin-top: var(--sp-md);
 }
 
-/* ── The phone option on /book/ (#1567) ─────────────────────────────────
-   A fourth row styled like the event-type cards; the only difference is the
-   action. The call button is the shared .nav-button (the footer's style),
-   with full ink for its border and label and a 44px touch target, since a
-   thumb tap is its whole purpose. */
-.book-call-card .nav-button {
+/* ── /book/ card actions (#1567) ─────────────────────────────────────────
+   Every card on /book/, the event types and the phone row alike, ends in the
+   shared .nav-button (the footer's style), with full ink for its border and
+   label and a 44px touch target. The icon says how you book: calendar for
+   Cal.com, phone for the receptionist. */
+.book-card .nav-button {
   color: var(--ink);
   min-height: 2.75rem;
+}
+
+/* The shared row floors (16rem, 13rem, 14rem, 14rem) are sized for /projects
+   and /blog cards; an event-type card is a kicker, title, one line and a tag,
+   so on /book/ the taller floors left rows of empty paper. Every row here
+   takes one floor, so rows match unless their content runs longer. Desktop
+   only: the mobile stack resets every row to auto. */
+@media (min-width: 1024px) {
+  .book-grid .grid-row--1,
+  .book-grid .grid-row--2,
+  .book-grid .grid-row--3,
+  .book-grid .grid-row--4,
+  .book-grid .grid-row--overflow-a,
+  .book-grid .grid-row--overflow-b {
+    min-height: 13rem;
+  }
 }
 
 /* /brand/ (specs/brand-page.md): each card opens on its preview, set

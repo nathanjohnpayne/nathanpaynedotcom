@@ -112,8 +112,9 @@ const PAGE_ACCENT = 'red';
       {/* ── Event types ──
            One card per public Cal.com event type, through the same six-row
            Mondrian geometry as /projects and /blog (src/lib/index-grid.ts).
-           The kicker says how long and where; the title and the tag both
-           open the event type's booking page on Cal.com. */}
+           The kicker says how long and where; the title and the button both
+           open the event type's booking page on Cal.com. The button is the
+           same .nav-button as the phone row's, with the calendar icon. */}
       <div class="blog-grid book-grid">
 
         {eventTypes.map((event, i) => {
@@ -134,12 +135,12 @@ const PAGE_ACCENT = 'red';
               <p class="post-desc">{event.data.description}</p>
               <div class="tag-row">
                 <a
-                  class="tag booking-event-type"
+                  class="nav-button booking-event-type"
                   href={url}
                   target="_blank"
                   rel="noopener"
                   data-event-type={event.data.slug}
-                >Pick a time &nearr;</a>
+                ><NavIcon name="calendar" />Pick a time</a>
               </div>
             </article>
           );
@@ -157,7 +158,8 @@ const PAGE_ACCENT = 'red';
         {/* ── The phone option (#1567) ──
              A fourth row in the same geometry as the cards: kicker, title and
              description read like an event type, and the only difference is
-             the action, a call button in place of "Pick a time". It is not a
+             the action: the phone icon and the number in place of the calendar
+             icon and "Pick a time". It is not a
              Cal.com event type, so it stays out of the booking collection and
              the JSON-LD ItemList above. Its copy is owned by
              src/content/site-copy/book.md and its number by RECEPTIONIST_PHONE;

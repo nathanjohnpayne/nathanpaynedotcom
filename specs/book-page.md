@@ -21,7 +21,7 @@ title: Book Page
 ### Links only
 
 5. Nothing from Cal.com loads on the page: no embed script, no iframe, no prefetch or preconnect. The only `cal.com` references in the built page are plain `href` attributes on anchors and the same URLs in the JSON-LD. `docs/privacy/inventory.md` records Cal.com as a link-only recipient that receives nothing until a visitor clicks, and this page keeps that true. An inline booking widget would make Cal.com a page-load recipient and would need the inventory, the notice and `/privacy/` updated first (specs/analytics-privacy.md PRIV-1).
-6. Each card carries two links to its booking page, the title and a "Pick a time ↗" tag, and the closing band links the Cal.com profile. All open in a new tab with `rel="noopener"`, as every off-site link does. They are plain `href`s in the static HTML, so they work without JavaScript, as the homepage booking link does (#620).
+6. Each card carries two links to its booking page, the title and a "Pick a time" button (a `.nav-button` with the Lucide `calendar` icon from `NavIcon`, at least 44 px tall), and the closing band links the Cal.com profile. All open in a new tab with `rel="noopener"`, as every off-site link does. They are plain `href`s in the static HTML, so they work without JavaScript, as the homepage booking link does (#620).
 
 ### Metadata and copy owners
 
@@ -36,7 +36,7 @@ title: Book Page
 
 ### The phone row
 
-12. After the event-type cards, one more row from the same geometry (`getIndexGridRow(eventTypes.length)`, mobile rail `eventTypes.length + 1`; the closing band and footer follow at `+ 2` and `+ 3`) offers the phone receptionist (#1561, #1567). It reads like a card (kicker, title, description) and differs only in its action: a `.nav-button` with the Lucide `phone` icon (`NavIcon`) in place of "Pick a time", at least 44 px tall. It is not a Cal.com event type, so it is not in the `booking` collection and not in the JSON-LD `ItemList`, and the hidden Cal.com event type behind it is never named on the page (item 3).
+12. After the event-type cards, one more row from the same geometry (`getIndexGridRow(eventTypes.length)`, mobile rail `eventTypes.length + 1`; the closing band and footer follow at `+ 2` and `+ 3`) offers the phone receptionist (#1561, #1567). It reads like a card (kicker, title, description) and differs only in its action: the same `.nav-button`, with the Lucide `phone` icon and the number in place of the `calendar` icon and "Pick a time". It is not a Cal.com event type, so it is not in the `booking` collection and not in the JSON-LD `ItemList`, and the hidden Cal.com event type behind it is never named on the page (item 3).
 13. Its number is `RECEPTIONIST_PHONE` in `src/lib/booking.ts` and nowhere else: the title and the button are the only two links to it, both plain `tel:` hrefs equal to `RECEPTIONIST_PHONE.e164`, and the button label's digits are `RECEPTIONIST_PHONE.display`. Its kicker, title, description and button label (with a `{number}` placeholder) are owned by `src/content/site-copy/book.md` (item 7). Nothing loads for it: a `tel:` link is not a request, so item 5 still holds.
 14. A click on either `tel:` link captures `booking_phone_clicked` with `link` set to `title` or `button` (specs/analytics.md § Events), through the same optional `window.posthog` contract as item 11, so both links dial with analytics off or absent.
 
