@@ -36,7 +36,7 @@ The model interprets the conversation; code in `src/booking.py` enforces the rul
 - The agent asks for an email address only if the caller wants a calendar invite, and spells it back.
 - Calendar writes can't be interrupted (`disallow_interruptions()`), and every Cal.com failure, such as a slot that was just taken or a booking limit, becomes a sentence the agent can say.
 
-The Cal.com event type itself carries the rest of the limits: 15 or 30 minutes, at least two hours' notice, a 14-day window, and at most two bookings a day and five a week. Its phone field is required and its email field is optional but **visible**. Cal.com discards the email of an attendee whose event type hides the email field, and books with a phone placeholder (`<digits>@sms.cal.com`), so a hidden field means no caller ever gets an invite. If that happens, the agent logs `cal.com dropped the attendee email`. The event type ID comes from `CAL_EVENT_TYPE_ID` at runtime and isn't stored in the code.
+The Cal.com event type itself carries the rest of the limits: 15 or 30 minutes, at least two hours' notice, a 14-day window, and at most five bookings a day and ten a week. Its phone field is required and its email field is optional but **visible**. Cal.com discards the email of an attendee whose event type hides the email field, and books with a phone placeholder (`<digits>@sms.cal.com`), so a hidden field means no caller ever gets an invite. If that happens, the agent logs `cal.com dropped the attendee email`. The event type ID comes from `CAL_EVENT_TYPE_ID` at runtime and isn't stored in the code.
 
 ## Free Plan Limits
 
