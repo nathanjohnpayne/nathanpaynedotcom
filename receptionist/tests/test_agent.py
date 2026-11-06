@@ -258,3 +258,35 @@ def test_posthog_is_imported_when_the_process_loads_not_during_a_call():
     import analytics
 
     assert hasattr(analytics, "posthog")
+
+
+def test_a_broken_posthog_install_turns_analytics_off_not_the_agent(monkeypatch):
+    import analytics
+    from agent import build_analytics
+    from config import Settings
+
+    monkeypatch.setattr(analytics, "posthog", None)
+    settings = Settings.from_env(
+        {
+            "CAL_API_KEY": "cal_test_not_a_real_key",
+            "CAL_EVENT_TYPE_ID": "1000001",
+            "POSTHOG_PROJECT_TOKEN": "phc_test",
+        }
+    )
+    assert not build_analytics(settings, internal=False).enabled
+
+
+def test_analytics_still_loads_when_posthog_cannot_be_imported(monkeypatch):
+    import importlib
+    import sys
+
+    import analytics
+
+    # A None entry in sys.modules makes "import posthog" raise ImportError.
+    monkeypatch.setitem(sys.modules, "posthog", None)
+    try:
+        reloaded = importlib.reload(analytics)
+        assert reloaded.posthog is None
+    finally:
+        monkeypatch.undo()
+        importlib.reload(analytics)

@@ -37,8 +37,13 @@ from collections.abc import Callable
 from typing import Any, Protocol
 
 # Imported here, not on first use: posthog imports distro at load time, which
-# blocked the call's event loop for 310 ms when it happened mid-call.
-import posthog
+# blocked the call's event loop for 310 ms when it happened mid-call. A broken
+# install must not stop the agent: PostHogSink then fails to start, and
+# build_analytics turns analytics off.
+try:
+    import posthog
+except Exception:
+    posthog = None
 
 from calcom import (
     BookingLimitError,
