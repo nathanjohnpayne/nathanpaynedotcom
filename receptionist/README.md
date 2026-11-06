@@ -187,6 +187,8 @@ Its settings are agent secrets. `lk agent update-secrets --secrets KEY=VALUE .` 
 - `OWNER_PHONE`: your own number, E.164, for test calls. Optional.
 - `POSTHOG_HOST`: optional; defaults to `https://us.i.posthog.com`.
 
+A malformed `OWNER_PHONE` or a non-`https://` `POSTHOG_HOST` turns analytics off with a warning in the agent logs (naming the setting, not its value); the receptionist still starts and takes calls.
+
 ### Checking Usage
 
 The Build plan allowances in [Free Plan Limits](#free-plan-limits) reset on the first of each month. LiveKit Cloud shows the project's quotas under Settings, then the Project tab, and per-session usage under Agent insights ([quotas and limits](https://docs.livekit.io/deploy/admin/quotas-and-limits/)). I found no `lk` command that prints the month's inference or telephony totals, so use the dashboard.

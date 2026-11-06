@@ -2,10 +2,13 @@
 
 The agent refuses to start without its Cal.com settings: a receptionist that
 can't reach the calendar would greet callers and then fail every booking.
+Analytics settings are the opposite: a bad one turns analytics off with a
+warning, because analytics must never stop a call.
 """
 
 from __future__ import annotations
 
+import logging
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -15,6 +18,8 @@ from analytics import DEFAULT_POSTHOG_HOST
 from booking import normalize_phone
 
 DEFAULT_OWNER_TIMEZONE = "America/Los_Angeles"
+
+logger = logging.getLogger("receptionist")
 
 
 class ConfigError(RuntimeError):
@@ -75,24 +80,33 @@ class Settings:
 
         dev_phone = env.get("DEV_CALLER_PHONE", "").strip() or None
 
+        posthog_token = env.get("POSTHOG_PROJECT_TOKEN", "").strip() or None
+
+        # Warnings name the setting, never echo the value.
         raw_owner_phone = env.get("OWNER_PHONE", "").strip()
         owner_phone = normalize_phone(raw_owner_phone)
         if raw_owner_phone and owner_phone is None:
-            # Name the setting, never echo the value.
-            raise ConfigError(
-                "OWNER_PHONE must be an E.164 number such as +15555550100."
+            # Without it the owner's test calls would count as real callers.
+            logger.warning(
+                "OWNER_PHONE is not an E.164 number such as +15555550100; "
+                "call analytics are off"
             )
+            posthog_token = None
 
         posthog_host = env.get("POSTHOG_HOST", "").strip() or DEFAULT_POSTHOG_HOST
         if not posthog_host.startswith("https://"):
-            raise ConfigError("POSTHOG_HOST must be an https:// URL.")
+            logger.warning(
+                "POSTHOG_HOST is not an https:// URL; call analytics are off"
+            )
+            posthog_host = DEFAULT_POSTHOG_HOST
+            posthog_token = None
 
         return cls(
             cal_api_key=env["CAL_API_KEY"].strip(),
             cal_event_type_id=event_type_id,
             owner_timezone=owner_tz,
             dev_caller_phone=dev_phone,
-            posthog_project_token=env.get("POSTHOG_PROJECT_TOKEN", "").strip() or None,
+            posthog_project_token=posthog_token,
             posthog_host=posthog_host,
             owner_phone=owner_phone,
         )
