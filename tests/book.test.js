@@ -178,7 +178,7 @@ describe('/book/ (specs/book-page.md)', () => {
     expect(raw.split(RECEPTIONIST_PHONE.e164).length - 1).toBe(2);
     expect(raw.split(RECEPTIONIST_PHONE.display).length - 1).toBe(1);
     // Control: the count above can see a number when one is there.
-    expect('call +14154176465 now'.split(RECEPTIONIST_PHONE.e164).length - 1).toBe(1);
+    expect(`call ${RECEPTIONIST_PHONE.e164} now`.split(RECEPTIONIST_PHONE.e164).length - 1).toBe(1);
   });
 
   it('keeps the phone row out of the JSON-LD ItemList', () => {
