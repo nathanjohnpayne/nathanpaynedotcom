@@ -3803,12 +3803,12 @@ body.blog-page {
   margin-top: var(--sp-md);
 }
 
-/* ── The phone option on /book/ (#1567) ─────────────────────────────────
-   A fourth row styled like the event-type cards; the only difference is the
-   action. The call button is the shared .nav-button (the footer's style),
-   with full ink for its border and label and a 44px touch target, since a
-   thumb tap is its whole purpose. */
-.book-call-card .nav-button {
+/* ── /book/ card actions (#1567) ─────────────────────────────────────────
+   Every card on /book/, the event types and the phone row alike, ends in the
+   shared .nav-button (the footer's style), with full ink for its border and
+   label and a 44px touch target. The icon says how you book: calendar for
+   Cal.com, phone for the receptionist. */
+.book-card .nav-button {
   color: var(--ink);
   min-height: 2.75rem;
 }

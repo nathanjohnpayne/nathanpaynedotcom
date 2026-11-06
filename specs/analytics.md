@@ -83,7 +83,7 @@ may be removed later without affecting the other.
 | `blog_cta_clicked` | Click on a `.blog-cta__link` in the end-of-post block | `cta`, `post_title` |
 | `blog_post_nav_clicked` | Click on a `.blog-postnav__card` prev/next card | `direction`, `from_post_title`, `to_post_href` |
 | `rss_subscribe_clicked` | Click on the blog index `.rss-link` | — |
-| `booking_event_type_clicked` | Click on a `.booking-event-type` link on `/book/`: an event type's title or its "Pick a time" tag, both of which open that event type's Cal.com booking page (specs/book-page.md) | `event_type` (the Cal.com event slug) |
+| `booking_event_type_clicked` | Click on a `.booking-event-type` link on `/book/`: an event type's title or its "Pick a time" button, both of which open that event type's Cal.com booking page (specs/book-page.md) | `event_type` (the Cal.com event slug) |
 | `booking_phone_clicked` | Click on a `.booking-phone` link on `/book/`: the phone receptionist row's title or its call button, both plain `tel:` links (specs/book-page.md item 14). The number is not sent | `link` (`title`, `button`) |
 | `resume_viewed` | The resume page loads | — |
 | `resume_pdf_downloaded` | Click on the `/resume` header `.resume-download` button | — |

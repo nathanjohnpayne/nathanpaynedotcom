@@ -140,9 +140,13 @@ describe('/book/ (specs/book-page.md)', () => {
       expect(text(title), entry.file).toBe(entry.title);
       expect(title.getAttribute('href'), entry.file).toBe(url);
       expect(text(card.querySelector('.post-desc')), entry.file).toBe(entry.description);
-      const tag = card.querySelector('.tag-row a.tag');
-      expect(tag.getAttribute('href'), entry.file).toBe(url);
-      expect(text(tag), entry.file).toMatch(/^Pick a time/);
+      const button = card.querySelector('.tag-row a.nav-button');
+      expect(button.getAttribute('href'), entry.file).toBe(url);
+      expect(text(button), entry.file).toBe('Pick a time');
+      expect(
+        button.querySelector('svg.nav-icon'),
+        `${entry.file}: the button lost its icon`,
+      ).not.toBeNull();
     });
   });
 
