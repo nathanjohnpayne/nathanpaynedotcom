@@ -526,6 +526,23 @@ scripts/deploy-artifact.sh --sha <earlier main sha>
 
 Run the current copy from `origin/main` (`git pull` first). The script's own copy must match `origin/main`'s, not the earlier commit's, so a rollback never needs an older deployer; the earlier commit supplies only the artifact, `firebase.json` and `.firebaserc`. For a release older than the retention window, use Firebase Console → Hosting → Release History → Roll back, then run `scripts/cf-cache-purge.sh`.
 
+## Phone Receptionist (LiveKit Cloud)
+
+The phone receptionist in `receptionist/` (#1561) is a separate deploy target. It runs on LiveKit Cloud as agent `CA_duPLhGiviC5X` in project `nathanpayne-com`, and nothing in the site's deploy touches it: `scripts/deploy-artifact.sh` ships only `dist/` to Firebase Hosting, and the `Build Artifact` workflow never builds the agent. In the other direction, an agent deploy changes nothing on the site.
+
+Deploy the agent from an up-to-date `main` checkout, after its PR merges and only when the owner asks:
+
+```bash
+git -C ~/GitHub/nathanpaynedotcom switch main && git -C ~/GitHub/nathanpaynedotcom pull --ff-only
+cd ~/GitHub/nathanpaynedotcom/receptionist && lk agent deploy --yes .
+lk agent status        # Scheduling for a minute or two, then Running
+lk agent versions      # the production version records git_commit
+```
+
+The agent's secrets live only in LiveKit Cloud (`lk agent secrets` lists names, never values): `CAL_API_KEY`, `CAL_EVENT_TYPE_ID`, `OWNER_TIMEZONE`, `POSTHOG_PROJECT_TOKEN` and `OWNER_PHONE`. The Cal.com key's source of truth is 1Password. Rollback, logs, key rotation, the dispatch rule and the plan's limits are in `receptionist/README.md` § Deploy and Operate.
+
+When a change touches both, deploy in the order that keeps disclosure ahead of collection: for #1573 the site went first so `/privacy/` described the call events before the agent sent any.
+
 ## Post-Deployment Verification
 
 1. Open https://nathanpayne.com in an incognito window

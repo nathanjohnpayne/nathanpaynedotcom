@@ -23,3 +23,7 @@ Decided by the owner on 2026-11-05, in the session that filed epic #1561, after 
 - The Cal.com key and LiveKit credentials are never committed. The key lives in 1Password and in LiveKit Cloud's agent secrets, set at deploy time (#1565). That keeps `rules/repo_rules.md` § Forbidden Patterns and the credential-free site build intact.
 - `.ai_context.md` lists the folder, LiveKit Cloud as an external dependency, and why `functions/` is still absent: the agent runs on LiveKit Cloud, not Firebase.
 - The separate repository created before this decision held only its initial README and license commit. The owner had it deleted on 2026-11-05.
+
+## Status
+
+Shipped. The epic's issues closed between 2026-11-05 and 2026-11-06: the agent (#1563), deploy and number routing (#1565), privacy (#1566), the `/book/` phone row (#1567), call analytics (#1573), Cal.com error mapping and API version (#1570, #1571), and the documentation pass (#1569). Later additions stayed inside this decision: analytics added a PostHog client, and two more agent secrets, to the same folder. The operating runbook is `receptionist/README.md`.

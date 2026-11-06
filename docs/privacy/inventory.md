@@ -6,7 +6,7 @@ Every claim cites a file and line at commit `5d688d69`, the sanitized capture in
 
 **Updated 2026-10-11** (#1265) for the vendor-setting changes Nathan directed on 2026-10-10 and 2026-10-11, and for the read-only checks made after them, each recorded on #1232: the [#1232 GA4 record](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/1232#issuecomment-6105586339), the [#1232 PostHog record](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/1232#issuecomment-6105630826), the [#1232 NEL record](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/1232#issuecomment-6105664682), the [#1232 GeoIP check](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/1232#issuecomment-6110241475), and the [#1232 decision 6 read](https://github.com/nathanjohnpayne/nathanpaynedotcom/issues/1232#issuecomment-6110326941). Each changed fact below says what it was on 2026-10-08 and what it is now. The baseline stays as history. Production ran with the privacy flag off until #1233 turned it on; what the flag-on runtime changes is under [Consequences of Opt-Out and GPC](#consequences-of-opt-out-and-gpc).
 
-**Updated 2026-11-05** (#1566) for the phone receptionist (#1561), which adds recipients that a phone call reaches and no page load does. Its facts are under [Phone Booking Line](#phone-booking-line), with the sources that section names.
+**Updated 2026-11-05** (#1566) for the phone receptionist (#1561), which adds recipients that a phone call reaches and no page load does, and **2026-11-06** for its PostHog call events (#1573) and the documentation pass (#1569). Its facts are under [Phone Booking Line](#phone-booking-line), with the sources that section names.
 
 ## Summary
 
@@ -206,9 +206,14 @@ The allowlist is `EVENT_PROPERTIES` in `receptionist/src/analytics.py`. An event
   The test suite checks every event of a full booked call for each of these, against a known positive.
 - **Person profiles:**
   - A public call makes none (`$process_person_profile: false`), and GeoIP is off, since the request comes from LiveKit Cloud, not the caller. On 2026-11-06 the events showed no GeoIP properties.
-  - The owner's test calls are the one exception. A call whose caller ID matches the `OWNER_PHONE` agent secret, and any console session, makes a one-off person whose only property is `$internal_or_test_user: true`, through `$set`. That puts it in the internal cohort (360946), which the project's default test-account filter excludes. The comparison happens in the agent, and the number is not sent.
+  - The owner's test calls are the one exception. A call whose caller ID matches the `OWNER_PHONE` agent secret, and any console session, makes a one-off person with `$internal_or_test_user: true`, through `$set`. PostHog also copies the event's user agent onto that person (`$raw_user_agent`, and `$initial_raw_user_agent` through `$set_once`), so it holds `nathanpayne-receptionist/1.0` too; nothing else. That flag puts it in the internal cohort (360946), which the project's default test-account filter excludes once PostHog recalculates the cohort: on 2026-11-06 the cohort had last been calculated at 02:44 UTC, and none of that day's three test calls had joined it yet. The comparison happens in the agent, and the number is not sent.
 - **Retention:** the PostHog events period under [Retention](#retention), the same as the site's other events. The one-off test-call persons follow the PostHog person-profile row there.
 - **Turning it off:** remove the `POSTHOG_PROJECT_TOKEN` agent secret, and the agent sends nothing (`receptionist/README.md` § Call Analytics).
+- **Checked live on 2026-11-06,** after the agent was deployed with analytics (version `zFH2VWA6brEu`, commit `9a4d831d`), with a booked test call from the owner's number:
+  - all five of that call's events arrived, each with the test flag;
+  - across all 11 `receptionist_*` events stored that day, no property value matched a phone-number or email-address pattern, and the same patterns matched control strings in the same query;
+  - the property keys were the allowlist plus `$lib`, `$lib_version`, `$is_server`, `$sent_at`, `$geoip_disable`, `$raw_user_agent`, `$set` and `$set_once`;
+  - `$set` held only the test flag and the user agent, and `$set_once` only `$initial_raw_user_agent`.
 
 The hidden phone event type is never entered in `src/content/booking/`, and its slug is not written in this repository (specs/book-page.md item 3).
 
