@@ -1,9 +1,14 @@
 {
   "status": "error",
-  "timestamp": "2033-09-01T12:00:00.000Z",
+  "timestamp": "2026-11-06T17:41:22.335Z",
   "path": "/v2/bookings",
   "error": {
-    "code": "BadRequestException",
-    "message": "User either already has booking at this time or is not available"
+    "code": "ConflictException",
+    "message": "User either already has booking at this time or is not available",
+    "details": {
+      "message": "User either already has booking at this time or is not available",
+      "error": "Conflict",
+      "statusCode": 409
+    }
   }
 }

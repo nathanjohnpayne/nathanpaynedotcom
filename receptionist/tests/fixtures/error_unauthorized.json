@@ -1,9 +1,14 @@
 {
   "status": "error",
-  "timestamp": "2033-09-01T12:00:00.000Z",
+  "timestamp": "2026-11-06T17:42:21.393Z",
   "path": "/v2/bookings",
   "error": {
     "code": "UnauthorizedException",
-    "message": "Invalid API Key"
+    "message": "CustomThrottlerGuard - Invalid API Key",
+    "details": {
+      "message": "CustomThrottlerGuard - Invalid API Key",
+      "error": "Unauthorized",
+      "statusCode": 401
+    }
   }
 }
