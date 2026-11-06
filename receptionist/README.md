@@ -179,7 +179,9 @@ The agent sends call events to the website's PostHog project (469428), so a funn
 - **Test calls:**
   - A call from `OWNER_PHONE` makes a one-off person with only `$internal_or_test_user: true`, which puts it in the internal cohort the project's default filter excludes. A console or Agent Console session does the same.
   - The number is compared inside the agent and never sent.
+  - The cohort is dynamic and PostHog recalculates it on its own schedule, so a new test person can count in default views until then. On 2026-11-06 the cohort's last calculation was 14 hours old and none of the three test calls had joined it yet.
 - **Failure:** analytics can't break a call. Capture only queues the event, the SDK sends batches every half second from its own thread, and the flush when a call ends has a 3-second limit. With PostHog unreachable, booking works unchanged; this was checked on 2026-11-06 with `POSTHOG_HOST` pointed at an unroutable address.
+- **Funnel:** [Phone receptionist: booking funnel](https://us.posthog.com/project/469428/insights/lv3Cy3vg) runs call answered → times offered → booking read back → call booked, one entry per call, within 15 minutes, with test accounts filtered out.
 
 Its settings are agent secrets. `lk agent update-secrets --secrets KEY=VALUE .` adds or changes one and leaves the others alone; it restarts the agent. To remove one, rerun with `--overwrite` and a secrets file holding every secret to keep, since `--overwrite` replaces them all.
 
