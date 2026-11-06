@@ -27,7 +27,12 @@ from booking import (
     speak_when,
     user_replied_after,
 )
-from calcom import BookingLimitError, BookingOutcomeUnknownError, SlotUnavailableError
+from calcom import (
+    BookingLimitError,
+    BookingOutcomeUnknownError,
+    EmailRejectedError,
+    SlotUnavailableError,
+)
 
 # Thursday, September 1, 2033, noon Pacific.
 NOW = dt.datetime(2033, 9, 1, 12, 0, tzinfo=PACIFIC)
@@ -465,3 +470,126 @@ async def test_bad_caller_timezone_is_a_speakable_tool_error(name):
     desk, _ = make_desk()
     with pytest.raises(ToolError, match="not a time zone name"):
         await desk.list_slots(duration_minutes=30, caller_timezone=name)
+
+
+def test_set_email_records_a_confirmed_address_and_resets_review():
+    desk, _ = make_desk()
+    desk.review = object()  # an earlier review no longer matches
+    assert "alex@example.com" in desk.set_email("  Alex@Example.com ")
+    assert desk.email == "alex@example.com"
+    assert desk.review is None
+    with pytest.raises(ToolError, match="doesn't look complete"):
+        desk.set_email("alex at example")
+
+
+async def test_rejected_email_keeps_the_slot_and_allows_booking_without_it():
+    # Cal.com, 2026-11-05: HTTP 400 "This email address cannot receive mail."
+    # The time is still free, so the caller keeps it; only the invite changes.
+    calendar = FakeCalendar(
+        weekday_slots(NOW),
+        booking_error=EmailRejectedError(
+            "HTTP 400: This email address cannot receive mail."
+        ),
+    )
+    desk, _ = await offered_desk(calendar=calendar)
+    desk.set_email("alex@exmaple.com")
+    with pytest.raises(ToolError, match="collect_email") as caught:
+        await book(desk, details(email=desk.email))
+    assert EmailRejectedError.spoken in caught.value.message
+    assert "slot-1" in desk.offered
+    assert desk.email is None and desk.review is None and desk.booking is None
+
+    # Without the invite, the same slot books after a fresh review.
+    calendar.booking_error = None
+    await book(desk, details(email=desk.email), call_id="review-2")
+    assert desk.booking is not None
+    assert calendar.bookings[-1].email is None
+
+
+async def test_caller_can_withdraw_the_invite_after_giving_an_email():
+    # Codex and CodeRabbit, #1572: once collect_email stored an address there
+    # was no way back, so the invite went out against the caller's wishes.
+    desk, calendar = await offered_desk()
+    desk.set_email("alex@example.com")
+    desk.review_booking(details(email=desk.email), call_id="review-1")
+    assert "Removed" in desk.clear_email()
+    assert desk.email is None and desk.review is None
+    assert "no invite address" in desk.clear_email()
+
+    result = await book(desk, details(email=desk.email), call_id="review-2")
+    assert calendar.bookings[-1].email is None
+    assert "No calendar invite" in result
+
+
+async def test_dropped_invite_email_is_not_promised():
+    # CodeRabbit, #1572: when Cal.com drops the address, the booking stands
+    # but the caller must not hear that an invite is on its way.
+    calendar = FakeCalendar(weekday_slots(NOW), email_kept=False)
+    desk, _ = await offered_desk(calendar=calendar)
+    desk.set_email("alex@example.com")
+    result = await book(desk, details(email=desk.email))
+    assert desk.booking is not None
+    assert "may not arrive" in result
+    assert "A calendar invite goes to" not in result
+
+
+async def test_kept_invite_email_is_confirmed():
+    desk, _ = await offered_desk()
+    desk.set_email("alex@example.com")
+    result = await book(desk, details(email=desk.email))
+    assert "A calendar invite goes to alex@example.com." in result
+
+
+async def test_failed_email_capture_clears_the_earlier_address():
+    # CodeRabbit, #1572: a caller who declines a replacement address must not
+    # be booked "without an invite" that still goes to the old one.
+    desk, calendar = await offered_desk()
+    desk.set_email("alex@example.com")
+    desk.review_booking(details(email=desk.email), call_id="review-1")
+
+    async def declined() -> str:
+        raise ToolError("couldn't get the email address: caller declined")
+
+    with pytest.raises(ToolError, match="No invite address is stored now"):
+        await desk.capture_email(declined)
+    assert desk.email is None and desk.review is None
+
+    await book(desk, details(email=desk.email), call_id="review-2")
+    assert calendar.bookings[-1].email is None
+
+
+async def test_successful_email_capture_records_the_address():
+    desk, _ = await offered_desk()
+
+    async def confirmed() -> str:
+        return "Alex@Example.com"
+
+    assert "alex@example.com" in await desk.capture_email(confirmed)
+    assert desk.email == "alex@example.com"
+
+
+async def test_removing_the_email_after_booking_does_not_promise_no_invite():
+    # CodeRabbit, #1572: the booking already carries the address, so the
+    # agent mustn't tell the caller no invite will be sent.
+    desk, _ = await offered_desk()
+    desk.set_email("alex@example.com")
+    await book(desk, details(email=desk.email))
+    message = desk.clear_email()
+    assert "can't withdraw the invite" in message
+    assert "no calendar invite will be sent" not in message.lower()
+
+
+async def test_removing_the_email_after_an_unconfirmed_booking_promises_nothing():
+    # Codex and CodeRabbit, #1572: after a timeout or 5xx, Cal.com may already
+    # hold the booking and its address, so no-invite can't be promised.
+    calendar = FakeCalendar(
+        weekday_slots(NOW),
+        booking_error=BookingOutcomeUnknownError("write unconfirmed: timeout"),
+    )
+    desk, _ = await offered_desk(calendar=calendar)
+    desk.set_email("alex@example.com")
+    with pytest.raises(ToolError):
+        await book(desk, details(email=desk.email))
+    message = desk.clear_email()
+    assert "unconfirmed" in message
+    assert "no calendar invite will be sent" not in message.lower()

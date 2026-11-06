@@ -17,10 +17,12 @@ caller ──▶ LiveKit phone number ──▶ SIP dispatch rule ──▶ agen
 2. The agent reads the caller's number from the SIP participant's `sip.phoneNumber` attribute. That caller ID is the only number it ever books; it never takes a number from speech or from the model.
 3. It speaks a fixed greeting (`GREETING` in `src/prompts.py`): it is Nathan Payne's AI receptionist, the call is transcribed by AI and not recorded, and it can book a 15- or 30-minute call.
 4. The voice pipeline runs on [LiveKit Inference](https://docs.livekit.io/agents/models/inference/), using the starter's models: AssemblyAI Universal 3.6 Pro for speech-to-text, Gemma 4 31B for the LLM, and Fish Audio S2.1 Pro for text-to-speech, with the LiveKit turn detector and ai-coustics background noise suppression.
-5. The agent has three booking tools, backed by the Cal.com API v2:
+5. The agent has five booking tools, backed by the Cal.com API v2:
    - `list_available_slots(duration_minutes, day?, caller_timezone?)` returns at most three upcoming open times, in Pacific time and in the caller's time zone if they gave one. Each time gets a label like `slot-2`; the exact start time stays on the server.
-   - `review_booking(slot, duration_minutes, name, notes?, email?)` checks the details and hands them back for the agent to read out. It books nothing.
-   - `book_call(slot, duration_minutes, name, notes?, email?)` books the reviewed slot on the Cal.com event type for phone calls.
+   - `collect_email()` runs LiveKit's `GetEmailTask` when the caller wants a calendar invite: it asks for the address, normalizes spoken spelling, and spells it back for a yes. The confirmed address is stored for the call; the model never types one.
+   - `remove_email()` drops that stored address if the caller changes their mind.
+   - `review_booking(slot, duration_minutes, name, notes?)` checks the details, including any stored invite address, and hands them back for the agent to read out. It books nothing.
+   - `book_call(slot, duration_minutes, name, notes?)` books the reviewed slot on the Cal.com event type for phone calls, with the stored invite address if there is one.
 6. Every call ends by the five-minute mark. At 4:30 the agent says a short goodbye with the booking status, and at 5:00 it hangs up by closing the session and deleting the room. The agent can also end the call earlier when the caller says goodbye.
 
 ### Booking Rules
@@ -34,7 +36,7 @@ The model interprets the conversation; code in `src/booking.py` enforces the rul
 - The agent asks for an email address only if the caller wants a calendar invite, and spells it back.
 - Calendar writes can't be interrupted (`disallow_interruptions()`), and every Cal.com failure, such as a slot that was just taken or a booking limit, becomes a sentence the agent can say.
 
-The Cal.com event type itself carries the rest of the limits: 15 or 30 minutes, at least two hours' notice, a 14-day window, and at most two bookings a day and five a week. The event type ID comes from `CAL_EVENT_TYPE_ID` at runtime and isn't stored in the code.
+The Cal.com event type itself carries the rest of the limits: 15 or 30 minutes, at least two hours' notice, a 14-day window, and at most two bookings a day and five a week. Its phone field is required and its email field is optional but **visible**. Cal.com discards the email of an attendee whose event type hides the email field, and books with a phone placeholder (`<digits>@sms.cal.com`), so a hidden field means no caller ever gets an invite. If that happens, the agent logs `cal.com dropped the attendee email`. The event type ID comes from `CAL_EVENT_TYPE_ID` at runtime and isn't stored in the code.
 
 ## Free Plan Limits
 
@@ -47,7 +49,7 @@ The agent is sized to stay within LiveKit Cloud's free Build plan. On the Build 
 | Agent session minutes | 1,000 minutes a month | Not the binding limit. |
 | Concurrent agent sessions | 5 | At most five calls at once. |
 | Agent deployments | 1 | This is the project's only deployed agent. |
-| Cold starts | Up to 10 to 20 seconds | A deployed agent can shut down when idle, so the first caller after a quiet period may wait before the greeting. |
+| Cold starts | Up to 10 to 20 seconds | A deployed agent can shut down when idle, so the first caller after a quiet period may wait before the greeting. Observed on 2026-11-05: after 27 minutes with no calls the worker was still running, and the call was answered in under 5 seconds. No idle shutdown has been seen yet, so a true cold start is still unmeasured. |
 
 The five-minute session cap exists to keep a single call from eating a large share of the monthly inference and phone minutes.
 
@@ -97,9 +99,70 @@ uv run pytest
 
 Fixtures use fictional numbers from the 555-0100 to 555-0199 range and contain no API key or event type slug. CI runs Ruff and the test suite on every pull request that touches this folder; the behavior tests skip there.
 
-## Deploy
+## Deploy and Operate
 
-Deploying the agent to LiveKit Cloud, claiming the free phone number, and creating the SIP dispatch rule that targets the `receptionist` agent are tracked in #1565.
+The agent runs on LiveKit Cloud as agent `CA_duPLhGiviC5X` in the `us-east` region, in project `nathanpayne-com`. `livekit.toml` in this folder records the project subdomain and agent ID, so the commands below find the agent from this folder. It holds no secrets.
+
+### First Create
+
+The first deploy was one command, run from this folder:
+
+```console
+lk agent create --region us-east --secrets-file <file> --yes .
+```
+
+`<file>` held three lines: `CAL_API_KEY` (read from 1Password with `op read`), `CAL_EVENT_TYPE_ID`, and `OWNER_TIMEZONE`. It was created with mode 600 outside the repo and deleted right after. Don't set `DEV_CALLER_PHONE`: the agent refuses to start in production with it set. `lk agent create` builds the image from the Dockerfile on LiveKit's build service, starts it, and writes `livekit.toml`. The region can't be changed after creation; the available regions are listed under [regions and endpoints](https://docs.livekit.io/deploy/admin/regions/endpoints/).
+
+### Later Deploys
+
+```console
+lk agent deploy
+```
+
+Each deploy builds a new version and rolls it out. `lk agent versions` lists versions with their git commit and branch (the CLI records both by default). Secrets carry over between deploys; pass `--secrets` or `--secrets-file` only to change them.
+
+To recover from a bad deploy on the Build plan, revert the code and redeploy: `git revert` the bad commit (or check out the last good one), then run `lk agent deploy` from this folder. `lk agent rollback` is instant and needs no rebuild, but LiveKit offers it only on paid plans ([managing deployments](https://docs.livekit.io/deploy/agents/managing-deployments/)).
+
+### Status and Logs
+
+```console
+lk agent status                     # one row per agent: version, region, status, replicas
+lk agent logs                       # runtime logs (tails until interrupted)
+lk agent logs --log-type build      # image build logs
+lk agent versions                   # every version and which one is in production
+```
+
+A healthy startup logs `starting worker` followed by `registered worker` with `"agent_name": "receptionist"`. `lk agent logs` tails a single agent instance.
+
+### Rotating the Cal.com Key
+
+Create the new key in Cal.com, then update the secret. This restarts the agent:
+
+```console
+lk agent update --secrets-file <file> .
+lk agent secrets                    # lists secret names and timestamps, never values
+```
+
+Revoke the old key in Cal.com only after every call that started before the update has ended: a secret update doesn't interrupt running sessions, and each keeps the key it started with, so revoking it mid-call can fail that call's slot lookups or booking. Calls last at most five minutes, so wait at least that long after the update.
+
+### Dispatch Rule
+
+Calls reach the agent through an inbound SIP dispatch rule, `receptionist-inbound` (`SDR_fMK47p98cH36`). It's a callee rule: each call gets its own room, named `call-` plus our own number and a random suffix, and the rule dispatches the agent by name (`receptionist`). Rooms are named after the called number, not the caller, because room names appear in logs and traces without PII redaction ([dispatch rules](https://docs.livekit.io/telephony/accepting-calls/dispatch-rule/)). Inspect it with:
+
+```console
+lk sip dispatch list
+lk number list                      # the SIP Dispatch Rules column must show SDR_fMK47p98cH36
+```
+
+A LiveKit phone number routes calls only to a rule assigned to it ([testing your telephony setup](https://docs.livekit.io/telephony/testing/)). The documented CLI assignment, `lk number update --id PN_PPN_wUSnKQ2hfeNU --sip-dispatch-rule-id <rule>`, failed every time on 2026-11-05 with `twirp error invalid_argument: Failed to update phone number`, on CLI 2.19.3, for both individual and callee rules. Assign the rule in the dashboard instead: Telephony, then Phone numbers, then the number's **⋮** menu, **Configure with existing dispatch rules**, then pick the rule and save. The number is ID `PN_PPN_wUSnKQ2hfeNU`, the 415 number ending in 6465. If you ever replace the rule, assign the new one the same way, or calls stop reaching the agent.
+
+### Checking Usage
+
+The Build plan allowances in [Free Plan Limits](#free-plan-limits) reset on the first of each month. LiveKit Cloud shows the project's quotas under Settings, then the Project tab, and per-session usage under Agent insights ([quotas and limits](https://docs.livekit.io/deploy/admin/quotas-and-limits/)). I found no `lk` command that prints the month's inference or telephony totals, so use the dashboard.
+
+### When an Allowance Runs Out
+
+On the Build plan an exhausted allowance is a hard cap: new requests fail instead of incurring charges. The LiveKit docs don't say what a phone caller hears in that case, so that is unverified. Turn detection and interruption handling fall back to local models; the speech, language, and voice models don't have a documented fallback.
 
 ## Privacy
 

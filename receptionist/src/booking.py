@@ -15,7 +15,7 @@ import asyncio
 import datetime as dt
 import logging
 import re
-from collections.abc import Callable, Iterable
+from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass, replace
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -28,6 +28,7 @@ from calcom import (
     BookingResult,
     CalComError,
     Calendar,
+    EmailRejectedError,
     SlotUnavailableError,
 )
 
@@ -253,6 +254,9 @@ class BookingDesk:
         # A write Cal.com may have accepted without confirming. Once set, the
         # call books nothing else, so it can't double-book.
         self.unconfirmed: OfferedSlot | None = None
+        # The invite address, set only by collect_email after GetEmailTask has
+        # confirmed it with the caller. The model never types it.
+        self.email: str | None = None
         self._lock = asyncio.Lock()
 
     # -- clock and zones --
@@ -472,6 +476,18 @@ class BookingDesk:
             )
             try:
                 result = await self._calendar.create_booking(request)
+            except EmailRejectedError as exc:
+                # Nothing was booked and the slot is still offered; only the
+                # address has to change, so the caller must hear a new review.
+                domain = (request.email or "").rpartition("@")[2] or "?"
+                logger.warning("cal.com rejected the invite email (domain %s)", domain)
+                self.email = None
+                self.review = None
+                raise ToolError(
+                    f"{exc.spoken} Ask the caller which they prefer. To retry, call "
+                    "collect_email. To skip the invite, go ahead without it. Either "
+                    "way, call review_booking again and get a yes before book_call."
+                ) from exc
             except BookingOutcomeUnknownError as exc:
                 self.unconfirmed = slot
                 self.review = None
@@ -485,15 +501,87 @@ class BookingDesk:
             self.booked_details = details
             self.review = None
 
-        invite = (
-            f"A calendar invite goes to {details.email}."
-            if details.email
-            else "No calendar invite will be sent."
-        )
+        if not details.email:
+            invite = "No calendar invite will be sent."
+        elif result.email_kept is False:
+            # Cal.com booked the call but didn't keep the address, so don't
+            # promise an invite that won't arrive (#1572).
+            invite = (
+                "The call is booked, but Nathan's calendar didn't confirm the "
+                f"invite address, so an invite to {details.email} may not arrive."
+            )
+        else:
+            invite = f"A calendar invite goes to {details.email}."
         return (
             f"Booked. Nathan will call {details.name} on "
             f"{self._speak_both(result.start)} for {slot.duration_minutes} "
             f"minutes, at the number this call came from. {invite}"
+        )
+
+    def set_email(self, email: str) -> str:
+        """Record the confirmed invite address and say what to do next."""
+        cleaned = (email or "").strip().lower()
+        if not EMAIL.match(cleaned):
+            raise ToolError(
+                "That email address doesn't look complete. Collect it again, or "
+                "book without a calendar invite."
+            )
+        self.email = cleaned
+        self.review = None
+        return (
+            f"Recorded {cleaned} for the calendar invite. Call review_booking "
+            "next; it includes this address."
+        )
+
+    async def capture_email(self, capture: Callable[[], Awaitable[str]]) -> str:
+        """Run an email capture and record its result.
+
+        If the capture fails (the caller declines, or the address can't be
+        confirmed), any earlier address is cleared too, so a booking made
+        "without an invite" can't still carry an old one (#1572).
+        """
+        try:
+            email = await capture()
+        except ToolError as exc:
+            self.email = None
+            self.review = None
+            raise ToolError(
+                f"{exc.message} No invite address is stored now. Ask whether to "
+                "try again or book without an invite, and review the booking "
+                "again before book_call."
+            ) from exc
+        return self.set_email(email)
+
+    def clear_email(self) -> str:
+        """Drop the invite address when the caller no longer wants an invite."""
+        if self.booking is not None:
+            # The booking already went to Cal.com with this address; clearing
+            # local state can't recall the invite (#1572).
+            return (
+                "The call is already booked, and Nathan's calendar already has "
+                "that address, so I can't withdraw the invite from here. Tell the "
+                "caller they can ignore or decline it, and that Nathan will still "
+                "call at the booked time."
+            )
+        if self.unconfirmed is not None:
+            # Cal.com may have accepted the booking, address included, without
+            # confirming it, so neither the booking nor its invite is known
+            # (#1572).
+            return (
+                "That booking may already have gone through with that address, "
+                "so I can't promise no invite will arrive or withdraw it from "
+                "here. Tell the caller the booking and its invite are "
+                "unconfirmed, and that they can ignore or decline an invite if "
+                "one comes."
+            )
+        had_email = self.email is not None
+        self.email = None
+        self.review = None
+        if not had_email:
+            return "There was no invite address to remove. Carry on without one."
+        return (
+            "Removed the invite address; no calendar invite will be sent. Call "
+            "review_booking again and read it back before booking."
         )
 
     def status_for_goodbye(self) -> str:

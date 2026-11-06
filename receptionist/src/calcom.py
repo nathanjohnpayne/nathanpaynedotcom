@@ -84,6 +84,21 @@ class CalendarUnavailableError(CalComError):
     )
 
 
+class EmailRejectedError(CalComError):
+    """Cal.com refused the attendee email as undeliverable.
+
+    Cal.com checks that an attendee's email domain can receive mail. A voice
+    transcription that mangles the domain fails that check, and nothing is
+    booked. The slot is still free, so the call can retry with a corrected
+    address or book without one.
+    """
+
+    spoken = (
+        "That email address can't receive mail, so I couldn't book it with an "
+        "invite. We can spell it again, or I can book the call without one."
+    )
+
+
 class BookingOutcomeUnknownError(CalComError):
     """A booking write may or may not have landed.
 
@@ -120,6 +135,10 @@ class BookingRequest:
 class BookingResult:
     uid: str
     start: dt.datetime  # timezone-aware
+    # Whether Cal.com's response lists the requested invite email. None when
+    # no email was sent; False means the booking stands but no invite will
+    # reach the caller (#1572).
+    email_kept: bool | None = None
 
 
 class Calendar(Protocol):
@@ -222,6 +241,10 @@ def classify_error(status: int, body: Any) -> CalComError:
 
     if status in (401, 403) or status == 429 or status >= 500:
         return CalendarUnavailableError(detail, status=status)
+    # Observed live on 2026-11-05: HTTP 400 "This email address cannot receive
+    # mail. Please use a valid email."
+    if "cannot receive mail" in text or ("email" in text and "valid" in text):
+        return EmailRejectedError(detail, status=status)
     if "limit" in text:
         return BookingLimitError(detail, status=status)
     if any(
@@ -248,6 +271,18 @@ def classify_error(status: int, body: Any) -> CalComError:
     ):
         return SlotUnavailableError(detail, status=status)
     return CalComError(detail, status=status)
+
+
+def _attendee_email_kept(data: dict, email: str) -> bool:
+    """True if the booking response lists ``email`` as an attendee's email."""
+    attendees = data.get("attendees")
+    if not isinstance(attendees, list):
+        return False
+    wanted = email.strip().lower()
+    return any(
+        isinstance(a, dict) and str(a.get("email", "")).strip().lower() == wanted
+        for a in attendees
+    )
 
 
 # --- client -----------------------------------------------------------------
@@ -383,5 +418,21 @@ class CalComClient:
         if isinstance(data.get("start"), str):
             with contextlib.suppress(ValueError):
                 start = dt.datetime.fromisoformat(data["start"].replace("Z", "+00:00"))
-        logger.info("cal.com booking created: uid=%s", data["uid"])
-        return BookingResult(uid=str(data["uid"]), start=start)
+        logger.info(
+            "cal.com booking created: uid=%s email=%s",
+            data["uid"],
+            "given" if request.email else "none",
+        )
+        email_kept = (
+            _attendee_email_kept(data, request.email) if request.email else None
+        )
+        if email_kept is False:
+            # The booking stands, but no invite will reach the caller. Cal.com
+            # replaces the email with a phone placeholder when the event
+            # type's email field is hidden (#1565).
+            logger.warning(
+                "cal.com dropped the attendee email on booking uid=%s; "
+                "check that the event type's email field is visible",
+                data["uid"],
+            )
+        return BookingResult(uid=str(data["uid"]), start=start, email_kept=email_kept)

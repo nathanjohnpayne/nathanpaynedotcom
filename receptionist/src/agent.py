@@ -28,6 +28,7 @@ from livekit.agents import (
     room_io,
 )
 from livekit.agents.beta.tools import EndCallTool
+from livekit.agents.beta.workflows import GetEmailTask
 from livekit.plugins import ai_coustics
 
 from booking import BookingDesk, BookingDetails, normalize_phone, zone_label
@@ -98,6 +99,37 @@ class Receptionist(Agent):
         )
 
     @function_tool
+    async def collect_email(self, context: RunContext[BookingDesk]) -> str:
+        """Collect the caller's email address for a calendar invite. Call this
+        only if the caller wants an invite. It asks for the address, handles
+        spoken spelling, and confirms it with the caller. Never write an email
+        address into any other tool yourself.
+        """
+
+        # GetEmailTask normalizes spoken addresses ("dot", "underscore",
+        # letter-by-letter spelling) and confirms with the caller, which a
+        # free-text tool argument transcribed from speech did not (#1565).
+        # The LLM lives on this agent, not the session, so the task needs it
+        # passed in or it has no model to reply with.
+        async def capture() -> str:
+            result = await GetEmailTask(
+                llm=self.llm,
+                chat_ctx=self.chat_ctx,
+                require_explicit_ask=True,
+                verify_spelling=True,
+            )
+            return result.email_address
+
+        return await context.userdata.capture_email(capture)
+
+    @function_tool
+    async def remove_email(self, context: RunContext[BookingDesk]) -> str:
+        """Remove the stored invite address. Call this if the caller no longer
+        wants a calendar invite after collect_email recorded one.
+        """
+        return context.userdata.clear_email()
+
+    @function_tool
     async def review_booking(
         self,
         context: RunContext[BookingDesk],
@@ -105,21 +137,21 @@ class Receptionist(Agent):
         duration_minutes: int,
         name: str,
         notes: str | None = None,
-        email: str | None = None,
     ) -> str:
         """Check a booking before reading it back. Call this once the caller has
         picked a time and given their name, then read the result back to the
-        caller and ask whether to book it. This does not book anything.
+        caller and ask whether to book it. This does not book anything. It
+        includes the invite address collect_email recorded, if any.
 
         Args:
             slot: The slot label from list_available_slots, such as slot-2.
             duration_minutes: 15 or 30, the length the slot was offered for.
             name: The caller's name.
             notes: Optional. What the caller wants to discuss.
-            email: Optional. Only if the caller wants a calendar invite, confirmed by spelling it back.
         """
-        return context.userdata.review_booking(
-            BookingDetails(slot, duration_minutes, name, notes, email),
+        desk = context.userdata
+        return desk.review_booking(
+            BookingDetails(slot, duration_minutes, name, notes, desk.email),
             call_id=context.function_call.call_id,
         )
 
@@ -131,7 +163,6 @@ class Receptionist(Agent):
         duration_minutes: int,
         name: str,
         notes: str | None = None,
-        email: str | None = None,
     ) -> str:
         """Book the phone call on Nathan's calendar. Only call this after
         review_booking, after reading the details back, and after the caller
@@ -142,10 +173,9 @@ class Receptionist(Agent):
             duration_minutes: The reviewed length, 15 or 30.
             name: The reviewed name.
             notes: The reviewed topic, if any.
-            email: The reviewed email, if any.
         """
         desk = context.userdata
-        details = BookingDetails(slot, duration_minutes, name, notes, email)
+        details = BookingDetails(slot, duration_minutes, name, notes, desk.email)
         desk.check_approval(details, history=context.session.history.items)
         # Writing to the calendar can't be rolled back, so the caller can't
         # interrupt it halfway.
