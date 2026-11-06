@@ -119,7 +119,9 @@ lk agent create --region us-east --secrets-file <file> --yes .
 lk agent deploy
 ```
 
-Each deploy builds a new version and rolls it out. `lk agent versions` lists versions with their git commit and branch (the CLI records both by default), and `lk agent rollback --version <version>` returns to an earlier one. Secrets carry over between deploys; pass `--secrets` or `--secrets-file` only to change them. How quickly a rollback takes effect on the Build plan is unverified.
+Each deploy builds a new version and rolls it out. `lk agent versions` lists versions with their git commit and branch (the CLI records both by default). Secrets carry over between deploys; pass `--secrets` or `--secrets-file` only to change them.
+
+To recover from a bad deploy on the Build plan, revert the code and redeploy: `git revert` the bad commit (or check out the last good one), then run `lk agent deploy` from this folder. `lk agent rollback` is instant and needs no rebuild, but LiveKit offers it only on paid plans ([managing deployments](https://docs.livekit.io/deploy/agents/managing-deployments/)).
 
 ### Status and Logs
 
@@ -141,7 +143,7 @@ lk agent update --secrets-file <file> .
 lk agent secrets                    # lists secret names and timestamps, never values
 ```
 
-Revoke the old key in Cal.com afterward.
+Revoke the old key in Cal.com only after every call that started before the update has ended: a secret update doesn't interrupt running sessions, and each keeps the key it started with, so revoking it mid-call can fail that call's slot lookups or booking. Calls last at most five minutes, so wait at least that long after the update.
 
 ### Dispatch Rule
 
