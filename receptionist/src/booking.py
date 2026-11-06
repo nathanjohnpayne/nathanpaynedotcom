@@ -501,11 +501,17 @@ class BookingDesk:
             self.booked_details = details
             self.review = None
 
-        invite = (
-            f"A calendar invite goes to {details.email}."
-            if details.email
-            else "No calendar invite will be sent."
-        )
+        if not details.email:
+            invite = "No calendar invite will be sent."
+        elif result.email_kept is False:
+            # Cal.com booked the call but didn't keep the address, so don't
+            # promise an invite that won't arrive (#1572).
+            invite = (
+                "The call is booked, but Nathan's calendar didn't confirm the "
+                f"invite address, so an invite to {details.email} may not arrive."
+            )
+        else:
+            invite = f"A calendar invite goes to {details.email}."
         return (
             f"Booked. Nathan will call {details.name} on "
             f"{self._speak_both(result.start)} for {slot.duration_minutes} "
@@ -525,6 +531,18 @@ class BookingDesk:
         return (
             f"Recorded {cleaned} for the calendar invite. Call review_booking "
             "next; it includes this address."
+        )
+
+    def clear_email(self) -> str:
+        """Drop the invite address when the caller no longer wants an invite."""
+        had_email = self.email is not None
+        self.email = None
+        self.review = None
+        if not had_email:
+            return "There was no invite address to remove. Carry on without one."
+        return (
+            "Removed the invite address; no calendar invite will be sent. Call "
+            "review_booking again and read it back before booking."
         )
 
     def status_for_goodbye(self) -> str:

@@ -119,6 +119,13 @@ class Receptionist(Agent):
         return context.userdata.set_email(result.email_address)
 
     @function_tool
+    async def remove_email(self, context: RunContext[BookingDesk]) -> str:
+        """Remove the stored invite address. Call this if the caller no longer
+        wants a calendar invite after collect_email recorded one.
+        """
+        return context.userdata.clear_email()
+
+    @function_tool
     async def review_booking(
         self,
         context: RunContext[BookingDesk],

@@ -135,6 +135,10 @@ class BookingRequest:
 class BookingResult:
     uid: str
     start: dt.datetime  # timezone-aware
+    # Whether Cal.com's response lists the requested invite email. None when
+    # no email was sent; False means the booking stands but no invite will
+    # reach the caller (#1572).
+    email_kept: bool | None = None
 
 
 class Calendar(Protocol):
@@ -419,7 +423,10 @@ class CalComClient:
             data["uid"],
             "given" if request.email else "none",
         )
-        if request.email and not _attendee_email_kept(data, request.email):
+        email_kept = (
+            _attendee_email_kept(data, request.email) if request.email else None
+        )
+        if email_kept is False:
             # The booking stands, but no invite will reach the caller. Cal.com
             # replaces the email with a phone placeholder when the event
             # type's email field is hidden (#1565).
@@ -428,4 +435,4 @@ class CalComClient:
                 "check that the event type's email field is visible",
                 data["uid"],
             )
-        return BookingResult(uid=str(data["uid"]), start=start)
+        return BookingResult(uid=str(data["uid"]), start=start, email_kept=email_kept)

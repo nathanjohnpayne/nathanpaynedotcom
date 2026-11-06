@@ -230,6 +230,7 @@ async def test_create_booking_posts_payload_and_returns_uid(api, client):
         booking_request(), event_type_id=EVENT_TYPE_ID
     )
     assert "email" not in call.json["attendee"]
+    assert result.email_kept is None
 
 
 async def test_create_booking_without_uid_is_an_unconfirmed_outcome(api, client):
@@ -373,7 +374,8 @@ def _created(attendee_email: str) -> dict:
 async def test_booking_that_keeps_the_email_logs_no_warning(api, client, caplog):
     api.reply("POST /v2/bookings", status=201, payload=_created("alex@example.org"))
     with caplog.at_level("INFO", logger="calcom"):
-        await client.create_booking(booking_request(email="alex@example.org"))
+        result = await client.create_booking(booking_request(email="alex@example.org"))
+    assert result.email_kept is True
     assert "email=given" in caplog.text
     assert "dropped the attendee email" not in caplog.text
 
@@ -387,6 +389,7 @@ async def test_booking_that_drops_the_email_logs_a_warning(api, client, caplog):
     with caplog.at_level("INFO", logger="calcom"):
         result = await client.create_booking(booking_request(email="alex@example.org"))
     assert result.uid  # the booking itself still stands
+    assert result.email_kept is False
     assert "dropped the attendee email" in caplog.text
     assert "alex@example.org" not in caplog.text  # no PII in the log
 

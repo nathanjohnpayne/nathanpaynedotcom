@@ -68,8 +68,9 @@ def test_booking_tools_take_no_phone_number_or_email():
         assert not any("phone" in p or "email" in p for p in params)
 
 
-def test_collect_email_takes_no_arguments():
+def test_email_tools_take_no_arguments():
     assert _tool_params(Receptionist.collect_email) == []
+    assert _tool_params(Receptionist.remove_email) == []
 
 
 def test_list_tool_arguments():

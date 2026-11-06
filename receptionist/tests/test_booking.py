@@ -504,3 +504,37 @@ async def test_rejected_email_keeps_the_slot_and_allows_booking_without_it():
     await book(desk, details(email=desk.email), call_id="review-2")
     assert desk.booking is not None
     assert calendar.bookings[-1].email is None
+
+
+async def test_caller_can_withdraw_the_invite_after_giving_an_email():
+    # Codex and CodeRabbit, #1572: once collect_email stored an address there
+    # was no way back, so the invite went out against the caller's wishes.
+    desk, calendar = await offered_desk()
+    desk.set_email("alex@example.com")
+    desk.review_booking(details(email=desk.email), call_id="review-1")
+    assert "Removed" in desk.clear_email()
+    assert desk.email is None and desk.review is None
+    assert "no invite address" in desk.clear_email()
+
+    result = await book(desk, details(email=desk.email), call_id="review-2")
+    assert calendar.bookings[-1].email is None
+    assert "No calendar invite" in result
+
+
+async def test_dropped_invite_email_is_not_promised():
+    # CodeRabbit, #1572: when Cal.com drops the address, the booking stands
+    # but the caller must not hear that an invite is on its way.
+    calendar = FakeCalendar(weekday_slots(NOW), email_kept=False)
+    desk, _ = await offered_desk(calendar=calendar)
+    desk.set_email("alex@example.com")
+    result = await book(desk, details(email=desk.email))
+    assert desk.booking is not None
+    assert "may not arrive" in result
+    assert "A calendar invite goes to" not in result
+
+
+async def test_kept_invite_email_is_confirmed():
+    desk, _ = await offered_desk()
+    desk.set_email("alex@example.com")
+    result = await book(desk, details(email=desk.email))
+    assert "A calendar invite goes to alex@example.com." in result

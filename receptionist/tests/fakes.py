@@ -35,9 +35,12 @@ class FakeCalendar:
         slots: list[dt.datetime] | None = None,
         *,
         booking_error: CalComError | None = None,
+        email_kept: bool = True,
     ) -> None:
         self.slots = sorted(slots or [])
         self.booking_error = booking_error
+        # What Cal.com does with an invite email: keep it, or drop it.
+        self.email_kept = email_kept
         self.slot_queries: list[tuple[dt.datetime, dt.datetime, int]] = []
         self.bookings: list[BookingRequest] = []
 
@@ -51,7 +54,11 @@ class FakeCalendar:
         if self.booking_error is not None:
             raise self.booking_error
         self.bookings.append(request)
-        return BookingResult(uid=f"fake-{len(self.bookings)}", start=request.start)
+        return BookingResult(
+            uid=f"fake-{len(self.bookings)}",
+            start=request.start,
+            email_kept=self.email_kept if request.email else None,
+        )
 
 
 def weekday_slots(

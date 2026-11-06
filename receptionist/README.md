@@ -17,10 +17,12 @@ caller ──▶ LiveKit phone number ──▶ SIP dispatch rule ──▶ agen
 2. The agent reads the caller's number from the SIP participant's `sip.phoneNumber` attribute. That caller ID is the only number it ever books; it never takes a number from speech or from the model.
 3. It speaks a fixed greeting (`GREETING` in `src/prompts.py`): it is Nathan Payne's AI receptionist, the call is transcribed by AI and not recorded, and it can book a 15- or 30-minute call.
 4. The voice pipeline runs on [LiveKit Inference](https://docs.livekit.io/agents/models/inference/), using the starter's models: AssemblyAI Universal 3.6 Pro for speech-to-text, Gemma 4 31B for the LLM, and Fish Audio S2.1 Pro for text-to-speech, with the LiveKit turn detector and ai-coustics background noise suppression.
-5. The agent has three booking tools, backed by the Cal.com API v2:
+5. The agent has five booking tools, backed by the Cal.com API v2:
    - `list_available_slots(duration_minutes, day?, caller_timezone?)` returns at most three upcoming open times, in Pacific time and in the caller's time zone if they gave one. Each time gets a label like `slot-2`; the exact start time stays on the server.
-   - `review_booking(slot, duration_minutes, name, notes?, email?)` checks the details and hands them back for the agent to read out. It books nothing.
-   - `book_call(slot, duration_minutes, name, notes?, email?)` books the reviewed slot on the Cal.com event type for phone calls.
+   - `collect_email()` runs LiveKit's `GetEmailTask` when the caller wants a calendar invite: it asks for the address, normalizes spoken spelling, and spells it back for a yes. The confirmed address is stored for the call; the model never types one.
+   - `remove_email()` drops that stored address if the caller changes their mind.
+   - `review_booking(slot, duration_minutes, name, notes?)` checks the details, including any stored invite address, and hands them back for the agent to read out. It books nothing.
+   - `book_call(slot, duration_minutes, name, notes?)` books the reviewed slot on the Cal.com event type for phone calls, with the stored invite address if there is one.
 6. Every call ends by the five-minute mark. At 4:30 the agent says a short goodbye with the booking status, and at 5:00 it hangs up by closing the session and deleting the room. The agent can also end the call earlier when the caller says goodbye.
 
 ### Booking Rules
