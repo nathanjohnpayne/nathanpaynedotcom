@@ -3813,6 +3813,16 @@ body.blog-page {
   min-height: 2.75rem;
 }
 
+/* The shared row 1 floor (16rem) is sized for /projects and /blog cards; an
+   event-type card is a kicker, title, one line and a tag, so on /book/ that
+   floor left the top row about 140px of empty paper. Row 1 takes row 2's
+   floor here. Desktop only: the mobile stack resets every row to auto. */
+@media (min-width: 1024px) {
+  .book-grid .grid-row--1 {
+    min-height: 13rem;
+  }
+}
+
 /* /brand/ (specs/brand-page.md): each card opens on its preview, set
    straight on the card's surface with no backdrop, so a transparent file
    reads as transparent. The box has a fixed height and the image keeps its
