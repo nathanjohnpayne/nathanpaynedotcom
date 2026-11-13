@@ -8,6 +8,14 @@ endYear: 2026
 order: 1
 website: "disney.co"
 alumniOrganization: "The Walt Disney Company"
+press:
+  - outlet: "The Verge"
+    year: 2022
+    title: "Disney Plus relaunches on PS5—now with 4K HDR playback"
+    url: "https://www.theverge.com/2022/10/4/23386929/disney-plus-sony-playstation-5-4k-hdr-app-now-available"
+  - outlet: "Disney Streaming on Medium"
+    title: "Introducing the Disney+ Application Development Kit (ADK)"
+    url: "https://medium.com/disney-streaming/introducing-the-disney-application-development-kit-adk-ad85ca139073"
 highlights:
   ncpv3: "Conceived NCPv3 and secured approval for an $18.1M investment in a JavaScript/React runtime to run Disney's mature JavaScript app across five device families, so Disney could retire the parallel Rust app and merge two teams into one."
   vega-os: "Led Disney's launch on Amazon's Linux-based Vega OS (Kepler): Disney+, Hulu, and ESPN shipped on schedule with no measurable engagement impact."
@@ -18,6 +26,7 @@ highlights:
 Product lead for the SDK and platform layer that runs Disney+, Hulu, and ESPN on partner devices. Scope included device certification, partner integrations, platform observability, release engineering, and cross-program alignment with player, engineering, product, and TPM teams.
 
 - **Led Disney's launch on Amazon's Linux-based Vega OS (Kepler),** a ground-up replacement of Fire TV's Android stack with a native Linux OS. Ported Disney+, Hulu, and ESPN, landed the September 2025 announcement, and shipped on time in October with no measurable engagement impact on Disney's fourth-largest living-room platform (~18M monthly active devices).
+- **Relaunched Disney+, Hulu, and ESPN as native PlayStation 5 apps with 4K HDR,** starting with Disney+ (and Star+ in Latin America) in October 2022.
 - **Conceived NCPv3 and secured approval for an $18.1M investment.** The proposed JavaScript/React runtime would let Disney's mature JavaScript app run across PlayStation, Xbox, Vega OS, MVPD set-top boxes, and smart TVs, so Disney could retire the parallel Rust app and consolidate two codebases and two teams into one. Success depended entirely on app teams choosing to build on the shared runtime.
 - **Rebuilt partner device intelligence from spreadsheets to structured data,** replacing 40+ inconsistent partner questionnaires with a two-tier qualification and certification system backed by Snowflake, Partner Portal data, and Looker dashboards. A German HEVC patent enforcement action forced the rebuild by exposing critical gaps in Disney's ability to pull partner device data on demand; the same system now supports AV1/HEVC compliance analysis across Germany and Brazil.
 - **Led On-Device Activation,** a multi-partner subscription-activation program that lets subscribers activate Disney+ through their pay-TV operator account instead of re-authenticating in-app. Owned partner onboarding, integration sequencing, certification cycles, defect triage, and post-launch stabilization across EMEA, LATAM, and APAC operators including Fetch in Australia and Claro in Brazil.

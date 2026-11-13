@@ -11,6 +11,11 @@
  * tightens their vertical rhythm — density is a layout decision, not a
  * prose one, and flipping the flag restores full weight.
  * Section/heading scaffolding via the shared ResumeSection wrapper (#471).
+ *
+ * An entry with `press` frontmatter closes on an "In the press" row (#1595):
+ * a label and a list of external article links in the Writing section's
+ * label-and-list grammar. Screen-only — `.resume-press` is in the print hide
+ * list, so the links never reach paper or the generated PDF.
  */
 import ResumeSection from './ResumeSection.astro';
 import { render } from 'astro:content';
@@ -44,6 +49,21 @@ const rendered = await Promise.all(
         <div class="resume-prose">
           <Content />
         </div>
+        {d.press && d.press.length > 0 && (
+          <div class="resume-press">
+            <p class="resume-press__label">In the press:</p>
+            <ul class="resume-press__list">
+              {d.press.map((item) => (
+                <li>
+                  <a href={item.url} target="_blank" rel="noopener">
+                    {item.title} <span class="link-arrow" aria-hidden="true">&nearr;</span>
+                  </a>
+                  <span class="resume-press__source"> · {item.outlet}{item.year ? `, ${item.year}` : ''}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </article>
     );
   })}
