@@ -105,7 +105,7 @@ Codex applies the writing style. The local checker reports the rules it can chec
 
 ### Commands and exit contract
 
-Install the existing Node dependencies with `npm ci` and use the repository-pinned local Vale (`.vale-version`). The checker never installs tools itself. Run from any directory using an absolute script/input path if needed; nested blog paths work.
+Install the existing Node dependencies with `npm ci` and use the repository-pinned local Vale (`.vale-version`), which `npm run vale:install` installs project-locally. The checker never installs tools itself. Run from any directory using an absolute script/input path if needed; nested blog paths work.
 
 ```bash
 # New post; readable findings. A full meaning review remains required even on exit 0.

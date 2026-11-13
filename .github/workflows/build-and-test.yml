@@ -85,7 +85,8 @@ jobs:
       - name: Install pinned Vale
         # Vale is not part of ubuntu-latest. The helper pins and verifies the
         # release archive, while local runs retain their soft-pass behavior
-        # when the binary is not installed.
+        # when the binary is not installed. Developers get the same pinned
+        # release project-locally with `npm run vale:install` (#1578).
         run: scripts/lib/ensure-vale.sh --ci-only
 
       - name: Install Poppler and MuPDF

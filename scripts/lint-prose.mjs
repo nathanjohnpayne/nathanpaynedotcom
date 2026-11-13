@@ -14,6 +14,22 @@ const PINNED_VALE_VERSION = readFileSync(
   'utf8',
 ).replace(/\r?\n$/u, '');
 
+// `npm run vale:install` (scripts/lib/ensure-vale.sh --local) puts the pinned,
+// checksum-verified release here. It wins over PATH so that a package manager
+// moving its own Vale forward cannot take a checkout off the pin (#1578).
+// LINT_PROSE_VALE_CACHE_DIR relocates the cache root; tests use it to stay
+// independent of whether this checkout has the install.
+const PROJECT_LOCAL_VALE = join(
+  process.env.LINT_PROSE_VALE_CACHE_DIR ||
+    fileURLToPath(new URL('../node_modules/.cache/vale', import.meta.url)),
+  PINNED_VALE_VERSION,
+  'vale',
+);
+
+export function valeCommand() {
+  return existsSync(PROJECT_LOCAL_VALE) ? PROJECT_LOCAL_VALE : 'vale';
+}
+
 const IDENTIFIER_SEPARATOR = /\[[A-Z]{2,}[A-Z0-9_-]*-\d+[\s\p{Zs}]+—[\s\p{Zs}]+/gu;
 const PROPAGATED_MARKDOWN_FILES = new Set([
   '.github/pull_request_template.md',
@@ -157,7 +173,7 @@ export function runVale(files, { config } = {}) {
     return {};
   }
 
-  const result = spawnSync('vale', ['--output=JSON', ...(config ? [`--config=${config}`] : []), ...files], {
+  const result = spawnSync(valeCommand(), ['--output=JSON', ...(config ? [`--config=${config}`] : []), ...files], {
     encoding: 'utf8',
     maxBuffer: 20 * 1024 * 1024,
   });
@@ -408,20 +424,22 @@ function main() {
     process.exit(0);
   }
 
-  const version = spawnSync('vale', ['--version'], { encoding: 'utf8' });
+  const version = spawnSync(valeCommand(), ['--version'], { encoding: 'utf8' });
   if (version.status !== 0) {
     if (process.env.GITHUB_ACTIONS === 'true') {
       console.error('prose lint: Vale is required in CI but is not installed');
       process.exit(2);
     }
-    console.warn('prose lint: Vale is not installed; skipping outside CI');
+    console.warn(
+      "prose lint: Vale is not installed; skipping outside CI (run 'npm run vale:install' for the pinned build)",
+    );
     if (parsed.outputJson) console.log('{}');
     process.exit(0);
   }
   const installedValeVersion = version.stdout.trim().split(/\s+/u).at(-1);
   if (installedValeVersion !== PINNED_VALE_VERSION) {
     console.error(
-      `prose lint: Vale ${installedValeVersion || 'unknown'} does not match pinned ${PINNED_VALE_VERSION}`,
+      `prose lint: Vale ${installedValeVersion || 'unknown'} does not match pinned ${PINNED_VALE_VERSION}; run 'npm run vale:install' to install the pinned build into node_modules/.cache/vale/`,
     );
     process.exit(2);
   }

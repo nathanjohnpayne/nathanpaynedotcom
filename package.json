@@ -16,6 +16,7 @@
     "lint": "scripts/lint-all.sh",
     "lint:js": "eslint .",
     "lint:prose": "node scripts/lint-prose.mjs",
+    "vale:install": "scripts/lib/ensure-vale.sh --local",
     "typecheck": "astro check",
     "format": "prettier --write \"src/**/*.{ts,js,mjs,css}\" \"tests/**/*.{ts,js}\"",
     "format:check": "prettier --check \"src/**/*.{ts,js,mjs,css}\" \"tests/**/*.{ts,js}\""

@@ -1397,7 +1397,8 @@ describe('CLI contract and read-only execution', () => {
 
   it('fails with exit 3 when the required local linter cannot run, without installing or silently skipping it', () => {
     const result = cli(['src/content/blog/autofix-was-the-whole-cost.md', '--json'], {
-      env: { ...process.env, PATH: '/nonexistent' },
+      // The cache override hides this checkout's project-local Vale as well.
+      env: { ...process.env, LINT_PROSE_VALE_CACHE_DIR: '/nonexistent', PATH: '/nonexistent' },
     });
     expect(result.status).toBe(3);
     expect(JSON.parse(result.stdout).error.reason).toContain('requires local Vale');

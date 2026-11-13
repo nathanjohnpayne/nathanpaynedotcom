@@ -75,7 +75,7 @@ Refresh affected metadata, checks, these final-source records and the complete p
 
 ## Commands
 
-Install the existing Node dependencies with `npm ci`; the checker needs local Git for a baseline and the pinned Vale version in `.vale-version`.
+Install the existing Node dependencies with `npm ci`; the checker needs local Git for a baseline and the pinned Vale version in `.vale-version` (`npm run vale:install`).
 
 ```bash
 # New post: complete review still required, even when the command exits 0.
