@@ -1,6 +1,6 @@
 ---
 company: "CNN"
-title: "Systems Architect / Support Roles"
+title: "Systems Architect / Systems Administrator"
 location: "Washington, DC Bureau"
 startYear: 2002
 endYear: 2012

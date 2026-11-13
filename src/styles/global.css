@@ -7980,8 +7980,9 @@ body.resume-page {
      bullet (#1594): two more printed lines put the Writing lead alone on a
      fourth page. Only the three most-repeated gaps moved — section 0.44 →
      0.36rem, entry 0.42 → 0.34rem, bullet 0.11 → 0.08rem — which returns the
-     file to three pages (50/51/47 extracted lines) at the cost of the last
-     certification now opening page 3 rather than closing page 2. */
+     file to three pages. With the certifications list at two entries the
+     section closes page 2 and Projects opens page 3 (50/51/45 extracted
+     lines); page 2 has no slack left. */
   .resume-contact {
     margin-top: 0.26rem;
     gap: 0.1rem 0.4rem;

@@ -546,7 +546,7 @@ const skills = defineCollection({
 });
 
 // Certifications. `issuer` + `website` drive the Logo.dev lookup; `logo`
-// overrides it for defunct issuers with no live domain (Turner).
+// overrides it where the Logo.dev mark is wrong or absent (CSP-PO).
 const certifications = defineCollection({
   loader: glob({ pattern: '**/*.md', base: './src/content/certifications' }),
   schema: z.object({
