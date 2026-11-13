@@ -7478,7 +7478,8 @@ body.resume-page {
 }
 
 .resume-projects__label,
-.resume-writing__label {
+.resume-writing__label,
+.resume-press__label {
   margin-top: 0.7rem;
   font-size: clamp(0.74rem, 0.9vw, 0.82rem);
   letter-spacing: 0.08em;
@@ -7486,7 +7487,8 @@ body.resume-page {
   color: color-mix(in srgb, var(--ink) 55%, transparent);
 }
 
-.resume-writing__essays {
+.resume-writing__essays,
+.resume-press__list {
   list-style: none;
   display: grid;
   gap: 0.4rem;
@@ -7494,13 +7496,15 @@ body.resume-page {
   padding: 0;
 }
 
-.resume-writing__essays li {
+.resume-writing__essays li,
+.resume-press__list li {
   position: relative;
   padding-left: 1rem;
   font-size: clamp(0.9rem, 0.88rem + 0.12vw, 0.98rem);
 }
 
-.resume-writing__essays li::before {
+.resume-writing__essays li::before,
+.resume-press__list li::before {
   content: '';
   position: absolute;
   top: 0.55em;
@@ -7512,7 +7516,8 @@ body.resume-page {
 
 .resume-projects__lead a,
 .resume-writing__lead a,
-.resume-writing__essays a {
+.resume-writing__essays a,
+.resume-press__list a {
   color: var(--resume-link);
   text-decoration: none;
   border-bottom: 1px solid color-mix(in srgb, var(--resume-link) 35%, transparent);
@@ -7524,8 +7529,27 @@ body.resume-page {
 .resume-writing__lead a:hover,
 .resume-writing__lead a:focus-visible,
 .resume-writing__essays a:hover,
-.resume-writing__essays a:focus-visible {
+.resume-writing__essays a:focus-visible,
+.resume-press__list a:hover,
+.resume-press__list a:focus-visible {
   border-bottom-color: var(--resume-link);
+}
+
+/* ── Press row on an Experience entry (#1595) ──
+   Coverage of the role's work, in the Writing section's label-and-list
+   grammar (the shared rules above) so it reads as part of the page rather
+   than as a new component. Screen-only: `.resume-press` is in the print hide
+   list below, which is also what the PDF is rendered from. */
+.resume-press {
+  margin-top: 0.85rem;
+}
+
+.resume-press__label {
+  margin-top: 0;
+}
+
+.resume-press__source {
+  color: var(--ink-62);
 }
 
 /* ── Awards (dormant scaffold; wire back when content exists, #654) ── */
@@ -7918,13 +7942,18 @@ body.resume-page {
      in the contact line and the section leads — so every project remains two
      addresses away rather than one. Screen keeps the row, where it is one
      click. Measured: hiding it returns the file to three pages at 54/46/38
-     lines. */
+     lines.
+
+     `.resume-press` (#1595) is hidden on the same footing: the "In the press"
+     row under an Experience entry is nothing but outbound article links, and
+     the owner's brief for it was explicit that it does not belong in the PDF. */
   .resume-projects__desc,
   .resume-projects__label,
   .resume-entry__link,
   .resume-writing__desc,
   .resume-writing__label,
-  .resume-writing__essays {
+  .resume-writing__essays,
+  .resume-press {
     display: none;
   }
 
@@ -7946,7 +7975,13 @@ body.resume-page {
      The vertical gaps took a second ~20% cut when the pre-2016 roles went
      back to their full canonical bodies and the summary gained a sentence:
      that added ~8 lines and spilled the Writing tail onto a fourth page.
-     Horizontal gaps and the bullet gutter are unchanged. */
+     Horizontal gaps and the bullet gutter are unchanged.
+     A third, smaller nudge followed the canonical's PlayStation 5 relaunch
+     bullet (#1594): two more printed lines put the Writing lead alone on a
+     fourth page. Only the three most-repeated gaps moved — section 0.44 →
+     0.36rem, entry 0.42 → 0.34rem, bullet 0.11 → 0.08rem — which returns the
+     file to three pages (50/51/47 extracted lines) at the cost of the last
+     certification now opening page 3 rather than closing page 2. */
   .resume-contact {
     margin-top: 0.26rem;
     gap: 0.1rem 0.4rem;
@@ -7960,7 +7995,7 @@ body.resume-page {
      buys vertical space toward the three-page fit (Safari fits ~11% less per
      page than Chromium). */
   .resume-section {
-    margin-top: 0.44rem;
+    margin-top: 0.36rem;
     padding-top: 0;
     border-top: none;
   }
@@ -7971,7 +8006,7 @@ body.resume-page {
     margin-bottom: 0.22rem;
   }
   .resume-entry {
-    margin-top: 0.42rem;
+    margin-top: 0.34rem;
   }
   .resume-entry__meta {
     margin-top: 0.08rem;
@@ -8004,7 +8039,7 @@ body.resume-page {
     --bullet-offset: 0.5em;
   }
   .resume-prose li {
-    margin-top: 0.11rem;
+    margin-top: 0.08rem;
   }
   .resume-prose li:first-child {
     margin-top: 0;

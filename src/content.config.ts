@@ -452,6 +452,23 @@ const experience = defineCollection({
         z.string().trim().min(1),
       )
       .optional(),
+    // Press coverage of this role's work, shown as a screen-only "In the
+    // press" row under the entry (#1595). Frontmatter rather than the body
+    // because the body mirrors the canonical résumé verbatim
+    // (specs/resume.md § Content fidelity) and these links are a web-only
+    // addition: the row is hidden in `@media print`, so none of it reaches
+    // Nathan-Payne-Resume.pdf. `title` is the article's headline in house dash
+    // style; `year` is optional because not every outlet dates its posts.
+    press: z
+      .array(
+        z.object({
+          outlet: z.string().trim().min(1),
+          title: z.string().trim().min(1),
+          url: z.string().trim().url().startsWith('https://'),
+          year: z.number().int().optional(),
+        }),
+      )
+      .optional(),
     // The organization this role makes Nathan an alumnus of in the Person
     // JSON-LD `alumniOf` list both the homepage and the résumé emit
     // (src/lib/person-json-ld.ts, #1166). Named separately from `company`

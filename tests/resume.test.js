@@ -276,6 +276,65 @@ describe('Resume — page structure', () => {
     expect(exp.querySelector('ul li'), 'experience should render <ul><li> bullets').not.toBeNull();
   });
 
+  it('closes the two Disney roles on an "In the press" row built from frontmatter (#1595)', () => {
+    // The row is data-driven: each entry's `press` frontmatter is the whole
+    // source, so the expectation is read from the same files rather than
+    // restated here. Entries are matched to articles by order — the section
+    // sorts by `order`, and so does this.
+    const entries = readdirSync(join(CONTENT, 'experience'))
+      .filter((f) => f.endsWith('.md'))
+      .map((f) => parseFrontmatter(readFileSync(join(CONTENT, 'experience', f), 'utf-8')))
+      .sort((a, b) => Number(a.order) - Number(b.order));
+    const articles = [...document.querySelectorAll('.resume-experience article.resume-entry')];
+    expect(articles.length).toBe(entries.length);
+
+    const withPress = [];
+    articles.forEach((article, i) => {
+      const expected = Array.isArray(entries[i].press) ? entries[i].press : [];
+      const row = article.querySelector('.resume-press');
+      if (expected.length === 0) {
+        expect(row, `${entries[i].company} has no press frontmatter but renders a row`).toBeNull();
+        return;
+      }
+      withPress.push(entries[i].company);
+      expect(row, `${entries[i].company} is missing its press row`).not.toBeNull();
+      // After the body, inside the entry: the evidence follows the claims.
+      expect(row.previousElementSibling?.classList.contains('resume-prose')).toBe(true);
+      expect(row.querySelector('.resume-press__label')?.textContent.trim()).toBe('In the press:');
+
+      const items = [...row.querySelectorAll('.resume-press__list > li')];
+      expect(items.length).toBe(expected.length);
+      items.forEach((li, j) => {
+        const link = li.querySelector('a');
+        expect(link.getAttribute('href')).toBe(expected[j].url);
+        expect(link.getAttribute('target')).toBe('_blank');
+        expect(link.getAttribute('rel')).toBe('noopener');
+        // The arrow is decorative; the accessible name is the headline alone.
+        const arrow = link.querySelector('.link-arrow[aria-hidden="true"]');
+        expect(arrow?.textContent).toBe('↗');
+        const name = link.textContent.replace(arrow.textContent, '').replace(/\s+/g, ' ').trim();
+        expect(name).toBe(expected[j].title);
+        const source = li
+          .querySelector('.resume-press__source')
+          .textContent.replace(/\s+/g, ' ')
+          .trim();
+        expect(source).toBe(
+          expected[j].year
+            ? `· ${expected[j].outlet}, ${expected[j].year}`
+            : `· ${expected[j].outlet}`,
+        );
+      });
+    });
+
+    // Positive control: without it, a parser that read no `press` at all
+    // would pass every branch above by rendering nothing.
+    expect(withPress).toEqual([
+      'Disney Entertainment and ESPN Product & Technology',
+      'Disney Streaming',
+    ]);
+    expect(document.querySelectorAll('.resume-press__list a').length).toBe(4);
+  });
+
   it('renders seven Projects, each with an <h3>', () => {
     const proj = document.querySelector('.resume-projects');
     expect(proj).not.toBeNull();
@@ -990,7 +1049,7 @@ describe('Resume — print stylesheet', () => {
     // graphics" off by default, so the `background: #000 !important` beside it
     // had never reached paper. #925 fixed the generated PDF by turning on
     // `printBackground`, which is why no artifact this repo builds can see the
-    // gap — the file has had all eleven markers since, and the printed page
+    // gap — the file has had every marker since, and the printed page
     // had none.
     //
     // What must NOT be there. The rule that makes the lifecycle marks print
@@ -1252,6 +1311,49 @@ describe('Resume — downloadable PDF', () => {
     expect(hidden, '.resume-actions is not hidden inside @media print').toBe(true);
   });
 
+  it('keeps the press row off paper: hidden in print, absent from the PDF (#1595)', () => {
+    const blocks = builtPrintBlocks();
+    expect(
+      blocks.some((b) => /\.resume-press\s*(?:,[^{}]*)?\{[^}]*display:\s*none/.test(b)),
+      '.resume-press is not hidden inside @media print — the press links will ' +
+        'print, and will land in Nathan-Payne-Resume.pdf',
+    ).toBe(true);
+
+    const press = readdirSync(join(CONTENT, 'experience'))
+      .filter((f) => f.endsWith('.md'))
+      .flatMap((f) => {
+        const fm = parseFrontmatter(readFileSync(join(CONTENT, 'experience', f), 'utf-8'));
+        return Array.isArray(fm.press) ? fm.press : [];
+      });
+    expect(press.length, 'no press frontmatter found — this test would prove nothing').toBe(4);
+
+    // Link annotations are written in the clear, so a press URL that printed
+    // would show up as a /URI. Host equality, not a substring test.
+    const raw = readFileSync(resolve(DIST, 'Nathan-Payne-Resume.pdf')).toString('latin1');
+    const uriHosts = [...raw.matchAll(/\/URI\s*\(([^)]*)\)/g)].map((m) => {
+      try {
+        return new URL(m[1]).hostname;
+      } catch {
+        return null;
+      }
+    });
+    expect(uriHosts.length, 'no /URI annotations found in the PDF').toBeGreaterThan(0);
+    const pressHosts = new Set(press.map((p) => new URL(p.url).hostname));
+    expect(uriHosts.filter((h) => pressHosts.has(h))).toEqual([]);
+
+    // And the text layer: no headline, and not the label either.
+    const text = normalizeForOrder(
+      pdfTextInEmissionOrder(resolve(DIST, 'Nathan-Payne-Resume.pdf')),
+    );
+    expect(text.length).toBeGreaterThan(1000);
+    for (const p of press) {
+      expect(text, `press headline reached the PDF: ${p.title}`).not.toContain(
+        normalizeForOrder(p.title),
+      );
+    }
+    expect(text).not.toContain(normalizeForOrder('In the press'));
+  });
+
   it('hides the project destination row in print, and keeps the routes that survive', () => {
     // #947. A destination row is only useful where it can be followed. On
     // paper "Case study → · Live ↗ · GitHub ↗" says nothing without its URLs, and printing
@@ -1465,7 +1567,7 @@ describe('Resume — PDF reading order and markers', () => {
           'Led PlayStation prototyping that produced the first living-room Disney+ experience to launch.',
         ],
         ['bullet 3', 'Rebuilt the Disney+ app for MVPD set-top boxes'],
-        ['bullet 4', 'Led Hulu through its PlayStation 5 launch.'],
+        ['bullet 4', 'Led Disney+ and Hulu through their PlayStation 5 launches.'],
         [
           'the next role (MLB Advanced Media)',
           'Technical Project Manager—MLB Advanced Media / BAMTech Media',

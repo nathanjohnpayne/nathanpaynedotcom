@@ -31,7 +31,7 @@ collections are:
 |---|---|---|---|
 | `myself` | `src/content/myself/` | single `.md` entry | Header fields + the summary in the body (two short paragraphs, verbatim from the canonical; see § Content fidelity). **No `phone`**—email-only. Also the profile the rest of the site reads (#1166): `title` is the Person `jobTitle`, the structured `address` feeds the header location, the metadata panel, the Person `address` and the shared footer's city, `blog` is the Writing link text, and `availability.long` / `availability.short` are the Availability row and the CTA lede. |
 | `skills` | `src/content/skills/` | one `.yaml` per category | `{ label, priority, skills[] }`. Five categories. |
-| `experience` | `src/content/experience/` | one `.md` per role | Six entries. Bullets / paragraph in the body. Optional `compact: true`—see *Experience density* below. Optional `metaNote`, a trailing item on the meta line after the year range (BAMTech's `acquired by Disney 2017`). Optional `highlights`, named sidebar cards (see *Content fidelity*), and `alumniOrganization`, the organization the Person `alumniOf` list names for the role (#1166). |
+| `experience` | `src/content/experience/` | one `.md` per role | Six entries. Bullets / paragraph in the body. Optional `press`, the articles behind the entry's screen-only "In the press" row—see *Press row* below. Optional `compact: true`—see *Experience density* below. Optional `metaNote`, a trailing item on the meta line after the year range (BAMTech's `acquired by Disney 2017`). Optional `highlights`, named sidebar cards (see *Content fidelity*), and `alumniOrganization`, the organization the Person `alumniOf` list names for the role (#1166). |
 | `education` | `src/content/education/` | one `.md` | One entry (George Mason). |
 | `certifications` | `src/content/certifications/` | one `.md` per cert | Three entries. |
 | `resumeProjects` | `src/content/resume/projects/` | one `.md` per project | Seven entries. **Distinct from `projects`** (reserved for `/projects`). Each carries a required `claimsReviewed` stamp—see *Claims review*. |
@@ -174,7 +174,7 @@ Vertical space tracks relevance, and only through layout.
 
 **The `compact` flag is layout only** (#618). An experience entry may set `compact: true` in frontmatter; the `ExperienceSection` then renders it with the `resume-entry--compact` modifier (tighter gaps, a stepped-down title, a 52px rather than 72px logo tile). It touches no copy, and flipping it back restores full weight without editing a word.
 
-The three pre-2016 roles—AJ+ (2013–2016), Current TV (2012–2013), and CNN (2002–2012)—are compact. The two Disney entries (7 and 4 bullets) and BAMTech keep full weight.
+The three pre-2016 roles—AJ+ (2013–2016), Current TV (2012–2013), and CNN (2002–2012)—are compact. The two Disney entries (8 and 4 bullets) and BAMTech keep full weight.
 
 **The compact bodies carry the canonical text in full.** #617/#618 also compressed these three bodies by hand to one or two lines each, dropping specific facts (the Adobe CQ CMS publishing pipeline and its syndication, the $60M operating budget, the three named Current TV shows). The canonical résumé has since rewritten all three, and the site now mirrors those rewrites verbatim, so nothing the canonical says about these roles is omitted from the page. Density is a layout decision again, not a prose one.
 
@@ -185,6 +185,16 @@ The three pre-2016 roles—AJ+ (2013–2016), Current TV (2012–2013), and CNN 
 3. Every compact entry still carries **its** accomplishment, not a dated one-liner. The test pins the whole distinguishing phrase for each—`Renegotiated vendor contracts for $335K in annual savings`, `The War Room with Jennifer Granholm within 30 days of the acquisition`, `Conceived and led development of the CNN Magic Wall`—plus a minimum body length so an entry cannot be reduced to the phrase alone. The phrase and not the striking token in it: pinning `$335K` by itself passes a body saying AJ+ merely *managed* a $335K budget, which keeps the number and drops the fact. "A real accomplishment" is not something a test can recognize; the specific fact each role retains is, which is why the guarantee is written as three named facts rather than a quality bar.
 
 An earlier revision of this section read "compression is emphasis, never erasure." It over-claimed (#735): the sentence promised something about every fact, while what the tests check is the three items above.
+
+## Press row
+
+An Experience entry may close on an **"In the press" row** (`.resume-press`, #1595): independent coverage of the work the entry describes, so a reader can check a launch against a source other than the résumé. It mirrors the link cards attached to the same roles on LinkedIn.
+
+- **Data lives in frontmatter, not the body.** The optional `press` array on an `experience` entry holds `{ outlet, title, url, year? }` per article. The body stays the canonical résumé text, verbatim (§ Content fidelity); the row is a web-only addition beside it. `url` must be `https://`. `year` is optional because not every outlet dates its posts.
+- **Markup.** After the entry's `.resume-prose`: a `.resume-press__label` ("In the press:") and a `.resume-press__list` with one `<li>` per article—the headline as an external link (`target="_blank" rel="noopener"`, closing on the `↗` of the navigation vocabulary) followed by a `.resume-press__source` reading `· Outlet, year`. It shares the Writing section's label-and-list rules, so it introduces no new visual grammar.
+- **Headlines take house dash style.** A headline is quoted as published except for its dashes: a spaced em dash is closed, because the page-wide sweep (§ Dash punctuation) admits no spaced dash and a headline is not an official name.
+- **Screen-only.** `.resume-press` is in the `@media print` hide list, and the PDF is rendered from that cascade, so no press headline, outlet or URL reaches paper or `Nathan-Payne-Resume.pdf`. `tests/resume.test.js` asserts the hide rule, the absence of every press host from the PDF's link annotations, and the absence of every headline from its text.
+- **Which entries carry one** is a content decision. Today the two Disney roles do, two articles each; an entry with no `press` renders no shell.
 
 ## Downloadable PDF
 
@@ -433,7 +443,7 @@ icon-library dependency.
   document still lands on three pages, with page 3 a little lighter. The
   three-page target itself is unchanged: #420 established that forcing two
   pages over-compresses this much content.
-- Restoring the canonical pre-2016 bodies and the two-paragraph summary added about eight printed lines and spilled the last project and the Writing lead onto a fourth page. The print-only vertical gaps took a second ~20% cut (horizontal gaps, the bullet gutter, and the type scale are unchanged), which returns the Chromium-generated PDF to three full pages (52/51/50 extracted lines). Page 3 now has no slack: the next addition to the résumé will spill again, and Safari, which fits ~11% less per page, may already print four from the browser. The project-entry band (#1397, § Content fidelity) bought back four lines: page 3 extracts at 46 lines on a local Chromium build, against 50 before, with every project entry at three printed lines or fewer. The type size is the next dial, and it is a readability trade rather than a spacing one.
+- Restoring the canonical pre-2016 bodies and the two-paragraph summary added about eight printed lines and spilled the last project and the Writing lead onto a fourth page. The print-only vertical gaps took a second ~20% cut (horizontal gaps, the bullet gutter, and the type scale are unchanged), which returns the Chromium-generated PDF to three full pages (52/51/50 extracted lines). Page 3 now has no slack: the next addition to the résumé will spill again, and Safari, which fits ~11% less per page, may already print four from the browser. The project-entry band (#1397, § Content fidelity) bought back four lines: page 3 extracts at 46 lines on a local Chromium build, against 50 before, with every project entry at three printed lines or fewer. The type size is the next dial, and it is a readability trade rather than a spacing one. The canonical's PlayStation 5 relaunch bullet (#1594) then added two printed lines and put the Writing lead alone on a fourth page. A third, smaller nudge to the three most-repeated print gaps (section 0.44 → 0.36rem, entry 0.42 → 0.34rem, bullet 0.11 → 0.08rem) returns the file to three pages at 50/51/47 extracted lines, with roughly 34pt free at the foot of page 3. The cost is a page break inside Certifications: the third entry now opens page 3 instead of closing page 2.
 
 ## Content fidelity
 
