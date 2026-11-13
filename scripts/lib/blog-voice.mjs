@@ -7,7 +7,7 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync, mkdirSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { frontmatterOf, runVale } from '../lint-prose.mjs';
+import { frontmatterOf, runVale, valeCommand } from '../lint-prose.mjs';
 import { parseFrontmatter } from './parse-frontmatter.mjs';
 import { parseMermaidMetadata } from '../../src/plugins/remark-mermaid.mjs';
 
@@ -564,11 +564,11 @@ export async function parseArticle(source, file) {
 }
 
 function runMechanical(article, properNouns) {
-  const version = spawnSync('vale', ['--version'], { encoding: 'utf8' });
+  const version = spawnSync(valeCommand(), ['--version'], { encoding: 'utf8' });
   const pinned = readFileSync(join(repositoryRoot, '.vale-version'), 'utf8').trim();
   if (version.status !== 0 || version.stdout.trim().split(/\s/u).at(-1) !== pinned)
     throw new VoiceError(
-      `The checker requires local Vale ${pinned}; install the repository-pinned version. No automatic install or partial success.`,
+      `The checker requires local Vale ${pinned}; install the repository-pinned version with 'npm run vale:install'. No automatic install or partial success.`,
       3,
     );
   const temporary = mkdtempSync(join(tmpdir(), 'blog-voice-'));

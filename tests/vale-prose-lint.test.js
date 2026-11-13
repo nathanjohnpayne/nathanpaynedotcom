@@ -3,6 +3,7 @@ import {
   accessSync,
   chmodSync,
   constants,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -14,11 +15,42 @@ import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+const pinnedValeVersion = readFileSync('.vale-version', 'utf8').trim();
+// Mirrors scripts/lint-prose.mjs: the pinned project-local install, else PATH.
+const projectLocalVale = join('node_modules/.cache/vale', pinnedValeVersion, 'vale');
 const valeAvailable = (() => {
-  const result = spawnSync('vale', ['--version'], { encoding: 'utf8' });
+  const result = spawnSync(
+    existsSync(projectLocalVale) ? projectLocalVale : 'vale',
+    ['--version'],
+    {
+      encoding: 'utf8',
+    },
+  );
   return result.status === 0;
 })();
-const pinnedValeVersion = readFileSync('.vale-version', 'utf8').trim();
+
+function stubValeArchive(directory, banner = `vale version ${pinnedValeVersion}`) {
+  const sourceDirectory = join(directory, 'source');
+  mkdirSync(sourceDirectory);
+  const fakeVale = join(sourceDirectory, 'vale');
+  writeFileSync(fakeVale, `#!/usr/bin/env sh\necho "${banner}"\n`);
+  chmodSync(fakeVale, 0o755);
+  const archive = join(directory, 'vale.tar.gz');
+  expect(spawnSync('tar', ['-czf', archive, '-C', sourceDirectory, 'vale']).status).toBe(0);
+  return { archive, checksum: createHash('sha256').update(readFileSync(archive)).digest('hex') };
+}
+
+function stubValeOnPath(directory, version) {
+  const pathDirectory = join(directory, 'path');
+  mkdirSync(pathDirectory);
+  const fakeVale = join(pathDirectory, 'vale');
+  writeFileSync(
+    fakeVale,
+    `#!/usr/bin/env sh\nif [ "$1" = "--version" ]; then echo "vale version ${version}"; else echo "{}"; fi\n`,
+  );
+  chmodSync(fakeVale, 0o755);
+  return pathDirectory;
+}
 
 describe('Vale configuration', () => {
   it('keeps the style and token-ignore settings in one prose section', () => {
@@ -169,6 +201,314 @@ describe('Vale provisioning', () => {
       expect(spawnSync(destination, ['--version'], { encoding: 'utf8' }).stdout).toContain(
         'verified',
       );
+    } finally {
+      rmSync(directory, { force: true, recursive: true });
+    }
+  });
+
+  it.each([
+    ['Darwin', 'arm64'],
+    ['Darwin', 'x86_64'],
+    ['Linux', 'x86_64'],
+  ])(
+    'installs a verified project-local binary on %s %s despite an unpinned PATH Vale',
+    (system, machine) => {
+      const directory = mkdtempSync(join(tmpdir(), 'ensure-vale-local-test-'));
+      try {
+        const { archive, checksum } = stubValeArchive(directory);
+        const destination = join(directory, 'cache', pinnedValeVersion, 'vale');
+        const env = {
+          ...process.env,
+          ENSURE_VALE_ARCHIVE_PATH: archive,
+          ENSURE_VALE_DEST: destination,
+          ENSURE_VALE_MACHINE: machine,
+          ENSURE_VALE_SHA256: checksum,
+          ENSURE_VALE_SYSTEM: system,
+          GITHUB_ACTIONS: 'false',
+          PATH: `${stubValeOnPath(directory, '0.0.0')}:/usr/bin:/bin`,
+        };
+
+        const result = spawnSync('bash', ['scripts/lib/ensure-vale.sh', '--local'], {
+          encoding: 'utf8',
+          env,
+        });
+
+        expect(result.stderr).toBe('');
+        expect(result.status).toBe(0);
+        expect(spawnSync(destination, ['--version'], { encoding: 'utf8' }).stdout).toContain(
+          pinnedValeVersion,
+        );
+
+        // A second run finds the verified binary and needs no archive at all.
+        const repeated = spawnSync('bash', ['scripts/lib/ensure-vale.sh', '--local'], {
+          encoding: 'utf8',
+          env: { ...env, ENSURE_VALE_ARCHIVE_PATH: '/does/not/exist' },
+        });
+        expect(repeated.status).toBe(0);
+        expect(repeated.stdout).toContain('already installed');
+      } finally {
+        rmSync(directory, { force: true, recursive: true });
+      }
+    },
+  );
+
+  it('defaults the project-local install to node_modules/.cache/vale/<version>/vale', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'ensure-vale-local-default-'));
+    try {
+      const scriptDirectory = join(directory, 'scripts', 'lib');
+      mkdirSync(scriptDirectory, { recursive: true });
+      writeFileSync(join(directory, '.vale-version'), `${pinnedValeVersion}\n`);
+      writeFileSync(
+        join(scriptDirectory, 'ensure-vale.sh'),
+        readFileSync('scripts/lib/ensure-vale.sh', 'utf8'),
+      );
+      const { archive, checksum } = stubValeArchive(directory);
+
+      const result = spawnSync('bash', [join(scriptDirectory, 'ensure-vale.sh'), '--local'], {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          ENSURE_VALE_ARCHIVE_PATH: archive,
+          ENSURE_VALE_MACHINE: 'arm64',
+          ENSURE_VALE_SHA256: checksum,
+          ENSURE_VALE_SYSTEM: 'Darwin',
+          GITHUB_ACTIONS: 'false',
+          PATH: '/usr/bin:/bin',
+        },
+      });
+
+      expect(result.status).toBe(0);
+      const destination = join(directory, 'node_modules/.cache/vale', pinnedValeVersion, 'vale');
+      expect(spawnSync(destination, ['--version'], { encoding: 'utf8' }).stdout).toContain(
+        pinnedValeVersion,
+      );
+    } finally {
+      rmSync(directory, { force: true, recursive: true });
+    }
+  });
+
+  it.each([
+    ['Darwin', 'arm64'],
+    ['Darwin', 'x86_64'],
+    ['Linux', 'x86_64'],
+  ])(
+    'rejects a %s %s archive that does not match the pinned checksum and installs nothing',
+    (system, machine) => {
+      const directory = mkdtempSync(join(tmpdir(), 'ensure-vale-local-checksum-'));
+      try {
+        const { archive } = stubValeArchive(directory);
+        const destination = join(directory, 'cache', pinnedValeVersion, 'vale');
+        const env = { ...process.env };
+        delete env.ENSURE_VALE_SHA256;
+
+        const result = spawnSync('bash', ['scripts/lib/ensure-vale.sh', '--local'], {
+          encoding: 'utf8',
+          env: {
+            ...env,
+            ENSURE_VALE_ARCHIVE_PATH: archive,
+            ENSURE_VALE_DEST: destination,
+            ENSURE_VALE_MACHINE: machine,
+            ENSURE_VALE_SYSTEM: system,
+            GITHUB_ACTIONS: 'false',
+            PATH: '/usr/bin:/bin',
+          },
+        });
+
+        expect(result.status).not.toBe(0);
+        expect(existsSync(destination)).toBe(false);
+      } finally {
+        rmSync(directory, { force: true, recursive: true });
+      }
+    },
+  );
+
+  it('pins one distinct SHA-256 per supported release asset', () => {
+    const script = readFileSync('scripts/lib/ensure-vale.sh', 'utf8');
+    const pins = [...script.matchAll(/VALE_ASSET="([^"]+)"\n\s+DEFAULT_SHA256="([0-9a-f]{64})"/gu)];
+
+    expect(pins.map((pin) => pin[1])).toEqual(['Linux_64-bit', 'macOS_arm64', 'macOS_64-bit']);
+    expect(new Set(pins.map((pin) => pin[2])).size).toBe(3);
+  });
+
+  it('removes a project-local binary that does not report the pinned version', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'ensure-vale-local-version-'));
+    try {
+      const { archive, checksum } = stubValeArchive(directory, 'vale version 0.0.0');
+      const destination = join(directory, 'cache', pinnedValeVersion, 'vale');
+
+      const result = spawnSync('bash', ['scripts/lib/ensure-vale.sh', '--local'], {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          ENSURE_VALE_ARCHIVE_PATH: archive,
+          ENSURE_VALE_DEST: destination,
+          ENSURE_VALE_MACHINE: 'arm64',
+          ENSURE_VALE_SHA256: checksum,
+          ENSURE_VALE_SYSTEM: 'Darwin',
+          GITHUB_ACTIONS: 'false',
+          PATH: '/usr/bin:/bin',
+        },
+      });
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(`does not report version ${pinnedValeVersion}`);
+      expect(existsSync(destination)).toBe(false);
+    } finally {
+      rmSync(directory, { force: true, recursive: true });
+    }
+  });
+
+  it('refuses a project-local install on an unsupported platform', () => {
+    const result = spawnSync('bash', ['scripts/lib/ensure-vale.sh', '--local'], {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        ENSURE_VALE_ARCHIVE_PATH: '/does/not/exist',
+        ENSURE_VALE_DEST: join(tmpdir(), `ensure-vale-unsupported-${process.pid}`, 'vale'),
+        ENSURE_VALE_MACHINE: 'arm64',
+        ENSURE_VALE_SYSTEM: 'Linux',
+        PATH: '/usr/bin:/bin',
+      },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('--local supports macOS arm64/x86_64 and Linux x86_64 only');
+  });
+
+  it('keeps the system-path CI install Linux-only and points macOS at --local', () => {
+    const result = spawnSync('bash', ['scripts/lib/ensure-vale.sh', '--ci-only'], {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        ENSURE_VALE_ARCHIVE_PATH: '/does/not/exist',
+        ENSURE_VALE_MACHINE: 'arm64',
+        ENSURE_VALE_SYSTEM: 'Darwin',
+        GITHUB_ACTIONS: 'true',
+        PATH: '/usr/bin:/bin',
+      },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('supports Linux x86_64 only');
+    expect(result.stderr).toContain('npm run vale:install');
+  });
+
+  it('installs nothing for --ci-only outside CI and names the local install command', () => {
+    const result = spawnSync('bash', ['scripts/lib/ensure-vale.sh', '--ci-only'], {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        ENSURE_VALE_ARCHIVE_PATH: '/does/not/exist',
+        GITHUB_ACTIONS: 'false',
+        PATH: '/usr/bin:/bin',
+      },
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('npm run vale:install');
+  });
+
+  it('rejects --ci-only combined with --local', () => {
+    const result = spawnSync('bash', ['scripts/lib/ensure-vale.sh', '--ci-only', '--local'], {
+      encoding: 'utf8',
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('mutually exclusive');
+  });
+});
+
+describe('Vale binary resolution', () => {
+  const lint = (env) =>
+    spawnSync(
+      process.execPath,
+      [
+        'scripts/lint-prose.mjs',
+        '--output=JSON',
+        'tests/fixtures/vale-frontmatter/no-frontmatter.md',
+      ],
+      { encoding: 'utf8', env: { ...process.env, GITHUB_ACTIONS: 'false', ...env } },
+    );
+  const projectLocal = (directory, version) => {
+    const cache = join(directory, 'cache');
+    mkdirSync(join(cache, pinnedValeVersion), { recursive: true });
+    const fakeVale = join(cache, pinnedValeVersion, 'vale');
+    writeFileSync(
+      fakeVale,
+      `#!/usr/bin/env sh\nif [ "$1" = "--version" ]; then echo "vale version ${version}"; else echo "{}"; fi\n`,
+    );
+    chmodSync(fakeVale, 0o755);
+    return cache;
+  };
+
+  it('prefers the pinned project-local binary over a mismatched Vale on PATH', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'vale-resolution-local-'));
+    try {
+      const result = lint({
+        LINT_PROSE_VALE_CACHE_DIR: projectLocal(directory, pinnedValeVersion),
+        PATH: `${stubValeOnPath(directory, '9.9.9')}:/usr/bin:/bin`,
+      });
+
+      expect(result.stderr).toBe('');
+      expect(result.status).toBe(0);
+      expect(JSON.parse(result.stdout)).toEqual({});
+    } finally {
+      rmSync(directory, { force: true, recursive: true });
+    }
+  });
+
+  it('runs the project-local binary when PATH has no Vale at all', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'vale-resolution-no-path-'));
+    try {
+      const emptyPath = join(directory, 'empty');
+      mkdirSync(emptyPath);
+      const result = lint({
+        // The stub is a shell script, so PATH keeps /bin and /usr/bin for `sh`.
+        LINT_PROSE_VALE_CACHE_DIR: projectLocal(directory, pinnedValeVersion),
+        PATH: `${emptyPath}:/usr/bin:/bin`,
+      });
+
+      expect(result.stderr).toBe('');
+      expect(result.status).toBe(0);
+    } finally {
+      rmSync(directory, { force: true, recursive: true });
+    }
+  });
+
+  it('keeps the exact-version check for the project-local binary', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'vale-resolution-stale-local-'));
+    try {
+      const result = lint({
+        LINT_PROSE_VALE_CACHE_DIR: projectLocal(directory, '0.0.0'),
+        PATH: `${stubValeOnPath(directory, pinnedValeVersion)}:/usr/bin:/bin`,
+      });
+
+      expect(result.status).toBe(2);
+      expect(result.stderr).toContain(`Vale 0.0.0 does not match pinned ${pinnedValeVersion}`);
+    } finally {
+      rmSync(directory, { force: true, recursive: true });
+    }
+  });
+
+  it('falls back to PATH when no project-local binary is installed', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'vale-resolution-fallback-'));
+    try {
+      const emptyCache = join(directory, 'cache');
+      mkdirSync(emptyCache);
+      const matching = lint({
+        LINT_PROSE_VALE_CACHE_DIR: emptyCache,
+        PATH: `${stubValeOnPath(directory, pinnedValeVersion)}:/usr/bin:/bin`,
+      });
+      expect(matching.status).toBe(0);
+
+      rmSync(join(directory, 'path'), { force: true, recursive: true });
+      const mismatched = lint({
+        LINT_PROSE_VALE_CACHE_DIR: emptyCache,
+        PATH: `${stubValeOnPath(directory, '9.9.9')}:/usr/bin:/bin`,
+      });
+      expect(mismatched.status).toBe(2);
+      expect(mismatched.stderr).toContain(`Vale 9.9.9 does not match pinned ${pinnedValeVersion}`);
+      expect(mismatched.stderr).toContain('npm run vale:install');
     } finally {
       rmSync(directory, { force: true, recursive: true });
     }
@@ -463,7 +803,15 @@ describe.skipIf(!valeAvailable)('Vale prose lint', () => {
           '--output=JSON',
           'src/content/blog/nested/post.md',
         ],
-        { cwd: directory, encoding: 'utf8' },
+        {
+          cwd: directory,
+          encoding: 'utf8',
+          // The copied linter would look for a project-local Vale beside itself.
+          env: {
+            ...process.env,
+            LINT_PROSE_VALE_CACHE_DIR: join(process.cwd(), 'node_modules/.cache/vale'),
+          },
+        },
       );
       expect(result.status).toBe(1);
       const alerts = Object.values(JSON.parse(result.stdout)).flat();
@@ -860,7 +1208,11 @@ describe('Vale availability behavior', () => {
         ],
         {
           encoding: 'utf8',
-          env: { ...process.env, PATH: `${directory}:/usr/bin:/bin` },
+          env: {
+            ...process.env,
+            LINT_PROSE_VALE_CACHE_DIR: directory,
+            PATH: `${directory}:/usr/bin:/bin`,
+          },
         },
       );
 
@@ -904,7 +1256,12 @@ describe('Vale availability behavior', () => {
         ['scripts/lint-prose.mjs', 'tests/fixtures/vale-frontmatter/no-frontmatter.md'],
         {
           encoding: 'utf8',
-          env: { ...process.env, GITHUB_ACTIONS: githubActions, PATH: emptyPath },
+          env: {
+            ...process.env,
+            GITHUB_ACTIONS: githubActions,
+            LINT_PROSE_VALE_CACHE_DIR: emptyPath,
+            PATH: emptyPath,
+          },
         },
       );
 
@@ -927,7 +1284,12 @@ describe('Vale availability behavior', () => {
         ],
         {
           encoding: 'utf8',
-          env: { ...process.env, GITHUB_ACTIONS: 'false', PATH: emptyPath },
+          env: {
+            ...process.env,
+            GITHUB_ACTIONS: 'false',
+            LINT_PROSE_VALE_CACHE_DIR: emptyPath,
+            PATH: emptyPath,
+          },
         },
       );
 

@@ -9,6 +9,15 @@ import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 const temporaryRoot = fs.realpathSync(tmpdir());
+// The checker may run Vale from PATH or the pinned project-local install
+// (scripts/lib/ensure-vale.sh --local); derived here, not taken from the checker.
+const repositoryRoot = resolve(import.meta.dirname, '../../..');
+const projectLocalVale = join(
+  repositoryRoot,
+  'node_modules/.cache/vale',
+  fs.readFileSync(join(repositoryRoot, '.vale-version'), 'utf8').trim(),
+  'vale',
+);
 function writableTemporary(path) {
   const candidate = resolve(String(path));
   let ancestor = candidate;
@@ -35,6 +44,7 @@ childProcess.spawnSync = (command, args, options) => {
     throw new Error('Git lazy fetching must be disabled');
   if (
     command === 'vale' ||
+    command === projectLocalVale ||
     (command === 'git' &&
       (['rev-parse', 'show'].includes(args[2]) ||
         (args[0] === 'diff' &&
