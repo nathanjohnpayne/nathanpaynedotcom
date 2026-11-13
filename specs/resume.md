@@ -33,7 +33,7 @@ collections are:
 | `skills` | `src/content/skills/` | one `.yaml` per category | `{ label, priority, skills[] }`. Five categories. |
 | `experience` | `src/content/experience/` | one `.md` per role | Six entries. Bullets / paragraph in the body. Optional `press`, the articles behind the entry's screen-only "In the press" row—see *Press row* below. Optional `compact: true`—see *Experience density* below. Optional `metaNote`, a trailing item on the meta line after the year range (BAMTech's `acquired by Disney 2017`). Optional `highlights`, named sidebar cards (see *Content fidelity*), and `alumniOrganization`, the organization the Person `alumniOf` list names for the role (#1166). |
 | `education` | `src/content/education/` | one `.md` | One entry (George Mason). |
-| `certifications` | `src/content/certifications/` | one `.md` per cert | Three entries. |
+| `certifications` | `src/content/certifications/` | one `.md` per cert | Two entries. |
 | `resumeProjects` | `src/content/resume/projects/` | one `.md` per project | Seven entries. **Distinct from `projects`** (reserved for `/projects`). Each carries a required `claimsReviewed` stamp—see *Claims review*. |
 | `awards` (future) | `src/content/awards/` | one `.md`/`.yaml` per award | Dormant scaffold; deliberately not registered until the first entry exists, so an empty loader cannot pollute build logs (#654). |
 
@@ -349,8 +349,7 @@ icon-library dependency.
   `/images/logos/current-tv.png`, and the CSP-PO cert →
   `/images/logos/csp-po.png` (the official Scrum Alliance certification badge,
   chosen deliberately over the corporate mark Logo.dev would return for
-  scrumalliance.org). The Turner Leadership cert resolves via Logo.dev
-  (`website: turner.com`)—no override.
+  scrumalliance.org).
 - The logo is **decorative** (the company/school/issuer name is the
   semantic text); each `CompanyLogo` includes an initials fallback element.
 - Displayed as square "Logo.dev-style" cards: a thin `--rule` border, rounded
@@ -443,7 +442,7 @@ icon-library dependency.
   document still lands on three pages, with page 3 a little lighter. The
   three-page target itself is unchanged: #420 established that forcing two
   pages over-compresses this much content.
-- Restoring the canonical pre-2016 bodies and the two-paragraph summary added about eight printed lines and spilled the last project and the Writing lead onto a fourth page. The print-only vertical gaps took a second ~20% cut (horizontal gaps, the bullet gutter, and the type scale are unchanged), which returns the Chromium-generated PDF to three full pages (52/51/50 extracted lines). Page 3 now has no slack: the next addition to the résumé will spill again, and Safari, which fits ~11% less per page, may already print four from the browser. The project-entry band (#1397, § Content fidelity) bought back four lines: page 3 extracts at 46 lines on a local Chromium build, against 50 before, with every project entry at three printed lines or fewer. The type size is the next dial, and it is a readability trade rather than a spacing one. The canonical's PlayStation 5 relaunch bullet (#1594) then added two printed lines and put the Writing lead alone on a fourth page. A third, smaller nudge to the three most-repeated print gaps (section 0.44 → 0.36rem, entry 0.42 → 0.34rem, bullet 0.11 → 0.08rem) returns the file to three pages at 50/51/47 extracted lines, with roughly 34pt free at the foot of page 3. The cost is a page break inside Certifications: the third entry now opens page 3 instead of closing page 2.
+- Restoring the canonical pre-2016 bodies and the two-paragraph summary added about eight printed lines and spilled the last project and the Writing lead onto a fourth page. The print-only vertical gaps took a second ~20% cut (horizontal gaps, the bullet gutter, and the type scale are unchanged), which returns the Chromium-generated PDF to three full pages (52/51/50 extracted lines). Page 3 now has no slack: the next addition to the résumé will spill again, and Safari, which fits ~11% less per page, may already print four from the browser. The project-entry band (#1397, § Content fidelity) bought back four lines: page 3 extracts at 46 lines on a local Chromium build, against 50 before, with every project entry at three printed lines or fewer. The type size is the next dial, and it is a readability trade rather than a spacing one. The canonical's PlayStation 5 relaunch bullet (#1594) then added two printed lines and put the Writing lead alone on a fourth page. A third, smaller nudge to the three most-repeated print gaps (section 0.44 → 0.36rem, entry 0.42 → 0.34rem, bullet 0.11 → 0.08rem) returns the file to three pages at 50/51/47 extracted lines, with roughly 34pt free at the foot of page 3. That nudge first cost a page break inside Certifications, with the third entry opening page 3. The owner then cut that entry, a 2012 Turner leadership course, from the canonical résumé; with two certifications the section closes page 2 and **Projects opens page 3** (50/51/45 extracted lines). `tests/resume.test.js` asserts that page 3 begins with the Projects heading. Page 2 is now full to within 2pt of its bottom margin, so the next line added above Projects will move that break.
 
 ## Content fidelity
 
@@ -515,7 +514,7 @@ All seven entries were first stamped on 2026-10-07. The stamps record the state 
 3. Each Experience role / Education / Certification renders a `.company-logo`
    (logo or initials fallback).
 4. Experience renders `<h3>` roles and `<ul>`/`<li>` bullets.
-5. Certifications (3) and Projects (7) are present; CSP-PO credits Scrum
+5. Certifications (2) and Projects (7) are present; CSP-PO credits Scrum
    Alliance.
 6. The emitted CSS hides `.company-logo` inside an `@media print` block.
 7. The page exposes a resolvable `og:image` and a `Nathan Payne | Résumé`

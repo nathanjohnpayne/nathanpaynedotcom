@@ -107,7 +107,7 @@ describe('Resume — route & build', () => {
   it('content collections have the expected file counts', () => {
     expect(countMd('experience'), 'expected 6 experience entries').toBe(6);
     expect(countMd('resume/projects'), 'expected 7 resume projects').toBe(7);
-    expect(countMd('certifications'), 'expected 3 certifications').toBe(3);
+    expect(countMd('certifications'), 'expected 2 certifications').toBe(2);
     expect(countMd('education'), 'expected 1 education entry').toBe(1);
     expect(countMd('myself'), 'expected 1 myself entry').toBe(1);
     const skills = readdirSync(join(CONTENT, 'skills')).filter((f) => /\.ya?ml$/.test(f));
@@ -505,7 +505,7 @@ describe('Resume — page structure', () => {
       'Technical Project Manager—MLB Advanced Media / BAMTech Media',
       'Director of Information Technology—AJ+',
       'Senior Systems Architect—Current TV',
-      'Systems Architect / Support Roles—CNN',
+      'Systems Architect / Systems Administrator—CNN',
     ]);
     for (const title of titles) {
       expect(title, `"${title}" spaces its em dash`).not.toMatch(/\s—|—\s/);
@@ -909,9 +909,9 @@ describe('Resume — page structure', () => {
     );
   });
 
-  it('renders three Certifications; CSP-PO is attributed to Scrum Alliance', () => {
+  it('renders two Certifications; CSP-PO is attributed to Scrum Alliance', () => {
     const certs = document.querySelectorAll('.resume-certifications .resume-cert');
-    expect(certs.length).toBe(3);
+    expect(certs.length).toBe(2);
     const text = document.querySelector('.resume-certifications').textContent;
     expect(text).toContain('Certified Scrum Professional - Product Owner (CSP-PO)');
     expect(text).toContain('Scrum Alliance');
@@ -934,7 +934,7 @@ describe('Resume — page structure', () => {
 
   it('every CompanyLogo carries an initials fallback element', () => {
     const logos = document.querySelectorAll('.company-logo');
-    expect(logos.length).toBe(10); // 6 experience + 1 education + 3 certifications
+    expect(logos.length).toBe(9); // 6 experience + 1 education + 2 certifications
     for (const logo of logos) {
       expect(
         logo.querySelector('.company-logo__initials'),
@@ -946,8 +946,7 @@ describe('Resume — page structure', () => {
   it('uses self-hosted asset overrides where Logo.dev is wrong/absent (Current TV, CSP-PO)', () => {
     // Current TV is defunct (no live domain); the CSP-PO cert deliberately
     // overrides to the official Scrum Alliance badge rather than the corporate
-    // mark Logo.dev returns for scrumalliance.org. Turner, by contrast, resolves
-    // via Logo.dev (turner.com), so it's a remote logo with no committed asset.
+    // mark Logo.dev returns for scrumalliance.org.
     const srcs = Array.from(document.querySelectorAll('.company-logo img')).map((img) =>
       img.getAttribute('src'),
     );
@@ -1714,6 +1713,14 @@ describe('Resume — PDF reading order and markers', () => {
       'the known-bad fixture reports lifecycle marks it does not contain, so this ' +
         'check does not discriminate',
     ).toEqual([]);
+  });
+
+  it('opens page 3 on the Projects section', () => {
+    // Owner decision, 2026-11-13: Projects reads as its own page. Nothing
+    // forces the break — it falls there because Certifications closes page 2
+    // — so this pins the outcome and fails when a line added above moves it.
+    const page3 = pdfTextInEmissionOrder(BUILT_PDF).split('\f')[2] ?? '';
+    expect(page3.trimStart().split('\n')[0].trim()).toBe('Projects');
   });
 
   it('still lands on three pages', () => {

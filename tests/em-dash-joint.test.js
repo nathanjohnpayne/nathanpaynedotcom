@@ -38,7 +38,7 @@ describe('emDashJoint (src/lib/em-dash-joint.ts)', () => {
       'Technical Project Manager—MLB Advanced Media / BAMTech Media',
       'Director of Information Technology—AJ+',
       'Senior Systems Architect—Current TV',
-      'Systems Architect / Support Roles—CNN',
+      'Systems Architect / Systems Administrator—CNN',
       'Five Across—Live Multiplayer Social Bingo Platform',
       'Mergepath—Agent Governance Infrastructure',
       'Override—Broadway Financial Operating System',
