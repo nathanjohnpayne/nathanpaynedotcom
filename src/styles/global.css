@@ -2254,9 +2254,11 @@ body.blog-page {
 /* Ink on --blue passes AA by a hair (4.53:1) and reads poorly, so a blue
    button fill uses the darker --blue-ink with a paper label (6.06:1).
    :where keeps this at .nav-button:hover's own weight, so the privacy
-   notice's and controls' quieter hover (and the footer's) still win. */
-:where([data-accent='blue']) .nav-button:hover,
-:where([data-accent='blue']) .nav-button:focus-visible {
+   notice's and controls' quieter hover (and the footer's) still win.
+   A red accent takes the same blue fill: no button on the site fills with
+   the orange --red (#1600). */
+:where([data-accent='red'], [data-accent='blue']) .nav-button:hover,
+:where([data-accent='red'], [data-accent='blue']) .nav-button:focus-visible {
   background: var(--blue-ink);
   color: var(--paper);
 }
@@ -3813,6 +3815,13 @@ body.blog-page {
   min-height: 2.75rem;
 }
 
+/* The resting ink above outranks the shared hover's label color, and ink on
+   the blue hover fill is 3.14:1 (#1600). */
+.book-card .nav-button:hover,
+.book-card .nav-button:focus-visible {
+  color: var(--paper);
+}
+
 /* The shared row floors (16rem, 13rem, 14rem, 14rem) are sized for /projects
    and /blog cards; an event-type card is a kicker, title, one line and a tag,
    so on /book/ the taller floors left rows of empty paper. Every row here
@@ -4127,13 +4136,15 @@ a.tag:hover {
   gap: 0.75rem;
 }
 
-/* White footers (index, blog post, resume) share one red hover affordance;
-   only the color-themed project-detail footer keeps its per-project accent. */
+/* White footers (index, blog post, resume) share one blue hover affordance;
+   only the color-themed project-detail footer keeps its per-project accent
+   (a red project's footer is blue too: see the red/blue .nav-button rule). */
 .site-footer:not(.site-footer--detail) .nav-button:hover,
 .site-footer:not(.site-footer--detail) .nav-button:focus-visible {
-  background: var(--red);
-  /* Ink, as [data-accent='red'] uses: cream on this red is 2.56:1. */
-  color: var(--ink);
+  /* --blue-ink, not --blue: a paper label on --blue is 4.20:1, under AA for
+     text this small. On --blue-ink it is 6.06:1. */
+  background: var(--blue-ink);
+  color: var(--paper);
 }
 
 /* Mondrian grid footer row (blog + projects index): white band, thick rule. */

@@ -32,7 +32,7 @@ import { contrastRatio, parseComputedColor, type ParsedColor } from '../helpers/
  * There are no baselines to update — the assertions are the contract.
  */
 
-const RED = 'rgb(232, 120, 74)'; // var(--red) #e8784a on interior pages
+const BLUE_INK = 'rgb(26, 102, 162)'; // var(--blue-ink) #1a66a2, the button fill (#1600)
 const BLACK_ACCENT = 'rgb(51, 51, 51)'; // matchline's per-project accent (#333)
 const BREAKPOINTS = [320, 375, 800, 1440];
 
@@ -99,13 +99,15 @@ for (const width of BREAKPOINTS) {
     test.use({ viewport: { width, height: 900 } });
 
     test.describe('shared footer — a single hover affordance (#428/#434)', () => {
-      test('white footer hovers red even when the page accent is not red', async ({ page }) => {
-        await page.goto('/blog/'); // page accent is blue
+      test('white footer hovers blue even when the page accent is not blue', async ({ page }) => {
+        await page.goto('/projects/'); // page accent is yellow
         await page.waitForLoadState('domcontentloaded');
-        expect(await hoverBackground(page, '.site-footer .nav-button')).toBe(RED);
+        expect(await hoverBackground(page, '.site-footer .nav-button')).toBe(BLUE_INK);
       });
 
-      test('project-detail footer hovers its per-project accent, not red', async ({ page }) => {
+      test('project-detail footer hovers its per-project accent, not the footer blue', async ({
+        page,
+      }) => {
         await page.goto('/projects/matchline/'); // accent is black (#333)
         await page.waitForLoadState('domcontentloaded');
         expect(await hoverBackground(page, '.site-footer .nav-button')).toBe(BLACK_ACCENT);

@@ -11,10 +11,27 @@ import { contrastRatio, parseComputedColor } from '../helpers/contrast';
  * blue fill uses --blue-ink with a paper label (6.06:1), and the /privacy/
  * controls take the notice's light ink tint.
  *
+ * #1600: no button fills with the orange --red. The white footers and the
+ * red accent (404, /brand/, a red project page) fill with --blue-ink and a
+ * paper label, as the blue accent does.
+ *
  * Run: `npm run test:e2e` (see the note in shared-chrome.spec.ts on ports).
  */
 
-const PAGES = ['/blog/', '/privacy/', '/projects/matchline/', '/resume/', '/book/'];
+const PAGES = [
+  '/blog/',
+  '/privacy/',
+  '/projects/matchline/',
+  '/resume/',
+  '/book/',
+  // Red-accent pages (#1600).
+  '/brand/',
+  '/projects/five-across/',
+  '/404.html',
+];
+
+/** The 1921 --red, `#e8784a`, as getComputedStyle reports it. */
+const ORANGE = 'rgb(232, 120, 74)';
 
 for (const width of [1440, 390] as const) {
   test.describe(`@${width}px`, () => {
@@ -78,6 +95,9 @@ for (const width of [1440, 390] as const) {
             if (!active) {
               failures.push(`${name}: not in :${state}`);
               continue;
+            }
+            if (fill === ORANGE) {
+              failures.push(`${name} (${state}): orange fill`);
             }
             const a = parseComputedColor(ink);
             const b = parseComputedColor(fill);
